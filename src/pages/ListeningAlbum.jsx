@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import AlbumCover from '../components/AlbumCover.jsx';
 import MusicServiceLinks from '../components/MusicServiceLinks.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
+import Time from '../components/Time.jsx';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import {
@@ -16,7 +17,6 @@ import { resolvePds } from '../lib/atproto.js';
 import { albumLinksFor } from '../lib/musicLinks.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { listTealPlays } from '../lib/teal.js';
-import { relativeDayShort } from '../lib/time.js';
 import { ME_DID } from '../config.js';
 import './Albums.css';
 
@@ -124,7 +124,7 @@ export default function ListeningAlbum() {
             {/* No "first" fact: the album is built from a window of the newest
                 plays, so the oldest one in it is where the window starts, not
                 when this record first came round. */}
-            {album.lastPlayed && <Fact label="last" value={relativeDayShort(album.lastPlayed)} />}
+            {album.lastPlayed && <Fact label="last" value={<Time value={album.lastPlayed} variant="relative" />} />}
           </dl>
 
           {/* Where to actually put it on. The Apple link is the record itself

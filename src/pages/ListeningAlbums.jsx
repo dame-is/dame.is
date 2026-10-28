@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import AlbumCover from '../components/AlbumCover.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
+import Time from '../components/Time.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import {
   albumPath,
@@ -15,7 +16,6 @@ import {
 } from '../lib/albums.js';
 import { getLatestCommit, resolvePds } from '../lib/atproto.js';
 import { listTealPlays } from '../lib/teal.js';
-import { relativeDayShort } from '../lib/time.js';
 import { ME_DID } from '../config.js';
 import './Albums.css';
 
@@ -151,7 +151,7 @@ export default function ListeningAlbums() {
                     </span>
                   </Link>
                   {album.lastPlayed && (
-                    <p className="album-cell-when gutter">{relativeDayShort(album.lastPlayed)}</p>
+                    <p className="album-cell-when gutter"><Time value={album.lastPlayed} variant="relative" /></p>
                   )}
                 </li>
               ))}

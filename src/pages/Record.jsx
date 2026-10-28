@@ -16,6 +16,7 @@ import AturiActions from '../components/AturiActions.jsx';
 import SequenceFoot from '../components/SequenceFoot.jsx';
 import VitalsChip from '../components/VitalsChip.jsx';
 import VerbIcon from '../components/VerbIcon.jsx';
+import Time from '../components/Time.jsx';
 import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
 import {
   colophon,
@@ -37,7 +38,6 @@ import { createSubjectResolver } from '../lib/subjectResolver.js';
 import { isDraft } from '../lib/publications.js';
 import { ME_DID, ME_HANDLE } from '../config.js';
 import { flushBody } from '../lib/flushText.js';
-import { relativeTime } from '../lib/time.js';
 import {
   VERB_TO_COLLECTION,
   VERB_LABELS,
@@ -807,11 +807,11 @@ function ParentPostCard({ parent, isRoot }) {
         {ts && (
           <span className="gutter record-parent-time">
             {localHref ? (
-              <Link to={localHref}>{relativeTime(ts)}</Link>
+              <Link to={localHref}><Time value={ts} variant="relative" /></Link>
             ) : externalHref ? (
-              <a href={externalHref} target="_blank" rel="noreferrer noopener">{relativeTime(ts)}</a>
+              <a href={externalHref} target="_blank" rel="noreferrer noopener"><Time value={ts} variant="relative" /></a>
             ) : (
-              relativeTime(ts)
+              <Time value={ts} variant="relative" />
             )}
           </span>
         )}
@@ -906,11 +906,11 @@ function SelfThreadPost({ item }) {
         {ts && (
           <span className="gutter record-thread-time">
             {localHref ? (
-              <Link to={localHref}>{relativeTime(ts)}</Link>
+              <Link to={localHref}><Time value={ts} variant="relative" /></Link>
             ) : externalHref ? (
-              <a href={externalHref} target="_blank" rel="noreferrer noopener">{relativeTime(ts)}</a>
+              <a href={externalHref} target="_blank" rel="noreferrer noopener"><Time value={ts} variant="relative" /></a>
             ) : (
-              relativeTime(ts)
+              <Time value={ts} variant="relative" />
             )}
           </span>
         )}

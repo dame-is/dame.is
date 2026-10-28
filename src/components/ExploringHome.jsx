@@ -9,7 +9,7 @@ import {
   tidToTimestamp,
 } from '../lib/atproto.js';
 import { flattenSources, getBacklinkSources } from '../lib/constellation.js';
-import { formatDateFull, relativeTime } from '../lib/time.js';
+import { formatDateFull, isRecent, relativeTime } from '../lib/time.js';
 import BreakableId from './BreakableId.jsx';
 import './ExploringHome.css';
 
@@ -183,16 +183,18 @@ export default function ExploringHome({ identity }) {
         <h2 className="exploring-home-section-title small-caps">Stats</h2>
         <dl className="exploring-home-stats">
           <Stat label="Collections" value={collections ? collections.length : dash} />
+          {/* The age under the date only while it's under 30 days: past that
+              relativeTime gives the date, and the tile would say it twice. */}
           <Stat
             label="Created"
             value={created ? formatDateFull(created) : dash}
-            sub={created ? relativeTime(created) : null}
+            sub={created && isRecent(created) ? relativeTime(created) : null}
           />
           <Stat label="Identity ops" value={ops != null ? ops : dash} />
           <Stat
             label="Last active"
             value={lastActive ? relativeTime(lastActive) : dash}
-            sub={lastActive ? formatDateFull(lastActive) : null}
+            sub={lastActive && isRecent(lastActive) ? formatDateFull(lastActive) : null}
           />
           <Stat
             label="Inbound links"

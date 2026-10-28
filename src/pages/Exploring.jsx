@@ -28,6 +28,7 @@ import {
   resolveRepoIdentity,
 } from '../lib/explorerIdentity.js';
 import { publicRecordPath } from '../lib/publicRecordPath.js';
+import { formatDateShort, formatTime, toIso } from '../lib/time.js';
 import './Exploring.css';
 
 /**
@@ -569,7 +570,9 @@ function AuditEntry({ entry, prev }) {
     <li className="exploring-audit-entry">
       <div className="exploring-audit-head">
         <span className="exploring-audit-type small-caps">{type}</span>
-        <time className="exploring-audit-time">{formatPlcTime(created)}</time>
+        <time className="exploring-audit-time" dateTime={toIso(created) || undefined}>
+          {formatPlcTime(created)}
+        </time>
       </div>
       {changes.length > 0 && (
         <ul className="exploring-audit-changes">
@@ -607,14 +610,10 @@ function diffOps(prev, next) {
   return changes;
 }
 
+/** "Oct 26, 2026 · 5:36 pm", on Dame's clock like every other time here. */
 function formatPlcTime(iso) {
-  if (!iso) return '';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  } catch {
-    return iso;
-  }
+  const date = formatDateShort(iso);
+  return date ? `${date} · ${formatTime(iso)}` : iso || '';
 }
 
 /* ------------------------------------------------------------------ */

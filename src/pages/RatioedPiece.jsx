@@ -27,7 +27,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
-import { formatDateAbbrev } from '../lib/time.js';
+import { formatDateShort } from '../lib/time.js';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import {
   SEED_PIECES,
@@ -688,7 +688,7 @@ export default function RatioedPiece() {
                   since." */}
               {measuredAtTheSeal(piece)
                 ? 'Measured at the seal, so the afterlife column was empty when it was taken.'
-                : `Measured ${piece.measuredAt.slice(0, 10)}.`}{' '}
+                : `Measured ${formatDateShort(piece.measuredAt)}.`}{' '}
               {delta.total > 0
                 ? `${delta.total} more ${delta.total === 1 ? 'has' : 'have'} landed since.`
                 : 'Nothing has landed since.'}
@@ -925,26 +925,26 @@ function Figure({ recorded, since, atSeal = false }) {
  * is room for the seconds the reaction-time finding depends on.
  */
 function provenanceColumns(piece) {
-  const day = (iso) => (iso || '').slice(0, 10);
   // The middle column is "Elapsed" on every other document on the site, where
   // it means how long ago the thing was published and "3 months ago" is worth
   // knowing. On a piece it read "today" beside a headline about fifteen
   // minutes, which is both useless and, on a page whose entire subject is a
   // duration, actively misleading — the one elapsed time a piece has is how
   // long it stood.
-  // The month is abbreviated where every other document band on the site spells
-  // it out, and the difference is the third column. A blog post's band carries a
-  // date, an elapsed time and maybe a tag, all of them short; a piece's carries a
-  // date, a duration and a record key, and the key is thirteen characters that
-  // cannot be shortened. "September 15, 2026" left the three columns touching
-  // their dividers on a phone. "Sept 15, 2026" is the same day with room around
-  // it, and it is still a date read at a glance rather than the ISO form below.
+  // The short date, where every other document band on the site spells the
+  // month out, and the difference is the third column. A blog post's band
+  // carries a date, an elapsed time and maybe a tag, all of them short; a
+  // piece's carries a date, a duration and a record key, and the key is
+  // thirteen characters that cannot be shortened. "September 15, 2026" left the
+  // three columns touching their dividers on a phone. "Sep 15, 2026" is the
+  // same day with room around it, at every width: phones used to get the ISO
+  // "2026-09-15", which is for x-ray and the Provenance section below.
   const columns = [
     {
       key: 'date',
       label: 'Posted',
-      long: formatDateAbbrev(piece.postedAt),
-      short: day(piece.postedAt),
+      long: formatDateShort(piece.postedAt),
+      short: formatDateShort(piece.postedAt),
     },
     piece.sealedAt
       ? {
@@ -1152,7 +1152,7 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY, parent })
         {audienceAt && (
           <>
             {' '}
-            Followers read {audienceAt.slice(0, 10)}
+            Followers read {formatDateShort(audienceAt)}
             {fresh ? '.' : ', long after this piece ran.'}
           </>
         )}

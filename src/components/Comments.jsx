@@ -1,4 +1,3 @@
-import { relativeTime } from '../lib/time.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
@@ -6,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import PostEmbed from './PostEmbed.jsx';
+import Time from './Time.jsx';
 import { CommentsSkeleton } from './Skeleton.jsx';
 import './Comments.css';
 
@@ -177,7 +177,7 @@ function ReplyNode({ node, depth }) {
             <AuthorLink author={author} />
             {ts && (
               <span className="comment-time gutter">
-                <PermalinkOrText post={post}>{relativeTime(ts)}</PermalinkOrText>
+                <PermalinkOrText post={post}><Time value={ts} variant="relative" /></PermalinkOrText>
               </span>
             )}
           </div>

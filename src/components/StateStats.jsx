@@ -5,6 +5,7 @@ import { Skeleton } from './Skeleton.jsx';
 import { readStorage } from '../lib/storageGuard.js';
 import { activityLabel } from '../lib/activity.js';
 import { computeStats } from '../lib/stateStats.js';
+import { formatTime, formatWeekday } from '../lib/time.js';
 import './StateStats.css';
 
 /**
@@ -416,14 +417,8 @@ function t0Label(spanMs) {
   return `${Math.round(h / 24)}d ago`;
 }
 
+/** "Mon 3:17 pm", on Dame's clock like every other time on the site. */
 function clockLabel(t) {
-  try {
-    return new Date(t).toLocaleString(undefined, {
-      weekday: 'short',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  } catch {
-    return '';
-  }
+  const time = formatTime(t);
+  return time && `${formatWeekday(t).slice(0, 3)} ${time}`;
 }

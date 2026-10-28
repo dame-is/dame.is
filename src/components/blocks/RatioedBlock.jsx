@@ -35,6 +35,7 @@ import { projectStats } from '../../lib/ratioedStats.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
 import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
 import { participantPath } from '../../lib/ratioedParticipant.js';
+import { formatDateShort } from '../../lib/time.js';
 import { useTheme } from '../../hooks/useTheme.jsx';
 import ScrollFrame from '../ScrollFrame.jsx';
 import RatioedHandle from '../RatioedHandle.jsx';
@@ -109,7 +110,7 @@ const DEFAULT_CAPTIONS = {
   participants: ({ roster, audience }) =>
     `The ${roster.rows.length} accounts present while a piece was alive, ${roster.breakers} of them breakers.${
       audience?.measuredAt
-        ? ` Audience is their follower count, read at the seal on a piece whose log recorded one and otherwise as of ${audience.measuredAt.slice(0, 10)}; a dot means nothing could price the account at all.`
+        ? ` Audience is their follower count, read at the seal on a piece whose log recorded one and otherwise as of ${formatDateShort(audience.measuredAt)}; a dot means nothing could price the account at all.`
         : ''
     }`,
   reach: ({ reach }) => {

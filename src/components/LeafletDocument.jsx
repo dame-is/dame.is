@@ -14,6 +14,7 @@ import { renderPostText } from '../lib/postRichText.jsx';
 import { getPostThread } from '../lib/atproto.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import PostEmbed from './PostEmbed.jsx';
+import Time from './Time.jsx';
 import Lightbox from './Lightbox.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import { Skeleton, SkeletonText } from './Skeleton.jsx';
@@ -25,7 +26,6 @@ import './blocks/RatioedBlock.css';
 import { Link } from 'react-router-dom';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { ME_DID } from '../config.js';
-import { relativeTime } from '../lib/time.js';
 import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import './LeafletDocument.css';
 
@@ -837,13 +837,13 @@ function BskyPostBlock({ block, style }) {
           {ts && (
             <span className="leaflet-bsky-post-time gutter">
               {localHref ? (
-                <Link to={localHref}>{relativeTime(ts)}</Link>
+                <Link to={localHref}><Time value={ts} variant="relative" /></Link>
               ) : externalHref ? (
                 <a href={externalHref} target="_blank" rel="noreferrer noopener">
-                  {relativeTime(ts)}
+                  <Time value={ts} variant="relative" />
                 </a>
               ) : (
-                relativeTime(ts)
+                <Time value={ts} variant="relative" />
               )}
             </span>
           )}

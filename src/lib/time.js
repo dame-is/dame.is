@@ -237,6 +237,16 @@ export function relativeTime(date, now = new Date()) {
 }
 
 /**
+ * Is `date` inside the relative window — fewer than RELATIVE_DAYS calendar
+ * days back? For a layout that sets a relative time beside the date, where
+ * past the window the two would print the same date twice.
+ */
+export function isRecent(date, now = new Date()) {
+  const days = daysAgo(date, now);
+  return days !== null && days < RELATIVE_DAYS;
+}
+
+/**
  * Long-form relative phrasing counted in calendar days on Dame's clock:
  * "today", "yesterday", "3 days ago", "2 weeks ago" — same count and same
  * floor as `relativeTime` under RELATIVE_DAYS.
