@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapPinned } from 'lucide-react';
 import {
   signGuestbook,
@@ -7,6 +7,7 @@ import {
   ENTRY_TEXT_MAX_GRAPHEMES,
 } from '../lib/guestbook.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
+import { holdReload } from '../lib/reloadHold.js';
 // The signature form's styles live with the /welcoming page; importing the
 // stylesheet here (a global, side-effect import) means the form is styled
 // wherever it renders — the guestbook page or the bottom-chrome sign sheet
@@ -33,6 +34,17 @@ export default function GuestbookSignForm({ agent, did, onSigned }) {
 
   const remaining = ENTRY_TEXT_MAX_GRAPHEMES - graphemeLength(text);
   const canSign = !busy && Boolean(text.trim());
+
+  // An unsent note is work in progress, and a deploy landing mid-sentence must
+  // not reload it away. The sheet this renders in already holds the updater
+  // off while it is open; holding here as well keeps the draft safe wherever
+  // the form is drawn, the "signing from" field included, which no textarea
+  // check would see.
+  const hasDraft = Boolean(text.trim() || location.trim());
+  useEffect(
+    () => (hasDraft ? holdReload('guestbook-draft') : undefined),
+    [hasDraft],
+  );
 
   async function detectRegion() {
     if (locating) return;

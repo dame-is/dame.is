@@ -62,11 +62,31 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.guestbook-sheet-close:hover,
 .guestbook-sheet-close:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+@media (hover: hover) {
+  .guestbook-sheet-close:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
+}
+
+/* Touch target: 44px on a coarse pointer without growing the painted 28px
+   box, as the bottom bar's chips do (ChromeBar.css). */
+@media (pointer: coarse) {
+  .guestbook-sheet-close {
+    position: relative;
+  }
+  .guestbook-sheet-close::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
 }
 
 .guestbook-sheet-signin {
@@ -80,4 +100,12 @@
   font-size: var(--text-sm);
   color: var(--ink-soft);
   line-height: var(--leading);
+}
+
+/* A returning signer's session restoring as the sheet opens. */
+.guestbook-sheet-restoring {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-faint);
 }

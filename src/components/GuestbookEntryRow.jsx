@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Fingerprint, MapPinned } from 'lucide-react';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import { relativeTime } from '../lib/time.js';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from './XraySubstrate.jsx';
@@ -32,6 +33,7 @@ export default function GuestbookEntryRow({
   const [removing, setRemoving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [modError, setModError] = useState(null);
+  const [removeError, setRemoveError] = useState(null);
   const xray = useXray();
   const { value, profile } = entry;
   // Each signature is a record on the SIGNER's own PDS — x-ray makes that
@@ -60,9 +62,14 @@ export default function GuestbookEntryRow({
     if (removing) return;
     if (!window.confirm('Remove your signature from the book?')) return;
     setRemoving(true);
+    setRemoveError(null);
     try {
       await onRemove(entry);
-    } catch {
+    } catch (err) {
+      // Said out loud: the button flipping back to "remove" alone read as the
+      // click having done nothing. The PDS's own wording is for the console.
+      console.warn('[guestbook] remove failed:', err);
+      setRemoveError('Couldn’t remove your signature. Try again in a moment.');
       setRemoving(false);
     }
   }
@@ -89,7 +96,7 @@ export default function GuestbookEntryRow({
     >
       <span className="guestbook-entry-avatar" aria-hidden="true">
         {profile?.avatar ? (
-          <img src={profile.avatar} alt="" loading="lazy" width={40} height={40} />
+          <img src={avatarThumb(profile.avatar)} alt="" loading="lazy" width={40} height={40} />
         ) : (
           // Borrow the signer's mark as a stand-in portrait — unless the
           // mark is already the whole message, where doubling it reads odd.
@@ -195,6 +202,7 @@ export default function GuestbookEntryRow({
           </div>
         )}
         {modError && <p className="signin-error">{modError}</p>}
+        {removeError && <p className="signin-error">{removeError}</p>}
 
         {inspectable && <XrayTag atUri={entry.uri} onOpen={() => xray.focus(entry.uri)} />}
         {focused && <XraySubstratePanel atUri={entry.uri} />}

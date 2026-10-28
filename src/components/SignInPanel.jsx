@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID } from '../config.js';
 import { getProfile, resolvePds } from '../lib/atproto.js';
+import { signInErrorMessage } from '../lib/oauthClient.js';
 import { Skeleton } from './Skeleton.jsx';
 import './SignInPanel.css';
 
@@ -18,13 +19,21 @@ import './SignInPanel.css';
  *     value as it resolves.
  */
 export default function SignInPanel({ onAction }) {
-  const { session, did, loading, signIn, signOut } = useAtprotoSession();
+  const { session, did, loading, signIn, signOut, restore } =
+    useAtprotoSession();
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [pdsHost, setPdsHost] = useState(null);
+
+  // A guestbook signer's session isn't restored at startup; the account panel
+  // is somewhere they'd expect to see it, so opening it asks — before the first
+  // paint, so it doesn't flash the sign-in field first.
+  useLayoutEffect(() => {
+    restore();
+  }, [restore]);
 
   useEffect(() => {
     setProfile(null);
@@ -59,8 +68,9 @@ export default function SignInPanel({ onAction }) {
       await signIn(input.trim());
       // Redirected away; if we somehow keep running, clear state.
     } catch (err) {
+      console.warn('[account] sign-in failed to start:', err);
       setBusy(false);
-      setError(err?.message || String(err));
+      setError(signInErrorMessage(err));
     }
   }
 

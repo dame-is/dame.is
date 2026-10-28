@@ -53,8 +53,11 @@
   margin-top: calc(var(--space-2) * -1);
 }
 
+/* Over the limit is an error the sign button is about to refuse, so it takes
+   --danger: --tan shares the accent's hue under the sky theme and read as an
+   ordinary count. */
 .guestbook-over {
-  color: var(--tan);
+  color: var(--danger);
 }
 
 /* "Signing from" — its own labelled block so it's obvious what the field
@@ -130,6 +133,11 @@
 
 .guestbook-entries-heading {
   font-family: var(--sans);
+  /* A section label, sized like the site's other small-caps labels (résumé
+     sections, the explorer's) rather than the global 28px h2 it would
+     otherwise inherit. Stays an <h2> for the outline. */
+  font-size: var(--text-sm);
+  font-weight: 400;
   letter-spacing: 0.18em;
   color: var(--ink-muted);
   margin: 0 0 var(--space-4);
@@ -241,7 +249,7 @@
   font-variant: all-small-caps;
   letter-spacing: 0.12em;
   font-size: var(--text-xs);
-  color: var(--tan);
+  color: var(--danger);
   background: none;
   border: none;
   padding: 0;
@@ -414,6 +422,43 @@
 /* Shown when the live read failed and the build-time snapshot is standing in. */
 .guestbook-stale-note {
   margin-top: var(--space-4);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+
+/* The inline "Try again" in the stale note reads as a link in the sentence. */
+.guestbook-stale-retry {
+  padding: 0;
+  font: inherit;
+  font-style: normal;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.guestbook-stale-retry:disabled {
+  color: var(--ink-faint);
+  text-decoration: none;
+  cursor: default;
+}
+
+/* The unreachable-index state: the sentence, then its retry, both on the
+   left margin like the rest of the book's states. */
+.guestbook-load-error .feed-empty {
+  margin: 0;
+  padding-bottom: 0;
+}
+
+.guestbook-load-error .guestbook-more {
+  margin-top: var(--space-3);
+}
+
+/* "Earlier signatures" failed; the button above it is the retry. */
+.guestbook-more-error {
+  margin: var(--space-2) 0 0;
   font-size: var(--text-xs);
   font-style: italic;
 }
