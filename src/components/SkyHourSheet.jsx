@@ -88,29 +88,32 @@ function SkyHourSheet() {
     <BottomSheet
       open={open}
       onClose={closePanel}
-      label="Time of day"
+      title="Time of day"
       id="chrome-sky-sheet"
       size="compact"
       className="sky-hour-sheet-panel"
-    >
-      <div className={`sky-hour-sheet-header ${skyOverridden ? 'is-held' : 'is-live'}`}>
-        {skyOverridden ? (
-          <>
-            <span className="sky-hour-sheet-state">Held at {skyHourLabel(skyHour)}</span>
-            <button type="button" className="sky-hour-sheet-live" onClick={() => setSkyHour(null)}>
-              Return to live
-            </button>
-          </>
+      bodyClassName="sky-hour-sheet-content"
+      // Live and held read differently, so the state survives a glance: live
+      // is an accent square and the hour; held names the hour it's holding,
+      // and the way back is a real button beside the ×.
+      meta={
+        skyOverridden ? (
+          <span className="sky-hour-sheet-state is-held">Held at {skyHourLabel(skyHour)}</span>
         ) : (
-          <>
-            <span className="small-caps">Time of day</span>
-            <span className="sky-hour-sheet-state">
-              <span className="sky-hour-sheet-live-dot" aria-hidden="true" />
-              Live · {skyHourLabel(skyHour)}
-            </span>
-          </>
-        )}
-      </div>
+          <span className="sky-hour-sheet-state">
+            <span className="sky-hour-sheet-live-dot" aria-hidden="true" />
+            Live · {skyHourLabel(skyHour)}
+          </span>
+        )
+      }
+      actions={
+        skyOverridden ? (
+          <button type="button" className="btn btn--sm sky-hour-sheet-live" onClick={() => setSkyHour(null)}>
+            Return to live
+          </button>
+        ) : null
+      }
+    >
       <div className="sky-hour-sheet-arc-row">
         <button
           type="button"

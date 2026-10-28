@@ -789,8 +789,11 @@ export default function Home({ verb: presetVerb = null } = {}) {
     () => (snapshotFeed ? feedFilterCounts(snapshotFeed, ME_DID) : null),
     [snapshotFeed],
   );
-  const { counts, estimatedVerbs } = useMemo(() => {
+  const { counts, estimatedVerbs, cappedVerbs } = useMemo(() => {
     const liveSet = new Set(liveVerbs);
+    // The live verbs whose first fetch stopped at INITIAL_FETCH_MAX (their
+    // horizons), so the sheet prints "100+" rather than a total-looking 100.
+    const capped = new Set(Object.keys(horizons || {}).filter((v) => liveSet.has(v)));
     // A filter key is "live-known" when its underlying fetch verb was in
     // the latest live result. `replying` is a virtual view of `posting`.
     const isLive = (key) => liveSet.has(key === 'replying' ? 'posting' : key);
@@ -808,8 +811,8 @@ export default function Home({ verb: presetVerb = null } = {}) {
         est.add(key);
       }
     }
-    return { counts: out, estimatedVerbs: est };
-  }, [liveCounts, snapshotCounts, liveVerbs]);
+    return { counts: out, estimatedVerbs: est, cappedVerbs: capped };
+  }, [liveCounts, snapshotCounts, liveVerbs, horizons]);
 
   // Records the owner deleted this session are dropped optimistically so
   // the feed reflects the change immediately, ahead of the next live fetch
@@ -1207,7 +1210,12 @@ export default function Home({ verb: presetVerb = null } = {}) {
       </nav>
 
       <section className="home-latest">
-        <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
+        <FeedFilters
+          counts={counts}
+          estimatedVerbs={estimatedVerbs}
+          cappedVerbs={cappedVerbs}
+          fetchCap={INITIAL_FETCH_MAX}
+        />
         {feedBody}
       </section>
 

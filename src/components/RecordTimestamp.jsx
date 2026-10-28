@@ -26,7 +26,7 @@ export default function RecordTimestamp() {
   if (latestRecordAt) {
     return (
       <span className="record-timestamp small-caps" title={`latest record: ${latestRecordAt}`}>
-        latest record <Time value={latestRecordAt} variant="relative" title={null} />
+        latest record <Time className="unit" value={latestRecordAt} variant="relative" title={null} />
       </span>
     );
   }
@@ -77,11 +77,13 @@ function RouteRecordTimestamp({ now }) {
       className="record-timestamp small-caps"
       title={`createdAt: ${createdAt}\nupdatedAt: ${updatedAt}`}
     >
-      written <Time value={createdAt} variant="relative" title={null} />
+      {/* The times keep their case inside the capitals (typography.css .unit):
+          "1mo" set as "1MO" read as "IMO". */}
+      written <Time className="unit" value={createdAt} variant="relative" title={null} />
       {!same && (
         <>
           {' '}
-          · updated <Time value={updatedAt} variant="relative" title={null} />
+          · updated <Time className="unit" value={updatedAt} variant="relative" title={null} />
         </>
       )}
     </span>

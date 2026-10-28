@@ -1,103 +1,17 @@
 /* State dashboard — the rich header on /logging, sibling to ListeningStats on
-   /listening. Flat, ruled, serif titles, mono small-caps labels; single-hue
-   (the mossy accent) marks on the earthy palette. Square corners (--radius: 0). */
+   /listening. Flat and ruled; single-hue (the accent) marks. Square corners
+   (--radius: 0). The head, the 24h / 7 days switch and the headline figures
+   are the kit's (SectionHead, Segmented, Figures); the chart and the activity
+   bars are drawn here. */
 
 .state-stats {
   margin-bottom: var(--space-7);
-}
-
-.state-stats-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-5);
-}
-
-.state-stats-title {
-  font-family: var(--serif);
-  font-size: var(--text-xl);
-  margin: 0;
-  color: var(--ink);
-}
-
-/* Segmented 24h / 7d toggle. */
-.state-stats-toggle {
-  display: inline-flex;
-  border: 1px solid var(--rule);
-}
-
-.state-stats-tab {
-  font-family: var(--mono-ui);
-  font-variant: all-small-caps;
-  letter-spacing: 0.1em;
-  font-size: var(--text-xs);
-  padding: 0.3rem 0.7rem;
-  background: transparent;
-  border: 0;
-  color: var(--ink-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.state-stats-tab + .state-stats-tab {
-  border-left: 1px solid var(--rule);
-}
-
-.state-stats-tab:hover {
-  color: var(--ink);
-}
-
-.state-stats-tab.is-active {
-  background: var(--accent);
-  color: var(--page);
 }
 
 .state-stats-empty {
   color: var(--ink-muted);
   font-style: italic;
   margin: 0;
-}
-
-/* ---- Headline tiles ---------------------------------------------- */
-
-.state-stats-tiles {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 1px;
-  background: var(--rule);
-  border: 1px solid var(--rule);
-  margin-bottom: var(--space-6);
-}
-
-.state-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-  padding: var(--space-4) var(--space-2);
-  background: var(--page);
-  text-align: center;
-  min-width: 0;
-}
-
-.state-tile-value {
-  font-family: var(--serif);
-  font-size: var(--text-2xl);
-  line-height: 1;
-  font-weight: 600;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.state-tile-unit {
-  font-family: var(--mono-ui);
-  font-variant: all-small-caps;
-  letter-spacing: 0.1em;
-  font-size: var(--text-xs);
-  color: var(--ink-muted);
 }
 
 /* ---- Panels (chart + activity) ----------------------------------- */
@@ -112,15 +26,11 @@
   min-width: 0;
 }
 
+/* An eyebrow (typography.css) on a soft rule, with the panel's glyph. */
 .state-panel-title {
   display: flex;
   align-items: center;
   gap: 0.45em;
-  font-family: var(--mono-ui);
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
   margin: 0 0 var(--space-3);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--rule-soft);
@@ -154,7 +64,7 @@
 
 .state-chart-ylabel {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   fill: var(--ink-faint);
 }
 
@@ -309,19 +219,5 @@
   .state-stats-panels {
     grid-template-columns: 1fr;
     gap: var(--space-6);
-  }
-}
-
-@media (max-width: 560px) {
-  /* Tiles reflow to a tidy 2-across (last one spans the row) so the big
-     numbers stay legible on phones. */
-  .state-stats-tiles {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .state-tile:last-child {
-    grid-column: 1 / -1;
-  }
-  .state-tile-value {
-    font-size: var(--text-xl);
   }
 }

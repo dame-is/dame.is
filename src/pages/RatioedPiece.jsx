@@ -56,7 +56,7 @@ import {
 import { aturiUniversalUrl, getRecord, resolveProfiles } from '../lib/atproto.js';
 import { DEFAULT_COPY, loadCopy, fillCopy } from '../lib/ratioedCopy.js';
 import { pieceStats } from '../lib/ratioedStats.js';
-import RatioedStats from '../components/RatioedStats.jsx';
+import Figures from '../components/Figures.jsx';
 import RatioedHandle from '../components/RatioedHandle.jsx';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
@@ -629,8 +629,8 @@ export default function RatioedPiece() {
         {/* No "alive" row: the band under the title says how long it stood,
             and printing it twice on one screen was the thing that made the
             band's own column look like it was saying something else. */}
-        <RatioedStats cells={headline} />
-        <RatioedStats cells={texture} dense />
+        <Figures items={headline} columns={4} label="Headline figures" />
+        <Figures items={texture} columns={4} dense label="More figures" />
 
         {/* One player, one clock. The dashboard the studio kept while this ran
             used to be a second replay in a folded section below this one, with
@@ -1048,28 +1048,39 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY, parent })
           both — three populations in one line, so take 8 read "10 +1 unknown"
           where the unresolved account only ever acted after the seal, and takes
           2 and 7 read "0" above a table with rows in it. */}
-      <dl className="ratioed-piece-figures">
-        <div>
-          <dt>carried it while alive</dt>
-          <dd>
-            {alive.known}
-            {alive.unknown > 0 && (
-              <span className="ratioed-piece-fresh"> +{alive.unknown} unknown</span>
-            )}
-          </dd>
-        </div>
-        {(after.known > 0 || after.unknown > 0) && (
-          <div>
-            <dt>since the seal</dt>
-            <dd>
-              {after.known}
-              {after.unknown > 0 && (
-                <span className="ratioed-piece-fresh"> +{after.unknown} unknown</span>
-              )}
-            </dd>
-          </div>
-        )}
-      </dl>
+      {/* On the headline band's four columns, so these two sit under its
+          first two rather than on a grid of their own. */}
+      <Figures
+        columns={4}
+        dense
+        label="Who carried it"
+        items={[
+          {
+            key: 'alive',
+            label: 'carried it while alive',
+            value: (
+              <>
+                {alive.known}
+                {alive.unknown > 0 && (
+                  <span className="ratioed-piece-fresh"> +{alive.unknown} unknown</span>
+                )}
+              </>
+            ),
+          },
+          (after.known > 0 || after.unknown > 0) && {
+            key: 'after',
+            label: 'since the seal',
+            value: (
+              <>
+                {after.known}
+                {after.unknown > 0 && (
+                  <span className="ratioed-piece-fresh"> +{after.unknown} unknown</span>
+                )}
+              </>
+            ),
+          },
+        ]}
+      />
 
       {/* Four columns, and on a phone they become rows: the cells carry their
           own labels (see `data-label`) and the stylesheet re-lays them as a

@@ -14,6 +14,9 @@ import { useXray } from '../hooks/useXray.jsx';
  * `children` join the same row, e.g. a play's Apple Music and Spotify links,
  * so a page never stacks a second button style above this one.
  *
+ * The row is the kit's text buttons (controls.css .btn--text), the small size,
+ * so a play's links and these read as one line of quiet actions.
+ *
  * Renders nothing when the URI isn't an at:// URI.
  */
 export default function AturiActions({ atUri, children }) {
@@ -24,11 +27,16 @@ export default function AturiActions({ atUri, children }) {
   return (
     <div className="record-aturi-actions">
       {children}
-      <button type="button" onClick={() => openWaypoints(atUri)}>
+      <button type="button" className="btn btn--text btn--sm" onClick={() => openWaypoints(atUri)}>
         <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
         Open in…
       </button>
-      <button type="button" onClick={enter} aria-pressed={active}>
+      <button
+        type="button"
+        className={`btn btn--text btn--sm${active ? ' is-on' : ''}`}
+        onClick={enter}
+        aria-pressed={active}
+      >
         <Microscope size={13} strokeWidth={1.75} aria-hidden="true" />
         Inspect record
       </button>

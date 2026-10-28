@@ -311,6 +311,7 @@ export default function Mothing() {
     >
       {stats && (
         <Figures
+          layout="inline"
           label="Mothing in figures"
           items={[
             {

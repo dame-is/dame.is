@@ -1,10 +1,12 @@
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { X } from 'lucide-react';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
 import { useScrollLock } from '../hooks/useScrollLock.js';
+import { useOverlayHistory } from '../hooks/useOverlayHistory.js';
 import './BottomSheet.css';
 
 /**
@@ -21,9 +23,20 @@ import './BottomSheet.css';
  * transform carries the panel's real top edge, border and all, and the
  * browser runs it off the main thread.
  *
- * A transparent, non-dimming backdrop below the bars catches outside clicks
- * so the toolbar itself stays live. Portalled to <body> so no transformed
- * feed ancestor can trap the fixed positioning.
+ * A backdrop below the bars catches outside clicks, so the toolbar itself
+ * stays live. It is a quiet veil of the page's own colour rather than
+ * transparent: with nothing over it, the page above a sheet looked as live as
+ * ever, and a tap meant for it closed the sheet instead. Portalled to <body>
+ * so no transformed feed ancestor can trap the fixed positioning.
+ *
+ * Every sheet shares one header (SheetHeader): pass `title`, and optionally
+ * `meta` and `actions`. It is one 44px row: the title as an eyebrow at the
+ * gutter, the meta and text actions after it, and a 28px hairline × whose
+ * right edge sits over the compass chip in the bar below. Each sheet used to
+ * build its own and they had drifted (SYS-06).
+ *
+ * While open, the sheet holds a history entry, so Back closes it rather than
+ * leaving the page (useOverlayHistory).
  *
  * Sizing:
  *   - 'compact' (default): the panel is content-height (capped to the gap
@@ -60,10 +73,26 @@ export default function BottomSheet({
   className = '',
   closeOnEscape = true,
   restoreFocusTo,
+  // The shared header (SheetHeader below). With a `title` the sheet draws it
+  // and wraps its children in `.bottom-sheet-body` (styled by
+  // `bodyClassName`); without one, as the admin's sheets do, the children are
+  // the whole panel, as before.
+  title,
+  meta,
+  actions,
+  bodyClassName = '',
+  // A second Close at the foot of the sheet, for a finger (coarse pointers
+  // only, in CSS). On by default for full-height sheets, where the × is a
+  // stretch away at the top of the screen; a sheet opened from a bottom-bar
+  // chip doesn't need it, because that chip, in the thumb's reach, closes it.
+  thumbClose = size === 'fill',
   children,
 }) {
   const reduce = useReducedMotion();
   const panelRef = useRef(null);
+  const titleId = useId();
+  // Back closes the sheet instead of leaving the page (MOB-04).
+  useOverlayHistory(open, onClose);
   // Keep a touch-drag on the open sheet from scrolling the page behind it
   // when the panel's content fits without overflowing.
   usePreventScrollChain(panelRef, open);
@@ -105,16 +134,52 @@ export default function BottomSheet({
               id={id}
               className={`bottom-sheet-panel bottom-sheet-panel-${size} ${className}`.trim()}
               role="dialog"
-              aria-label={label}
+              aria-label={title != null && !label ? undefined : label}
+              aria-labelledby={title != null && !label ? titleId : undefined}
               {...SHEET_SLIDE}
               transition={{ ...SHEET_SLIDE.transition, duration: reduce ? 0 : SHEET_SLIDE.transition.duration }}
             >
-              {children}
+              {title != null ? (
+                <>
+                  <SheetHeader id={titleId} title={title} meta={meta} actions={actions} onClose={onClose} />
+                  <div className={`bottom-sheet-body ${bodyClassName}`.trim()}>{children}</div>
+                </>
+              ) : (
+                children
+              )}
+              {thumbClose && (
+                <div className="bottom-sheet-foot">
+                  <button type="button" className="btn btn--text bottom-sheet-foot-close" onClick={onClose}>
+                    Close
+                  </button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
     </>,
     document.body,
+  );
+}
+
+/**
+ * The one sheet header. The title is a heading (it labels the dialog) in the
+ * eyebrow voice; `meta` is quiet text after it ("14 of 17 kinds", "Live ·
+ * 1 pm"); `actions` are text buttons set before the × ("All · None ·
+ * Defaults", "Return to live").
+ */
+function SheetHeader({ id, title, meta, actions, onClose }) {
+  return (
+    <div className="sheet-head">
+      <h2 id={id} className="sheet-head-title eyebrow">
+        {title}
+      </h2>
+      {meta != null && meta !== '' && <span className="sheet-head-meta">{meta}</span>}
+      {actions && <div className="sheet-head-actions">{actions}</div>}
+      <button type="button" className="sheet-close" onClick={onClose} aria-label="Close">
+        <X size={16} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    </div>
   );
 }

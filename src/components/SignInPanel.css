@@ -28,43 +28,11 @@
   border-color: var(--accent);
 }
 
+/* The sign-in and sign buttons are the kit's primary tier (controls.css
+   .btn--primary): the --accent-fill the hero's Resume wears, and a dashed
+   hairline while there is nothing to submit yet. Only the placement is here. */
 .signin-button {
   align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  padding: var(--space-2) var(--space-4);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  /* The site's one filled control (theme.css --accent-fill), the same as the
-     home page's Resume button: the accent pushed toward the hour's ink, so
-     the --page label clears AA at every hour. It used to be a near-black
-     slab, the only one on the site. */
-  color: var(--page);
-  background: var(--accent-fill);
-  border: 1px solid var(--accent-fill-edge);
-  border-radius: var(--radius-2);
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-
-/* Hover goes a step further from the page, never back toward --accent-soft,
-   so the --page label's contrast only rises. */
-@media (hover: hover) {
-  .signin-button:hover:not(:disabled) {
-    background: var(--accent-fill-hover);
-  }
-}
-
-/* Disabled reads as a line not yet drawn: a dashed hairline with muted text,
-   not the fill at half opacity, which looked broken. */
-.signin-button:disabled {
-  color: var(--ink-muted);
-  background: transparent;
-  border: 1px dashed var(--rule);
-  cursor: not-allowed;
 }
 
 /* --danger, not --tan: under the sky theme --tan shares the accent's hue, so a

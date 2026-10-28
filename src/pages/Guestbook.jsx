@@ -19,6 +19,7 @@ import { clearDraft, readDraft, registerNumbers } from '../lib/guestbookRegister
 import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
 import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
 import { ME_DID, GUESTBOOK_SUBJECT, GUESTBOOK_ENTRY_NSID } from '../config.js';
+import SectionHead from '../components/SectionHead.jsx';
 import './Guestbook.css';
 
 // Stable empty set so "nothing new arrived" keeps the same reference between
@@ -362,24 +363,23 @@ export default function Guestbook() {
       selectable
     >
       <section className="guestbook-entries" aria-labelledby="guestbook-entries-h">
-        <header className="guestbook-section-head">
-          <h2 id="guestbook-entries-h" className="guestbook-section-title">
-            Signatures
-          </h2>
-          <span className="guestbook-section-meta">
-            {count == null
-              ? ''
-              : count === 0
-                ? 'none yet'
-                : `${count.toLocaleString('en-US')}, newest first`}
-            {moderating && hiddenCount > 0 && (
-              <span className="guestbook-hidden-count"> · {hiddenCount} hidden</span>
-            )}
-            {moderating && flaggedCount > 0 && (
-              <span className="guestbook-hidden-count"> · {flaggedCount} auto-hidden</span>
-            )}
-          </span>
-        </header>
+        <SectionHead
+          id="guestbook-entries-h"
+          title="Signatures"
+          meta={
+            count == null ? null : (
+              <>
+                {count === 0 ? 'none yet' : `${count.toLocaleString('en-US')}, newest first`}
+                {moderating && hiddenCount > 0 && (
+                  <span className="guestbook-hidden-count"> · {hiddenCount} hidden</span>
+                )}
+                {moderating && flaggedCount > 0 && (
+                  <span className="guestbook-hidden-count"> · {flaggedCount} auto-hidden</span>
+                )}
+              </>
+            )
+          }
+        />
         {moderating && (
           <p className="guestbook-moderation-note">
             Edit mode: hiding tucks a signature out of public display by listing it on the
@@ -398,7 +398,7 @@ export default function Guestbook() {
             </p>
             <button
               type="button"
-              className="guestbook-more"
+              className="btn guestbook-more"
               onClick={retryLoad}
             >
               Try again
@@ -435,7 +435,7 @@ export default function Guestbook() {
             {cursor && (
               <button
                 type="button"
-                className="guestbook-more"
+                className="btn guestbook-more"
                 onClick={loadMore}
                 disabled={loadingMore}
               >
@@ -493,7 +493,7 @@ function BlankLine({ number, first = false, status = null, onSign }) {
         </p>
         <button
           type="button"
-          className="home-hero-cta-btn home-hero-cta-primary guestbook-blank-sign"
+          className="btn btn--primary guestbook-blank-sign"
           onClick={onSign}
         >
           <Signature size={16} strokeWidth={1.75} aria-hidden="true" />

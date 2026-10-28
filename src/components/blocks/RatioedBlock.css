@@ -98,8 +98,11 @@
   padding-bottom: var(--space-3);
 }
 
-.ratioed-controls button,
-.ratioed-more {
+/* The kind chips. True / Stretched beside them is the kit's segmented control
+   (Segmented.jsx), so this rule is the chips' alone: named by class rather
+   than as every button in the row, which would have reached into the
+   segmented keys and set them back in small caps. */
+.ratioed-chip {
   font-family: var(--sans);
   font-variant: all-small-caps;
   font-size: var(--text-xs);
@@ -107,22 +110,6 @@
   border-radius: 0;
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
-}
-
-.ratioed-seg { display: inline-flex; }
-.ratioed-seg button {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--rule);
-  background: transparent;
-  color: var(--ink-muted);
-}
-/* One shared hairline between the two halves rather than a doubled rule. */
-.ratioed-seg button + button { border-left: 0; }
-.ratioed-seg button:hover { color: var(--ink); }
-.ratioed-seg button[aria-pressed='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--page);
 }
 
 .ratioed-chips { display: flex; gap: calc(var(--space-1) * 1.5); flex-wrap: wrap; }
@@ -160,15 +147,11 @@
 .ratioed-chip.ratioed-k-quote[aria-pressed='true'] { color: var(--ratioed-quote); }
 .ratioed-chip.ratioed-k-like[aria-pressed='true'] { color: var(--ratioed-seal); }
 
-/* Reveals the participants the table folds away past the first twenty. */
+/* Reveals the participants the table folds away past the first twenty: the
+   kit's small button (controls.css .btn--sm). */
 .ratioed-more {
   margin-top: var(--space-3);
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--rule);
-  background: transparent;
-  color: var(--ink-muted);
 }
-.ratioed-more:hover { color: var(--ink); border-color: var(--ink-muted); }
 
 /* --- axis --------------------------------------------------------- */
 
@@ -850,32 +833,10 @@
 }
 .ratioed-take-link:hover { text-decoration: underline; }
 
-/* The way out of an expanded row, in the site's own button idiom rather than
-   the chart's — this is navigation, not a chart control, so it matches the
-   home page's CTA (.home-hero-cta-btn) and not the small-caps toggles above
-   it. Sized to its own label instead of filling the column. */
+/* The way out of an expanded row: the kit's quiet button (controls.css .btn),
+   because this is navigation rather than a chart control. Sized to its own
+   label instead of filling the column. */
 .ratioed-through { margin: var(--space-4) 0 0; }
-.ratioed-through-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  padding: 0.3em 1em;
-  border: 1px solid var(--rule);
-  background: transparent;
-  color: var(--ink-soft);
-  text-decoration: none;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-.ratioed-through-btn:hover,
-.ratioed-through-btn:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
 
 /* --- reach ---------------------------------------------------------- */
 

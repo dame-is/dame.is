@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -92,21 +91,15 @@ export default function GuestbookSheet() {
     <BottomSheet
       open={open}
       onClose={closePanel}
-      label="Sign the guestbook"
+      title="Sign the guestbook"
       id="chrome-guestbook-sheet"
       className="guestbook-sheet-panel"
+      bodyClassName="guestbook-sheet-content"
+      // Opened from the page (the hero's pen, the book's blank line) rather
+      // than from a bar chip, so nothing in the thumb's reach closes it but
+      // this.
+      thumbClose
     >
-      <div className="guestbook-sheet-header">
-        <span className="small-caps">Sign the guestbook</span>
-        <button
-          type="button"
-          className="guestbook-sheet-close"
-          onClick={closePanel}
-          aria-label="Close"
-        >
-          <X size={16} aria-hidden="true" />
-        </button>
-      </div>
 
       {loading ? (
         // `loading` also covers a live session whose Agent is still loading;

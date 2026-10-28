@@ -15,6 +15,7 @@ import { getPostThread } from '../lib/atproto.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import PostEmbed from './PostEmbed.jsx';
 import Time from './Time.jsx';
+import LinkCard from './LinkCard.jsx';
 import Lightbox from './Lightbox.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import { Skeleton, SkeletonText } from './Skeleton.jsx';
@@ -663,36 +664,18 @@ function WebsiteBlock({ block, style }) {
     );
   }
 
-  let host = href;
-  try {
-    host = new URL(href).hostname.replace(/^www\./, '');
-  } catch {
-    /* keep raw */
-  }
-  const thumb = block?.previewImage?._url || null;
+  // Everything else is the site's one reference card, at its full size: the
+  // same object as a post's link embed, a size up for a document.
   return (
-    <a
+    <LinkCard
+      size="full"
       className="leaflet-website"
       href={href}
-      target="_blank"
-      rel="noreferrer noopener"
-      style={style || undefined}
-    >
-      {thumb && (
-        <div className="leaflet-website-thumb">
-          <img src={thumb} alt="" loading="lazy" />
-        </div>
-      )}
-      <div className="leaflet-website-body">
-        <div className="leaflet-website-host small-caps">{host}</div>
-        {block.title && (
-          <div className="leaflet-website-title">{block.title}</div>
-        )}
-        {block.description && (
-          <div className="leaflet-website-desc">{block.description}</div>
-        )}
-      </div>
-    </a>
+      title={block.title}
+      description={block.description}
+      thumb={block?.previewImage?._url || null}
+      style={style}
+    />
   );
 }
 

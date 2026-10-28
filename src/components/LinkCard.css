@@ -1,0 +1,136 @@
+/* The one reference card (LinkCard.jsx): a post's external embed and a
+   document's website block, in two sizes of one object. Host as an eyebrow,
+   then the title and a muted description; one nest step of fill (see the
+   nesting scale in styles/theme.css) inside a --rule-soft hairline. */
+
+.post-embed-link-card {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) 1fr;
+  gap: var(--space-3);
+  border: 1px solid var(--rule-soft);
+  border-radius: 0;
+  background: var(--page-edge);
+  background: color-mix(in oklab, var(--ink) calc((var(--nest, 0) + 1) * var(--nest-step)), var(--page));
+  padding: var(--space-3);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+/* No thumbnail, no empty column. */
+.post-embed-link-card:not(:has(.post-embed-link-card-thumb)) {
+  grid-template-columns: 1fr;
+}
+
+a.post-embed-link-card:focus-visible {
+  border-color: var(--accent-soft);
+  /* Back one level, to the surface it is drawn on — not to --page, which on a
+     nested card is a jump past every level underneath it. */
+  background: var(--page);
+  background: color-mix(in oklab, var(--ink) calc(var(--nest, 0) * var(--nest-step)), var(--page));
+}
+
+@media (hover: hover) {
+  a.post-embed-link-card:hover {
+    border-color: var(--accent-soft);
+    background: var(--page);
+    background: color-mix(in oklab, var(--ink) calc(var(--nest, 0) * var(--nest-step)), var(--page));
+  }
+}
+
+.post-embed-link-card-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 7rem;
+  object-fit: cover;
+}
+
+.post-embed-link-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+/* The eyebrow's colour; its type is typography.css's .eyebrow, with the host
+   kept lowercase by the .unit inside it. */
+.post-embed-link-card-host {
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-embed-link-card-title {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  color: var(--ink);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.post-embed-link-card-desc {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--ink-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Full: a website block in a document. A wider thumbnail at its own ratio,
+   the title a step up, three lines of description, and the document's
+   paragraph rhythm around it. */
+.post-embed-link-card.is-full {
+  grid-template-columns: minmax(0, 12rem) 1fr;
+  gap: var(--space-4);
+  margin: var(--space-5) 0;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3);
+  max-width: none;
+}
+
+.post-embed-link-card.is-full .post-embed-link-card-thumb {
+  aspect-ratio: 1.6 / 1;
+  overflow: hidden;
+}
+
+.post-embed-link-card.is-full .post-embed-link-card-thumb img {
+  max-height: none;
+}
+
+.post-embed-link-card.is-full .post-embed-link-card-body {
+  gap: var(--space-1);
+  justify-content: center;
+}
+
+.post-embed-link-card.is-full .post-embed-link-card-title {
+  font-size: var(--text-lg);
+}
+
+.post-embed-link-card.is-full .post-embed-link-card-desc {
+  -webkit-line-clamp: 3;
+}
+
+@media (max-width: 480px) {
+  .post-embed-link-card {
+    grid-template-columns: 1fr;
+  }
+  .post-embed-link-card-thumb img {
+    max-height: 14rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .post-embed-link-card.is-full {
+    grid-template-columns: 1fr;
+  }
+  .post-embed-link-card.is-full .post-embed-link-card-thumb {
+    aspect-ratio: 16 / 9;
+  }
+}

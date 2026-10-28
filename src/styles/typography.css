@@ -110,11 +110,42 @@ blockquote {
   margin: var(--space-5) 0;
 }
 
-.small-caps {
+/* The label voice. `.small-caps` is what the site's labels have always worn;
+   `.eyebrow` is the kit's name for the same voice (sheet titles, figure
+   labels, the filter index's group heads, a link card's host), with a size of
+   its own since those have no other rule to set one.
+
+   The served Crimson Pro has no small-caps glyphs, so the browser draws these
+   by shrinking capitals. The design audit (c-11, TYP-05) proposes real
+   capitals at an 11px floor, weight 500, tracked 0.1em instead. That switch
+   is held back until Dame has seen it on real pages: about a hundred labels
+   set `font-variant: all-small-caps` in their own rules, and changing only
+   this class would put two label voices on one screen. To try it, give these
+   two selectors `font-variant: normal; text-transform: uppercase;
+   font-size: var(--text-2xs); font-weight: 500; letter-spacing: 0.1em`, and
+   move those rules onto the class.
+
+   Units keep their case: wrap one in `.unit` ("65 dB", "1mo", not "65 DB",
+   or "1MO", which reads as "IMO"). */
+.small-caps,
+.eyebrow {
   font-variant: all-small-caps;
   letter-spacing: 0.05em;
   font-family: var(--sans);
   color: var(--ink-muted);
+}
+
+.eyebrow {
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+}
+
+.small-caps .unit,
+.eyebrow .unit,
+.unit {
+  font-variant: normal;
+  text-transform: none;
+  letter-spacing: 0.02em;
 }
 
 .metadata {

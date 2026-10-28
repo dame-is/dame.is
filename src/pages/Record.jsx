@@ -357,7 +357,7 @@ export default function Record({ verb, nsid, source }) {
           <AturiActions atUri={atUri}>
             {verb === 'listening' &&
               musicLinksFor(item.payload).map((l) => (
-                <a key={l.service} href={l.url} target="_blank" rel="noreferrer noopener">
+                <a key={l.service} className="btn btn--text btn--sm" href={l.url} target="_blank" rel="noreferrer noopener">
                   {l.kind === 'direct' ? `Open in ${l.label}` : `Search on ${l.label}`}
                 </a>
               ))}
@@ -684,12 +684,12 @@ function RecordCopyRow({ atUri, recordJson }) {
   return (
     <div className="record-fallback-actions">
       {atUri && (
-        <button type="button" onClick={() => copy(atUri, 'uri')}>
+        <button type="button" className="btn btn--sm" onClick={() => copy(atUri, 'uri')}>
           {copied === 'uri' ? 'AT URI copied' : 'Copy AT URI'}
         </button>
       )}
       {recordJson && (
-        <button type="button" onClick={() => copy(recordJson, 'json')}>
+        <button type="button" className="btn btn--sm" onClick={() => copy(recordJson, 'json')}>
           {copied === 'json' ? 'Record JSON copied' : 'Copy record JSON'}
         </button>
       )}

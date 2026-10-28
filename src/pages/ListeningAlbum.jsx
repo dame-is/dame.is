@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import AlbumCover from '../components/AlbumCover.jsx';
+import Figures from '../components/Figures.jsx';
 import MusicServiceLinks from '../components/MusicServiceLinks.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
 import Time from '../components/Time.jsx';
@@ -117,15 +118,24 @@ export default function ListeningAlbum() {
         />
 
         <div className="album-detail-side">
-          <dl className="album-facts">
-            <Fact label="plays" value={album.plays.toLocaleString()} />
-            <Fact label="tracks played" value={album.tracks.toLocaleString()} />
-            {listened && <Fact label="listening" value={listened} />}
-            {/* No "first" fact: the album is built from a window of the newest
-                plays, so the oldest one in it is where the window starts, not
-                when this record first came round. */}
-            {album.lastPlayed && <Fact label="last" value={<Time value={album.lastPlayed} variant="relative" />} />}
-          </dl>
+          {/* No "first" figure: the album is built from a window of the newest
+              plays, so the oldest one in it is where the window starts, not
+              when this record first came round. */}
+          <Figures
+            layout="inline"
+            className="album-facts"
+            label="This album in figures"
+            items={[
+              { key: 'plays', value: album.plays, label: 'plays' },
+              { key: 'tracks', value: album.tracks, label: 'tracks played' },
+              { key: 'listened', value: listened || null, label: 'listening' },
+              {
+                key: 'last',
+                value: album.lastPlayed ? <Time value={album.lastPlayed} variant="relative" /> : null,
+                label: 'last',
+              },
+            ]}
+          />
 
           {/* Where to actually put it on. The Apple link is the record itself
               once its id has resolved; until then — and for Spotify, which has
@@ -136,7 +146,7 @@ export default function ListeningAlbum() {
 
       {tracks.length > 0 && (
         <section className="album-tracks" aria-label="Tracks played">
-          <h2 className="album-tracks-title small-caps">Tracks played</h2>
+          <h2 className="album-tracks-title eyebrow">Tracks played</h2>
           <ol className="album-track-list">
             {tracks.map((track) => {
               const href = recordPathFromAtUri(track.lastUri);
@@ -163,14 +173,5 @@ export default function ListeningAlbum() {
         .
       </p>
     </PageShell>
-  );
-}
-
-function Fact({ label, value }) {
-  return (
-    <div className="album-fact">
-      <dt className="album-fact-label small-caps">{label}</dt>
-      <dd className="album-fact-value">{value}</dd>
-    </div>
   );
 }
