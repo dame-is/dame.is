@@ -59,6 +59,17 @@ export function age(iso, now = Date.now()) {
   return `${Math.round(days / 365)}y`;
 }
 
+/**
+ * When the scoring snapshot is old enough to say so.
+ *
+ * The hourly job only starts a new snapshot once the current one is a week old
+ * (MAX_AGE_DAYS in api/mod-precompute.js), and building one takes some hours.
+ * Anything younger than eight days is that schedule working. Warning from 48h
+ * meant the warning was up five days in seven, on a system doing exactly what
+ * it was built to do, which is how a warning stops being read.
+ */
+export const SNAPSHOT_STALE_HOURS = 8 * 24;
+
 export const profileUrl = (actor) =>
   `https://bsky.app/profile/${String(actor || '').replace(/^@/, '')}`;
 
@@ -87,6 +98,24 @@ export function viaText(via) {
             : basis;
   if (watch) return `${what}, while watching a post`;
   return agent ? `${what}, done by the agent` : what;
+}
+
+/**
+ * What one recorded decision did, as a line in an account's history.
+ *
+ * An unblock is recorded the same way a block is, as a plan of one with its own
+ * decision, so the row has to be read for which way it went. Every acted row
+ * used to read "Added", which turned block-then-unblock into two additions on
+ * the page that exists to answer "why am I on your list".
+ */
+export function decisionText(d) {
+  if (!d?.acted_at) return 'In a scan that was not acted on';
+  if (d.action === 'list_remove') {
+    return readVia(d.approved_via || '').agent
+      ? 'Removed: unblocked by the agent'
+      : 'Removed: a direct unblock';
+  }
+  return `Added: ${viaText(d.approved_via)}`;
 }
 
 /** How an account was put on the list, as a short tag. */

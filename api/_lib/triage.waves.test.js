@@ -28,7 +28,7 @@ vi.mock('./modDb.js', () => ({
   }),
 }));
 
-const { runTriage, recheckTriage } = await import('./triage.js');
+const { runTriage, recheckTriage, reviewTriage } = await import('./triage.js');
 
 const PLAN = {
   id: 'plan-1',
@@ -260,5 +260,36 @@ describe('re-checking labels a plan already has', () => {
       triage: 'hostile',
       triage_model: 'cheap/model',
     });
+  });
+});
+
+describe('what is left to add', () => {
+  it('counts only the rows approving the label would actually add', async () => {
+    const hostile = (did, extra = {}) => ({
+      plan_id: PLAN.id,
+      did,
+      band: 'UNKNOWN',
+      evidence_uri: `at://${did}/app.bsky.feed.post/1`,
+      triage: 'hostile',
+      triage_quote: 'pile on',
+      ...extra,
+    });
+    db.decision = [
+      hostile('did:plc:fresh'),
+      hostile('did:plc:friend', { band: 'PROTECTED' }),
+      hostile('did:plc:listed', { already_listed: true }),
+      hostile('did:plc:added', { acted_at: '2026-10-01T10:00:00Z' }),
+      hostile('did:plc:undone', {
+        acted_at: '2026-10-01T10:00:00Z',
+        undone_at: '2026-10-01T11:00:00Z',
+      }),
+    ];
+    const out = await runTriage(PLAN, { generate: vi.fn(), model: 'm' });
+    expect(out.counts.hostile).toBe(5);
+    expect(out.pending.hostile).toBe(1);
+
+    const review = await reviewTriage(PLAN, 'hostile');
+    expect(review).toMatchObject({ total: 5, pending: 1, added: 1 });
+    expect(review.rows.map((r) => r.did)).toEqual(['did:plc:fresh']);
   });
 });

@@ -192,12 +192,13 @@ export function update(table, match, patch) {
   });
 }
 
-/** `del(table, { eq: {...} })` */
+/** `del(table, { eq: {...}, where: {...} })`, filters as `select` takes them. */
 export function del(table, match) {
   const q = new URLSearchParams();
   for (const [col, val] of Object.entries(match.eq || {})) {
     q.set(col, `eq.${val}`);
   }
+  addWhere(q, match.where);
   return request(`${table}?${q}`, {
     method: 'DELETE',
     headers: { Prefer: 'return=minimal' },

@@ -22,6 +22,7 @@
 
 import { ME_DID } from '../src/config.js';
 import { upsert } from './_lib/modDb.js';
+import { closeAdds } from './_lib/closeAdds.js';
 import { botAgent } from './_lib/botAgent.js';
 import { authorize } from './_lib/serviceAuth.js';
 
@@ -112,15 +113,22 @@ export default async function handler(req, res) {
     // Mark them so a re-run of the migration does not carry them back. Without
     // this, removing someone and then resuming a migration would quietly undo
     // the removal, which is the kind of loop that erodes trust in the whole tool.
-    if (rkeys.length) {
+    // One row per ACCOUNT: an account two plans added has two listitems, and the
+    // same key twice in one upsert is an error Postgres refuses the batch over.
+    const gone = [...new Set(rkeys.map(({ did }) => did))];
+    if (gone.length) {
       await upsert(
         'migration_item',
-        rkeys.map(({ did }) => ({
+        gone.map((did) => ({
           did,
           band: 'REMOVED',
           carried_at: new Date().toISOString(),
         })),
       );
+      // And close the decisions that put them on, as every other removal does,
+      // so the hub and "undo last" stop counting them as added. Best effort:
+      // the deletes above are what was asked for, and they have happened.
+      await closeAdds(gone, 'removed from the hub').catch(() => {});
     }
 
     return res.status(200).json({

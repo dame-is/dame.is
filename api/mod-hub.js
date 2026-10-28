@@ -209,14 +209,16 @@ async function why(actor) {
     }),
   ]);
 
+  // Fifty plans a request rather than one, so someone caught in a lot of
+  // scans opens in a couple of round trips.
   const planIds = [...new Set(decisions.map((d) => d.plan_id))];
   const plans = [];
-  for (const id of planIds) {
-    const row = await select('plan', {
+  for (let i = 0; i < planIds.length; i += 50) {
+    const rows = await select('plan', {
       select: 'id,created_at,approved_at,approved_bands,note',
-      eq: { id },
+      where: { id: `in.(${planIds.slice(i, i + 50).join(',')})` },
     });
-    if (row?.[0]) plans.push(row[0]);
+    plans.push(...(rows || []));
   }
 
   return {
@@ -343,6 +345,8 @@ async function enrich(items) {
       : [],
     select('decision', {
       select: 'did,plan_id,approved_via,acted_at,triage',
+      // How they got ON: an unblock is acted on too, and is not an answer.
+      eq: { action: 'list_add' },
       where: {
         did: inList,
         acted_at: 'not.is.null',

@@ -17,12 +17,12 @@ import {
   age,
   compact,
   day,
+  decisionText,
   invalidate,
   profileUrl,
   timeAgo,
   useCached,
   useToast,
-  viaText,
 } from './ui.jsx';
 
 export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
@@ -62,10 +62,17 @@ export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
                   queueDecide(agent, {
                     did: data.did,
                     decision: 'restore',
-                  }).then(() => {
-                    invalidate('members');
-                    reload();
-                  }),
+                  })
+                    .then(() => {
+                      invalidate('members');
+                      invalidate('overview');
+                      reload();
+                    })
+                    .catch((err) =>
+                      toast(`Could not undo: ${err.message}`, {
+                        tone: 'danger',
+                      }),
+                    ),
               },
             }
           : {},
@@ -211,9 +218,7 @@ export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
                         {d.acted_at ? day(d.acted_at) : 'proposed'}
                       </span>
                       <span className="mh-timeline-what">
-                        {d.acted_at
-                          ? `Added: ${viaText(d.approved_via)}`
-                          : 'In a scan that was not acted on'}
+                        {decisionText(d)}
                         {d.undone_at && (
                           <Tag tone="muted">undone {timeAgo(d.undone_at)}</Tag>
                         )}

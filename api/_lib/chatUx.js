@@ -79,8 +79,15 @@ export async function settle(chat, convoId, messageId, outcome) {
  * UNKNOWN"), so a "yes" runs exactly what parseCommand reads, through the same
  * path a typed command takes, vetoes and all. `describe` is the code-written
  * sentence dame was shown.
+ *
+ * `background` marks a question nobody was talking to the bot about: a watch
+ * digest or an alert, sent on a timer. There is one question per convo, so
+ * those must never replace one asked in conversation -- see questionOpen.
  */
-export async function savePending(convoId, { commands, describe, messageIds }) {
+export async function savePending(
+  convoId,
+  { commands, describe, messageIds, background = false },
+) {
   await upsert('dm_choice', [
     {
       convo_id: convoId,
@@ -89,6 +96,7 @@ export async function savePending(convoId, { commands, describe, messageIds }) {
         describe,
         message_ids: messageIds || [],
         created_at: new Date().toISOString(),
+        ...(background ? { background: true } : {}),
       },
     },
   ]);
@@ -104,6 +112,19 @@ export async function readPending(convoId, { now = Date.now() } = {}) {
   if (!p?.commands?.length) return null;
   if (now - Date.parse(p.created_at) > PENDING_TTL_MS) return null;
   return p;
+}
+
+/**
+ * Is a question from the conversation still waiting for dame's answer?
+ *
+ * The timed loops ask this before saying anything that asks something. A digest
+ * that stored its own question over one the agent had just asked meant a "yes"
+ * typed a minute later ran the digest's bulk approve instead, and a 👍 on the
+ * original question matched nothing and did nothing.
+ */
+export async function questionOpen(convoId, { now = Date.now() } = {}) {
+  const p = await readPending(convoId, { now });
+  return Boolean(p && !p.background);
 }
 
 export async function clearPending(convoId) {

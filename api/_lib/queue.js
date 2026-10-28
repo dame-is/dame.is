@@ -27,6 +27,7 @@ import { APPVIEW } from '../../src/config.js';
 import { select, selectAll, upsert, del } from './modDb.js';
 import { listUri } from './listWrite.js';
 import { listitemRkeys } from './graphFacts.js';
+import { closeAdds } from './closeAdds.js';
 
 /**
  * A plan's short code. The same one-liner bulkPlan.js exports, written out
@@ -143,27 +144,7 @@ export async function removeMember(
     }
   }
 
-  const now = new Date().toISOString();
-  const live = await selectAll('decision', {
-    select: 'plan_id,did,band,action,acted_at',
-    eq: { did, action: 'list_add' },
-    where: { acted_at: 'not.is.null', undone_at: 'is.null' },
-    order: 'plan_id.asc',
-  });
-  if (live.length) {
-    await upsert(
-      'decision',
-      live.map((r) => ({
-        plan_id: r.plan_id,
-        did,
-        band: r.band,
-        action: 'list_add',
-        acted_at: r.acted_at,
-        undone_at: now,
-        undo_reason: reason || 'removed from the moderation queue',
-      })),
-    );
-  }
+  await closeAdds(did, reason || 'removed from the moderation queue');
   return { ok: true, removed };
 }
 
@@ -313,8 +294,20 @@ export async function openItems({ list = listUri() } = {}) {
 }
 
 /**
+ * How many more slices one page will read to replace accounts that turned out
+ * to be off the list already, before answering with what it has.
+ */
+const REFILLS = 4;
+
+/**
  * One page of the queue, with profiles, and with anyone no longer on the list
  * dropped and recorded so they stop coming back.
+ *
+ * DROPPED ACCOUNTS ARE REPLACED from further down. A page whose accounts had all
+ * left the list some other way (an unblock in a DM, an undone plan) used to come
+ * back empty, and the hub said "Nothing waiting for you" under a header saying
+ * three hundred were. `more` says whether anything is left past this page, so
+ * the client stops scrolling when the queue does, not when one page was empty.
  */
 export async function queuePage({
   reason = 'all',
@@ -327,29 +320,38 @@ export async function queuePage({
     reason && reason !== 'all' ? open.filter((i) => i.reason === reason) : open;
   const start = Math.max(0, Number(offset) || 0);
   const size = Math.min(50, Math.max(1, Number(limit) || 20));
-  const slice = wanted.slice(start, start + size);
-
-  const [profiles, membership] = await Promise.all([
-    profilesFor(slice.map((i) => i.did)),
-    Promise.all(slice.map((i) => listitemRkeys(list, i.did).catch(() => null))),
-  ]);
 
   const gone = [];
   const items = [];
-  slice.forEach((item, n) => {
-    const rkeys = membership[n];
-    // Null is "Constellation could not say", which is not "not on the list".
-    if (Array.isArray(rkeys) && !rkeys.length) {
-      gone.push(item);
-      return;
-    }
-    const p = profiles.get(item.did);
-    items.push({
-      ...item,
-      handle: p?.handle ?? item.handle ?? null,
-      profile: p ?? null,
+  let next = start;
+  for (
+    let round = 0;
+    round <= REFILLS && items.length < size && next < wanted.length;
+    round += 1
+  ) {
+    const slice = wanted.slice(next, next + size - items.length);
+    next += slice.length;
+    const [profiles, membership] = await Promise.all([
+      profilesFor(slice.map((i) => i.did)),
+      Promise.all(
+        slice.map((i) => listitemRkeys(list, i.did).catch(() => null)),
+      ),
+    ]);
+    slice.forEach((item, n) => {
+      const rkeys = membership[n];
+      // Null is "Constellation could not say", which is not "not on the list".
+      if (Array.isArray(rkeys) && !rkeys.length) {
+        gone.push(item);
+        return;
+      }
+      const p = profiles.get(item.did);
+      items.push({
+        ...item,
+        handle: p?.handle ?? item.handle ?? null,
+        profile: p ?? null,
+      });
     });
-  });
+  }
   if (gone.length) {
     const now = new Date().toISOString();
     await upsert(
@@ -381,6 +383,7 @@ export async function queuePage({
     decided,
     items,
     skipped: gone.length,
+    more: next < wanted.length,
   };
 }
 

@@ -357,7 +357,7 @@ export async function runTriage(
 
   if (!pending.length) {
     const all = await selectAll('decision', {
-      select: 'did,triage,evidence_uri,acted_at,undone_at',
+      select: 'did,band,triage,evidence_uri,acted_at,undone_at,already_listed',
       eq: { plan_id: plan.id },
       order: 'did.asc',
     });
@@ -367,7 +367,7 @@ export async function runTriage(
       noText,
       gone: all.filter((r) => r.triage === 'gone').length,
       counts: countLabels(all),
-      pending: countLabels(all.filter((r) => !r.acted_at || r.undone_at)),
+      pending: countLabels(all.filter(addable)),
       total: all.length,
     };
   }
@@ -505,7 +505,7 @@ export async function runTriage(
   ]);
 
   const after = await selectAll('decision', {
-    select: 'did,triage,evidence_uri,acted_at,undone_at',
+    select: 'did,band,triage,evidence_uri,acted_at,undone_at,already_listed',
     eq: { plan_id: plan.id },
     order: 'did.asc',
   });
@@ -528,7 +528,7 @@ export async function runTriage(
     // What is left to DO, as opposed to what was found. A menu offering to add
     // 231 accounts when 182 of them are already on the list is offering a
     // number that describes nothing anyone can act on.
-    pending: countLabels(after.filter((r) => !r.acted_at || r.undone_at)),
+    pending: countLabels(after.filter(addable)),
     total: after.length,
   };
 }
@@ -646,6 +646,18 @@ export async function recheckTriage(
   };
 }
 
+/**
+ * Would approving this label still add this row? The test applyPlanToTriage
+ * applies at the write, and countDecisions when the agent asks.
+ *
+ * Counted here with anything less, a menu said "Add the 49 hostile ones" and
+ * the receipt said "Added 12": PROTECTED is never added, someone already on
+ * the list through another plan is skipped, and an undone row keeps the
+ * acted_at that tells the write it was done once already.
+ */
+const addable = (r) =>
+  !r.acted_at && !r.already_listed && r.band !== 'PROTECTED';
+
 function countLabels(rows) {
   const out = { hostile: 0, arguing: 0, neutral: 0 };
   for (const r of rows) if (r.triage && r.triage in out) out[r.triage] += 1;
@@ -655,7 +667,8 @@ function countLabels(rows) {
 /** The accounts carrying a label, with the words that earned it. */
 export async function reviewTriage(plan, label, { limit = 10 } = {}) {
   const rows = await selectAll('decision', {
-    select: 'did,band,trust,triage,triage_quote,acted_at,undone_at',
+    select:
+      'did,band,trust,triage,triage_quote,acted_at,undone_at,already_listed',
     eq: { plan_id: plan.id, triage: label },
     order: 'did.asc',
   });
@@ -666,7 +679,7 @@ export async function reviewTriage(plan, label, { limit = 10 } = {}) {
   // that were already added. `did.asc` made it the SAME ten every time, which
   // is what turned a stale filter into an obviously broken one.
   const done = rows.filter((r) => r.acted_at && !r.undone_at);
-  const pending = rows.filter((r) => !r.acted_at || r.undone_at);
+  const pending = rows.filter(addable);
 
   // Most connected first, the order used everywhere else a human reads a queue:
   // if attention runs out halfway down, it ran out in the right place. 231
