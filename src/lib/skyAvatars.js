@@ -20,9 +20,33 @@ const FRAMES = import.meta.glob('../../images/sky-avatars/*.jpg', {
   import: 'default',
 });
 
+// The brand mark draws its frame at about 23px, so it reads these 96px copies
+// (scripts/gen-sky-marks.mjs) instead of the ~360 KB originals above. A
+// separate glob, because `*.jpg` doesn't descend into mark/. `no-inline`
+// because each one is about a kilobyte: under Vite's inline limit they would
+// all be base64'd into the entry bundle, and every visitor would download all
+// 24 to see one.
+const MARKS = import.meta.glob('../../images/sky-avatars/mark/*.webp', {
+  eager: true,
+  query: '?url&no-inline',
+  import: 'default',
+});
+
+function keyFor(hour) {
+  return KEYS[((hour % 24) + 24) % 24];
+}
+
 /** Bundled asset URL for the sky-avatar frame of an hour 0–23 (null if
  *  the frame is missing, so callers can fall back to the live avatar). */
 export function skyAvatarUrl(hour) {
-  const key = KEYS[((hour % 24) + 24) % 24];
-  return FRAMES[`../../images/sky-avatars/${key}.jpg`] || null;
+  return FRAMES[`../../images/sky-avatars/${keyFor(hour)}.jpg`] || null;
+}
+
+/** The chrome mark's small copy of an hour's frame, falling back to the
+ *  full frame if the small one hasn't been generated. */
+export function skyMarkUrl(hour) {
+  return (
+    MARKS[`../../images/sky-avatars/mark/${keyFor(hour)}.webp`] ||
+    skyAvatarUrl(hour)
+  );
 }

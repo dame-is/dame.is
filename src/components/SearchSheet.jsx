@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
@@ -20,7 +20,7 @@ const SEARCHABLE_ROUTES = new Set(['/', '/posting', '/logging', '/blogging', '/c
  * Query is committed to the URL on submit (not on every keystroke) so the
  * page behind the panel isn't churning while the user types.
  */
-export default function SearchSheet() {
+function SearchSheet() {
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'search';
   const navigate = useNavigate();
@@ -111,3 +111,7 @@ export default function SearchSheet() {
     </BottomSheet>
   );
 }
+
+// Memoised: it takes no props, and the bottom bar that renders it re-renders
+// as the page scrolls.
+export default memo(SearchSheet);

@@ -59,11 +59,31 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.waypoints-sheet-close:hover,
 .waypoints-sheet-close:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+@media (hover: hover) {
+  .waypoints-sheet-close:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
+}
+
+/* Touch target: 44px on a coarse pointer without growing the painted 28px
+   box, as the bottom bar's chips do (ChromeBar.css). */
+@media (pointer: coarse) {
+  .waypoints-sheet-close {
+    position: relative;
+  }
+  .waypoints-sheet-close::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
 }
 
 .waypoints-sheet-body {
@@ -135,11 +155,18 @@
   border-color: var(--accent-soft);
 }
 
-.waypoints-row-open:hover,
 .waypoints-row-open:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+@media (hover: hover) {
+  .waypoints-row-open:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
 }
 
 .waypoints-row-name {
@@ -154,9 +181,14 @@
   transition: color 120ms ease;
 }
 
-.waypoints-row-open:hover .waypoints-row-arrow,
 .waypoints-row-open:focus-visible .waypoints-row-arrow {
   color: var(--accent);
+}
+
+@media (hover: hover) {
+  .waypoints-row-open:hover .waypoints-row-arrow {
+    color: var(--accent);
+  }
 }
 
 .waypoints-row-copy {
@@ -174,11 +206,18 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.waypoints-row-copy:hover,
 .waypoints-row-copy:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+@media (hover: hover) {
+  .waypoints-row-copy:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
 }
 
 /* --- original-link fallback ---------------------------------------------- */
@@ -195,7 +234,12 @@
   transition: color 120ms ease;
 }
 
-.waypoints-sheet-original:hover,
 .waypoints-sheet-original:focus-visible {
   color: var(--accent);
+}
+
+@media (hover: hover) {
+  .waypoints-sheet-original:hover {
+    color: var(--accent);
+  }
 }

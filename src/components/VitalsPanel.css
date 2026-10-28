@@ -94,10 +94,30 @@
 }
 
 .vital-battery.is-low .vital-glyph {
-  /* A warm amber that carries on both the tan and the green-black grounds —
-     the one place the two-tone palette bends, because a low battery earns a
-     genuine hue shift. */
-  color: #c17d3f;
+  /* A low battery earns a genuine hue shift: --danger, a fixed red whose
+     lightness the sky theme moves with the hour. It was a literal amber chosen
+     for the retired tan and green-black grounds, and on the sky's daytime
+     surfaces it fell to under 2:1 — the one warning on the strip, and the
+     hardest thing on it to see. */
+  color: var(--danger);
+}
+
+/* The reading's age, in the status line's quiet meta voice. */
+.vitals-age {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* A stale reading (vitalsFreshness) reads as a past one: numbers in the muted
+   ink rather than full ink, and the heart neither red nor beating. */
+.vitals.is-stale .vital-value,
+.vitals.is-stale .vital-word {
+  color: var(--ink-muted);
+}
+
+.vitals.is-stale .vital-glyph-heart {
+  color: var(--ink-faint);
 }
 
 /* Day-of-life signal, pinned to the strip's right edge like FOLLOWED BY. */

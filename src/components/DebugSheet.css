@@ -37,9 +37,29 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.debug-sheet-close:hover,
 .debug-sheet-close:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+@media (hover: hover) {
+  .debug-sheet-close:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
+}
+
+/* Touch target: 44px on a coarse pointer without growing the painted 28px
+   box, as the bottom bar's chips do (ChromeBar.css). */
+@media (pointer: coarse) {
+  .debug-sheet-close {
+    position: relative;
+  }
+  .debug-sheet-close::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
 }
