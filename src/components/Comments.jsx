@@ -7,6 +7,7 @@ import { renderPostText } from '../lib/postRichText.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import { CommentsSkeleton } from './Skeleton.jsx';
+import SectionHead from './SectionHead.jsx';
 import './Comments.css';
 
 /**
@@ -40,9 +41,7 @@ export default function Comments({
   if (empty) return <EmptyComments atUri={atUri} />;
   return (
     <section className="comments-section">
-      <h3 className="comments-heading">
-        <span className="small-caps">Replies</span>
-      </h3>
+      <SectionHead as="h3" title="Replies" />
       {metrics && <EngagementBar metrics={metrics} atUri={atUri} />}
       <CommentsBody
         replies={replies}

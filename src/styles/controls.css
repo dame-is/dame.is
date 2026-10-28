@@ -312,3 +312,9 @@
   background: var(--wash-selected);
   border-color: var(--accent);
 }
+
+/* A text button has no box to wash; on, its underline takes the accent. */
+.btn--text.is-on {
+  background: none;
+  text-decoration-color: var(--accent);
+}

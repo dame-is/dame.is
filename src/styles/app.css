@@ -252,10 +252,14 @@ html {
   right: 0;
 }
 
-/* Home hero CTAs: destinations underneath the animated sentence.
-   The primary (Resume) is filled in the accent color to match the
-   compass button's visual weight; the secondaries (Projects, Blog)
-   read as outlines, with the shuffle utility riding at the end. */
+/* Home hero CTAs: destinations underneath the animated sentence. The primary
+   (Resume) is the kit's one filled control; the secondaries (Projects, Blog)
+   are its quiet tier, with the guestbook pen and the shuffle as icon buttons at
+   the end.
+
+   These are the kit's buttons (controls.css .btn, .btn--primary, .btn--icon)
+   drawn under the hero's own class names, value for value, because Home.jsx
+   names them that way; once the markup carries `btn` these rules can go. */
 .home-hero-cta {
   display: flex;
   flex-wrap: wrap;
@@ -266,24 +270,42 @@ html {
 .home-hero-cta-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4em;
+  min-height: var(--control-h-md);
+  padding: 0.3em 0.875rem;
   font-family: var(--sans);
   font-size: var(--text-sm);
   font-weight: 500;
+  line-height: 1.2;
   letter-spacing: 0.02em;
-  padding: 0.3em 1em;
   border: 1px solid var(--rule);
+  border-radius: 0;
   background: transparent;
   color: var(--ink-soft);
   text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.home-hero-cta-btn:hover,
+/* Pointer-only: on touch the tint stuck to whichever button was tapped. */
+@media (hover: hover) {
+  .home-hero-cta-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
+}
+
 .home-hero-cta-btn:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: var(--wash-hover);
+}
+
+.home-hero-cta-btn:active {
+  background: var(--wash-selected);
 }
 
 .home-hero-cta-primary {
@@ -295,19 +317,39 @@ html {
   color: var(--page);
 }
 
-.home-hero-cta-primary:hover,
-.home-hero-cta-primary:focus-visible {
-  /* Hover moves further from the page, never toward --accent-soft, so the
-     label's contrast only rises. */
+/* Hover moves further from the page, never toward --accent-soft, so the
+   label's contrast only rises. */
+@media (hover: hover) {
+  .home-hero-cta-primary:hover {
+    background: var(--accent-fill-hover);
+    border-color: var(--accent-fill-edge);
+    color: var(--page);
+  }
+}
+
+.home-hero-cta-primary:focus-visible,
+.home-hero-cta-primary:active {
   background: var(--accent-fill-hover);
   border-color: var(--accent-fill-edge);
   color: var(--page);
 }
 
-/* The guestbook button opens the sign sheet rather than going somewhere,
-   but reads as one more labelled destination in the row. */
+/* The guestbook pen and the shuffle are icon buttons: square, as tall as the
+   row. The guestbook one opens the sign sheet rather than going somewhere. */
+.home-hero-shuffle,
 .home-hero-guestbook-btn {
-  cursor: pointer;
+  width: var(--control-h-md);
+  padding: 0;
+}
+
+@media (pointer: coarse) {
+  .home-hero-cta-btn {
+    min-height: var(--control-h-touch);
+  }
+  .home-hero-shuffle,
+  .home-hero-guestbook-btn {
+    width: var(--control-h-touch);
+  }
 }
 
 /* Home: visual break between the hero (page-title) and the

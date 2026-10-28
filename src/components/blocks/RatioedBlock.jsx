@@ -1224,7 +1224,7 @@ function PieceDetail({ piece, delta, parent }) {
             {/* Label only. An arrow — text or icon — reads as a stray gap at
                 this size, and the button is already the only link in the
                 card. */}
-            <Link className="ratioed-through-btn" to={piecePath(piece, parent)}>
+            <Link className="btn ratioed-through-btn" to={piecePath(piece, parent)}>
               View take {String(piece.take).padStart(2, '0')}
             </Link>
           </p>

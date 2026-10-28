@@ -186,11 +186,16 @@
   margin: 0;
 }
 
-/* The service row is shared with the play record page (Feed.css), which sets
-   its own top margin for sitting under a track. Here the column's gap already
-   spaces it. */
-.album-detail-side .listen-services {
-  margin-top: 0;
+/* Where to play the record (MusicServiceLinks): a row of the kit's quiet
+   buttons. This page is the row's only home now (a play's record page puts
+   its links among its text actions instead), so its layout lives here. */
+.music-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 /* ---- Tracks ------------------------------------------------------- */

@@ -5,7 +5,7 @@ import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
-import { safeHref } from '../lib/safeHref.js';
+import LinkCard from './LinkCard.jsx';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import Lightbox from './Lightbox.jsx';
 import './PostEmbed.css';
@@ -318,49 +318,17 @@ function VideoBlock({ playlist, thumbnail, alt, aspectRatio, postUri = null }) {
   );
 }
 
+// The external link card is the site's one reference card, at its compact
+// size; LinkCard gates the foreign URI through the scheme allowlist.
 function ExternalCard({ external }) {
   if (!external?.uri) return null;
-  let host = external.uri;
-  try {
-    const u = new URL(external.uri);
-    host = u.hostname.replace(/^www\./, '');
-  } catch {
-    /* ignore */
-  }
-  // The external URI is foreign embed data, so gate it through the scheme
-  // allowlist. If it's rejected, render the card as an inert <div> (same
-  // className) so a hostile URI never becomes a clickable link.
-  const href = safeHref(external.uri);
-  const inner = (
-    <>
-      {external.thumb && (
-        <div className="post-embed-link-card-thumb">
-          <img src={external.thumb} alt="" loading="lazy" />
-        </div>
-      )}
-      <div className="post-embed-link-card-body">
-        <div className="post-embed-link-card-host">{host}</div>
-        {external.title && (
-          <div className="post-embed-link-card-title">{external.title}</div>
-        )}
-        {external.description && (
-          <div className="post-embed-link-card-desc">{external.description}</div>
-        )}
-      </div>
-    </>
-  );
-  if (!href) {
-    return <div className="post-embed-link-card">{inner}</div>;
-  }
   return (
-    <a
-      className="post-embed-link-card"
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
-    >
-      {inner}
-    </a>
+    <LinkCard
+      href={external.uri}
+      title={external.title}
+      description={external.description}
+      thumb={external.thumb}
+    />
   );
 }
 

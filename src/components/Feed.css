@@ -1099,25 +1099,48 @@ div.feed-empty > .feed-load-more-btn {
   margin-top: var(--space-5);
 }
 
+/* "Load more" and the empty feed's way out: the kit's quiet button
+   (controls.css .btn). FeedMore renders it as `btn feed-load-more-btn`;
+   Home's two still carry this class alone, so it repeats .btn's values,
+   token for token, until they take the `btn` class too. */
 .feed-load-more-btn {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-h-md);
+  padding: 0.3em 0.875rem;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
   background: transparent;
   border: 1px solid var(--rule);
   border-radius: 0;
-  padding: var(--space-2) var(--space-5);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  letter-spacing: 0.08em;
-  color: var(--ink-soft);
   cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.feed-load-more-btn:hover,
+@media (hover: hover) {
+  .feed-load-more-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
+}
+
 .feed-load-more-btn:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  background: var(--wash-hover);
+}
+
+@media (pointer: coarse) {
+  .feed-load-more-btn {
+    min-height: var(--control-h-touch);
+  }
 }
 
 /* ReferenceCard ------------------------------------------------------- */

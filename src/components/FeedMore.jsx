@@ -23,7 +23,7 @@ export default function FeedMore({
   }
   return (
     <div className="feed-load-more">
-      <button type="button" className="feed-load-more-btn" onClick={loadMore}>
+      <button type="button" className="btn feed-load-more-btn" onClick={loadMore}>
         Load more
       </button>
     </div>

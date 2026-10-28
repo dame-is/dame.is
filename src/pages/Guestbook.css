@@ -215,30 +215,11 @@
   margin-top: var(--space-6);
 }
 
-/* One section head, the home day head's pattern: the title in sentence case,
-   the count as quiet meta on the same hairline. */
-.guestbook-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--rule);
-}
-
-.guestbook-section-title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: normal;
-}
-
-.guestbook-section-meta {
-  font-family: var(--sans);
-  font-size: var(--text-meta);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-muted);
-  text-align: right;
+/* The book opens on the kit's section head (SectionHead.jsx): "Signatures"
+   with the count as meta on the same hairline. The register's first line
+   sits straight on that rule, as it always has. */
+.guestbook-entries > .section-head {
+  margin-bottom: 0;
 }
 
 /* Kept for the admin moderation desk, which still heads its list this way. */
@@ -570,29 +551,10 @@
   border-color: var(--accent);
 }
 
+/* "Earlier signatures" and "Try again": the kit's quiet button (controls.css
+   .btn). One of four "load more"s that used to be styled four ways. */
 .guestbook-more {
   margin-top: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  font-family: var(--sans);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-  background: transparent;
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-2);
-  cursor: pointer;
-  transition: border-color 120ms ease, color 120ms ease;
-}
-
-.guestbook-more:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--ink);
-}
-
-.guestbook-more:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 /* Source credit for the backlink assembly (Constellation + Slingshot, both
