@@ -926,6 +926,32 @@ a.post-card-author-link:focus-visible {
    real stats (see DayActivityMeta in Home.jsx). On a cold load — before
    any day group exists — the same copy stands alone in the feed region.
    Both stay in the quiet meta voice so the signal takes minimal space. */
+/* Live entries newer than what's on screen wait behind this note at the
+   head of the feed, a running-head line in the day header's small caps,
+   rather than pushing the rows down under the reader. */
+.feed-held-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  align-self: flex-start;
+  margin: 0 0 var(--space-2);
+  padding: 0.2em 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent-soft);
+  background: none;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.feed-held-note:hover,
+.feed-held-note:focus-visible {
+  border-bottom-color: var(--accent);
+}
+
 .feed-activity-standalone {
   font-family: var(--sans);
   font-size: var(--text-xs);
@@ -1813,7 +1839,7 @@ a.reference-card-profile:focus-visible {
 /* Day stats sit at the same scale as the rows' gerund/time labels. */
 .feed-ledger .day-header-meta {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
+  font-size: var(--text-meta);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-align: right;
@@ -1853,7 +1879,7 @@ a.reference-card-profile:focus-visible {
 
 .ledger-verb {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * var(--mono-scale));
+  font-size: var(--text-meta);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-decoration: none;
@@ -1871,7 +1897,7 @@ a.ledger-verb:focus-visible {
 
 .ledger-time {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
+  font-size: var(--text-meta);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   /* formatTime yields "9:41 AM"; the ledger reads lowercase. */
@@ -2407,19 +2433,13 @@ a.ledger-time:focus-visible {
 }
 
 @media (max-width: 600px) {
-  /* Narrower label columns give the content column the extra width;
-     the label type steps down further so even the longest gerund
-     ("photographing") still fits its column on one line. */
+  /* Narrower label columns give the content column the extra width. The
+     labels keep the one --text-meta size: they used to step down to 9.6px
+     here to fit, which is under any reading floor. */
   .feed-ledger {
     --ledger-verb-col: 5rem;
     --ledger-time-col: 3.5rem;
     --ledger-col-gap: var(--space-2);
-  }
-
-  .feed-ledger .ledger-verb,
-  .feed-ledger .ledger-time,
-  .feed-ledger .day-header-meta {
-    font-size: calc(var(--text-xs) * 0.8);
   }
 
   .feed-ledger .day-header {

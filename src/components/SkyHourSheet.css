@@ -1,58 +1,76 @@
 /* Interior of the sky-hour bottom sheet. BottomSheet owns positioning, the
-   surface, and the expand animation; only the header + arc layout live here.
-   Mirrors the info / debug / search sheets so it reads as one family. */
+   surface, and the expand animation; only the header + ribbon layout live
+   here. Mirrors the info / debug / search sheets so it reads as one family. */
 .sky-hour-sheet-panel {
   /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
-     so the arc lines up with the nav dock, the breadcrumb, and the bottom-bar
-     buttons at every breakpoint. */
+     so the ribbon lines up with the nav dock, the breadcrumb, and the
+     bottom-bar buttons at every breakpoint. */
   padding: var(--space-3) var(--chrome-pad-x) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
 
+/* Live and held read differently, so the state survives a glance: live is
+   the small-caps label with an accent square and the hour; held names the
+   hour it's holding and offers the way back as a real button. */
 .sky-hour-sheet-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  min-height: 2rem;
   font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  color: var(--ink-faint);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
 }
 
-/* The "Live" badge/button: inline text that sits on the header's baseline,
-   no box, so it never adds height beyond the small-caps label beside it.
-   Reads as a quiet marker when the clock is live, a clickable link when an
-   override is freezing it. */
-.sky-hour-sheet-live,
-.sky-hour-sheet-live-label {
-  font-family: var(--mono-ui);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink-faint);
-  transition: color 120ms ease;
+.sky-hour-sheet-header .small-caps {
+  letter-spacing: 0.16em;
+}
+
+.sky-hour-sheet-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  font-variant-numeric: tabular-nums;
+}
+
+.sky-hour-sheet-header.is-held .sky-hour-sheet-state {
+  color: var(--ink);
+  font-style: italic;
+}
+
+.sky-hour-sheet-live-dot {
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  background: var(--accent);
 }
 
 .sky-hour-sheet-live {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
   cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .sky-hour-sheet-live:hover,
 .sky-hour-sheet-live:focus-visible {
-  color: var(--ink);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-/* The arc row: step arrows flank the 24-cell strip so you can cycle the
-   whole spectrum in a loop without tapping each swatch. */
+/* The ribbon row: steppers flank the slider so the whole spectrum can be
+   cycled in a loop. Both are full touch targets. */
 .sky-hour-sheet-arc-row {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   gap: var(--space-2);
 }
 
@@ -61,7 +79,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--rule);
   background: var(--surface-raised);
   color: var(--ink-soft);
@@ -75,41 +94,99 @@
   border-color: var(--accent-soft);
 }
 
-/* The 24-hour arc — short cells close to square so the strip reads as a
-   tight color ribbon, not a tall grid. */
-.sky-hour-sheet-arc {
+.sky-hour-sheet-track {
   flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* One 44px press-and-drag target. A --rule outline gives the pale noon
+   hours an edge against the sheet; hairline divisions mark each hour. */
+.sky-hour-sheet-arc {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(24, 1fr);
-  gap: 2px;
+  height: 44px;
+  outline: 1px solid var(--rule);
+  outline-offset: 0;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.sky-hour-sheet-arc:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .sky-hour-sheet-cell {
+  display: block;
+  min-width: 0;
+}
+
+.sky-hour-sheet-cell + .sky-hour-sheet-cell {
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+/* The ink thumb: a bar across the ribbon at the held hour, with the hour
+   written on a tag above it so the choice is on screen while dragging. */
+.sky-hour-sheet-thumb {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 4px;
+  transform: translateX(-50%);
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--page);
+  pointer-events: none;
+}
+
+.sky-hour-sheet-thumb-tag {
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 0.35em;
+  background: var(--ink);
+  color: var(--page);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hour ticks under the ribbon, and an accent caret on the real hour. */
+.sky-hour-sheet-scale {
   position: relative;
-  height: 24px;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  outline: none;
-  overflow: hidden;
+  height: 1.5rem;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
 }
 
-.sky-hour-sheet-cell:hover {
-  filter: brightness(1.1);
+.sky-hour-sheet-tick,
+.sky-hour-sheet-now {
+  position: absolute;
+  top: 0.2rem;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.sky-hour-sheet-cell.is-sel {
-  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--surface-deep);
-  z-index: 1;
+.sky-hour-sheet-now {
+  top: auto;
+  bottom: 100%;
+  margin-bottom: -0.15rem;
+  color: var(--accent);
+  font-size: 0;
 }
 
-.sky-hour-sheet-cell:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
-  z-index: 2;
-}
-
-@media (max-width: 560px) {
-  .sky-hour-sheet-cell {
-    height: 20px;
-  }
+.sky-hour-sheet-now::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 6px solid currentColor;
 }

@@ -16,29 +16,39 @@
   padding: 0;
 }
 
+/* Each block is a square cut on bare paper inside a hairline, are.na's own
+   idiom. No mat: --page-edge followed the chrome's tuned cyan by day, and a
+   contained image letterboxed against it. Cropped to fill; the lightbox
+   still shows the image whole. */
 .curating-block-button {
   display: flex;
   flex-direction: column;
   width: 100%;
   aspect-ratio: 1;
-  padding: var(--space-2);
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-3);
-  background: var(--page-edge);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
   cursor: zoom-in;
-  transition: transform 200ms ease, border-color 200ms ease;
+  outline: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  outline-offset: -1px;
+  transition: outline-color 200ms ease;
 }
 
 .curating-block-button:hover {
-  border-color: var(--accent-soft);
-  transform: translateY(-2px);
+  outline-color: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+
+.curating-block-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .curating-block-button img {
   width: 100%;
   height: 100%;
   min-height: 0;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 /* Playable embed (a YouTube video) → the poster with a play mark centred on

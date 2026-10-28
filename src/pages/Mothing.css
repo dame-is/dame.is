@@ -95,8 +95,10 @@
 }
 
 /* An image tile that opens the in-page lightbox — the photo-grid cousin of
-   the curating block grid. Button reset + the same raised, square-cornered
-   card, with the moth's name captioned beneath the square photo. */
+   the curating block grid. A plate on paper: the square photo sits on the
+   page itself inside a neutral keyline, and its caption is set beneath like
+   a plate caption. There is no mat: --page-edge followed the chrome's tuned
+   cyan by day, so the photographs sat in UI-coloured frames. */
 .mothing-tile {
   display: flex;
   flex-direction: column;
@@ -110,17 +112,16 @@
   text-align: left;
   font: inherit;
   color: var(--ink);
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-3);
-  overflow: hidden;
-  background: var(--page-edge);
+  border: 0;
+  border-radius: 0;
+  background: none;
   cursor: zoom-in;
-  transition: transform 200ms ease, border-color 200ms ease;
+  --plate-keyline: color-mix(in srgb, var(--ink) 12%, transparent);
 }
 
+/* Hover darkens the keyline; the plate doesn't lift. */
 .mothing-tile:hover {
-  border-color: var(--accent-soft);
-  transform: translateY(-2px);
+  --plate-keyline: color-mix(in srgb, var(--ink) 35%, transparent);
 }
 
 .mothing-tile-empty {
@@ -128,8 +129,7 @@
 }
 
 .mothing-tile-empty:hover {
-  transform: none;
-  border-color: var(--rule-soft);
+  --plate-keyline: color-mix(in srgb, var(--ink) 12%, transparent);
 }
 
 .mothing-tile img {
@@ -138,6 +138,9 @@
   object-fit: cover;
   background: var(--page);
   display: block;
+  outline: 1px solid var(--plate-keyline);
+  outline-offset: -1px;
+  transition: outline-color 200ms ease;
 }
 
 .mothing-placeholder {
@@ -147,13 +150,15 @@
   justify-content: center;
   font-size: 2.25rem;
   background: var(--page);
+  outline: 1px solid var(--plate-keyline);
+  outline-offset: -1px;
 }
 
 .mothing-tile-caption {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  padding: var(--space-2) var(--space-3) var(--space-3);
+  padding: var(--space-2) 0 0;
 }
 
 .mothing-name {

@@ -361,6 +361,18 @@
 .sky-read-target {
   color: var(--ink-faint);
 }
+.sky-read-swatch {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 1px solid var(--rule);
+}
+.sky-read-note {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
 .sky-chip {
   padding: 0.15em 0.55em;
   font-variant-numeric: tabular-nums;

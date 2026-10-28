@@ -107,6 +107,50 @@
   height: 0.7rem;
 }
 
+/* Variant: the home ledger. Reads the same column metrics as the real rows
+   (Feed.css .feed-ledger), so nothing moves when they replace it. */
+.skeleton-ledger-head {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.skeleton-ledger-day {
+  width: 4.5rem;
+  height: 1.1rem;
+}
+
+.skeleton-ledger {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.skeleton-ledger-row {
+  display: grid;
+  grid-template-columns: var(--ledger-verb-col, 6.5rem) minmax(0, 1fr) var(--ledger-time-col, 4rem);
+  column-gap: var(--ledger-col-gap, var(--space-3));
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+}
+
+.skeleton-ledger-verb {
+  width: 3.6rem;
+  height: 0.8rem;
+}
+
+.skeleton-ledger-time {
+  justify-self: end;
+  width: 2.6rem;
+  height: 0.8rem;
+}
+
+.skeleton-ledger-row .skeleton-feed-text {
+  display: block;
+  height: 1.05em;
+  max-width: var(--measure);
+}
+
 .skeleton-feed-row .skeleton-feed-text {
   flex: 1 1 auto;
   height: 1.05em;

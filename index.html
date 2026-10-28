@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="sky">
   <head>
     <meta charset="UTF-8" />
     <!--
@@ -55,8 +55,17 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#e3d8ba" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#13180f" media="(prefers-color-scheme: dark)" />
+    <!-- The sky palette's midnight bar colour; the script below swaps in this
+         hour's before first paint. -->
+    <meta name="theme-color" content="#0d0d0d" />
+    <!--
+      This hour's sky, painted before any module runs: vite.config.js
+      (skyFirstPaint) replaces the marker with a 24-hour table of the page,
+      bar and ink colours, tuned and floored, and a few lines that pick the
+      current Eastern hour's row. The static data-theme above already selects
+      the sky mapping, so nothing here waits on the bundle.
+    -->
+    <!-- sky-first-paint -->
     <!-- iOS / Android standalone install hints -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

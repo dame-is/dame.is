@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Shuffle, Signature } from 'lucide-react';
+import { ArrowUp, Shuffle, Signature } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import FeedFilters, {
   feedFilterCounts,
@@ -12,6 +12,7 @@ import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
 import Lightbox from '../components/Lightbox.jsx';
+import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import {
@@ -234,6 +235,20 @@ export default function Home() {
   // URIs whose `motion.li` should run the slide-in. Cleared after each
   // render via a layout effect (see below).
   const [newUris, setNewUris] = useState(() => new Set());
+  // Arrivals newer than anything already on screen wait here, behind a
+  // "2 new entries" note at the head of the ledger, instead of pushing the
+  // rows a reader is looking at down the page. Tapping the note lets them in
+  // (with the usual slide-in). Older arrivals merge in place, since they
+  // land below the reader rather than on top of them.
+  const [heldUris, setHeldUris] = useState(() => new Set());
+  // The feed as last painted, for the refresh closure to measure arrivals
+  // against without re-binding.
+  const feedRef = useRef(feed);
+  feedRef.current = feed;
+  // A new view starts from its top, so nothing needs to wait behind the note.
+  useEffect(() => {
+    setHeldUris((cur) => (cur.size ? new Set() : cur));
+  }, [filterSig]);
   if (seenUrisRef.current.size === 0 && initialCache?.items) {
     for (const item of initialCache.items) {
       if (item?.atUri) seenUrisRef.current.add(item.atUri);
@@ -391,7 +406,23 @@ export default function Home() {
     // Only flag arrivals on background refreshes — the very first load
     // (when seenUris is still empty) shouldn't slide every row in.
     if (seenUrisRef.current.size > 0 && arrivals.size > 0) {
-      setNewUris(arrivals);
+      const shown = feedRef.current || [];
+      const top = shown.reduce((max, item) => {
+        const t = Date.parse(item?.createdAt || '');
+        return Number.isFinite(t) && t > max ? t : max;
+      }, -Infinity);
+      const above = new Set();
+      for (const item of nextFeed) {
+        const t = Date.parse(item?.createdAt || '');
+        if (item?.atUri && arrivals.has(item.atUri) && Number.isFinite(t) && t > top) above.add(item.atUri);
+      }
+      if (above.size && shown.length) {
+        setHeldUris((cur) => new Set([...cur, ...above]));
+        const rest = new Set([...arrivals].filter((uri) => !above.has(uri)));
+        if (rest.size) setNewUris(rest);
+      } else {
+        setNewUris(arrivals);
+      }
     }
     for (const uri of arrivals) seenUrisRef.current.add(uri);
 
@@ -559,11 +590,23 @@ export default function Home() {
   // renderers, so the ledger steps aside while it's active.
   const { layout } = useFeedLayout();
   const ledger = layout === 'ledger' && !editActive;
-  const filtered = useMemo(() => {
+  const filteredAll = useMemo(() => {
     const base = filterFeed(safeFeed, params, ME_DID);
     if (!removedUris || removedUris.size === 0) return base;
     return base.filter((item) => !removedUris.has(item.atUri));
   }, [safeFeed, params, removedUris]);
+  const heldCount = useMemo(
+    () => (heldUris.size ? filteredAll.filter((item) => heldUris.has(item.atUri)).length : 0),
+    [filteredAll, heldUris],
+  );
+  const filtered = useMemo(
+    () => (heldUris.size ? filteredAll.filter((item) => !heldUris.has(item.atUri)) : filteredAll),
+    [filteredAll, heldUris],
+  );
+  const releaseHeld = useCallback(() => {
+    setNewUris(new Set(heldUris));
+    setHeldUris(new Set());
+  }, [heldUris]);
   // Client-side pagination — the user only sees the first `visibleCount`
   // filtered items at a time. Slicing here (before threading / day
   // grouping) means thread chains never get split mid-conversation: each
@@ -702,12 +745,19 @@ export default function Home() {
             in the parent's animatable flex `gap`. */}
         <div className={`home-feed-region${ledger ? ' feed-ledger' : ''}`}>
           {loading || (checking && filtered.length === 0) ? (
-            <p className="feed-activity-standalone" role="status" aria-live="polite">
-              Fetching latest activity&hellip;
-            </p>
+            // Shaped like the ledger (verb | body | time), so the rows land
+            // in its place rather than below a status line.
+            <FeedSkeleton rows={6} label="Fetching latest activity" ledger={ledger} />
           ) : filtered.length === 0 ? (
             <p className="feed-empty">No records match these filters.</p>
           ) : (
+            <>
+            {heldCount > 0 && (
+              <button type="button" className="feed-held-note" onClick={releaseHeld}>
+                <ArrowUp size={12} strokeWidth={1.75} aria-hidden="true" />
+                {heldCount} new {heldCount === 1 ? 'entry' : 'entries'}
+              </button>
+            )}
             <ol className="feed-list reveal-stagger">
             {groups.map((group, gi) => (
               <li key={group.dateKey} className="feed-day-group">
@@ -763,6 +813,7 @@ export default function Home() {
               </li>
             ))}
           </ol>
+            </>
           )}
         </div>
         {!loading && hasMore && (

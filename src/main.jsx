@@ -4,7 +4,9 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { PAPER_ENABLED } from './hooks/usePaper.jsx';
 import { FONT_SWITCHER_ENABLED } from './hooks/useFont.jsx';
-import { applySkyTheme, easternHour } from './lib/skyTheme.js';
+import { applySkyTheme, easternHour, setSkyTuning } from './lib/skyTheme.js';
+import { effectiveSkyTuning } from './lib/skyTuning.js';
+import { SKY_SEED } from './hooks/useTheme.jsx';
 import './styles/reset.css';
 import './styles/theme.css';
 import './styles/typography.css';
@@ -33,7 +35,10 @@ document.documentElement.setAttribute('data-theme', 'sky');
 
 // Sky mode's palette is computed per hour, not static — derive this
 // hour's tokens before the first paint and take the browser-chrome tint
-// from them.
+// from them. The owner's tuning is installed first, from the snapshot baked
+// in at build, so this paint is already the tuned hour (index.html's inline
+// table has painted the same colours since the first byte).
+setSkyTuning(effectiveSkyTuning(SKY_SEED));
 const initialThemeColor = applySkyTheme(easternHour()).themeColor;
 
 document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());

@@ -104,6 +104,10 @@ export default function ChromeBar() {
   // instead of flashing an empty square while the next one loads. A URL
   // that fails to load is never committed; the old frame just stays.
   const [avatar, setAvatar] = useState(null);
+  // The mark's square is held open while its first frame decodes, so the
+  // wordmark sits where it will stay instead of jumping right when the
+  // image lands. Only a frame that fails to load gives the space back.
+  const [failedAvatar, setFailedAvatar] = useState(null);
   useEffect(() => {
     if (!targetAvatar) {
       setAvatar(null);
@@ -118,13 +122,16 @@ export default function ChromeBar() {
     // fetched); onload is the fallback where decode isn't supported.
     // Committing twice is a harmless same-value setState.
     img.onload = commit;
+    img.onerror = () => {
+      if (!cancelled) setFailedAvatar(targetAvatar);
+    };
     img.src = targetAvatar;
     if (img.decode) img.decode().then(commit).catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [targetAvatar]);
-  const showAvatar = !!avatar;
+  const showAvatar = !!targetAvatar && (!!avatar || failedAvatar !== targetAvatar);
 
   const topRef = useRef(null);
   const crumbRef = useRef(null);
@@ -318,12 +325,19 @@ export default function ChromeBar() {
                   {/* No key: the element persists across src swaps so the
                       old frame stays painted right up to the instant the
                       pre-decoded next frame replaces it. */}
-                  <img
-                    className="chrome-mark-img"
-                    src={avatar}
-                    alt=""
-                    onError={() => setAvatar(null)}
-                  />
+                  {avatar ? (
+                    <img
+                      className="chrome-mark-img"
+                      src={avatar}
+                      alt=""
+                      onError={() => {
+                        setFailedAvatar(avatar);
+                        setAvatar(null);
+                      }}
+                    />
+                  ) : (
+                    <span className="chrome-mark-img" />
+                  )}
                 </span>
               )}
               <span className="chrome-name">dame.is</span>
@@ -497,7 +511,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const nearBottom = useNearPageBottom();
   const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
-  const { skyHourKey, advanceSkyHour } = useTheme();
+  const { skyHourKey, advanceSkyHour, skyOverridden } = useTheme();
   const { serifOnly, toggle: toggleFont } = useFont();
   // The edit-mode toggle only exists for the site owner. It sits beside the
   // Info button and flips the site into a selectable "edit mode" (see
@@ -702,10 +716,11 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 <button
                   type="button"
                   className={`chrome-nav chrome-sky-hour ${skyPanelOpen ? 'is-open' : ''}`}
+                  data-held={skyOverridden && !inSkyStudio ? '' : undefined}
                   onClick={inSkyStudio ? advanceSkyHour : () => togglePanel('sky')}
                   aria-expanded={inSkyStudio ? undefined : skyPanelOpen}
                   aria-controls={inSkyStudio ? undefined : 'chrome-sky-sheet'}
-                  aria-label={`Time of day — showing ${skyHourKey}`}
+                  aria-label={`Time of day — ${skyOverridden ? 'held at' : 'showing'} ${skyHourKey}`}
                   title={`Time of day — tap to ${inSkyStudio ? 'advance the sky one hour' : 'pick an hour'} (showing ${skyHourKey})`}
                 >
                   {skyHourKey}
