@@ -103,7 +103,7 @@
    one rule and one gutter so the band clips the outermost ones away: the first
    column starts flush with the prose above it, and the first row takes its
    rule from the band. That holds at any column count without a pair of
-   :nth-child rules per breakpoint, which is the trap RatioedStats.css carried
+   :nth-child rules per breakpoint, the trap the old RatioedStats.css carried
    a paragraph about. */
 
 .figures[data-layout='ruled'] {
