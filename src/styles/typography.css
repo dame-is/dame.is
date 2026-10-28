@@ -110,12 +110,49 @@ blockquote {
   margin: var(--space-5) 0;
 }
 
-.small-caps {
-  font-variant: all-small-caps;
-  letter-spacing: 0.05em;
+/* The label voice: the eyebrow. Real capitals at the 11px floor, weight 500,
+   tracked 0.1em, in the muted ink.
+
+   It used to be `font-variant: all-small-caps`, and the served Crimson Pro has
+   no small-caps glyphs, so the browser drew every label by shrinking capitals
+   to about 5px with strokes thinner than the text around them, tracked four
+   different ways. Rendered side by side at 1pm and 7pm, real capitals at 11px
+   read as one even line where the synthesized ones flickered, at about the
+   same footprint. They are a little heavier, which is the point.
+
+   Set here once, for every `.small-caps` and `.eyebrow` on the site. The type
+   metrics carry a doubled class on purpose: a label's own rule (a font-size
+   or a letter-spacing written for synthesized small caps, 0.12 to 0.18em at
+   12 to 14px) is one class and loads later, and at real capitals those sizes
+   shout. Colour, family and spacing stay the consumer's to set.
+
+   Units keep their case: wrap one in `.unit` ("65 dB", "1mo", not "65 DB"). */
+.small-caps,
+.eyebrow {
   font-family: var(--sans);
   color: var(--ink-muted);
 }
+
+.small-caps.small-caps,
+.eyebrow.eyebrow {
+  font-variant-caps: normal;
+  text-transform: uppercase;
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+/* A unit or abbreviation inside a label keeps the case it was written in. */
+.small-caps .unit,
+.eyebrow .unit,
+.unit {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* Headings stay headings. A label class on an h2 is how "36 SIGNATURES" came
+   to be set at 28px bold small caps; the doubled class above now holds such a
+   heading to label size, but a section's heading is SectionHead's job. */
 
 .metadata {
   font-family: var(--sans);

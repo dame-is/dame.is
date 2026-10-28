@@ -180,6 +180,7 @@ export default function MothingNight() {
       crumb={formatNightDay(session.date)}
     >
       <Figures
+        layout="inline"
         label="This night in figures"
         items={[
           {

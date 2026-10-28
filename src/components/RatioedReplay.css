@@ -36,25 +36,11 @@
   min-width: 15ch;
 }
 
-/* Matches the charts' segmented control so the two read as one vocabulary.
-   Sits directly after the play button: the two things you can press belong
-   together, and the clock is a readout rather than a control — pushed to the
-   far edge it looked like a third one. */
-.ratioed-replay .ratioed-seg { display: inline-flex; }
-.ratioed-replay .ratioed-seg button {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--rule);
-  background: transparent;
-  color: var(--ink-muted);
-  font-size: var(--text-xs);
-}
-.ratioed-replay .ratioed-seg button + button { border-left: 0; }
-.ratioed-replay .ratioed-seg button:hover { color: var(--ink); }
-.ratioed-replay .ratioed-seg button[aria-pressed='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--page);
-}
+/* Real / Quick is the kit's segmented control (Segmented.jsx), the same one
+   the charts' True / Stretched and the board's rank-by use. It sits directly
+   after the play button: the two things you can press belong together, and
+   the clock is a readout rather than a control — pushed to the far edge it
+   looked like a third one. */
 
 /* --- the track ----------------------------------------------------- */
 

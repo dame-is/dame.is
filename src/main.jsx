@@ -13,6 +13,7 @@ import bakedSkyTuning from 'virtual:sky-tuning';
 import './styles/reset.css';
 import './styles/theme.css';
 import './styles/typography.css';
+import './styles/controls.css';
 import './styles/app.css';
 import './styles/paper.css';
 

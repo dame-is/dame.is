@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Check, Copy, Search } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import ExploringHome from '../components/ExploringHome.jsx';
+import SectionHead from '../components/SectionHead.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import BreakableId from '../components/BreakableId.jsx';
@@ -126,7 +127,7 @@ export default function Exploring() {
 
       {isOwnerHome && identity && (
         <section className="exploring-home-elsewhere">
-          <h2 className="exploring-home-section-title small-caps">Look inside another repo</h2>
+          <SectionHead title="Look inside another repo" />
           <SearchBox initial="" />
         </section>
       )}

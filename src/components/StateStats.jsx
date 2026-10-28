@@ -5,6 +5,9 @@ import { Skeleton } from './Skeleton.jsx';
 import { readStorage } from '../lib/storageGuard.js';
 import { activityLabel } from '../lib/activity.js';
 import { computeStats } from '../lib/stateStats.js';
+import Figures from './Figures.jsx';
+import SectionHead from './SectionHead.jsx';
+import Segmented from './Segmented.jsx';
 import './StateStats.css';
 
 /**
@@ -16,8 +19,8 @@ import './StateStats.css';
  */
 
 const WINDOWS = [
-  { hours: 24, label: '24h' },
-  { hours: 24 * 7, label: '7 days' },
+  { value: 24, label: '24h' },
+  { value: 24 * 7, label: '7 days' },
 ];
 
 const ACTIVITY_ICON = {
@@ -67,38 +70,30 @@ export default function StateStats({ samples, loading = false }) {
 
   return (
     <section className="state-stats" aria-label="State statistics">
-      <div className="state-stats-head">
-        <h2 className="state-stats-title">Recent state</h2>
-        <div className="state-stats-toggle" role="group" aria-label="Time window">
-          {WINDOWS.map((w) => (
-            <button
-              key={w.hours}
-              type="button"
-              aria-pressed={hours === w.hours}
-              className={`state-stats-tab ${hours === w.hours ? 'is-active' : ''}`}
-              onClick={() => setHours(w.hours)}
-            >
-              {w.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SectionHead
+        title="Recent state"
+        meta={<Segmented options={WINDOWS} value={hours} onChange={setHours} label="Time window" />}
+      />
 
       {stats.count === 0 ? (
         <p className="state-stats-empty">No readings in the last {hours === 24 ? '24 hours' : '7 days'}.</p>
       ) : (
         <>
-          <div className="state-stats-tiles">
-            <Tile value={stats.avgHr} unit="avg bpm" />
-            <Tile value={stats.peakHr} unit="peak bpm" />
-            <Tile value={stats.calLatest} unit="cal today" />
-            <Tile value={stats.avgDb} unit="avg dB" />
-            <Tile value={stats.count} unit={stats.count === 1 ? 'reading' : 'readings'} />
-          </div>
+          <Figures
+            label="State in figures"
+            items={figureItems({
+              avgHr: <CountUp value={stats.avgHr} />,
+              peakHr: <CountUp value={stats.peakHr} />,
+              cal: <CountUp value={stats.calLatest} />,
+              db: <CountUp value={stats.avgDb} />,
+              count: <CountUp value={stats.count} />,
+              readings: stats.count === 1 ? 'reading' : 'readings',
+            })}
+          />
 
           <div className="state-stats-panels">
             <div className="state-panel state-panel-chart">
-              <h3 className="state-panel-title">
+              <h3 className="state-panel-title eyebrow">
                 <Heart className="state-panel-glyph" size={13} strokeWidth={1.9} aria-hidden="true" />
                 Heart rate
               </h3>
@@ -106,7 +101,7 @@ export default function StateStats({ samples, loading = false }) {
             </div>
 
             <div className="state-panel state-panel-activity">
-              <h3 className="state-panel-title">
+              <h3 className="state-panel-title eyebrow">
                 <Activity className="state-panel-glyph" size={13} strokeWidth={1.9} aria-hidden="true" />
                 Activity
               </h3>
@@ -129,27 +124,25 @@ const SKELETON_BARS = [0.7, 0.45, 0.25, 0.15, 0.08];
 function StateStatsSkeleton({ activityRows }) {
   return (
     <section className="state-stats" aria-label="State statistics" aria-busy="true">
-      <div className="state-stats-head">
-        <h2 className="state-stats-title">Recent state</h2>
-        <div className="state-stats-toggle" aria-hidden="true">
-          {WINDOWS.map((w, i) => (
-            <span key={w.hours} className={`state-stats-tab ${i === 0 ? 'is-active' : ''}`}>
-              {w.label}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="state-stats-tiles">
-        {['avg bpm', 'peak bpm', 'cal today', 'avg dB', 'readings'].map((unit) => (
-          <div key={unit} className="state-tile">
-            <span className="state-tile-value">—</span>
-            <span className="state-tile-unit">{unit}</span>
+      <SectionHead
+        title="Recent state"
+        meta={
+          <div className="segmented" aria-hidden="true">
+            {WINDOWS.map((w, i) => (
+              <span key={w.value} className={`segmented-key${i === 0 ? ' is-on' : ''}`}>
+                {w.label}
+              </span>
+            ))}
           </div>
-        ))}
-      </div>
+        }
+      />
+      <Figures
+        label="State in figures"
+        items={figureItems({ avgHr: '—', peakHr: '—', cal: '—', db: '—', count: '—', readings: 'readings' })}
+      />
       <div className="state-stats-panels">
         <div className="state-panel state-panel-chart">
-          <h3 className="state-panel-title">
+          <h3 className="state-panel-title eyebrow">
             <Heart className="state-panel-glyph" size={13} strokeWidth={1.9} aria-hidden="true" />
             Heart rate
           </h3>
@@ -161,7 +154,7 @@ function StateStatsSkeleton({ activityRows }) {
           </div>
         </div>
         <div className="state-panel state-panel-activity">
-          <h3 className="state-panel-title">
+          <h3 className="state-panel-title eyebrow">
             <Activity className="state-panel-glyph" size={13} strokeWidth={1.9} aria-hidden="true" />
             Activity
           </h3>
@@ -188,18 +181,37 @@ function StateStatsSkeleton({ activityRows }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Tiles                                                               */
+/* Figures                                                             */
 /* ------------------------------------------------------------------ */
 
-function Tile({ value, unit }) {
+/**
+ * The five headline figures, shared by the dashboard and its skeleton so the
+ * two can't drift apart in order or wording. "dB" keeps its case inside the
+ * capitalised label (typography.css .unit); bpm and cal read fine in capitals.
+ */
+function figureItems({ avgHr, peakHr, cal, db, count, readings }) {
+  return [
+    { key: 'avg-hr', value: avgHr, label: 'avg bpm' },
+    { key: 'peak-hr', value: peakHr, label: 'peak bpm' },
+    { key: 'cal', value: cal, label: 'cal today' },
+    {
+      key: 'db',
+      value: db,
+      label: (
+        <>
+          avg <span className="unit">dB</span>
+        </>
+      ),
+    },
+    { key: 'readings', value: count, label: readings },
+  ];
+}
+
+/** A figure's numeral, counting up to it; a dash when there's no reading. */
+function CountUp({ value }) {
   const has = value != null && Number.isFinite(value);
   const n = useCountUp(has ? value : 0);
-  return (
-    <div className="state-tile">
-      <span className="state-tile-value">{has ? n.toLocaleString() : '—'}</span>
-      <span className="state-tile-unit">{unit}</span>
-    </div>
-  );
+  return has ? n.toLocaleString('en-US') : '—';
 }
 
 /** Short eased count-up when the target changes; snaps under reduced-motion. */

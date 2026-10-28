@@ -1,0 +1,314 @@
+/* The kit: one button, one "on", one section head and one segmented control,
+   for every page. (The label voice, .eyebrow / .small-caps, lives with the
+   rest of the type in typography.css; Figures, LinkCard and the sheet header
+   carry their own stylesheets beside their components.)
+
+   Before this the site drew about eleven quiet buttons at 27 to 40px, four
+   "load more"s styled separately, "selected" five ways and section heads at
+   12, 14, 22 and 28px. Everything here is square, hairline and serif, and
+   reads every colour from the hour's tokens, so it holds at 1pm and at 7pm
+   alike. */
+
+/* ------------------------------------------------------------------ */
+/* Button                                                               */
+/* ------------------------------------------------------------------ */
+
+/* The quiet tier, which is most of them: 14px serif in sentence case on a
+   square 1px hairline. Hover paints the 8% wash with an accent-soft hairline;
+   keyboard focus adds the site's 2px ring (reset.css) to the same look. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  min-height: var(--control-h-md);
+  padding: 0.3em 0.875rem;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-variant-caps: normal;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  text-align: center;
+  text-decoration: none;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.btn > svg {
+  flex: none;
+}
+
+/* Pointer-only, as every hover tint on the site is: on touch the tint stuck
+   to the last button tapped (see typography.css). */
+@media (hover: hover) {
+  .btn:hover:not(:disabled, [aria-disabled='true'], .is-on) {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
+}
+
+.btn:focus-visible:not(.is-on) {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--wash-hover);
+}
+
+/* A finger gets a brief press instead of the hover it can't have. */
+.btn:active:not(:disabled, [aria-disabled='true']) {
+  background: var(--wash-selected);
+}
+
+/* Primary: the one filled control a view may have (the hero's Resume, the
+   guestbook's sign button). --accent-fill is the accent pushed toward the
+   hour's ink, so the --page label clears AA at every hour; hover moves further
+   from the page rather than toward --accent-soft, so its contrast only rises.
+   A fill means "the action", never "on". */
+.btn--primary {
+  color: var(--page);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill-edge);
+}
+
+@media (hover: hover) {
+  .btn--primary:hover:not(:disabled, [aria-disabled='true'], .is-on) {
+    color: var(--page);
+    background: var(--accent-fill-hover);
+    border-color: var(--accent-fill-edge);
+  }
+}
+
+.btn--primary:focus-visible:not(.is-on),
+.btn--primary:active:not(:disabled, [aria-disabled='true']) {
+  color: var(--page);
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-edge);
+}
+
+/* Text: an action that sits in a line of type ("open in explorer", the
+   record's "Open in…"). No box; a rule-coloured underline that warms on
+   hover. */
+.btn--text {
+  min-height: 0;
+  padding: 0.3em 0;
+  font-weight: 400;
+  border: 0;
+  background: none;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .btn--text:hover:not(:disabled, [aria-disabled='true'], .is-on) {
+    background: none;
+    text-decoration-color: var(--accent-soft);
+  }
+}
+
+.btn--text:focus-visible:not(.is-on),
+.btn--text:active:not(:disabled, [aria-disabled='true']) {
+  background: none;
+  text-decoration-color: var(--accent-soft);
+}
+
+/* Icon: square, as tall as it is wide. Give it an aria-label. */
+.btn--icon {
+  width: var(--control-h-md);
+  padding: 0;
+}
+
+/* Small: 28px at 13px, for record actions, x-ray and an in-table "more". */
+.btn--sm {
+  min-height: var(--control-h-sm);
+  padding: 0.2em 0.625rem;
+  font-size: var(--text-meta);
+}
+
+.btn--sm.btn--icon {
+  width: var(--control-h-sm);
+  padding: 0;
+}
+
+.btn--sm.btn--text {
+  min-height: 0;
+  padding-inline: 0;
+}
+
+/* Disabled is a line not yet drawn: a dashed hairline and muted text, never
+   the fill at half opacity, which read as broken. Last, so it wins over every
+   tier's own colours. */
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px dashed var(--rule);
+  cursor: not-allowed;
+}
+
+.btn--text:disabled,
+.btn--text[aria-disabled='true'] {
+  border: 0;
+  text-decoration-style: dashed;
+}
+
+/* Under a finger every tier is 44px tall. The small tier keeps its painted
+   28px, as the bottom bar's chips do, and reaches the 44px through a
+   transparent margin instead, so a row of record actions doesn't double in
+   height on a phone. */
+@media (pointer: coarse) {
+  .btn {
+    min-height: var(--control-h-touch);
+  }
+  .btn--icon {
+    width: var(--control-h-touch);
+  }
+  .btn--sm {
+    position: relative;
+    min-height: var(--control-h-sm);
+  }
+  .btn--sm.btn--icon {
+    width: var(--control-h-sm);
+  }
+  .btn--sm::before {
+    content: '';
+    position: absolute;
+    inset: -8px 0;
+  }
+  .btn--text {
+    min-height: var(--control-h-touch);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Section head                                                       */
+/* ------------------------------------------------------------------ */
+
+/* One section head (SectionHead.jsx): 22px semibold in sentence case on a
+   hairline, with any count as quiet meta at the right of the same rule. It is
+   the home day head's "Today … 23 items" pattern, and it is what "Signatures",
+   "Replies" and "Recent listening" are set in. */
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.section-head-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.section-head-meta {
+  margin-left: auto;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  text-align: right;
+}
+
+/* A control that belongs to the section (the 7 / 30 days switch) sits in the
+   meta slot, on the same rule. */
+.section-head-meta:has(> .segmented) {
+  align-self: flex-end;
+  margin-bottom: calc(-1 * var(--space-1));
+}
+
+/* ------------------------------------------------------------------ */
+/* Segmented                                                            */
+/* ------------------------------------------------------------------ */
+
+/* A row of mutually exclusive keys (Segmented.jsx): 7 days / 30 days, rank by,
+   time scale. Hairline buttons that share their edges; the pressed one takes
+   the "on" look, and is lifted so its accent hairline shows on all four sides
+   instead of hiding under a neighbour's. */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+}
+
+.segmented-key {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-h-sm);
+  padding: 0.2em 0.75rem;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.segmented-key + .segmented-key {
+  margin-left: -1px;
+}
+
+.segmented-key.is-on {
+  z-index: 1;
+}
+
+@media (hover: hover) {
+  .segmented-key:hover:not(.is-on) {
+    color: var(--accent);
+    background: var(--wash-hover);
+  }
+}
+
+.segmented-key:focus-visible {
+  z-index: 2;
+}
+
+@media (pointer: coarse) {
+  .segmented-key {
+    min-height: var(--control-h-touch);
+    padding-inline: 1rem;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* On                                                                   */
+/* ------------------------------------------------------------------ */
+
+/* The one look for "selected", wherever it appears: the 16% wash, a 1px accent
+   hairline and ink text. It replaces the solid accent tabs, the ink-filled
+   segments and layout chip, and the dashed pills. Last in the file, and named
+   with each control it lands on, so it outranks their resting colours; a
+   control that is on and hovered stays on, since the hover wash would read as
+   a step back toward off. */
+.is-on,
+.btn.is-on,
+.segmented-key.is-on {
+  color: var(--ink);
+  background: var(--wash-selected);
+  border-color: var(--accent);
+}

@@ -40,30 +40,6 @@
 .ratioed-piece-gone,
 .ratioed-piece-lede .ratioed-piece-gone { color: var(--ratioed-seal); }
 
-/* --- the four headline figures ------------------------------------ */
-
-.ratioed-piece-figures {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--space-3);
-  margin: 0 0 var(--space-6);
-  padding: var(--space-4) 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-}
-.ratioed-piece-figures dt {
-  font-size: var(--text-xs);
-  text-transform: lowercase;
-  letter-spacing: 0.04em;
-  color: var(--ink-muted);
-  margin-bottom: var(--space-1);
-}
-.ratioed-piece-figures dd {
-  margin: 0;
-  font-size: var(--text-xl);
-  line-height: 1.1;
-}
-
 /* Anything that has landed since the measurement is additive and marked as
    such — never folded into a recorded figure. */
 .ratioed-piece-fresh {

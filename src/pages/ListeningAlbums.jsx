@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import AlbumCover from '../components/AlbumCover.jsx';
+import Figures from '../components/Figures.jsx';
+import Segmented from '../components/Segmented.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
@@ -93,27 +95,24 @@ export default function ListeningAlbums() {
         <p className="feed-empty">No albums yet.</p>
       ) : (
         <>
-          <section className="album-stats" aria-label="Album totals">
-            <Stat value={totals.albums.toLocaleString()} label="albums" />
-            <Stat value={totals.artists.toLocaleString()} label="artists" />
-            <Stat value={totals.plays.toLocaleString()} label="plays" />
-            {totals.listened && <Stat value={totals.listened} label="listening" />}
-          </section>
+          <Figures
+            layout="inline"
+            label="Album totals"
+            items={[
+              { key: 'albums', value: totals.albums, label: 'albums' },
+              { key: 'artists', value: totals.artists, label: 'artists' },
+              { key: 'plays', value: totals.plays, label: 'plays' },
+              { key: 'listened', value: totals.listened || null, label: 'listening' },
+            ]}
+          />
 
           <div className="album-toolbar">
-            <div className="album-order" role="group" aria-label="Order">
-              {ORDERS.map((o) => (
-                <button
-                  key={o.key}
-                  type="button"
-                  aria-pressed={order === o.key}
-                  className={`album-order-tab ${order === o.key ? 'is-active' : ''}`}
-                  onClick={() => setOrder(o.key)}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              options={ORDERS.map((o) => ({ value: o.key, label: o.label }))}
+              value={order}
+              onChange={setOrder}
+              label="Order"
+            />
             {q && (
               <p className="album-filter-note gutter">
                 {shelf.length} matching &ldquo;{q}&rdquo;
@@ -160,15 +159,6 @@ export default function ListeningAlbums() {
         </>
       )}
     </PageShell>
-  );
-}
-
-function Stat({ value, label }) {
-  return (
-    <div className="album-stat">
-      <span className="album-stat-value">{value}</span>
-      <span className="album-stat-label small-caps">{label}</span>
-    </div>
   );
 }
 

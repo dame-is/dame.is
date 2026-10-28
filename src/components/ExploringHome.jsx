@@ -11,6 +11,8 @@ import {
 import { flattenSources, getBacklinkSources } from '../lib/constellation.js';
 import { formatDateFull, relativeTime } from '../lib/time.js';
 import BreakableId from './BreakableId.jsx';
+import Figures from './Figures.jsx';
+import SectionHead from './SectionHead.jsx';
 import './ExploringHome.css';
 
 /**
@@ -150,7 +152,7 @@ export default function ExploringHome({ identity }) {
 
       {/* Identity -------------------------------------------------------- */}
       <section className="exploring-home-section">
-        <h2 className="exploring-home-section-title small-caps">Identity</h2>
+        <SectionHead title="Identity" />
         <dl className="exploring-home-identity">
           <IdentityRow label="handle" value={handle ? `@${handle}` : '—'} copy={handle ? `@${handle}` : null} />
           <IdentityRow
@@ -180,37 +182,40 @@ export default function ExploringHome({ identity }) {
 
       {/* Stats ----------------------------------------------------------- */}
       <section className="exploring-home-section">
-        <h2 className="exploring-home-section-title small-caps">Stats</h2>
-        <dl className="exploring-home-stats">
-          <Stat label="Collections" value={collections ? collections.length : dash} />
-          <Stat
-            label="Created"
-            value={created ? formatDateFull(created) : dash}
-            sub={created ? relativeTime(created) : null}
-          />
-          <Stat label="Identity ops" value={ops != null ? ops : dash} />
-          <Stat
-            label="Last active"
-            value={lastActive ? relativeTime(lastActive) : dash}
-            sub={lastActive ? formatDateFull(lastActive) : null}
-          />
-          <Stat
-            label="Inbound links"
-            value={
-              inbound === undefined
-                ? '…'
-                : inbound === null
-                  ? 'unavailable'
-                  : inbound.toLocaleString()
-            }
-            to={inbound ? `/exploring/${OWNER}?tab=backlinks` : null}
-          />
-        </dl>
+        <SectionHead title="Stats" />
+        {/* The kit's ruled band. Only the inbound-links figure goes anywhere,
+            so only its numeral wears the accent. */}
+        <Figures
+          label="Repository stats"
+          className="exploring-home-stats"
+          items={[
+            { key: 'collections', label: 'Collections', value: collections ? collections.length : dash },
+            {
+              key: 'created',
+              label: 'Created',
+              value: created ? formatDateFull(created) : dash,
+              note: created ? relativeTime(created) : null,
+            },
+            { key: 'ops', label: 'Identity ops', value: ops != null ? ops : dash },
+            {
+              key: 'active',
+              label: 'Last active',
+              value: lastActive ? relativeTime(lastActive) : dash,
+              note: lastActive ? formatDateFull(lastActive) : null,
+            },
+            {
+              key: 'inbound',
+              label: 'Inbound links',
+              value: inbound === undefined ? '…' : inbound === null ? 'unavailable' : inbound,
+              to: inbound ? `/exploring/${OWNER}?tab=backlinks` : null,
+            },
+          ]}
+        />
       </section>
 
       {/* Custom lexicons ------------------------------------------------- */}
       <section className="exploring-home-section">
-        <h2 className="exploring-home-section-title small-caps">Record types I made</h2>
+        <SectionHead title="Record types I made" />
         <p className="exploring-home-section-note">
           Most of these use custom <code>is.dame.*</code> lexicons, schemas I wrote for
           records the standard lexicons don’t define.
@@ -244,12 +249,14 @@ export default function ExploringHome({ identity }) {
 
       {/* Collections directory ------------------------------------------ */}
       <section className="exploring-home-section">
-        <div className="exploring-home-collections-head">
-          <h2 className="exploring-home-section-title small-caps">Collections</h2>
-          <Link to={`/exploring/${OWNER}`} className="exploring-home-textlink">
-            browse the whole repo →
-          </Link>
-        </div>
+        <SectionHead
+          title="Collections"
+          meta={
+            <Link to={`/exploring/${OWNER}`} className="exploring-home-textlink">
+              browse the whole repo →
+            </Link>
+          }
+        />
         {collections === null && !loading && (
           <p className="exploring-muted">Couldn’t load the collections.</p>
         )}
@@ -261,35 +268,6 @@ export default function ExploringHome({ identity }) {
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-/**
- * One stat card. A linked card keeps its <dt>/<dd> as direct children of the
- * group (a <dl> may only hold those, wrapped in a <div>): the link sits inside
- * the <dd> and stretches over the whole card with a pseudo-element, rather than
- * wrapping the pair — which left screen readers unable to tie the label to its
- * value.
- */
-function Stat({ label, value, sub, to }) {
-  return (
-    <div className={`exploring-home-stat${to ? ' is-link' : ''}`}>
-      <dt className="exploring-home-stat-label small-caps">{label}</dt>
-      <dd className="exploring-home-stat-value">
-        {to ? (
-          <Link
-            to={to}
-            className="exploring-home-stat-link"
-            aria-label={`${label}: ${value}`}
-          >
-            {value}
-          </Link>
-        ) : (
-          value
-        )}
-        {sub && <span className="exploring-home-stat-sub">{sub}</span>}
-      </dd>
     </div>
   );
 }

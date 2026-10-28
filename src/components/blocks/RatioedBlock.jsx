@@ -38,6 +38,7 @@ import { participantPath } from '../../lib/ratioedParticipant.js';
 import { useTheme } from '../../hooks/useTheme.jsx';
 import ScrollFrame from '../ScrollFrame.jsx';
 import RatioedHandle from '../RatioedHandle.jsx';
+import Segmented from '../Segmented.jsx';
 import { RATIOED_PATH } from '../../config.js';
 import './RatioedBlock.css';
 
@@ -936,7 +937,7 @@ function Participants({ rows: roster, audiences, parent }) {
         {(hidden > 0 || expanded) && (
           <button
             type="button"
-            className="ratioed-more"
+            className="btn btn--sm ratioed-more"
             aria-expanded={expanded}
             onClick={() => setExpanded(!expanded)}
           >
@@ -990,21 +991,15 @@ function Lifelines({ pieces, events, failed, stats, deltas, parent }) {
   return (
     <div className="ratioed-lifelines">
       <div className="ratioed-controls">
-        <div className="ratioed-seg" role="group" aria-label="Time scale">
-          {[
-            ['true', 'True'],
-            ['norm', 'Stretched'],
-          ].map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={scale === v}
-              onClick={() => setScale(v)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Time scale"
+          value={scale}
+          onChange={setScale}
+          options={[
+            { value: 'true', label: 'True' },
+            { value: 'norm', label: 'Stretched' },
+          ]}
+        />
         <div className="ratioed-chips">
           {KINDS.map((k) => (
             <button
