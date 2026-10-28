@@ -284,7 +284,7 @@
    instead of letting the bar show through. Like the fill above they resolve
    on <html> against the root palette; the nest-ink re-tune on link cards
    changes their text inks, not these, which is the wanted result. Ink on the
-   selected wash is 13:1 at 1pm and 5.9:1 at 7pm. */
+   selected wash measures 12.9:1 at 1pm and 5.8:1 at 7pm. */
 :root {
   --wash-hover: color-mix(in srgb, var(--accent) 8%, var(--page));
   --wash-selected: color-mix(in srgb, var(--accent) 16%, var(--page));

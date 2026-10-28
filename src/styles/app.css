@@ -292,14 +292,14 @@ html {
 /* Pointer-only: on touch the tint stuck to whichever button was tapped. */
 @media (hover: hover) {
   .home-hero-cta-btn:hover {
-    color: var(--accent);
+    color: var(--ink);
     border-color: var(--accent-soft);
     background: var(--wash-hover);
   }
 }
 
 .home-hero-cta-btn:focus-visible {
-  color: var(--accent);
+  color: var(--ink);
   border-color: var(--accent-soft);
   background: var(--wash-hover);
 }
@@ -349,6 +349,23 @@ html {
   .home-hero-shuffle,
   .home-hero-guestbook-btn {
     width: var(--control-h-touch);
+  }
+}
+
+/* On the narrowest phones the row only holds all five if the two icon
+   buttons keep their 36px width; each reaches the 44px target sideways
+   instead, into half of the 8px gap on either side, never a neighbour. */
+@media (pointer: coarse) and (max-width: 380px) {
+  .home-hero-shuffle,
+  .home-hero-guestbook-btn {
+    position: relative;
+    width: var(--control-h-md);
+  }
+  .home-hero-shuffle::before,
+  .home-hero-guestbook-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0 -4px;
   }
 }
 

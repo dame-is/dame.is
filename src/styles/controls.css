@@ -46,17 +46,19 @@
 }
 
 /* Pointer-only, as every hover tint on the site is: on touch the tint stuck
-   to the last button tapped (see typography.css). */
+   to the last button tapped (see typography.css). The wash and the hairline
+   carry the hover; the label goes to ink rather than to the accent, which on
+   the wash fell to 4:1 at 7pm. */
 @media (hover: hover) {
   .btn:hover:not(:disabled, [aria-disabled='true'], .is-on) {
-    color: var(--accent);
+    color: var(--ink);
     border-color: var(--accent-soft);
     background: var(--wash-hover);
   }
 }
 
 .btn:focus-visible:not(.is-on) {
-  color: var(--accent);
+  color: var(--ink);
   border-color: var(--accent-soft);
   background: var(--wash-hover);
 }
@@ -107,8 +109,11 @@
   text-underline-offset: 3px;
 }
 
+/* With no wash under it, a text button's label can take the accent on
+   hover: on the bare page it clears 4.5:1 at every hour sampled. */
 @media (hover: hover) {
   .btn--text:hover:not(:disabled, [aria-disabled='true'], .is-on) {
+    color: var(--accent);
     background: none;
     text-decoration-color: var(--accent-soft);
   }
@@ -116,6 +121,7 @@
 
 .btn--text:focus-visible:not(.is-on),
 .btn--text:active:not(:disabled, [aria-disabled='true']) {
+  color: var(--accent);
   background: none;
   text-decoration-color: var(--accent-soft);
 }
@@ -279,7 +285,7 @@
 
 @media (hover: hover) {
   .segmented-key:hover:not(.is-on) {
-    color: var(--accent);
+    color: var(--ink);
     background: var(--wash-hover);
   }
 }

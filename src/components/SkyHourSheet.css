@@ -4,7 +4,9 @@
    only the ribbon's layout lives here, on the chrome's column like every
    sheet's body. */
 .sky-hour-sheet-content {
-  padding-top: var(--space-3);
+  /* Room above the ribbon for the thumb's hour tag, which hangs over the
+     track and would otherwise slip under the sticky header. */
+  padding-top: calc(var(--space-3) + 1.25rem);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

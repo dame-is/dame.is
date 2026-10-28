@@ -24,7 +24,7 @@ export default function RecordTimestamp() {
   if (latestRecordAt) {
     return (
       <span className="record-timestamp small-caps" title={`latest record: ${latestRecordAt}`}>
-        latest record {relativeTime(latestRecordAt, now)}
+        latest record <span className="unit">{relativeTime(latestRecordAt, now)}</span>
       </span>
     );
   }
@@ -75,8 +75,15 @@ function RouteRecordTimestamp({ now }) {
       className="record-timestamp small-caps"
       title={`createdAt: ${createdAt}\nupdatedAt: ${updatedAt}`}
     >
-      written {written}
-      {!same && <> · updated {updated}</>}
+      {/* The times keep their case inside the capitals (typography.css .unit):
+          "1mo" set as "1MO" read as "IMO". */}
+      written <span className="unit">{written}</span>
+      {!same && (
+        <>
+          {' '}
+          · updated <span className="unit">{updated}</span>
+        </>
+      )}
     </span>
   );
 }

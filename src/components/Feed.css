@@ -1125,14 +1125,14 @@ div.feed-empty > .feed-load-more-btn {
 
 @media (hover: hover) {
   .feed-load-more-btn:hover {
-    color: var(--accent);
+    color: var(--ink);
     border-color: var(--accent-soft);
     background: var(--wash-hover);
   }
 }
 
 .feed-load-more-btn:focus-visible {
-  color: var(--accent);
+  color: var(--ink);
   border-color: var(--accent-soft);
   background: var(--wash-hover);
 }

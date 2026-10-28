@@ -94,7 +94,7 @@
     background: var(--wash-hover);
   }
   .filter-toggle:hover .filter-name {
-    color: var(--accent);
+    color: var(--ink);
   }
 }
 
