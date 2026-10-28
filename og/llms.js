@@ -44,6 +44,25 @@ export const LLMS_SURFACES = [
   '/welcoming',
 ];
 
+/**
+ * Surfaces that are nothing but their is.dame.page record's body, keyed to its
+ * rkey. Until the body is written, /sharing renders "Nothing here yet.", which
+ * is no page to send a crawler or an agent to, so both indexes leave it out
+ * until there is something on it.
+ */
+const BODY_ONLY_SURFACES = { '/sharing': 'sharing' };
+
+/**
+ * Whether a surface has anything to list, given the pages snapshot (records
+ * keyed by rkey). Every surface does but the body-only ones, which need a
+ * body; with no snapshot to say so, they're left out.
+ */
+export function surfaceHasContent(path, pages) {
+  const rkey = BODY_ONLY_SURFACES[path];
+  if (!rkey) return true;
+  return Boolean(String(pages?.[rkey]?.value?.body || '').trim());
+}
+
 /** `- [name](url): notes` — the file-list line shape llms.txt specifies. */
 function llmsLink(name, path, notes) {
   const clean = String(notes || '')
@@ -60,6 +79,7 @@ export function buildLlmsTxt({
   ratioedPieces,
   mothNights,
   albums,
+  pages,
 }) {
   const out = [
     '# dame.is',
@@ -108,6 +128,7 @@ export function buildLlmsTxt({
   ];
 
   for (const path of LLMS_SURFACES) {
+    if (!surfaceHasContent(path, pages)) continue;
     if (path === '/') {
       out.push(llmsLink('Home', '/', PAGES['/']?.desc));
       continue;
@@ -176,7 +197,9 @@ export function buildLlmsTxt({
 
   const channels = (curatingChannels || []).filter((g) => g?.slug);
   if (channels.length) {
-    out.push('', '## Collections', '');
+    // Not "Collections": that heading belongs to the lexicon list further down,
+    // which an agent reads as the `collection` values listRecords takes.
+    out.push('', '## Curated galleries', '');
     for (const g of channels) {
       out.push(llmsLink(g.title || g.slug, `/curating/${encodeURIComponent(g.slug)}`, g.description));
     }
@@ -215,7 +238,7 @@ export function buildLlmsTxt({
       llmsLink(
         'Albums',
         '/listening/albums',
-        `Every album in the play history — ${albums.length} of them — each with a page of its own, all listed in sitemap.xml. An album is derived from the plays, not stored as a record.`,
+        `Every album in the recent play history — ${albums.length} of them — each with a page of its own, all listed in sitemap.xml. An album is derived from the plays, not stored as a record.`,
       ),
     );
   }

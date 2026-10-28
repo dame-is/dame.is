@@ -8,6 +8,8 @@ import {
 } from '../lib/guestbook.js';
 import { clearDraft, readDraft, saveDraft } from '../lib/guestbookRegister.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
+import { signInErrorMessage } from '../lib/oauthClient.js';
+import { holdReload } from '../lib/reloadHold.js';
 // The signature form's styles live with the /welcoming page; importing the
 // stylesheet here (a global, side-effect import) means the form is styled
 // wherever it renders — the guestbook page or the bottom-chrome sign sheet
@@ -56,6 +58,17 @@ export default function GuestbookSignForm({ agent, did, signedIn, signerHandle, 
   const hasNote = Boolean(text.trim()) && !over;
   const canSign = !busy && hasNote && (signedIn ? Boolean(agent) : Boolean(handleInput.trim()));
 
+  // An unsent note is work in progress, and a deploy landing mid-sentence must
+  // not reload it away. The sheet this renders in already holds the updater
+  // off while it is open; holding here as well keeps the draft safe wherever
+  // the form is drawn, the "signing from" field included, which no textarea
+  // check would see.
+  const hasDraft = Boolean(text.trim() || location.trim());
+  useEffect(
+    () => (hasDraft ? holdReload('guestbook-draft') : undefined),
+    [hasDraft],
+  );
+
   async function detectRegion() {
     if (locating) return;
     setLocating(true);
@@ -84,8 +97,9 @@ export default function GuestbookSignForm({ agent, did, signedIn, signerHandle, 
         await signIn(handleInput.trim(), { returnTo: '/welcoming', intent: 'guestbook-sign' });
         // Redirected away; if we somehow keep running, drop the busy state.
       } catch (err) {
+        console.warn('[guestbook] sign-in failed to start:', err);
         setBusy(false);
-        setError(err?.message || String(err));
+        setError(signInErrorMessage(err));
       }
       return;
     }
@@ -187,12 +201,18 @@ export default function GuestbookSignForm({ agent, did, signedIn, signerHandle, 
               Sign as
             </label>
             <div className="guestbook-signas-row">
+              {/* The same guards as the account panel's field (see SignInPanel):
+                  iOS otherwise capitalizes and autocorrects a handle as if it
+                  were prose. */}
               <input
                 id={`${ids}-handle`}
                 className="signin-input"
                 type="text"
                 autoComplete="username"
+                autoCorrect="off"
                 autoCapitalize="none"
+                inputMode="url"
+                enterKeyHint="go"
                 spellCheck={false}
                 placeholder="handle, DID, or PDS URL"
                 value={handleInput}

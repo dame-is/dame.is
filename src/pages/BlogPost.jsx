@@ -8,7 +8,7 @@ import SequenceFoot, { countWord } from '../components/SequenceFoot.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
-import { resolvePds, listRecords } from '../lib/atproto.js';
+import { resolvePds, getRecord, isRecordNotFound } from '../lib/atproto.js';
 import { getPostThread } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { showOnBlog, isDraft, primaryTag } from '../lib/publications.js';
@@ -38,11 +38,23 @@ export default function BlogPost() {
     strategy: 'snapshot-first',
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      const records = await listRecords(pds, {
-        repo: ME_DID,
-        collection: COLLECTIONS.blogging,
-        max: 200,
-      });
+      // One getRecord, not the whole collection: `:id` is the rkey, and
+      // resolveById matches on nothing else.
+      let record;
+      try {
+        record = await getRecord(pds, {
+          repo: ME_DID,
+          collection: COLLECTIONS.blogging,
+          rkey: id,
+        });
+      } catch (err) {
+        // A PDS that says the record isn't there is an answer — an empty list,
+        // which resolves to "Post not found". Anything else (a timeout, a 5xx)
+        // is rethrown, so the snapshot stands or the page offers a refresh.
+        if (isRecordNotFound(err)) return [];
+        throw err;
+      }
+      const records = record?.value ? [record] : [];
       // Bake `_url` onto image/cover blob refs (and a summary) so live-fetched
       // posts — ones not yet in the prefetched snapshot — render their images.
       // The snapshot path already does this at build time via transformRecords.

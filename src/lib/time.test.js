@@ -10,6 +10,7 @@ import {
   formatDateAbbrev,
   formatDateFull,
   formatDateShort,
+  formatTime,
   formatWallClockTime,
   toIso,
   compareIsoDesc,
@@ -100,9 +101,36 @@ describe('relativeDay', () => {
   it('rolls into weeks, months and years', () => {
     expect(relativeDay(daysBefore(7), now)).toBe('1 week ago');
     expect(relativeDay(daysBefore(14), now)).toBe('2 weeks ago');
-    expect(relativeDay(daysBefore(60), now)).toBe('2 months ago');
+    expect(relativeDay(daysBefore(61), now)).toBe('2 months ago');
     expect(relativeDay(daysBefore(400), now)).toBe('1 year ago');
     expect(relativeDay(daysBefore(800), now)).toBe('2 years ago');
+  });
+
+  it('counts completed units, never rounding up', () => {
+    // 636 days is 1.74 years: one year has passed, not two.
+    expect(relativeDay(daysBefore(636), now)).toBe('1 year ago');
+    expect(relativeDay(daysBefore(60), now)).toBe('1 month ago');
+    expect(relativeDay(daysBefore(13), now)).toBe('1 week ago');
+    expect(relativeDay(daysBefore(30), now)).toBe('4 weeks ago');
+    expect(relativeDay(daysBefore(364), now)).toBe('11 months ago');
+  });
+
+  it('puts a date in the same bucket, with the same count, as relativeTime', () => {
+    // The two sit side by side on a document page (the meta band's "Elapsed"
+    // and the footer's "written …"), so they must not disagree about a date.
+    const unit = { w: 'week', mo: 'month', y: 'year' };
+    for (const n of [
+      7, 13, 14, 29, 30, 31, 45, 60, 61, 200, 364, 365, 366, 400, 636, 800,
+    ]) {
+      const terse = relativeTime(daysBefore(n), now).match(
+        /^(\d+)(w|mo|y) ago$/,
+      );
+      const [count, word] = relativeDay(daysBefore(n), now).split(' ');
+      expect([count, word.replace(/s$/, '')]).toEqual([
+        terse[1],
+        unit[terse[2]],
+      ]);
+    }
   });
 
   it('returns empty string for an invalid date', () => {
@@ -135,38 +163,68 @@ describe('formatDayLabel / formatDayShortLabel', () => {
   });
 });
 
-describe('formatDateLong / formatDateFull (UTC-based)', () => {
-  it('formatDateLong reads UTC parts as "D Month YYYY"', () => {
-    expect(formatDateLong('2025-03-07T12:00:00Z')).toBe('7 March 2025');
+describe('formatDateLong / formatDateFull / formatDateShort / formatDateAbbrev', () => {
+  // Instants are read in the local calendar (see time.tz.test.js for what that
+  // means in a given zone), so these are built as local dates.
+  const local = (y, m, d, h = 12) => new Date(y, m, d, h);
+
+  it('formatDateLong reads local parts as "D Month YYYY"', () => {
+    expect(formatDateLong(local(2025, 2, 7))).toBe('7 March 2025');
     expect(formatDateLong('bad')).toBe('');
   });
 
-  it('formatDateFull reads UTC parts as "Month D, YYYY"', () => {
-    expect(formatDateFull('2025-03-07T12:00:00Z')).toBe('March 7, 2025');
+  it('formatDateFull reads local parts as "Month D, YYYY"', () => {
+    expect(formatDateFull(local(2025, 2, 7))).toBe('March 7, 2025');
+    expect(formatDateFull(local(2025, 2, 7).toISOString())).toBe(
+      'March 7, 2025',
+    );
     expect(formatDateFull('bad')).toBe('');
   });
 
   it('formatDateShort abbreviates the month and keeps the same day', () => {
-    expect(formatDateShort('2025-03-07T12:00:00Z')).toBe('Mar 7, 2025');
-    expect(formatDateShort('2025-06-27T12:00:00Z')).toBe('Jun 27, 2025');
+    expect(formatDateShort(local(2025, 2, 7))).toBe('Mar 7, 2025');
+    expect(formatDateShort(local(2025, 5, 27))).toBe('Jun 27, 2025');
     expect(formatDateShort('bad')).toBe('');
   });
 
   it('formatDateAbbrev cuts only the months longer than four letters', () => {
-    expect(formatDateAbbrev('2026-09-15T12:00:00Z')).toBe('Sept 15, 2026');
-    expect(formatDateAbbrev('2025-06-27T12:00:00Z')).toBe('June 27, 2025');
-    expect(formatDateAbbrev('2025-07-04T12:00:00Z')).toBe('July 4, 2025');
-    expect(formatDateAbbrev('2025-03-07T12:00:00Z')).toBe('Mar 7, 2025');
-    expect(formatDateAbbrev('2025-05-01T12:00:00Z')).toBe('May 1, 2025');
-    expect(formatDateAbbrev('2025-12-27T12:00:00Z')).toBe('Dec 27, 2025');
+    expect(formatDateAbbrev(local(2026, 8, 15))).toBe('Sept 15, 2026');
+    expect(formatDateAbbrev(local(2025, 5, 27))).toBe('June 27, 2025');
+    expect(formatDateAbbrev(local(2025, 6, 4))).toBe('July 4, 2025');
+    expect(formatDateAbbrev(local(2025, 2, 7))).toBe('Mar 7, 2025');
+    expect(formatDateAbbrev(local(2025, 4, 1))).toBe('May 1, 2025');
+    expect(formatDateAbbrev(local(2025, 11, 27))).toBe('Dec 27, 2025');
     expect(formatDateAbbrev('bad')).toBe('');
   });
 
-  it('all three name the same day, whatever they spell the month', () => {
-    const iso = '2026-09-15T23:30:00Z';
+  it('all four name the same day, whatever they spell the month', () => {
+    const late = local(2026, 8, 15, 23).toISOString();
     for (const f of [formatDateFull, formatDateAbbrev, formatDateShort]) {
-      expect(f(iso)).toMatch(/ 15, 2026$/);
+      expect(f(late)).toMatch(/ 15, 2026$/);
     }
+    expect(formatDateLong(late)).toBe('15 September 2026');
+  });
+
+  it('reads a bare YYYY-MM-DD as the day it names', () => {
+    expect(formatDateFull('2026-10-16')).toBe('October 16, 2026');
+    expect(formatDateLong('2026-01-01')).toBe('1 January 2026');
+    // Not a day the calendar has.
+    expect(formatDateFull('2026-02-30')).toBe('');
+    expect(formatDateFull('2026-13-01')).toBe('');
+  });
+});
+
+describe('formatTime', () => {
+  it('formats the local clock the way toLocaleTimeString does', () => {
+    const d = new Date(2026, 9, 16, 22, 53);
+    expect(formatTime(d)).toBe(
+      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
+    );
+    expect(formatTime(d.toISOString())).toBe(formatTime(d));
+  });
+
+  it('returns empty string for an invalid date', () => {
+    expect(formatTime('nope')).toBe('');
   });
 });
 
@@ -183,13 +241,13 @@ describe('relativeDayShort', () => {
     expect(relativeDayShort(daysBefore(3), now)).toBe('3 days');
     expect(relativeDayShort(daysBefore(7), now)).toBe('1 wk');
     expect(relativeDayShort(daysBefore(14), now)).toBe('2 wks');
-    expect(relativeDayShort(daysBefore(60), now)).toBe('2 mo');
+    expect(relativeDayShort(daysBefore(61), now)).toBe('2 mo');
     expect(relativeDayShort(daysBefore(400), now)).toBe('1 yr');
     expect(relativeDayShort(daysBefore(800), now)).toBe('2 yrs');
   });
 
   it('agrees with relativeDay about which bucket a date is in', () => {
-    for (const n of [0, 1, 3, 6, 7, 29, 30, 200, 400, 800]) {
+    for (const n of [0, 1, 3, 6, 7, 29, 30, 200, 400, 636, 800]) {
       const long = relativeDay(daysBefore(n), now);
       const short = relativeDayShort(daysBefore(n), now);
       // Same leading count, whatever the unit is called.

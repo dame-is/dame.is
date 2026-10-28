@@ -5,22 +5,29 @@ import PageShell from '../components/PageShell.jsx';
 import ExploringHome from '../components/ExploringHome.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
+import BreakableId from '../components/BreakableId.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
-import { ME_HANDLE } from '../config.js';
+import { ME_DID, ME_HANDLE } from '../config.js';
 import {
   describeRepo,
   getPlcAuditLog,
   getPlcDocument,
   getRecord,
   listRecordsPage,
-  resolveIdentifier,
 } from '../lib/atproto.js';
 import {
   flattenSources,
   getBacklinkSources,
   getBacklinks,
 } from '../lib/constellation.js';
-import { recordPathFromAtUri } from '../lib/recordRoutes.js';
+import {
+  encodeRepoSegment as encodeRepo,
+  explainExplorerError,
+  explorerSearchPath,
+  peekRepoIdentity,
+  resolveRepoIdentity,
+} from '../lib/explorerIdentity.js';
+import { publicRecordPath } from '../lib/publicRecordPath.js';
 import './Exploring.css';
 
 /**
@@ -41,19 +48,27 @@ export default function Exploring() {
   // including `/exploring/dame.is`, keeps the generic multi-repo browser.
   const isOwnerHome = !params.repo;
 
-  const [identity, setIdentity] = useState(null); // { did, handle, pds }
+  // { did, handle, claimedHandle, pds, collections } — seeded from the
+  // explorer's identity cache, so a repo seen moments ago (the previous click)
+  // paints at once instead of behind "Resolving…" (see explorerIdentity.js).
+  const [identity, setIdentity] = useState(() => peekRepoIdentity(repoInput));
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    setIdentity(null);
+    const cached = peekRepoIdentity(repoInput);
+    setIdentity(cached);
     setError(null);
-    resolveIdentifier(repoInput)
+    if (cached) return undefined;
+    resolveRepoIdentity(repoInput)
       .then((res) => {
         if (!cancelled) setIdentity(res);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || String(err));
+        if (cancelled) return;
+        setError(
+          explainExplorerError(err, { kind: 'repo', subject: repoInput }),
+        );
       });
     return () => {
       cancelled = true;
@@ -74,15 +89,16 @@ export default function Exploring() {
           ? 'Everything on this site is a record in my atproto repository. The repository is public, so anyone can read it.'
           : undefined
       }
-      headTitle={isOwnerHome ? 'Exploring — dame.is' : `${title} — Exploring — dame.is`}
+      headTitle={isOwnerHome ? 'dame.is exploring' : `${title} — Exploring — dame.is`}
     >
       {!isOwnerHome && <SearchBox initial={repoInput} />}
 
       {error && (
         <div className="exploring-error">
-          <p className="admin-error">{error}</p>
+          <ExplorerError error={error} />
           <p className="exploring-hint">
-            Try a handle (<code>dame.is</code>) or a DID (<code>did:plc:…</code>).
+            Try a handle (<code>dame.is</code>), a DID (<code>did:plc:…</code>),
+            or an <code>at://</code> URI.
           </p>
         </div>
       )}
@@ -132,17 +148,10 @@ function SearchBox({ initial }) {
 
   function onSubmit(e) {
     e.preventDefault();
-    const v = value.trim();
-    if (!v) return;
-    // Paste-an-at-uri shortcut: route straight to the record.
-    if (v.startsWith('at://')) {
-      const m = v.match(/^at:\/\/([^/]+)\/([^/]+)\/([^/?#]+)/);
-      if (m) {
-        navigate(`/exploring/${encodeRepo(m[1])}/${m[2]}/${m[3]}`);
-        return;
-      }
-    }
-    navigate(`/exploring/${encodeRepo(v)}`);
+    // A handle, a DID, or an at:// URI at any depth — pasting one routes
+    // straight to that repo, collection or record.
+    const path = explorerSearchPath(value);
+    if (path) navigate(path);
   }
 
   return (
@@ -155,6 +164,10 @@ function SearchBox({ initial }) {
         className="admin-input exploring-search-input"
         type="text"
         autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        inputMode="url"
+        enterKeyHint="go"
         spellCheck={false}
         placeholder="handle, DID, or at://… URI"
         value={value}
@@ -250,12 +263,25 @@ function RepoOverview({ identity }) {
 }
 
 function RepoIdentityRow({ identity }) {
-  const { did, handle, pds } = identity;
+  const { did, handle, claimedHandle, pds } = identity;
   return (
     <dl className="exploring-identity-row">
       <div>
         <dt className="small-caps">handle</dt>
-        <dd>{handle ? `@${handle}` : <span className="exploring-muted">unknown</span>}</dd>
+        <dd>
+          {handle ? (
+            `@${handle}`
+          ) : claimedHandle ? (
+            <>
+              @{claimedHandle}{' '}
+              <span className="exploring-muted">
+                (doesn&rsquo;t resolve back to this DID)
+              </span>
+            </>
+          ) : (
+            <span className="exploring-muted">unknown</span>
+          )}
+        </dd>
       </div>
       <div>
         <dt className="small-caps">did</dt>
@@ -274,12 +300,18 @@ function RepoIdentityRow({ identity }) {
 /* ------------------------------------------------------------------ */
 
 function CollectionsTab({ identity }) {
-  const [collections, setCollections] = useState(null);
+  // The resolve that produced `identity` already asked describeRepo for the
+  // collection list; only ask again if that call came back empty-handed.
+  const [collections, setCollections] = useState(identity.collections);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
   const [collapsed, setCollapsed] = useState({}); // { groupKey: bool }
 
   useEffect(() => {
+    if (identity.collections) {
+      setCollections(identity.collections);
+      return undefined;
+    }
     let cancelled = false;
     setCollections(null);
     setError(null);
@@ -291,16 +323,16 @@ function CollectionsTab({ identity }) {
         setCollections(list);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || String(err));
+        if (!cancelled) setError(explainExplorerError(err, { kind: 'repo' }));
       });
     return () => {
       cancelled = true;
     };
-  }, [identity.pds, identity.did]);
+  }, [identity.pds, identity.did, identity.collections]);
 
   const groups = useMemo(() => groupByNamespace(collections || [], filter), [collections, filter]);
 
-  if (error) return <p className="admin-error">{error}</p>;
+  if (error) return <ExplorerError error={error} />;
   if (!collections) return <p className="placeholder-card">Loading collections…</p>;
   if (collections.length === 0) {
     return <p className="placeholder-card">No collections on this repo.</p>;
@@ -331,7 +363,9 @@ function CollectionsTab({ identity }) {
                 aria-expanded={open}
               >
                 <span className="exploring-group-caret" aria-hidden>{open ? '▾' : '▸'}</span>
-                <code className="exploring-group-prefix">{g.key}</code>
+                <code className="exploring-group-prefix">
+                  <BreakableId>{g.key}</BreakableId>
+                </code>
                 <span className="exploring-group-count">{g.items.length}</span>
               </button>
               {open && (
@@ -342,7 +376,9 @@ function CollectionsTab({ identity }) {
                         to={`/exploring/${encodeRepo(identity.handle || identity.did)}/${nsid}`}
                         className="exploring-collection-link"
                       >
-                        <code>{nsid}</code>
+                        <code>
+                          <BreakableId>{nsid}</BreakableId>
+                        </code>
                       </Link>
                     </li>
                   ))}
@@ -392,7 +428,7 @@ function IdentityTab({ identity }) {
         if (!cancelled) setDoc(d);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || String(err));
+        if (!cancelled) setError(explainExplorerError(err, { kind: 'plc' }));
       });
     return () => {
       cancelled = true;
@@ -407,7 +443,7 @@ function IdentityTab({ identity }) {
       </p>
     );
   }
-  if (error) return <p className="admin-error">{error}</p>;
+  if (error) return <ExplorerError error={error} />;
   if (!doc) return <p className="placeholder-card">Loading identity…</p>;
 
   const akas = doc.alsoKnownAs || [];
@@ -493,7 +529,7 @@ function AuditTab({ identity }) {
         if (!cancelled) setLog(Array.isArray(l) ? l : []);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || String(err));
+        if (!cancelled) setError(explainExplorerError(err, { kind: 'plc' }));
       });
     return () => {
       cancelled = true;
@@ -507,7 +543,7 @@ function AuditTab({ identity }) {
       </p>
     );
   }
-  if (error) return <p className="admin-error">{error}</p>;
+  if (error) return <ExplorerError error={error} />;
   if (!log) return <p className="placeholder-card">Loading audit log…</p>;
   if (log.length === 0) return <p className="placeholder-card">No PLC operations recorded.</p>;
 
@@ -766,7 +802,12 @@ function CollectionView({ identity, collection }) {
         setCursor(res?.cursor);
         if (!res?.cursor || batch.length === 0) setDone(true);
       } catch (err) {
-        setError(err?.message || String(err));
+        setError(
+          explainExplorerError(err, {
+            kind: 'collection',
+            subject: collection,
+          }),
+        );
       } finally {
         setLoading(false);
       }
@@ -783,7 +824,7 @@ function CollectionView({ identity, collection }) {
 
   return (
     <div className="exploring-collection">
-      {error && <p className="admin-error">{error}</p>}
+      {error && <ExplorerError error={error} />}
       {records.length === 0 && !loading && !error && (
         <p className="placeholder-card">No records in this collection.</p>
       )}
@@ -863,7 +904,7 @@ function RecordView({ identity, collection, rkey }) {
         if (!cancelled) setRecord(r);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || String(err));
+        if (!cancelled) setError(explainExplorerError(err, { kind: 'record' }));
       });
     return () => {
       cancelled = true;
@@ -872,13 +913,24 @@ function RecordView({ identity, collection, rkey }) {
 
   const canEdit = Boolean(agent && signedInDid && signedInDid === identity.did);
   const ownerLabel = identity.handle || identity.did;
-  const sitePath = recordPathFromAtUri(atUri);
+  // Only Dame's records have pages on this site, and only the ones whose verb
+  // gives them one — anything else would be a link to "Record not found".
+  const sitePath = publicRecordPath({
+    repo: identity.did,
+    collection,
+    rkey: decodedRkey,
+    value: record?.value,
+  });
+  // Signing in can only ever make Dame's own records editable: everyone else is
+  // granted a scope that writes guestbook signatures and nothing more, so
+  // offering it on another repo would end in an editor that can't save.
+  const canOfferSignIn = !session && identity.did === ME_DID;
 
   return (
     <div className="exploring-record">
       <RecordMetaRow atUri={atUri} cid={record?.cid} />
 
-      {error && <p className="admin-error">{error}</p>}
+      {error && <ExplorerError error={error} />}
       {!record && !error && <p className="placeholder-card">Loading record…</p>}
 
       <div className="exploring-record-actions">
@@ -906,11 +958,8 @@ function RecordView({ identity, collection, rkey }) {
           </button>
         )}
         {record && !editing && <CopyJsonButton record={record} />}
-        {!session && (
-          <SignInToEditButton
-            signIn={signIn}
-            target={identity.handle || identity.did}
-          />
+        {canOfferSignIn && (
+          <SignInToEditButton signIn={signIn} target={ME_DID} />
         )}
       </div>
 
@@ -1022,14 +1071,22 @@ function CopyJsonButton({ record }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                              */
-/* ------------------------------------------------------------------ */
-
-// Repo path-segments contain colons (DIDs) and dots (handles). Both are
-// URL-safe in path segments without encoding, and encoding `:` breaks the
-// readability of DID URLs. We leave them raw and only encode the truly
-// reserved characters.
-function encodeRepo(input) {
-  return String(input || '').replace(/[?#]/g, encodeURIComponent);
+/**
+ * A failed load, as the sentence explainExplorerError wrote for it, with the
+ * raw transport error (request URL, status, response body) folded away
+ * underneath for anyone debugging.
+ */
+function ExplorerError({ error }) {
+  if (!error) return null;
+  return (
+    <div className="exploring-error-block">
+      <p className="admin-error">{error.message}</p>
+      {error.detail && error.detail !== error.message && (
+        <details className="exploring-raw-details">
+          <summary>Details</summary>
+          <pre className="exploring-json">{error.detail}</pre>
+        </details>
+      )}
+    </div>
+  );
 }

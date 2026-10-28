@@ -99,18 +99,21 @@ export function primaryKind(engagements) {
  * Returns `{ rows, truncated }`. A source that fails outright comes back empty
  * with `failed: true` rather than throwing, because one dead lexicon should not
  * cost you the likes.
+ *
+ * A source that fails PART WAY is truncated, not complete. It used to come
+ * back as complete: one transient error on page 3 of 12 handed over a third
+ * of the likers with nothing to say so, and every "not everyone" warning
+ * downstream stayed quiet. A partial read that looks like a whole one is the
+ * worst way this can go wrong, so a failed page is asked for once more first.
  */
 async function drainSource(uri, source, { signal, maxPages = MAX_PAGES } = {}) {
   const rows = [];
   let cursor;
   let pages = 0;
+  const read = () => getBacklinks(uri, source, { limit: PAGE, cursor, signal });
   while (pages < maxPages) {
-    const page = await getBacklinks(uri, source, {
-      limit: PAGE,
-      cursor,
-      signal,
-    });
-    if (!page) return { rows, truncated: false, failed: pages === 0 };
+    const page = (await read()) ?? (signal?.aborted ? null : await read());
+    if (!page) return { rows, truncated: pages > 0, failed: pages === 0 };
     rows.push(...backlinkRows(page));
     pages += 1;
     cursor = page.cursor;

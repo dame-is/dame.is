@@ -10,6 +10,7 @@ import {
   seasonsOf,
   weekdayOf,
   formatObservedTime,
+  isCalendarDate,
   isNightSlug,
   mothLightboxImages,
   mothName,
@@ -71,14 +72,40 @@ describe('formatNightDate', () => {
     expect(formatNightDate('nope')).toBe('');
     expect(formatNightDate(null)).toBe('');
   });
+
+  it('returns empty for a date-shaped slug the calendar does not have', () => {
+    expect(formatNightDate('2026-13-45')).toBe('');
+    expect(formatNightDate('2026-00-10')).toBe('');
+    expect(formatNightDate('2026-02-31')).toBe('');
+    expect(formatNightDate('2026-04-31')).toBe('');
+  });
+});
+
+describe('isCalendarDate', () => {
+  it('knows the length of each month, leap years included', () => {
+    expect(isCalendarDate('2026-01-31')).toBe(true);
+    expect(isCalendarDate('2026-02-28')).toBe(true);
+    expect(isCalendarDate('2026-02-29')).toBe(false);
+    expect(isCalendarDate('2028-02-29')).toBe(true);
+    expect(isCalendarDate('2100-02-29')).toBe(false);
+    expect(isCalendarDate('2000-02-29')).toBe(true);
+    expect(isCalendarDate('2026-09-31')).toBe(false);
+  });
+
+  it('refuses out-of-range parts and anything not shaped YYYY-MM-DD', () => {
+    expect(isCalendarDate('2026-13-01')).toBe(false);
+    expect(isCalendarDate('2026-08-00')).toBe(false);
+    expect(isCalendarDate('2026-8-18')).toBe(false);
+    expect(isCalendarDate(undefined)).toBe(false);
+  });
 });
 
 describe('formatObservedTime', () => {
   it('reads a wall-clock as 12-hour, with midnight and noon at 12', () => {
-    expect(formatObservedTime('20:47')).toBe('8:47pm');
-    expect(formatObservedTime('00:19')).toBe('12:19am');
-    expect(formatObservedTime('12:00')).toBe('12:00pm');
-    expect(formatObservedTime('01:47')).toBe('1:47am');
+    expect(formatObservedTime('20:47')).toBe('8:47 pm');
+    expect(formatObservedTime('00:19')).toBe('12:19 am');
+    expect(formatObservedTime('12:00')).toBe('12:00 pm');
+    expect(formatObservedTime('01:47')).toBe('1:47 am');
   });
 
   it('returns empty for a missing or malformed time', () => {
@@ -147,11 +174,11 @@ describe('nightBeyondReach', () => {
 
 describe('nightSpan', () => {
   it('reads low to high across midnight', () => {
-    expect(nightSpan(findNight(OBSERVATIONS, '2026-08-18').session)).toBe('9:05pm – 1:47am');
+    expect(nightSpan(findNight(OBSERVATIONS, '2026-08-18').session)).toBe('9:05 pm – 1:47 am');
   });
 
   it('collapses to one time when a night holds only one', () => {
-    expect(nightSpan(findNight(OBSERVATIONS, '2026-08-16').session)).toBe('10:01pm');
+    expect(nightSpan(findNight(OBSERVATIONS, '2026-08-16').session)).toBe('10:01 pm');
   });
 
   it('is empty when nothing on the night carries a time', () => {
@@ -164,7 +191,7 @@ describe('nightSummaryParts', () => {
     expect(nightSummaryParts(findNight(OBSERVATIONS, '2026-08-18').session)).toEqual([
       '3 moths',
       '3 species',
-      '9:05pm – 1:47am',
+      '9:05 pm – 1:47 am',
     ]);
   });
 
@@ -190,7 +217,7 @@ describe('nightCardCopy', () => {
   });
 
   it('names what was at the light, not just how much of it', () => {
-    expect(copy.description).toContain('3 moths, 3 species, 9:05pm – 1:47am');
+    expect(copy.description).toContain('3 moths, 3 species, 9:05 pm – 1:47 am');
     expect(copy.description).toContain('Zebra Conchylodes Moth');
   });
 

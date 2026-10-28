@@ -7,7 +7,12 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { recordMeta } from './records.js';
-import { ME_DID, COLLECTIONS } from '../src/config.js';
+import {
+  ME_DID,
+  COLLECTIONS,
+  BLOG_PUBLICATION,
+  PORTFOLIO_PUBLICATION,
+} from '../src/config.js';
 
 const ORIGIN = 'https://dame.is';
 const PDS = 'https://pds.example';
@@ -117,5 +122,213 @@ describe('recordMeta — /curating/:slug', () => {
   it('resolves nothing when there is no such channel anywhere', async () => {
     stubFetch({ record: null });
     expect(await recordMeta('/curating/nope-not-a-channel', ORIGIN)).toBeNull();
+  });
+});
+
+/**
+ * A PDS holding `records` (keyed `collection/rkey`) and an origin serving
+ * `snapshots` (keyed by name). Anything else is a 404 — never a throw, since
+ * these resolvers ask several places before they give up.
+ */
+function worldFetch({ records = {}, snapshots = {} } = {}) {
+  const calls = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.startsWith('https://plc.directory/')) {
+        return json({
+          service: [{ id: '#atproto_pds', serviceEndpoint: PDS }],
+        });
+      }
+      if (url.startsWith(`${PDS}/xrpc/com.atproto.repo.getRecord`)) {
+        const q = new URL(url).searchParams;
+        const key = `${q.get('collection')}/${q.get('rkey')}`;
+        return records[key]
+          ? json({
+              uri: `at://${ME_DID}/${key}`,
+              cid: 'bafyreiexamplecid',
+              value: records[key],
+            })
+          : notFound();
+      }
+      const snap = url.match(/\/data\/([^/?]+)\.json$/);
+      if (snap && snap[1] in snapshots) return json(snapshots[snap[1]]);
+      return {
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+        text: async () => '',
+      };
+    }),
+  );
+  return calls;
+}
+
+const doc = (rkey, value) => ({
+  uri: `at://${ME_DID}/site.standard.document/${rkey}`,
+  cid: 'bafyreiexamplecid',
+  value: { $type: 'site.standard.document', ...value },
+});
+
+describe('recordMeta — /blogging/:id read live', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('resolves nothing for a draft, as the snapshot does', async () => {
+    worldFetch({
+      records: {
+        'site.standard.document/3draft': {
+          title: 'Not yet',
+          draft: true,
+          site: BLOG_PUBLICATION,
+        },
+      },
+    });
+    expect(await recordMeta('/blogging/3draft', ORIGIN)).toBeNull();
+  });
+
+  it('resolves nothing for a portfolio work that is not on the blog', async () => {
+    worldFetch({
+      records: {
+        'site.standard.document/3work': {
+          title: 'A work',
+          site: PORTFOLIO_PUBLICATION,
+          tags: [],
+        },
+      },
+    });
+    expect(await recordMeta('/blogging/3work', ORIGIN)).toBeNull();
+  });
+
+  it('still resolves a blog post too fresh for the snapshot', async () => {
+    worldFetch({
+      records: {
+        'site.standard.document/3fresh': {
+          title: 'Fresh',
+          site: BLOG_PUBLICATION,
+        },
+      },
+    });
+    const meta = await recordMeta('/blogging/3fresh', ORIGIN);
+    expect(meta.title).toBe('Fresh');
+    expect(meta.canonicalPath).toBe('/blogging/3fresh');
+  });
+
+  it('never asks for a leaflet snapshot, which no build writes', async () => {
+    const calls = worldFetch();
+    await recordMeta('/blogging/3nothing', ORIGIN);
+    expect(calls.some((u) => u.includes('/data/leaflets.json'))).toBe(false);
+  });
+});
+
+describe('recordMeta — one address for a cross-posted document', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('points a blog post shown on /creating back at the blog', async () => {
+    worldFetch({
+      snapshots: {
+        blogs: [
+          doc('how-i-made-it', {
+            title: 'How I made it',
+            path: '/how-i-made-it',
+            site: BLOG_PUBLICATION,
+            tags: ['creating'],
+          }),
+        ],
+      },
+    });
+    const meta = await recordMeta('/creating/how-i-made-it', ORIGIN);
+    expect(meta.canonicalPath).toBe('/blogging/how-i-made-it');
+  });
+
+  it('points a portfolio work shown on /blogging back at /creating', async () => {
+    worldFetch({
+      snapshots: {
+        blogs: [
+          doc('3mwork', {
+            title: 'Aturi',
+            path: '/aturi',
+            site: PORTFOLIO_PUBLICATION,
+            tags: ['software', 'blog'],
+          }),
+        ],
+      },
+    });
+    const meta = await recordMeta('/blogging/3mwork', ORIGIN);
+    expect(meta.canonicalPath).toBe('/creating/aturi');
+  });
+
+  it('leaves a legacy work, which has no publication, under /creating', async () => {
+    worldFetch({
+      snapshots: {
+        creations: [
+          {
+            uri: `at://${ME_DID}/${COLLECTIONS.creating}/3legacy`,
+            cid: 'bafyreiexamplecid',
+            value: { title: 'Old thing', slug: 'old-thing' },
+          },
+        ],
+      },
+    });
+    const meta = await recordMeta('/creating/old-thing', ORIGIN);
+    expect(meta.canonicalPath).toBe('/creating/old-thing');
+  });
+});
+
+describe('recordMeta — records with no text of their own', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('resolves a quote post, keeping its record ref', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3quote': {
+          text: '',
+          embed: { $type: 'app.bsky.embed.record', record: {} },
+        },
+      },
+    });
+    const meta = await recordMeta('/posting/3quote', ORIGIN);
+    expect(meta.title).toBe('A quote post');
+    expect(meta.textOnly).toBe(true);
+    expect(meta.atUri).toBe(`at://${ME_DID}/app.bsky.feed.post/3quote`);
+    expect(meta.cid).toBe('bafyreiexamplecid');
+  });
+
+  it('names a link post by what it links to', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3link': {
+          text: '',
+          embed: {
+            $type: 'app.bsky.embed.external',
+            external: { uri: 'https://x.example', title: 'A page' },
+          },
+        },
+      },
+    });
+    expect((await recordMeta('/posting/3link', ORIGIN)).title).toBe(
+      'A link to “A page”',
+    );
+  });
+
+  it('falls back to the verb for a record that is only a pointer', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.graph.follow/3follow': {
+          subject: 'did:plc:someone',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    });
+    const meta = await recordMeta('/following/3follow', ORIGIN);
+    expect(meta.title).toBe('A follow');
+    expect(meta.date).toBe('2026-01-01T00:00:00.000Z');
+  });
+
+  it('still resolves nothing when there is no record at all', async () => {
+    worldFetch();
+    expect(await recordMeta('/posting/3nothing', ORIGIN)).toBeNull();
+    expect(await recordMeta('/photographing/3nothing', ORIGIN)).toBeNull();
   });
 });

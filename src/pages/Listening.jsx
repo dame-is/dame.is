@@ -1,13 +1,16 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useReducedMotion } from 'motion/react';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import ListeningStats from '../components/ListeningStats.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
+import FeedMore from '../components/FeedMore.jsx';
+import QueryNote from '../components/QueryNote.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useFeedWindow } from '../hooks/useFeedWindow.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
@@ -20,6 +23,10 @@ import { listTealPlays, playArtistNames, playTrackName, playedAtOf } from '../li
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
+// New arrivals cascade in 60ms apart, up to this many steps, as on the home
+// feed.
+const ARRIVAL_STAGGER_STEPS = 8;
+
 export default function Listening() {
   const [params] = useSearchParams();
   const q = params.get('q') || '';
@@ -31,6 +38,10 @@ export default function Listening() {
   const { items, status, refreshedAt, newKeys } = useLiveFeed({
     name: 'listening',
     strategy: 'live-first',
+    // Coming back here (Back from a record, say) redraws the last list at once
+    // and refreshes behind it, so the page and its scroll position return on
+    // the first frame rather than after a skeleton.
+    remember: 'listening',
     // Refresh on the shared 30s tick like the home feed. getRev skips the
     // (up to ten-page) listRecords fan-out whenever the repo hasn't advanced.
     live: true,
@@ -42,7 +53,7 @@ export default function Listening() {
     // move to production lexicons and has to keep reading as one history.
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      return listTealPlays(pds, { repo: ME_DID, max: 1000 });
+      return listTealPlays(pds, { repo: ME_DID, max: 1000, reuse: true });
     },
     mapItems: toListeningItems,
   });
@@ -54,7 +65,7 @@ export default function Listening() {
   // the ledger rows).
   const ledger = layout === 'ledger' && !editActive;
   const loading = status === 'loading';
-  const safeItems = items || [];
+  const safeItems = useMemo(() => items || [], [items]);
   // Stats reflect all listening (minus any owner-removed plays), independent
   // of the feed's text search below.
   const statsItems = useMemo(
@@ -84,7 +95,12 @@ export default function Listening() {
     );
     return collapseListens(sorted);
   }, [filtered]);
-  const groups = useMemo(() => groupByDay(sessions, (i) => i.createdAt), [sessions]);
+  const feedWindow = useFeedWindow(sessions, q);
+  const { visible } = feedWindow;
+  const groups = useMemo(
+    () => groupByDay(visible, (i) => i.createdAt),
+    [visible],
+  );
 
   // Top-down stagger order among the new arrivals currently on screen.
   const arrivalIndex = useMemo(() => {
@@ -111,6 +127,7 @@ export default function Listening() {
       selectable
     >
       {!loading && statsItems.length > 0 && <ListeningStats items={statsItems} />}
+      <QueryNote noun="plays" />
       {loading ? (
         <FeedSkeleton rows={6} label="Loading plays" />
       ) : status === 'error' ? (
@@ -130,36 +147,36 @@ export default function Listening() {
                   meta={listeningDayMeta(group.items)}
                 />
                 <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
-                  <AnimatePresence initial={false}>
-                    {group.items.map((item) => {
-                      const uri = item.atUri;
-                      const isNew = uri ? newKeys.has(uri) : false;
-                      const stagger = isNew ? (arrivalIndex.get(uri) ?? 0) * 0.06 : 0;
-                      return (
-                        <motion.li
-                          key={uri}
-                          layout
-                          initial={isNew && !reduce ? { opacity: 0, y: -24 } : false}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{
-                            duration: reduce ? 0 : 0.45,
-                            ease: [0.22, 0.61, 0.36, 1],
-                            delay: reduce ? 0 : stagger,
-                          }}
-                        >
-                          <FeedItem
-                            item={item}
-                            showVerb={false}
-                            layout={ledger ? 'ledger' : 'cards'}
-                          />
-                        </motion.li>
-                      );
-                    })}
-                  </AnimatePresence>
+                  {group.items.map((item) => {
+                    // FeedItem is the list item itself, and memoized, as on the
+                    // home feed: no wrapping <li> (a list item inside a list
+                    // item), and no layout animation measuring every row's box
+                    // on each refresh — just the slide-in a new arrival plays
+                    // once, on mount.
+                    const uri = item.atUri;
+                    const isNew = !reduce && uri ? newKeys.has(uri) : false;
+                    const step = isNew
+                      ? Math.min(
+                          arrivalIndex.get(uri) ?? 0,
+                          ARRIVAL_STAGGER_STEPS,
+                        )
+                      : 0;
+                    return (
+                      <FeedItem
+                        key={uri}
+                        item={item}
+                        showVerb={false}
+                        layout={ledger ? 'ledger' : 'cards'}
+                        arriving={isNew}
+                        arrivalDelay={step * 0.06}
+                      />
+                    );
+                  })}
                 </ul>
               </li>
             ))}
           </ol>
+          <FeedMore {...feedWindow} />
         </div>
       )}
       {!loading && refreshedAt && (

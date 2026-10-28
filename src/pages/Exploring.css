@@ -34,9 +34,12 @@
 }
 .exploring-search-button svg { display: block; }
 
-/* Error hint */
+/* Error hint. The gap does the spacing, so the global `p + p` indent (meant
+   for running prose) mustn't push the hint in under the error. */
 .exploring-error { display: flex; flex-direction: column; gap: var(--space-2); }
+.exploring-error p { margin: 0; text-indent: 0; }
 .exploring-hint { color: var(--ink-soft); font-size: var(--text-sm); }
+.exploring-error-block .exploring-raw-details { margin-top: var(--space-1); }
 
 /* Breadcrumb ----------------------------------------------------------- */
 
@@ -148,7 +151,9 @@
   width: 1ch;
   color: var(--ink-soft);
 }
-.exploring-group-prefix { flex: 1; }
+/* min-width lets the prefix shrink inside the header row instead of pushing
+   it wider than a small phone; BreakableId supplies the segment breaks. */
+.exploring-group-prefix { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .exploring-group-count {
   font-variant: all-small-caps;
   letter-spacing: 0.18em;
@@ -168,11 +173,13 @@
 .exploring-collection-row:last-child { border-bottom: 0; }
 .exploring-collection-link {
   display: block;
+  min-width: 0;
   padding: var(--space-2) var(--space-3) var(--space-2) var(--space-6);
   font-family: var(--mono-ui, var(--mono));
   font-size: var(--text-sm);
   color: var(--ink);
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 .exploring-collection-link:hover { color: var(--accent); background: var(--rule-soft, transparent); }
 
@@ -274,7 +281,9 @@
   border: 1px solid var(--rule);
   border-radius: var(--radius-2);
   background: var(--page);
-  font-family: var(--mono-ui, var(--mono));
+  /* Raw data, where alignment carries meaning: --code stays monospace in every
+     font mode, unlike the serif-voiced --mono-ui the chrome around it uses. */
+  font-family: var(--code);
   font-size: var(--text-xs);
   white-space: pre-wrap;
   word-break: break-word;

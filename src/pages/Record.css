@@ -1,7 +1,7 @@
 /* Generic record-page fallback. Used when a verb has no specialized
    layout (e.g. liking, following, feeding, …) — renders a resolved
-   subject preview, the action row, and a raw JSON dump. The JSON box
-   reuses the .debug-overlay-json styling so the look matches the
+   subject preview and a raw JSON dump with its copy buttons. The JSON
+   box reuses the .debug-overlay-json styling so the look matches the
    atmosphere debug overlay. */
 
 .record-fallback {
@@ -31,10 +31,18 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.record-fallback-actions a:hover,
-.record-fallback-actions button:hover {
+.record-fallback-actions a:focus-visible,
+.record-fallback-actions button:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .record-fallback-actions a:hover,
+  .record-fallback-actions button:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+  }
 }
 
 /* aturi.to hand-off links under a record (Open in… / Inspect Data). */
@@ -66,8 +74,7 @@
   transition: color 120ms ease, text-decoration-color 120ms ease;
 }
 
-.record-aturi-actions a:hover,
-.record-aturi-actions button:hover,
+.record-aturi-actions a:focus-visible,
 .record-aturi-actions button:focus-visible {
   color: var(--accent);
   text-decoration-color: var(--accent-soft);
@@ -75,6 +82,14 @@
 
 .record-aturi-actions button[aria-pressed='true'] {
   color: var(--accent);
+}
+
+@media (hover: hover) {
+  .record-aturi-actions a:hover,
+  .record-aturi-actions button:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+  }
 }
 
 .record-fallback-json {
@@ -90,11 +105,17 @@
   user-select: none;
 }
 
+.record-fallback-json .record-fallback-actions {
+  margin-top: var(--space-2);
+}
+
 .record-fallback-pre {
   margin: var(--space-2) 0 0;
   max-height: 60vh;
   overflow: auto;
-  font-family: var(--mono-ui, ui-monospace, monospace);
+  /* Raw data: --code stays monospace in every font mode (theme.css), so the
+     JSON lines up the way the explorer's does. */
+  font-family: var(--code);
   font-size: var(--text-xs);
   line-height: 1.5;
   white-space: pre;

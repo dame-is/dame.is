@@ -4,6 +4,7 @@ import { ArrowUpRight } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Lightbox from '../components/Lightbox.jsx';
+import { Skeleton } from '../components/Skeleton.jsx';
 import { useProfile } from '../hooks/useProfile.js';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, getRecord, listRecordsPage } from '../lib/atproto.js';
@@ -18,6 +19,7 @@ import { pageDefault } from '../lib/pageRegistry.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useNavRoutes } from '../hooks/useNavRoutes.js';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import { safeHref } from '../lib/safeHref.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './About.css';
 
@@ -36,7 +38,7 @@ import './About.css';
  * the original plain markdown, still rendered when no blocks exist.
  */
 export default function About() {
-  const { profile } = useProfile();
+  const { profile, status: profileStatus } = useProfile();
   const { items: extended } = useLiveFeed({
     name: 'extendedProfile',
     strategy: 'snapshot-first',
@@ -58,7 +60,17 @@ export default function About() {
   });
 
   const v = extended?.value || {};
-  const { tagline, links = [] } = v;
+  const { tagline } = v;
+  // Record data, so guarded the way every other record href on the site is:
+  // only http(s)/mailto/at links survive, and a malformed `links` (null, an
+  // object) reads as none rather than throwing the page into the error screen.
+  const links = useMemo(
+    () =>
+      (Array.isArray(v.links) ? v.links : [])
+        .map((l) => ({ ...l, href: safeHref(l?.url) }))
+        .filter((l) => l.href),
+    [v.links],
+  );
 
   // Absent reads as true: the flags exist to take things AWAY, so a record that
   // has never heard of them must not hide anything.
@@ -74,6 +86,10 @@ export default function About() {
   const blockBody = hasLeafletContent(v.content) ? v.content : null;
   const longHtml = !blockBody && v.body ? renderMarkdown(v.body, v.bodyFormat || 'markdown') : '';
 
+  // Until the Bluesky profile lands (snapshot or live), the card holds its
+  // shape instead of painting a stand-in name: "dame.is" flipping to "dame"
+  // with an avatar arriving beside it moved the whole card on every cold visit.
+  const identityPending = !profile && (profileStatus === 'idle' || profileStatus === 'loading');
   const avatar = showAvatar ? profile?.avatar : null;
   const displayName = profile?.displayName || profile?.handle || 'dame.is';
   const blueskyBio = showBlueskyBio ? profile?.description : null;
@@ -86,34 +102,55 @@ export default function About() {
   return (
     <PageShell
       headTitle="dame.is themself"
-      atUri={`at://${ME_DID}/is.dame.profile/self`}
+      // Named only once the record turns up: is.dame.profile/self is written
+      // when the owner gets to it, and until then this page claimed a record
+      // that wasn't there — in its <head>, its footer and its edit button —
+      // where the edge (middleware.js) had already stopped claiming it.
+      atUri={extended?.uri || undefined}
+      cid={extended?.cid || undefined}
     >
       {hasCard && (
-        <section className="about-card">
-          {avatar && (
+        <section className="about-card" aria-busy={identityPending || undefined}>
+          {/* The page's one above-the-fold image, so not lazy. */}
+          {avatar ? (
             <img
               className="about-avatar"
               src={avatar}
               alt={profile?.displayName || 'Avatar'}
-              loading="lazy"
+              width={112}
+              height={112}
             />
+          ) : (
+            showAvatar &&
+            identityPending && <Skeleton block className="about-avatar" width="7rem" height="7rem" />
           )}
           <div className="about-meta">
-            {showIdentity && (
-              <>
-                <h1 className="about-name">{displayName}</h1>
-                <p className="about-handle">
-                  <a
-                    href={`https://bsky.app/profile/${profile?.handle || 'dame.is'}`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                  >
-                    @{profile?.handle || 'dame.is'}
-                    <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden="true" />
-                  </a>
-                </p>
-              </>
-            )}
+            {showIdentity &&
+              (identityPending ? (
+                <>
+                  <Skeleton
+                    block
+                    className="about-name"
+                    width="9rem"
+                    height="calc(var(--text-3xl) * 1.1)"
+                  />
+                  <Skeleton block className="about-handle" width="7rem" height="1.5em" />
+                </>
+              ) : (
+                <>
+                  <h1 className="about-name">{displayName}</h1>
+                  <p className="about-handle">
+                    <a
+                      href={`https://bsky.app/profile/${profile?.handle || 'dame.is'}`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      @{profile?.handle || 'dame.is'}
+                      <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden="true" />
+                    </a>
+                  </p>
+                </>
+              ))}
             {tagline &&
               (taglineIsHeading ? (
                 <h1 className="about-tagline about-tagline-heading">{tagline}</h1>
@@ -125,7 +162,7 @@ export default function About() {
               <ul className="about-links">
                 {links.map((l, i) => (
                   <li key={l.url || i}>
-                    <a href={l.url} target="_blank" rel="noreferrer noopener">
+                    <a href={l.href} target="_blank" rel="noreferrer noopener">
                       {l.label || l.url}
                     </a>
                   </li>

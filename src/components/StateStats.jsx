@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { Heart, Flame, Volume2, Activity, PersonStanding, Footprints, Bike, Car, Armchair } from 'lucide-react';
+import { Heart, Activity, PersonStanding, Footprints, Bike, Car, Armchair } from 'lucide-react';
+import { Skeleton } from './Skeleton.jsx';
+import { readStorage } from '../lib/storageGuard.js';
 import { activityLabel } from '../lib/activity.js';
+import { computeStats } from '../lib/stateStats.js';
 import './StateStats.css';
 
 /**
@@ -25,24 +28,53 @@ const ACTIVITY_ICON = {
   automotive: Car,
 };
 
-export default function StateStats({ samples }) {
+// How many activity rows the 24-hour dashboard last drew, kept for the tab's
+// session. Stacked on a phone, that list sets the dashboard's height, and it
+// runs from one row to five with the day. A reload or a Back to /logging puts
+// the reader's scroll position back (scrollMemory.js, session-scoped the same
+// way) while this history is still loading, so a skeleton with any other
+// number of rows moved everything under that restored position when the
+// numbers landed — 66px, for the fixed three it used to draw against a one-row
+// day. Two, the commonest day, before anything has loaded. A day with more
+// kinds than the skeleton has bars draws all of its bars, the nearest it can.
+const ACTIVITY_ROWS_KEY = 'dame.stateActivityRows';
+
+function rememberedActivityRows() {
+  const n = Number(readStorage(ACTIVITY_ROWS_KEY, 'sessionStorage'));
+  return Number.isInteger(n) && n >= 1 ? Math.min(n, SKELETON_BARS.length) : 2;
+}
+
+export default function StateStats({ samples, loading = false }) {
   const [hours, setHours] = useState(24);
   const stats = useMemo(() => computeStats(samples, hours), [samples, hours]);
 
-  // Nothing yet — let the feed's own skeleton carry the wait.
+  useEffect(() => {
+    if (hours !== 24 || stats.activity.length === 0) return;
+    try {
+      sessionStorage.setItem(ACTIVITY_ROWS_KEY, String(stats.activity.length));
+    } catch {
+      /* no storage — the next skeleton guesses */
+    }
+  }, [hours, stats]);
+
+  // While the history loads, hold the dashboard's box rather than nothing: it
+  // sits above the feed, and appearing a beat after first paint pushed the
+  // feed's skeleton most of a screen down (the page's worst layout shift).
+  if (loading) {
+    return <StateStatsSkeleton activityRows={rememberedActivityRows()} />;
+  }
   if (!samples || samples.length === 0) return null;
 
   return (
     <section className="state-stats" aria-label="State statistics">
       <div className="state-stats-head">
         <h2 className="state-stats-title">Recent state</h2>
-        <div className="state-stats-toggle" role="tablist" aria-label="Time window">
+        <div className="state-stats-toggle" role="group" aria-label="Time window">
           {WINDOWS.map((w) => (
             <button
               key={w.hours}
               type="button"
-              role="tab"
-              aria-selected={hours === w.hours}
+              aria-pressed={hours === w.hours}
               className={`state-stats-tab ${hours === w.hours ? 'is-active' : ''}`}
               onClick={() => setHours(w.hours)}
             >
@@ -83,6 +115,74 @@ export default function StateStats({ samples }) {
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+// The skeleton's bar lengths, longest first, as many as there can be rows.
+const SKELETON_BARS = [0.7, 0.45, 0.25, 0.15, 0.08];
+
+/**
+ * The dashboard's outline while the history loads: the same head, tiles and
+ * panels at the same sizes, so nothing below moves when the numbers land.
+ */
+function StateStatsSkeleton({ activityRows }) {
+  return (
+    <section className="state-stats" aria-label="State statistics" aria-busy="true">
+      <div className="state-stats-head">
+        <h2 className="state-stats-title">Recent state</h2>
+        <div className="state-stats-toggle" aria-hidden="true">
+          {WINDOWS.map((w, i) => (
+            <span key={w.hours} className={`state-stats-tab ${i === 0 ? 'is-active' : ''}`}>
+              {w.label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="state-stats-tiles">
+        {['avg bpm', 'peak bpm', 'cal today', 'avg dB', 'readings'].map((unit) => (
+          <div key={unit} className="state-tile">
+            <span className="state-tile-value">—</span>
+            <span className="state-tile-unit">{unit}</span>
+          </div>
+        ))}
+      </div>
+      <div className="state-stats-panels">
+        <div className="state-panel state-panel-chart">
+          <h3 className="state-panel-title">
+            <Heart className="state-panel-glyph" size={13} strokeWidth={1.9} aria-hidden="true" />
+            Heart rate
+          </h3>
+          <div className="state-chart">
+            <Skeleton block height={CHART_H} />
+            <div className="state-chart-xaxis" aria-hidden="true">
+              <span>&nbsp;</span>
+            </div>
+          </div>
+        </div>
+        <div className="state-panel state-panel-activity">
+          <h3 className="state-panel-title">
+            <Activity className="state-panel-glyph" size={13} strokeWidth={1.9} aria-hidden="true" />
+            Activity
+          </h3>
+          <ul className="state-bars" aria-hidden="true">
+            {SKELETON_BARS.slice(0, activityRows).map((w) => (
+              <li key={w} className="state-bar-row">
+                {/* The non-breaking space gives the row a line of label type,
+                    the height a real row's label sets. */}
+                <span className="state-bar-label">
+                  <Skeleton width="4.5rem" />
+                  &nbsp;
+                </span>
+                <span className="state-bar-track">
+                  <span className="state-bar-fill" style={{ width: `${w * 100}%`, opacity: 0.35 }} />
+                </span>
+                <span className="state-bar-pct">&nbsp;</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </section>
   );
 }
@@ -139,25 +239,31 @@ function useCountUp(target, ms = 600) {
 
 const CHART_H = 168;
 const PAD = { l: 8, r: 10, t: 16, b: 8 };
+// Roughly half the hover tip's width ("79 bpm Mon 10:00 AM"): a point closer
+// than this to an edge of the plot gets a tip that hangs inward.
+const TIP_EDGE = 80;
 
 function HeartRateChart({ series, t0, t1 }) {
-  const plotRef = useRef(null);
+  // A callback ref (held in state) rather than a ref object, so the measuring
+  // below re-attaches whenever the plot mounts. The plot isn't there on a
+  // first render that takes the "no readings" branch, and with a one-shot
+  // effect switching to a window that has readings drew an empty box.
+  const [plot, setPlot] = useState(null);
   const [w, setW] = useState(0);
   const [hover, setHover] = useState(null); // index into series
 
   // Draw in real pixels (measured width, fixed height) so uniform scaling
   // keeps dots circular — a stretched viewBox would deform them.
   useLayoutEffect(() => {
-    const el = plotRef.current;
-    if (!el) return undefined;
-    const measure = () => setW(el.clientWidth || 0);
+    if (!plot) return undefined;
+    const measure = () => setW(plot.clientWidth || 0);
     measure();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    if (ro) ro.observe(el);
+    if (ro) ro.observe(plot);
     return () => {
       if (ro) ro.disconnect();
     };
-  }, []);
+  }, [plot]);
 
   if (!series || series.length === 0) {
     return <p className="state-chart-empty">No heart-rate readings in this window.</p>;
@@ -190,8 +296,8 @@ function HeartRateChart({ series, t0, t1 }) {
   const single = pts.length === 1;
 
   function onMove(e) {
-    if (!ready || !plotRef.current) return;
-    const rect = plotRef.current.getBoundingClientRect();
+    if (!ready || !plot) return;
+    const rect = plot.getBoundingClientRect();
     const px = e.clientX - rect.left;
     let best = 0;
     let bestD = Infinity;
@@ -206,10 +312,14 @@ function HeartRateChart({ series, t0, t1 }) {
   }
 
   const hp = hover != null && pts[hover] ? pts[hover] : null;
+  // The tip is centred on its point, except near either edge, where it hangs
+  // inward instead: centred on the newest reading — the one most worth
+  // checking — half of it ran past the plot and widened the page on a phone.
+  const tipAnchor = hp ? (hp.cx > w - TIP_EDGE ? 'end' : hp.cx < TIP_EDGE ? 'start' : 'mid') : null;
 
   return (
     <div className="state-chart">
-      <div className="state-chart-plot" ref={plotRef} style={{ height: H }}>
+      <div className="state-chart-plot" ref={setPlot} style={{ height: H }}>
         {ready && (
           <svg
             className="state-chart-svg"
@@ -219,6 +329,7 @@ function HeartRateChart({ series, t0, t1 }) {
             role="img"
             aria-label={`Heart rate over time: ${series.length} readings, low ${dataMin}, average ${avg}, high ${dataMax} bpm`}
             onPointerMove={onMove}
+            onPointerDown={onMove}
             onPointerLeave={() => setHover(null)}
           >
             {ticks.map((v) => (
@@ -254,7 +365,7 @@ function HeartRateChart({ series, t0, t1 }) {
         )}
 
         {hp && (
-          <div className="state-chart-tip" style={{ left: hp.cx, top: hp.cy }}>
+          <div className={`state-chart-tip is-${tipAnchor}`} style={{ left: hp.cx, top: hp.cy }}>
             <strong>{hp.v}</strong> bpm
             <span className="state-chart-tip-time">{clockLabel(hp.t)}</span>
           </div>
@@ -297,43 +408,6 @@ function ActivityBars({ rows }) {
       })}
     </ul>
   );
-}
-
-/* ------------------------------------------------------------------ */
-/* Aggregation                                                         */
-/* ------------------------------------------------------------------ */
-
-function computeStats(samples, hours) {
-  const t1 = Date.now();
-  const t0 = t1 - hours * 3600 * 1000;
-  const win = (samples || []).filter((s) => s.t >= t0 && s.t <= t1);
-
-  const hr = win.map((s) => s.heartRate).filter((n) => n != null);
-  const db = win.map((s) => s.soundLevel).filter((n) => n != null);
-  const avgHr = hr.length ? Math.round(hr.reduce((a, b) => a + b, 0) / hr.length) : null;
-  const peakHr = hr.length ? Math.max(...hr) : null;
-  const avgDb = db.length ? Math.round(db.reduce((a, b) => a + b, 0) / db.length) : null;
-
-  // Calories reset daily; the latest reading is "today so far".
-  let calLatest = null;
-  for (let i = win.length - 1; i >= 0; i--) {
-    if (win[i].caloriesBurned != null) {
-      calLatest = win[i].caloriesBurned;
-      break;
-    }
-  }
-
-  // Activity distribution (share of samples in each state).
-  const actMap = new Map();
-  for (const s of win) if (s.activity) actMap.set(s.activity, (actMap.get(s.activity) || 0) + 1);
-  const actTotal = Array.from(actMap.values()).reduce((a, b) => a + b, 0);
-  const activity = Array.from(actMap.entries())
-    .map(([activity, count]) => ({ activity, count, pct: actTotal ? count / actTotal : 0 }))
-    .sort((a, b) => b.count - a.count);
-
-  const hrSeries = win.filter((s) => s.heartRate != null).map((s) => ({ t: s.t, v: s.heartRate }));
-
-  return { count: win.length, avgHr, peakHr, avgDb, calLatest, activity, hrSeries, t0, t1 };
 }
 
 function t0Label(spanMs) {

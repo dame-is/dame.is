@@ -179,6 +179,34 @@ describe('a DM pass in agent mode', () => {
     expect(generate).toHaveBeenCalledTimes(1);
   });
 
+  it('lets a menu lapse thirty minutes after it was offered, however recently a post was remembered', async () => {
+    // Offered forty minutes ago; the row was touched since by a block+post.
+    db.dm_choice.push({
+      convo_id: 'convo1',
+      options: [
+        {
+          label: 'Help',
+          command: 'help',
+          offered_at: new Date(Date.now() - 40 * 60_000).toISOString(),
+        },
+      ],
+      created_at: new Date().toISOString(),
+    });
+    const generate = vi.fn(async () => ({ text: 'ok', steps: [] }));
+    const { chat } = chatWith('1');
+    await runDmPass({
+      chat,
+      writeAgent: { session: { did: BOT } },
+      getIo: async () => io,
+      botDid: BOT,
+      roster,
+      generate,
+      mode: 'agent',
+      model: 'test/model',
+    });
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
   it('says what it had already done when the turn fails', async () => {
     const { chat, sent } = chatWith('do the thing');
     const generate = vi.fn(async () => {

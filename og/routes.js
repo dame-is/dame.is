@@ -120,10 +120,10 @@ export function isStaticPath(pathname) {
  *
  * Vercel applies those redirects before middleware, so in practice none of
  * these reach the code below. Listing them anyway is the cheap insurance: if
- * that order ever changes, the alternative is middleware 404ing twenty-one
- * live redirects, because a legacy path like /blog is deliberately absent from
- * the route table above. A `*` suffix matches the path and anything under it,
- * standing in for vercel.json's `:path*`.
+ * that order ever changes, the alternative is middleware 404ing every one of
+ * these live redirects, because a legacy path like /blog is deliberately
+ * absent from the route table above. A `*` suffix matches the path and
+ * anything under it, standing in for vercel.json's `:path*`.
  */
 export const REDIRECT_SOURCES = [
   '/index',
@@ -144,6 +144,9 @@ export const REDIRECT_SOURCES = [
   '/guestbook',
   '/patrons',
   '/ethos',
+  // The roster's old address. The SPA still has a <Navigate> for it, but a
+  // crawler never runs that, and was indexing a duplicate of the home page.
+  '/participants',
   '/skeet-tools',
   '/ratingalttext',
   '/flushing',

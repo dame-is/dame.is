@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
@@ -7,6 +7,8 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useNavRoutes } from '../hooks/useNavRoutes.js';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
+import { useScrollLock } from '../hooks/useScrollLock.js';
 import SignInPanel from './SignInPanel.jsx';
 import RouteList from './RouteList.jsx';
 import { SHEET_SLIDE } from './BottomSheet.jsx';
@@ -57,6 +59,8 @@ export default function ActionDock() {
   // Keep a touch-drag on the open sheet from scrolling the concealed page
   // behind it (the route list often fits without overflowing).
   usePreventScrollChain(panelRef, open);
+  // …and a wheel or PageDown over it, which that hook doesn't see.
+  useScrollLock(open);
   // Focus into the dock on open, trap Tab within it, restore focus on close.
   // Escape stays owned by the handler below (it pops the sub-view first).
   useFocusTrap(panelRef, { active: open });
@@ -65,19 +69,11 @@ export default function ActionDock() {
   // .dock-panel-view-account in ActionDock.css.
 
   // Esc pops the sub-view first; only closes the dock once we're back
-  // at the root menu. The Modal's built-in Esc handler is disabled
-  // (closeOnEscape={false}) so this handler owns the key.
-  // Scrim clicks still go through Modal.onClose → full dock close.
-  useEffect(() => {
-    if (!open) return undefined;
-    function onKey(e) {
-      if (e.key !== 'Escape') return;
-      if (view !== 'menu') setView('menu');
-      else closeDock();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, view, closeDock]);
+  // at the root menu — and only while the dock is the top overlay.
+  useEscapeLayer(open, () => {
+    if (view !== 'menu') setView('menu');
+    else closeDock();
+  });
 
   if (typeof document === 'undefined') return null;
 

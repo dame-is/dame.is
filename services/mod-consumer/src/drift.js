@@ -21,8 +21,10 @@ import { ME_DID } from '../../../src/config.js';
 import { createScorer } from '../../../src/lib/moderation/score.js';
 import { loadReference } from '../../../api/_lib/reference.js';
 import { listUri } from '../../../api/_lib/listWrite.js';
+import { latestAudit } from '../../../api/_lib/queue.js';
 import { select, selectAll, upsert } from '../../../api/_lib/modDb.js';
 import { chunkForDm } from '../../../src/lib/moderation/agent.js';
+import { adminUrl, ownLinkFacets } from '../../../src/lib/moderation/links.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 
@@ -62,16 +64,19 @@ async function listMembers(agent) {
   return [...new Set(subjects)];
 }
 
-/** The band each account had at the last audit. */
+/**
+ * The band each account had at the last audit.
+ *
+ * The last one that FINISHED and scored something, of this list: the same
+ * question the hub's queue asks, answered by the same function. Runs that
+ * scored nothing are skipped (one shadowed a real queue of 495 for hours), and
+ * so are runs that never finished. A run writes its row before it scores
+ * anything, so one killed partway -- an OOM restart on this box, an AppView
+ * error -- used to become the baseline, and the next brief called thousands of
+ * accounts "added since the last audit".
+ */
 async function previousBands() {
-  const audits = await select('audit', {
-    select: 'id,started_at,total',
-    order: 'started_at.desc',
-    limit: 5,
-  });
-  // Skip runs that scored nothing. One of those shadowed a real queue of 495
-  // for hours because everything keyed off "latest".
-  const last = (audits || []).find((a) => a.total > 0);
+  const last = await latestAudit();
   if (!last) return { auditId: null, bands: new Map() };
   const items = await selectAll('audit_item', {
     select: 'did,band',
@@ -211,7 +216,8 @@ export function renderBrief({ scored, drifted, gone, added }) {
       '',
     );
   }
-  lines.push('Open the Audit tab to work through them.');
+  // The queue, linked. This used to name an "Audit" tab the hub no longer has.
+  lines.push(`Work through them: ${adminUrl({ tab: 'queue' })}`);
   return lines.join('\n');
 }
 
@@ -245,9 +251,11 @@ export async function maybeRunDrift(agent, chat, convoId) {
 
   if (body && chat && convoId) {
     for (const chunk of chunkForDm(body)) {
+      // Facets for the hub link only; ownLinkFacets matches nothing else.
+      const facets = ownLinkFacets(chunk);
       await chat.chat.bsky.convo.sendMessage({
         convoId,
-        message: { text: chunk },
+        message: facets.length ? { text: chunk, facets } : { text: chunk },
       });
     }
   }

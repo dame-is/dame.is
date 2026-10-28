@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
@@ -30,8 +30,12 @@ const TICKS = [
  * Distinct from the admin SkyThemeStudio's own hour bar: that one carries
  * the prev/next row + "X/24 tuned" meta and drives a live tuning preview;
  * this one is for non-admin exploration.
+ *
+ * Memoised, because the bottom bar that renders this re-renders as the page
+ * scrolls. The sheet only renders its children while it's open, so closed,
+ * none of the ribbon's work runs.
  */
-export default function SkyHourSheet() {
+function SkyHourSheet() {
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'sky';
   const { skyHour, setSkyHour, skyOverridden } = useTheme();
@@ -110,7 +114,7 @@ export default function SkyHourSheet() {
       <div className="sky-hour-sheet-arc-row">
         <button
           type="button"
-          className="sky-hour-sheet-step"
+          className="sky-hour-sheet-step sky-hour-sheet-step-prev"
           onClick={() => setSkyHour((skyHour + 23) % 24)}
           aria-label="Previous hour"
           title="Previous hour"
@@ -159,7 +163,7 @@ export default function SkyHourSheet() {
         </div>
         <button
           type="button"
-          className="sky-hour-sheet-step"
+          className="sky-hour-sheet-step sky-hour-sheet-step-next"
           onClick={() => setSkyHour((skyHour + 1) % 24)}
           aria-label="Next hour"
           title="Next hour"
@@ -170,3 +174,5 @@ export default function SkyHourSheet() {
     </BottomSheet>
   );
 }
+
+export default memo(SkyHourSheet);

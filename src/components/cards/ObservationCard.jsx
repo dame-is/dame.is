@@ -4,9 +4,9 @@
  * (`is.dame.observing.observation`) verbs, which store the identical shape
  * and differ only by taxonomy. The record is mirrored from iNaturalist and
  * carries no location — a thumbnail, the taxon name (common + scientific),
- * and a link out to the iNaturalist observation. The feed row's own timestamp
- * shows when it was observed (the record's `createdAt` is derived from the
- * observation date).
+ * and a link out to the iNaturalist observation. When it was observed is
+ * FeedItem's to show: the wall-clock time it was logged at, on the verb line
+ * (the ledger's time column, in that layout).
  *
  * A RUN of observations — a night at the light logs dozens — arrives here
  * already collapsed into one item carrying `count` + `observations` (see

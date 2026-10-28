@@ -4,6 +4,7 @@ import { rkeyFromAtUri, explorerPathFromAtUri } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import { usePaper } from '../hooks/usePaper.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import ReferenceCard from './ReferenceCard.jsx';
@@ -68,19 +69,12 @@ export function postCardShowsStandaloneTime({ payload, createdAt, variant = 'tim
   return Boolean(!text && !showOriginalAuthor && ts && variant !== 'record');
 }
 
-export default function PostCard({
-  verb,
-  payload,
-  createdAt,
-  atUri,
-  source,
-  subject,
-  variant = 'timeline',
-  suppressReplyBadge = false,
-}) {
+export default function PostCard(props) {
+  const { verb, payload, createdAt, atUri, source, subject } = props;
   // An Anisota repost is a plain reference (a pointer at another Anisota
   // post), not a hydrated Bluesky post — hand it to ReferenceCard, which
-  // already knows how to preview an arbitrary atproto subject.
+  // already knows how to preview an arbitrary atproto subject. The card body
+  // is its own component so this early return sits ahead of no hooks.
   if (source === 'anisota' && subject && verb === 'reposting') {
     return (
       <ReferenceCard
@@ -93,7 +87,18 @@ export default function PostCard({
       />
     );
   }
+  return <PostCardBody {...props} />;
+}
 
+function PostCardBody({
+  verb,
+  payload,
+  createdAt,
+  atUri,
+  source,
+  variant = 'timeline',
+  suppressReplyBadge = false,
+}) {
   const anisota = isAnisotaPost({ source, atUri });
   const text = payload?.text || '';
   const facets = payload?.facets || null;
@@ -190,7 +195,13 @@ export default function PostCard({
           )}
         </div>
       )}
-      {embed && <PostEmbed embed={embed} did={authorDid} />}
+      {embed && (
+        <PostEmbed
+          embed={embed}
+          did={authorDid}
+          postUri={payload?.subjectUri || atUri}
+        />
+      )}
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
         <footer className="post-card-stats">
           {payload?.replyCount ? `${payload.replyCount} ${payload.replyCount === 1 ? 'reply' : 'replies'}` : ''}
@@ -248,7 +259,7 @@ function OriginalAuthorHeader({ author, subjectUri, timestamp = null, timestampH
         {avatar && (
           <img
             className="post-card-author-avatar"
-            src={avatar}
+            src={avatarThumb(avatar)}
             alt=""
             loading="lazy"
             decoding="async"

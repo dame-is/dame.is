@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   albumCardCopy,
   albumIdentity,
+  albumIdentityResolver,
   albumPath,
   albumsFromSnapshot,
   albumSlug,
@@ -108,19 +109,21 @@ describe('albumSlug', () => {
 });
 
 describe('buildAlbums', () => {
+  // One listening session, a song after another. (Spread across days instead,
+  // a lone song replayed the next morning reads as an echo — see ghostPlays.)
   const plays = [
     play('1', { playedTime: '2026-03-04T10:00:00Z' }),
-    play('2', { trackName: 'Contact', playedTime: '2026-03-05T10:00:00Z', duration: 240 }),
-    play('3', { trackName: 'Contact', playedTime: '2026-03-06T10:00:00Z', duration: 240 }),
+    play('2', { trackName: 'Contact', playedTime: '2026-03-04T10:05:00Z', duration: 240 }),
+    play('3', { trackName: 'Contact', playedTime: '2026-03-04T10:09:00Z', duration: 240 }),
     play('4', {
       releaseName: 'In Rainbows',
       trackName: 'Nude',
       artists: [{ artistName: 'Radiohead' }],
-      playedTime: '2026-03-07T10:00:00Z',
+      playedTime: '2026-03-04T10:13:00Z',
       duration: 255,
     }),
     // No release: a single, and no album of its own.
-    play('5', { releaseName: undefined, trackName: 'Untitled', playedTime: '2026-03-08T10:00:00Z' }),
+    play('5', { releaseName: undefined, trackName: 'Untitled', playedTime: '2026-03-04T10:18:00Z' }),
   ];
 
   it('groups plays into albums, most played first', () => {
@@ -142,7 +145,7 @@ describe('buildAlbums', () => {
   it('records the span of an album and the play that closed it', () => {
     const [raven] = buildAlbums(plays);
     expect(raven.firstPlayed).toBe('2026-03-04T10:00:00Z');
-    expect(raven.lastPlayed).toBe('2026-03-06T10:00:00Z');
+    expect(raven.lastPlayed).toBe('2026-03-04T10:09:00Z');
     expect(raven.lastUri).toBe(`at://${DID}/${PROD}/3`);
     expect(raven.seconds).toBe(300 + 240 + 240);
   });
@@ -174,8 +177,66 @@ describe('buildAlbums', () => {
   it('prefers the play with the strongest identifier as the art sample', () => {
     // The cover is looked up from one play, and an ISRC resolves exactly where
     // a track-and-artist search only guesses.
-    const albums = buildAlbums([play('1'), play('2', { isrc: 'USRC17607839' })]);
+    const albums = buildAlbums([
+      play('1'),
+      play('2', { isrc: 'USRC17607839', playedTime: '2026-03-04T10:05:00Z' }),
+    ]);
     expect(albums[0].sample.isrc).toBe('USRC17607839');
+  });
+
+  it('leaves out the plays /listening leaves out', () => {
+    // The scrobbler logged the same 5-minute song twice, 30 seconds apart: one
+    // play, the same as the feed and its stats count it.
+    const albums = buildAlbums([
+      play('1', { playedTime: '2026-03-04T10:00:00Z' }),
+      play('2', { playedTime: '2026-03-04T10:00:30Z' }),
+      play('3', { trackName: 'Contact', playedTime: '2026-03-04T10:05:00Z' }),
+    ]);
+    expect(albums[0].plays).toBe(2);
+    expect(albums[0].trackList.map((t) => [t.name, t.plays])).toEqual([
+      ['Contact', 1],
+      ['Enough for Love', 1],
+    ]);
+  });
+
+  it('is one album however the title spells its apostrophe', () => {
+    const albums = buildAlbums([
+      play('1', { releaseName: 'Let’s Hope Heteros Fail', artists: [{ artistName: 'Alice Longyu Gao' }] }),
+      play('2', {
+        releaseName: "Let's Hope Heteros Fail",
+        artists: [{ artistName: 'Alice Longyu Gao' }],
+        trackName: 'Contact',
+      }),
+    ]);
+    expect(albums).toHaveLength(1);
+    expect(albums[0].plays).toBe(2);
+  });
+
+  it('counts a collaboration credit toward the lead artist’s album', () => {
+    const jaguar = (rkey, artistName, over = {}) =>
+      play(rkey, { releaseName: 'JAGUAR II', artists: [{ artistName }], ...over });
+    const albums = buildAlbums([
+      jaguar('1', 'Victoria Monét & USHER', { trackName: 'Party Girls' }),
+      jaguar('2', 'Victoria Monét & USHER', { trackName: 'Party Girls', playedTime: '2026-03-04T10:05:00Z' }),
+      jaguar('3', 'Victoria Monét', { trackName: 'On My Mama', playedTime: '2026-03-04T10:10:00Z' }),
+    ]);
+    expect(albums).toHaveLength(1);
+    expect(albums[0].artist).toBe('Victoria Monét');
+    expect(albums[0].plays).toBe(3);
+    expect(albums[0].slug).toBe('jaguar-ii-by-victoria-monet');
+    // A play still links to the album by its own credit, so that address
+    // keeps answering.
+    expect(albums[0].aliases).toEqual(['jaguar-ii-by-victoria-monet-and-usher']);
+    expect(findAlbum(albums, 'jaguar-ii-by-victoria-monet-and-usher')).toBe(albums[0]);
+    expect(findAlbum(albums, 'jaguar-ii-by-victoria-monet')).toBe(albums[0]);
+  });
+
+  it('leaves a duo alone when nobody credits half of it', () => {
+    const albums = buildAlbums([
+      play('1', { releaseName: 'Bookends', artists: [{ artistName: 'Simon & Garfunkel' }] }),
+    ]);
+    expect(albums[0].artist).toBe('Simon & Garfunkel');
+    expect(albums[0].aliases).toBeUndefined();
   });
 
   it('caps the track list where asked, without losing the count', () => {
@@ -223,14 +284,15 @@ describe('findAlbum', () => {
   });
 
   it('gives a folded slug to the most-played album that computes it', () => {
-    // Two albums CAN fold onto one address; the busier one wins, deterministically.
+    // Two albums CAN fold onto one address — a record actually titled "X by Y"
+    // is the obvious way; the busier one wins, deterministically.
     const collided = buildAlbums([
-      play('1', { releaseName: 'Rock & Roll', artists: [{ artistName: 'X' }] }),
-      play('2', { releaseName: 'Rock & Roll', artists: [{ artistName: 'X' }], trackName: 'B' }),
-      play('3', { releaseName: 'Rock and Roll', artists: [{ artistName: 'X' }] }),
+      play('1', { releaseName: 'Rock by X', artists: [] }),
+      play('2', { releaseName: 'Rock by X', artists: [], trackName: 'B' }),
+      play('3', { releaseName: 'Rock', artists: [{ artistName: 'X' }] }),
     ]);
     expect(collided).toHaveLength(2);
-    expect(findAlbum(collided, 'rock-and-roll-by-x').plays).toBe(2);
+    expect(findAlbum(collided, 'rock-by-x').plays).toBe(2);
   });
 
   it('resolves a snapshot album by its stored slug', () => {
@@ -276,7 +338,9 @@ describe('copy', () => {
     expect(title).toBe('Raven');
     expect(description).toContain('Raven by Kelela');
     expect(description).toContain('1 play');
-    expect(description).toContain('March 2026');
+    // An album is built from a window of plays, so its first play there isn't
+    // its first play here — the copy doesn't claim a history it can't know.
+    expect(description).not.toContain('since');
   });
 });
 
@@ -289,5 +353,23 @@ describe('albumPath', () => {
     expect(albumPath({ slug: 'stored-slug', title: 'Raven', artist: 'Kelela' })).toBe(
       '/listening/albums/stored-slug',
     );
+  });
+});
+
+describe('albumIdentityResolver', () => {
+  const id = (title, artist) =>
+    albumIdentity({ releaseName: title, artists: [{ artistName: artist }] });
+
+  it('settles a credit with several names on the shortest lead', () => {
+    const resolve = albumIdentityResolver([id('Milky Way', 'Bas & J. Cole'), id('Milky Way', 'Bas'), id('Milky Way', 'Bas & J. Cole & X')]);
+    expect(resolve(id('Milky Way', 'Bas & J. Cole & X')).artist).toBe('Bas');
+    expect(resolve(id('Milky Way', 'Bas & J. Cole')).artist).toBe('Bas');
+  });
+
+  it('only merges within one title, and only on a join', () => {
+    const resolve = albumIdentityResolver([id('Home', 'Bastille'), id('Home', 'Bas'), id('Other', 'Bas & J. Cole')]);
+    expect(resolve(id('Home', 'Bastille')).artist).toBe('Bastille');
+    expect(resolve(id('Other', 'Bas & J. Cole')).artist).toBe('Bas & J. Cole');
+    expect(resolve(null)).toBeNull();
   });
 });

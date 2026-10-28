@@ -45,6 +45,8 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { resolveSurface, surfaceByKey } from './surfaces.js';
 import { invalidateCounts } from './useAdminData.js';
+import { navigationTarget } from '../lib/leaveGuard.js';
+import { holdReload } from '../lib/reloadHold.js';
 
 /**
  * The stacked (drill-down) breakpoint. Deliberately catches tablets: between
@@ -411,6 +413,16 @@ export function useShellState({ agent, did }) {
   const setParamsRef = useRef(setSearchParams);
   setParamsRef.current = setSearchParams;
   const dirtyRef = useRef(CLEAN);
+  // Whether the unsaved-changes duplicate entry (the popstate guard, below) is
+  // the one the owner is standing on. Declared up here because `go` has to step
+  // off it before a replace.
+  const sentinelRef = useRef(false);
+  // TRUE for the rest of the task in which the owner has just answered "discard"
+  // to a link click (the leave guard, below). That click then reaches the link's
+  // own handler — the rail, a list row, the top bar — which asks through `go` or
+  // `confirmLeave` in turn, and the same question twice for one press is how a
+  // confirm gets dismissed without being read.
+  const discardAckRef = useRef(false);
 
   /**
    * The shell's only navigation primitive. MERGE-ONLY: a key you do not mention
@@ -423,7 +435,7 @@ export function useShellState({ agent, did }) {
    * guard exists today, so the owner sees one sentence rather than two.
    */
   const go = useCallback((patch, { replace = false, force = false } = {}) => {
-    if (!force && !confirmDiscard(dirtyRef)) return;
+    if (!force && !discardAckRef.current && !confirmDiscard(dirtyRef)) return;
     const next = new URLSearchParams(paramsRef.current);
     for (const [key, value] of Object.entries(patch || {})) {
       if (value == null) next.delete(key);
@@ -436,6 +448,22 @@ export function useShellState({ agent, did }) {
     // a second Back press later to get past an entry that renders the same screen
     // twice.
     const onSentinel = typeof window !== 'undefined' && !!window.history.state?.wbGuard;
+    if (onSentinel && replace) {
+      // A REPLACE asked for from the sentinel means the entry beneath it: "Create"
+      // replaces the `mode=new` draft with the record it made, so Back returns to
+      // the list. Replacing the sentinel instead left that draft underneath, and
+      // the first Back after every create reopened an empty "New" form. So step
+      // down onto the real entry first — with the guard told this Back is ours —
+      // and replace that once the browser has arrived there.
+      sentinelRef.current = false;
+      const onArrived = () => {
+        window.removeEventListener('popstate', onArrived);
+        setParamsRef.current(next, { replace: true });
+      };
+      window.addEventListener('popstate', onArrived);
+      window.history.back();
+      return;
+    }
     setParamsRef.current(next, { replace: replace || onSentinel });
   }, []);
 
@@ -448,7 +476,10 @@ export function useShellState({ agent, did }) {
    * Ref-backed and identity-stable for the same reason as `go`: it is read from
    * link handlers that would otherwise be rebuilt on every keystroke.
    */
-  const confirmLeave = useCallback(() => confirmDiscard(dirtyRef), []);
+  const confirmLeave = useCallback(
+    () => discardAckRef.current || confirmDiscard(dirtyRef),
+    [],
+  );
 
   /* --- what the active pane is doing ------------------------------------ */
 
@@ -601,7 +632,6 @@ export function useShellState({ agent, did }) {
   // `idx` bookkeeping is untouched and the location does not change. The first
   // Back lands on that duplicate, which is where we ask the question. Answer no
   // and we push the duplicate back; answer yes and we hand the Back through.
-  const sentinelRef = useRef(false);
   useEffect(() => {
     if (!dirty.dirty || typeof window === 'undefined') return undefined;
 
@@ -643,11 +673,42 @@ export function useShellState({ agent, did }) {
       return '';
     };
 
+    // Links nobody guards. On a phone the admin wears the SITE's chrome — the
+    // wordmark, the Home button beside Save, the breadcrumb, the compass dock —
+    // and those are plain router links that must not import a line of the admin
+    // (ChromeBar.jsx says so), so a tap on any of them left a dirty record
+    // without a word while the browser's Back on the same screen asked. Asked
+    // here instead, in the capture phase, before any link's own handler: one
+    // listener covers every link on the page, admin or not. A link that runs its
+    // own guard is not asked twice — `discardAckRef` carries the answer through
+    // to it — and a declined click is stopped before it reaches the router.
+    const onClickCapture = (event) => {
+      const here = window.location;
+      const url = navigationTarget(event, here);
+      if (!url) return;
+      // The same address (a skip link, a hash) is not leaving at all.
+      if (url.pathname === here.pathname && url.search === here.search) return;
+      if (!dirtyRef.current.dirty) return;
+      if (!confirmDiscard(dirtyRef)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      discardAckRef.current = true;
+      // A macrotask, not a microtask: microtasks run between this listener and
+      // the router's, which is exactly where the acknowledgement has to survive.
+      setTimeout(() => {
+        discardAckRef.current = false;
+      }, 0);
+    };
+
     window.addEventListener('popstate', onPopState);
     window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('click', onClickCapture, true);
     return () => {
       window.removeEventListener('popstate', onPopState);
       window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('click', onClickCapture, true);
       // Saved without navigating: drop the duplicate, but ONLY while we are
       // still standing on it. After a navigation the duplicate is buried in the
       // stack and `back()` would undo the owner's own move.
@@ -658,6 +719,16 @@ export function useShellState({ agent, did }) {
       sentinelRef.current = false;
     };
   }, [dirty.dirty]);
+
+  // The deploy auto-updater's own safety test only sees what the DOM shows — a
+  // focused field, a textarea with text in it, an open dialog. A dirty record
+  // is not always any of those: a toggled switch, a reordered list or a picked
+  // image leaves nothing behind it can read, and a reload would discard the
+  // edit as surely as a Back press. So unsaved work holds reloads outright.
+  useEffect(
+    () => (dirty.dirty ? holdReload('admin-dirty') : undefined),
+    [dirty.dirty],
+  );
 
   /* --- an address that does not describe the screen ----------------------- */
 

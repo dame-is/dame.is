@@ -15,28 +15,47 @@
 // *when* in the observer's day, never *where* — see inaturalist.js.
 
 import { buildSessions, photoUrl } from './inaturalist.js';
+import { formatWallClockTime } from './time.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/**
+ * Is this 'YYYY-MM-DD' a day the calendar actually has? Checked by table, not
+ * Date(), for the same reason formatNightDate avoids it — and because Date()
+ * rolls '2026-02-31' over into March rather than refusing it.
+ */
+export function isCalendarDate(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
+  if (!m) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const day = Number(m[3]);
+  if (mo < 1 || mo > 12 || day < 1) return false;
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  return day <= (mo === 2 && leap ? 29 : DAYS_IN_MONTH[mo - 1]);
+}
 
 /**
  * Format a plain 'YYYY-MM-DD' date without touching Date() (no timezone math,
  * so a date can never shift across a day boundary — and never implies where).
+ * '' for anything that isn't a real date, so a hand-typed `/mothing/2026-13-45`
+ * falls back to its slug instead of reading "undefined 45, 2026".
  */
 export function formatNightDate(d) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
-  if (!m) return '';
-  const [, y, mo, day] = m;
+  if (!isCalendarDate(d)) return '';
+  const [y, mo, day] = String(d).split('-');
   return `${MONTHS[Number(mo) - 1]} ${Number(day)}, ${y}`;
 }
 
-/** Local 'HH:MM' → '8:47pm'. Wall-clock only; carries no location. */
+/**
+ * Local 'HH:MM' → '8:47 pm'. Wall-clock only; carries no location. The feed's
+ * own reading of an observation's time, so a night's hours on /mothing (and on
+ * its card) match the times the same moths carry in the home feed.
+ */
 export function formatObservedTime(hhmm) {
-  const m = /^(\d{2}):(\d{2})$/.exec(String(hhmm || ''));
-  if (!m) return '';
-  let h = Number(m[1]);
-  const ampm = h >= 12 ? 'pm' : 'am';
-  h = h % 12 || 12;
-  return `${h}:${m[2]}${ampm}`;
+  return formatWallClockTime(hhmm);
 }
 
 /** The name a moth is shown under — its common name, else the binomial. */
@@ -94,7 +113,7 @@ export function nightBeyondReach(observations, date) {
   return !latest || date >= latest;
 }
 
-/** '11:43pm – 1:47am', or a single time when a night holds only one, or ''. */
+/** '11:43 pm – 1:47 am', or a single time when a night holds only one, or ''. */
 export function nightSpan(session) {
   const first = formatObservedTime(session?.firstTime);
   if (!first) return '';
@@ -103,7 +122,7 @@ export function nightSpan(session) {
 }
 
 /**
- * ['35 moths', '31 species', '11:43pm – 1:47am'] — the night in three parts.
+ * ['35 moths', '31 species', '11:43 pm – 1:47 am'] — the night in three parts.
  * Pass `{ span: false }` where the line has to stay short: the ledger's day
  * header sets its summary on one line beside the date, and on a phone the
  * hours are what push it to two.

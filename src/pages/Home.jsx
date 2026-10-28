@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Shuffle, Signature, X } from 'lucide-react';
@@ -28,8 +28,21 @@ import { groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
 import { collapseObservations } from '../lib/observationBatches.js';
 import { markFirstSightings, mergeFirstSightings } from '../lib/firstSightings.js';
-import { resolvePds, getLatestCommit } from '../lib/atproto.js';
-import { buildUnifiedFeed } from '../lib/feedBuilder.js';
+import { resolvePds, getRepoRev } from '../lib/atproto.js';
+import {
+  buildUnifiedFeed,
+  localizeObservationInstants,
+} from '../lib/feedBuilder.js';
+import {
+  assignRowKeys,
+  carryOverFailedSources,
+  classifyBuild,
+  insertHorizonMarkers,
+  isHorizonMarker,
+  rebuildVerbs,
+  trimToHorizons,
+} from '../lib/homeFeed.js';
+import { verbsWithEverySourceIn } from '../lib/verbRegistry.js';
 import { createSubjectResolver } from '../lib/subjectResolver.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
@@ -37,7 +50,7 @@ import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
-import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import { useChromePanelActions } from '../hooks/useChromePanel.jsx';
 import { useFirstSightings } from '../hooks/useFirstSightings.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
@@ -50,18 +63,42 @@ const EMPTY_FEED = [];
 // First-paint cap per collection — matches AT Proto's per-request
 // listRecords ceiling, so each collection lands in a single round trip
 // with no extra pagination. Background polls keep the same cap; deeper
-// history isn't fetched — scrolling only reveals what's already in memory.
+// history isn't fetched — scrolling only reveals what's already in memory,
+// and each verb ends at a marker where its capped fetch ran out (see
+// trimToHorizons in lib/homeFeed.js).
 const INITIAL_FETCH_MAX = 100;
 // How many items the feed renders on first paint, and how many more each
-// auto-reveal adds as the reader nears the bottom. The step is kept well
-// taller than a viewport so one reveal pushes the scroll sentinel back out
-// of range — it re-fires on the next scroll, never in a runaway loop.
+// auto-reveal adds as the reader nears the bottom. Collapsing can make a
+// step much shorter than it sounds (a hundred plays may be four sessions),
+// so the scroll hook re-checks after every reveal rather than counting on
+// one step to push the sentinel out of range.
 const INITIAL_VISIBLE = 100;
 const LOAD_MORE_STEP = 100;
-// Snapshot is now a fallback only (shown when the live fetch errors).
-// Cap how much of it we render so an old, fat snapshot doesn't dominate
-// the page when the network is flaky.
-const SNAPSHOT_FALLBACK_MAX = 60;
+// A partial build (some sources failed) is retried on the next tick, but only
+// this many times in a row: a source that keeps failing shouldn't turn every
+// 30s tick into a full rebuild. Its rows are carried over meanwhile.
+const MAX_PARTIAL_RETRIES = 3;
+// The longest one refresh may hold the loop. Every request under it carries
+// its own 15s timeout, but a run is dozens of them, some in series, and a
+// browser without AbortSignal.timeout gets no timeouts at all — while a run is
+// in flight every tick stands down, so one that never settles would freeze the
+// feed and leave "Fetching latest activity…" up for the rest of the visit. Far
+// past any real build; the subject caches a slow run warms survive it, so the
+// retry after it is faster.
+const REFRESH_WATCHDOG_MS = 90_000;
+// New arrivals cascade in 60ms apart, up to this many steps — past that they
+// arrive together, the way the first-paint reveal stagger tops out.
+const ARRIVAL_STAGGER_STEPS = 8;
+// Pages a verb's older history lives on, for the marker where the home feed's
+// copy of it runs out.
+const VERB_PAGES = new Set([
+  'posting',
+  'logging',
+  'listening',
+  'blogging',
+  'creating',
+  'mothing',
+]);
 
 
 /**
@@ -88,14 +125,28 @@ const homeSubjectResolver = createSubjectResolver({
 // session: it backs both the instant first paint and the "estimated from
 // snapshot" chip counts for verbs we haven't fetched live. At most one
 // network round trip per page load; failures clear the memo so a later
-// mount can retry.
+// mount can retry. fetchSnapshot reports a miss by resolving null rather
+// than rejecting, so a null result is what clears it.
+//
+// The snapshot is built in UTC, where observation instants can't be put on
+// the viewer's clock (see localizeObservationInstants), so that happens
+// here, once, on copies — the memoized array is shared with the chip
+// estimates.
 let _unifiedSnapshotPromise = null;
 function loadUnifiedSnapshot() {
   if (!_unifiedSnapshotPromise) {
-    _unifiedSnapshotPromise = fetchSnapshot(FEED_CACHE_KEY).catch((err) => {
-      _unifiedSnapshotPromise = null;
-      throw err;
-    });
+    _unifiedSnapshotPromise = fetchSnapshot(FEED_CACHE_KEY)
+      .then((snap) => {
+        if (!Array.isArray(snap)) {
+          _unifiedSnapshotPromise = null;
+          return null;
+        }
+        return localizeObservationInstants(snap.map((item) => ({ ...item })));
+      })
+      .catch(() => {
+        _unifiedSnapshotPromise = null;
+        return null;
+      });
   }
   return _unifiedSnapshotPromise;
 }
@@ -114,6 +165,7 @@ function dayStatsLine(items) {
   let count = 0;
   let interactions = 0;
   for (const item of items || []) {
+    if (isHorizonMarker(item)) continue;
     count += item?.count || 1;
     if (item?.verb === 'posting') {
       const p = item.payload || {};
@@ -132,8 +184,12 @@ function dayStatsLine(items) {
  * reads "Fetching latest activity…"; once the live result lands it
  * cross-fades to that day's real engagement/stats. This keeps the signal
  * to a single quiet line under the date instead of a separate banner.
+ *
+ * A refresh that couldn't reach anything leaves the feed as it was and says
+ * so here (`stale`), the way the single-collection pages footnote theirs,
+ * rather than passing off what's on screen as current.
  */
-function DayActivityMeta({ checking, stats, reduce }) {
+function DayActivityMeta({ checking, stale, stats, reduce }) {
   const fade = {
     initial: reduce ? false : { opacity: 0 },
     animate: { opacity: 1 },
@@ -152,6 +208,16 @@ function DayActivityMeta({ checking, stats, reduce }) {
         >
           Fetching latest activity&hellip;
         </motion.span>
+      ) : stale ? (
+        <motion.span
+          key="stale"
+          className="feed-activity-stale"
+          role="status"
+          aria-live="polite"
+          {...fade}
+        >
+          {stale}
+        </motion.span>
       ) : (
         <motion.span key="stats" {...fade}>
           {stats}
@@ -161,6 +227,44 @@ function DayActivityMeta({ checking, stats, reduce }) {
   );
 }
 
+/**
+ * The row where a verb's copy in the home feed runs out (see
+ * insertHorizonMarkers). Verbs with a page of their own point at it.
+ */
+function HorizonNote({ verb }) {
+  return (
+    <li className="feed-horizon gutter">
+      {VERB_PAGES.has(verb) ? (
+        <>
+          Earlier <Link to={`/${verb}`}>{verb}</Link> continues on its own page
+        </>
+      ) : (
+        <>Earlier {verb} isn&rsquo;t loaded here</>
+      )}
+    </li>
+  );
+}
+
+/**
+ * The hero's guestbook button, split out so the chrome-panel actions it reads
+ * stay off the page and its whole feed. They never change, so a sheet opening
+ * or closing re-renders nothing here either.
+ */
+const GuestbookButton = memo(function GuestbookButton() {
+  const { openPanel } = useChromePanelActions();
+  return (
+    <button
+      type="button"
+      className="home-hero-cta-btn home-hero-guestbook-btn"
+      onClick={() => openPanel('guestbook')}
+      aria-label="Sign the guestbook"
+      title="Sign the guestbook"
+    >
+      <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
+    </button>
+  );
+});
+
 
 /**
  * The home ledger. With `verb`, it's that verb's generated index instead
@@ -169,7 +273,7 @@ function DayActivityMeta({ checking, stats, reduce }) {
  * saying what's filtered and a way back to everything.
  */
 export default function Home({ verb: presetVerb = null } = {}) {
-  const [rawParams] = useSearchParams();
+  const [rawParams, setParams] = useSearchParams();
   // A preset verb stands in for `?verbs=` until the visitor picks their own.
   const params = useMemo(() => {
     if (!presetVerb || rawParams.has('verbs')) return rawParams;
@@ -203,6 +307,14 @@ export default function Home({ verb: presetVerb = null } = {}) {
   // with no skeleton flash.
   const initialCache = readFeedCache(FEED_CACHE_KEY);
   const [feed, setFeed] = useState(initialCache ? initialCache.items : null);
+  // Latest-value ref so a partial rebuild can carry over the rows it
+  // couldn't fetch from whatever is on screen.
+  const feedRef = useRef(feed);
+  feedRef.current = feed;
+  // Where each verb's capped fetch ran out (see buildUnifiedFeed). Only a
+  // live build knows; the snapshot is a short prefix of a deeper build and
+  // has none to report.
+  const [horizons, setHorizons] = useState(initialCache?.horizons || null);
   const [loadedAt, setLoadedAt] = useState(
     initialCache && initialCache.loadedAt ? new Date(initialCache.loadedAt) : null,
   );
@@ -262,74 +374,108 @@ export default function Home({ verb: presetVerb = null } = {}) {
   const inflightRef = useRef(null);
   // The repo head (getLatestCommit `rev`) as of our last *successful* live
   // build. The shared 30s tick reads it to skip the ~45-request rebuild when
-  // the repo hasn't advanced. Null until the first live build lands.
-  const lastRevRef = useRef(null);
+  // the repo hasn't advanced. Seeded from the in-memory cache, which records
+  // the rev it was built at, so coming back to Home within the TTL doesn't
+  // cost a full rebuild on the first tick. Null until a live build lands, and
+  // cleared again by a failed one so the next tick retries.
+  const lastRevRef = useRef(initialCache?.rev || null);
+  // Partial builds in a row (see MAX_PARTIAL_RETRIES).
+  const partialRetriesRef = useRef(0);
 
   // HeroSentence registers its imperative shuffle handle here so the
   // shuffle button in the hero CTA row can advance both rotators
   // without owning the hero's state.
   const shuffleRef = useRef(null);
 
-  // Opens the shared guestbook sign sheet (bottom chrome) from the
-  // guestbook button in the hero CTA row.
-  const { openPanel } = useChromePanel();
-
   const runRefresh = useCallback(async ({ force = true } = {}) => {
     if (inflightRef.current) return inflightRef.current;
 
-    const token = { cancelled: false };
+    // Snapshot the verb set for this run so the cache + coverage record
+    // it accurately even if the active filter changes mid-flight. It's what
+    // the feed already holds plus what the filter wants (rebuildVerbs), and
+    // it rides on the token so a filter change can tell whether this run
+    // will already answer it.
+    const verbs = rebuildVerbs(liveVerbsRef.current, fetchVerbsRef.current);
+    const token = { cancelled: false, verbs };
     inflightRef.current = token;
 
-    // Snapshot the verb set for this run so the cache + coverage record
-    // it accurately even if the active filter changes mid-flight.
-    const verbs = Array.from(fetchVerbsRef.current);
+    // Every way out of this run goes through `finish`, exactly once: it frees
+    // the slot for the next tick and, once the run has started the chrome's
+    // refresh pulse, stops it. The watchdog is one more way out — it abandons
+    // the run the way a cancel does, and the run's own later `finish` is then
+    // a no-op, so the pulse's shared counter can't be decremented twice.
+    let refreshing = false;
+    let settled = false;
+    let watchdog = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      if (inflightRef.current === token) inflightRef.current = null;
+      if (refreshing) endRefresh();
+    };
+    watchdog = setTimeout(() => {
+      // A run something else already abandoned (a filter change that started
+      // a newer one, or leaving the page) only owes the slot and the pulse:
+      // the feed, its note and the rev now belong to whatever replaced it.
+      if (!token.cancelled) {
+        token.cancelled = true;
+        // Rebuild on the next tick whatever the probe says, as after a failure.
+        lastRevRef.current = null;
+        if (refreshing && feedSourceRef.current !== 'none')
+          setRefreshState('stale');
+      }
+      finish();
+    }, REFRESH_WATCHDOG_MS);
 
-    // Cheap change-detection before the expensive rebuild. Resolve the PDS
-    // (PLC-cached) and read the repo head — a single request — up front. On a
-    // routine background tick (force=false) we skip the whole ~45-request
-    // fan-out when the repo hasn't advanced since our last live build and the
-    // feed we're already showing covers the active verbs. Manual/initial and
-    // filter-change refreshes pass force=true and always rebuild.
-    let pds = null;
+    // Cheap change-detection before the expensive rebuild: read the repo head
+    // — a single request — up front. On a routine background tick (force=false)
+    // we skip the whole ~45-request fan-out when the repo hasn't advanced since
+    // our last live build and the feed we're already showing covers the active
+    // verbs. Manual/initial and filter-change refreshes pass force=true and
+    // always rebuild. getRepoRev shares one getLatestCommit with the chrome's
+    // live readers, which ask the same question on the same tick.
     let rev = null;
     try {
-      pds = await resolvePds(ME_DID);
-      const commit = await getLatestCommit(pds, ME_DID);
-      rev = commit?.rev || null;
+      rev = await getRepoRev(ME_DID);
     } catch {
       // A failed probe must never wedge the loop — fall through to a full
       // rebuild (which surfaces its own error / snapshot fallback).
     }
 
     if (token.cancelled) {
-      if (inflightRef.current === token) inflightRef.current = null;
+      finish();
       return null;
     }
 
+    // A cache hydrate counts as live here: it was a live build, and its rev
+    // is what seeded lastRevRef.
     const canSkip =
       !force &&
       rev &&
       rev === lastRevRef.current &&
-      feedSourceRef.current === 'live' &&
+      (feedSourceRef.current === 'live' || feedSourceRef.current === 'cache') &&
       verbsCovered(liveVerbsRef.current, fetchVerbsRef.current);
     if (canSkip) {
       // Nothing changed since the last live build — no rebuild, no UI churn.
-      if (inflightRef.current === token) inflightRef.current = null;
+      feedSourceRef.current = 'live';
+      finish();
       return null;
     }
 
     setRefreshState('refreshing');
     beginRefresh();
+    refreshing = true;
 
     // Strategy: live wins. The static snapshot is painted instantly on
     // first load by a separate effect (see below); here we fetch the
-    // live feed and, once it resolves, replace whatever's showing. The
-    // snapshot is also the error fallback if the live fetch fails.
-    let live = null;
-    let liveError = null;
+    // live feed and, once it resolves, replace whatever's showing — unless
+    // the build couldn't reach anything (see below).
+    let result = null;
+    let buildError = null;
     try {
-      if (!pds) pds = await resolvePds(ME_DID);
-      const result = await buildUnifiedFeed({
+      const pds = await resolvePds(ME_DID);
+      result = await buildUnifiedFeed({
         pds,
         me: ME_DID,
         options: {
@@ -346,64 +492,108 @@ export default function Home({ verb: presetVerb = null } = {}) {
           liveObservations: true,
         },
       });
-      live = Array.isArray(result?.unified) ? result.unified : null;
     } catch (err) {
-      liveError = err;
+      buildError = err;
       console.warn('[home] live refresh failed', err);
     }
 
     if (token.cancelled) {
-      if (inflightRef.current === token) inflightRef.current = null;
-      endRefresh();
+      finish();
       return null;
     }
 
-    let nextFeed = null;
-    let nextRefreshState = 'ready';
+    // buildUnifiedFeed swallows per-source errors, so with the network down it
+    // resolves an empty feed just like an empty repo would; its `failures`
+    // tally is what tells the two apart.
+    const outcome =
+      buildError || !Array.isArray(result?.unified)
+        ? 'failed'
+        : classifyBuild(result.failures);
 
-    if (live) {
-      nextFeed = live;
-    } else {
-      // Live failed — fall back to the snapshot, capped so a fat old
-      // snapshot doesn't dwarf the user's actual "Load more" history.
-      const seed = await loadUnifiedSnapshot().catch(() => null);
-      if (token.cancelled) {
-        if (inflightRef.current === token) inflightRef.current = null;
-        endRefresh();
+    if (outcome === 'failed') {
+      // Nothing came back. A feed already on screen stays exactly as it is —
+      // replacing it with less would be worse than showing it a little old —
+      // and the next tick rebuilds whatever the probe says. Verb coverage,
+      // the cache and the rev only ever come from a build that worked.
+      lastRevRef.current = null;
+      if (feedSourceRef.current !== 'none') {
+        setRefreshState('stale');
+        finish();
         return null;
       }
-      if (Array.isArray(seed)) {
-        nextFeed = seed.slice(0, SNAPSHOT_FALLBACK_MAX);
-        nextRefreshState = liveError ? 'stale' : 'ready';
-      } else {
-        nextFeed = [];
-        nextRefreshState = liveError ? 'error' : 'ready';
+      // Nothing on screen yet, so the snapshot is the best there is.
+      const seed = await loadUnifiedSnapshot();
+      if (token.cancelled) {
+        finish();
+        return null;
       }
+      if (Array.isArray(seed) && feedSourceRef.current === 'none') {
+        feedSourceRef.current = 'snapshot';
+        for (const item of seed) {
+          if (item?.atUri) seenUrisRef.current.add(item.atUri);
+        }
+        setFeed(seed);
+        setLoadedAt((cur) => cur || new Date());
+        setRefreshState('stale');
+      } else if (feedSourceRef.current === 'none') {
+        setFeed([]);
+        setRefreshState('error');
+      } else {
+        setRefreshState('stale');
+      }
+      finish();
+      return null;
     }
 
+    // Some sources failed: keep their rows from what's on screen.
+    const nextFeed =
+      outcome === 'partial'
+        ? carryOverFailedSources(
+            feedRef.current,
+            result.unified,
+            result.failures.labels,
+          )
+        : result.unified;
+
     // Diff against what the user has already seen. New URIs animate in;
-    // everything else re-renders in place via Motion's `initial={false}`.
+    // everything else re-renders in place.
     const arrivals = new Set();
     for (const item of nextFeed) {
       const uri = item?.atUri;
       if (uri && !seenUrisRef.current.has(uri)) arrivals.add(uri);
     }
 
+    // The verbs this feed now holds. A partial build counts every verb it asked
+    // for except one it ADDED and got nothing for — every source that verb reads
+    // failed, and none of its rows were on screen to carry over. Counted in, its
+    // chip showed a live zero for records nobody had read; left out, the chip
+    // keeps the snapshot's estimate and the next tick asks again. Held anyway
+    // once the partial retries run out, the point at which the build's rev is
+    // trusted too, so a source that keeps failing can't make every tick a
+    // rebuild.
+    let held = verbs;
+    if (outcome === 'partial') {
+      partialRetriesRef.current += 1;
+      if (partialRetriesRef.current < MAX_PARTIAL_RETRIES) {
+        const had = new Set(liveVerbsRef.current);
+        const empty = new Set(
+          verbsWithEverySourceIn(
+            verbs.filter((v) => !had.has(v)),
+            result.failures.labels,
+          ),
+        );
+        if (empty.size) held = verbs.filter((v) => !empty.has(v));
+      }
+    }
+
     const now = new Date();
     feedSourceRef.current = 'live';
     setFeed(nextFeed);
+    setHorizons(result.horizons || null);
     setLoadedAt(now);
-    setRefreshState(nextRefreshState);
-    // Verb coverage, the repo rev, and the persisted cache are only
-    // established by a *successful* live fetch — a snapshot fallback or an
-    // empty error feed must never masquerade as fresh live data (otherwise
-    // isCacheFresh would later serve degraded content as a good live result,
-    // and the tick's rev short-circuit would trust a rev we never built at).
-    if (live) {
-      setLiveVerbs(verbs);
-      liveVerbsRef.current = verbs;
-      if (rev) lastRevRef.current = rev;
-    }
+    setRefreshState('ready');
+    setLiveVerbs(held);
+    liveVerbsRef.current = held;
     // Only flag arrivals on background refreshes — the very first load
     // (when seenUris is still empty) shouldn't slide every row in.
     if (seenUrisRef.current.size > 0 && arrivals.size > 0) {
@@ -411,17 +601,26 @@ export default function Home({ verb: presetVerb = null } = {}) {
     }
     for (const uri of arrivals) seenUrisRef.current.add(uri);
 
-    if (live) {
+    if (outcome === 'ok') {
+      partialRetriesRef.current = 0;
+      if (rev) lastRevRef.current = rev;
       writeFeedCache(FEED_CACHE_KEY, {
         items: nextFeed,
+        horizons: result.horizons || null,
         loadedAt: now.getTime(),
         fetchedAt: Date.now(),
         fetchedVerbs: verbs,
+        rev,
       });
+    } else {
+      // A partial build is never cached (a remount would hydrate it as a
+      // good one), and it's retried on the next tick a few times before
+      // its rev is trusted. (The retry count was bumped above.)
+      lastRevRef.current =
+        partialRetriesRef.current >= MAX_PARTIAL_RETRIES ? rev : null;
     }
 
-    if (inflightRef.current === token) inflightRef.current = null;
-    endRefresh();
+    finish();
     return nextFeed;
   }, []);
 
@@ -452,35 +651,54 @@ export default function Home({ verb: presetVerb = null } = {}) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Trigger a live refresh on mount and whenever the active verb set
-  // changes. Skips the fetch when the in-memory cache is still fresh AND
-  // already covers the requested verbs (e.g. narrowing the filter to a
-  // subset we've loaded → pure client-side filter, no round trip).
+  // changes. On mount, skip it when the in-memory cache is still fresh AND
+  // already covers the requested verbs. After that, a filter change only
+  // fetches when it asks for a verb the feed doesn't hold: narrowing, or
+  // widening back to verbs already loaded, is a pure client-side filter —
+  // the 30s tick is what keeps the held data current, whatever its age.
+  const verbEffectRanRef = useRef(false);
   useEffect(() => {
-    // A verb change invalidates any fetch still running for the previous
-    // set. Cancel it and clear the slot up front so the forced refresh below
-    // isn't swallowed by runRefresh's in-flight guard — otherwise the feed
-    // would stall on the old (now-cancelled) request until the next tick.
-    if (inflightRef.current) {
-      inflightRef.current.cancelled = true;
+    const wanted = fetchVerbsRef.current;
+    let needed;
+    if (!verbEffectRanRef.current) {
+      verbEffectRanRef.current = true;
+      const entry = readFeedCache(FEED_CACHE_KEY);
+      const fresh = isCacheFresh(FEED_CACHE_KEY, CACHE_TTL_MS);
+      needed = !entry || !fresh || !verbsCovered(entry.fetchedVerbs, wanted);
+    } else {
+      needed = !verbsCovered(liveVerbsRef.current, wanted);
+    }
+    if (!needed) return;
+    // A run already in flight for a set that covers this one will answer
+    // it. Anything else is cancelled and its slot cleared up front, so the
+    // refresh below isn't swallowed by runRefresh's in-flight guard —
+    // otherwise the feed would stall on the old (now-cancelled) request
+    // until the next tick.
+    const inflight = inflightRef.current;
+    if (inflight && !inflight.cancelled && verbsCovered(inflight.verbs, wanted))
+      return;
+    if (inflight) {
+      inflight.cancelled = true;
       inflightRef.current = null;
     }
-    const entry = readFeedCache(FEED_CACHE_KEY);
-    const fresh = isCacheFresh(FEED_CACHE_KEY, CACHE_TTL_MS);
-    const covered = entry && verbsCovered(entry.fetchedVerbs, fetchVerbsRef.current);
-    if (!entry || !fresh || !covered) {
-      runRefresh();
-    }
-    return () => {
-      if (inflightRef.current) inflightRef.current.cancelled = true;
-    };
-    // fetchVerbsKey re-runs this when the filter widens; fetchVerbsRef
+    runRefresh();
+    // fetchVerbsKey re-runs this when the filter changes; fetchVerbsRef
     // carries the current set into the closure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchVerbsKey, runRefresh]);
+
+  // Leaving the page abandons whatever is in flight. A remount is a mount
+  // again for the verb effect above (StrictMode's rehearsal unmount included:
+  // otherwise the run cancelled here would never be replaced).
+  useEffect(
+    () => () => {
+      if (inflightRef.current) inflightRef.current.cancelled = true;
+      verbEffectRanRef.current = false;
+    },
+    [],
+  );
 
   // Keep the feed alive on the shared 30s refresh tick — same cadence
   // as NowPlaying and NowStatus, so all the "live" surfaces update
@@ -520,6 +738,12 @@ export default function Home({ verb: presetVerb = null } = {}) {
   // sighting — by the time a row reaches one it may have been collapsed into
   // a run, and the run has to be able to count the firsts underneath it.
   const safeFeed = useMemo(() => markFirstSightings(rawFeed, firstIds), [rawFeed, firstIds]);
+  // Each verb cut where its capped fetch ran out (see trimToHorizons), before
+  // anything is counted or filtered, so the chips count what can be shown.
+  const shownFeed = useMemo(
+    () => trimToHorizons(safeFeed, horizons),
+    [safeFeed, horizons],
+  );
   // Show the "checking for recent activity" notice while we don't yet have
   // live-confirmed data for the active verbs — i.e. the very first load
   // (nothing rendered yet) or while a refresh is in flight for verbs the
@@ -536,7 +760,10 @@ export default function Home({ verb: presetVerb = null } = {}) {
   // from the displayed feed; verbs we haven't fetched live (e.g. liking on
   // the default view) fall back to a count estimated from the static
   // snapshot, flagged so the UI can mark it as approximate.
-  const liveCounts = useMemo(() => feedFilterCounts(safeFeed, ME_DID), [safeFeed]);
+  const liveCounts = useMemo(
+    () => feedFilterCounts(shownFeed, ME_DID),
+    [shownFeed],
+  );
   const snapshotCounts = useMemo(
     () => (snapshotFeed ? feedFilterCounts(snapshotFeed, ME_DID) : null),
     [snapshotFeed],
@@ -576,16 +803,24 @@ export default function Home({ verb: presetVerb = null } = {}) {
   const { layout } = useFeedLayout();
   const ledger = layout === 'ledger' && !editActive;
   const filtered = useMemo(() => {
-    const base = filterFeed(safeFeed, params, ME_DID);
+    const base = filterFeed(shownFeed, params, ME_DID);
     if (!removedUris || removedUris.size === 0) return base;
     return base.filter((item) => !removedUris.has(item.atUri));
-  }, [safeFeed, params, removedUris]);
+  }, [shownFeed, params, removedUris]);
+  // The filtered feed plus a marker row where each verb's copy runs out.
+  const timeline = useMemo(
+    () => insertHorizonMarkers(filtered, horizons),
+    [filtered, horizons],
+  );
   // Client-side pagination — the user only sees the first `visibleCount`
   // filtered items at a time. Slicing here (before threading / day
   // grouping) means thread chains never get split mid-conversation: each
   // visible window is a clean prefix of the filtered timeline.
-  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
-  const hasMore = filtered.length > visible.length;
+  const visible = useMemo(
+    () => timeline.slice(0, visibleCount),
+    [timeline, visibleCount],
+  );
+  const hasMore = timeline.length > visible.length;
 
   // Grow the visible window as the reader nears the bottom. The extra items
   // are already in memory, so this is an instant reveal rather than a fetch;
@@ -595,7 +830,10 @@ export default function Home({ verb: presetVerb = null } = {}) {
     () => setVisibleCount((n) => n + LOAD_MORE_STEP),
     [],
   );
-  const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore });
+  const sentinelRef = useInfiniteScroll(loadMore, {
+    enabled: hasMore,
+    version: visibleCount,
+  });
 
   // Photographed iNaturalist observations (mothing + observing) currently in
   // view, shaped for the in-feed image lightbox. Tapping an observation row
@@ -652,7 +890,16 @@ export default function Home({ verb: presetVerb = null } = {}) {
     // expanded while the owner is picking things out.
     return editActive ? listens : collapseObservations(listens);
   }, [visible, editActive]);
-  const threaded = useMemo(() => groupSelfReplyThreads(collapsed, ME_DID), [collapsed]);
+  // Stable row keys, so a session gaining a play updates in place instead of
+  // remounting under the reader (see assignRowKeys). The Map of member → key
+  // from the previous pass is what lets a batch keep its key.
+  const rowKeysRef = useRef(new Map());
+  const keyed = useMemo(() => {
+    const { rows, keys } = assignRowKeys(collapsed, rowKeysRef.current);
+    rowKeysRef.current = keys;
+    return rows;
+  }, [collapsed]);
+  const threaded = useMemo(() => groupSelfReplyThreads(keyed, ME_DID), [keyed]);
   const groups = useMemo(() => groupByDay(threaded, threadAwareDateKey), [threaded]);
 
   // Stagger delays among the new arrivals (top-down cascade).
@@ -669,6 +916,57 @@ export default function Home({ verb: presetVerb = null } = {}) {
     return map;
   }, [groups, newUris]);
 
+  // What an empty feed says depends on why it's empty: a refresh that
+  // reached nothing (on a cold load, or for a type the feed on screen never
+  // held), a filter with every type switched off, a search, or a filter that
+  // matches nothing — each with the one action that undoes it.
+  const unreachable =
+    refreshState === 'error' ||
+    (refreshState === 'stale' && !verbsCovered(liveVerbs, fetchVerbs));
+  const query = (params.get('q') || '').trim();
+  const resetFilters = useCallback(() => {
+    setParams(
+      (prev) => {
+        const out = new URLSearchParams(prev);
+        out.delete('verbs');
+        out.delete('replies');
+        return out;
+      },
+      { replace: true },
+    );
+  }, [setParams]);
+  let empty = null;
+  if (unreachable) {
+    empty = {
+      copy: 'Couldn’t reach the PDS just now.',
+      action: 'Try again',
+      onAction: () => runRefresh(),
+    };
+  } else if (activeVerbs.size === 0) {
+    empty = {
+      copy: 'No record types are selected.',
+      action: 'Show defaults',
+      onAction: resetFilters,
+    };
+  } else if (query) {
+    empty = { copy: 'No records match that search.' };
+  } else {
+    empty = {
+      copy: 'No records match these filters.',
+      action: 'Reset filters',
+      onAction: resetFilters,
+    };
+  }
+  // The snapshot is as old as the last deploy, so it gets no "as of" time:
+  // the moment it was painted would pass it off as fresher than it is.
+  let staleNote = null;
+  if (refreshState === 'stale') {
+    staleNote =
+      feedSourceRef.current === 'snapshot' || !loadedAt
+        ? 'live refresh failed · showing the saved snapshot'
+        : `live refresh failed · as of ${loadedAt.toLocaleTimeString()}`;
+  }
+
   // The home feed aggregates many records; it has no single is.dame.page/home
   // backing record (none exists, and it isn't in PAGE_REGISTRY), so PageShell
   // gets no `atUri`. Advertising that phantom record made the debug pane's
@@ -676,8 +974,8 @@ export default function Home({ verb: presetVerb = null } = {}) {
   // a dead <link rel="alternate"> hint. See pageRkeyForPath in
   // src/hooks/useAtUri.js.
   // The ledger itself, shared by the home page and the generated verb
-  // indexes. The cold-load skeleton, the held "new entries" note, the day
-  // groups and the photo lightbox all ride along.
+  // indexes. The cold-load skeleton, the day groups and the photo lightbox
+  // all ride along.
   const feedBody = (
     <>
         {/* One flex child holds the whole feed body (or the cold-load
@@ -689,7 +987,18 @@ export default function Home({ verb: presetVerb = null } = {}) {
             // in its place rather than below a status line.
             <FeedSkeleton rows={6} label="Fetching latest activity" ledger={ledger} />
           ) : filtered.length === 0 ? (
-            <p className="feed-empty">No records match these filters.</p>
+            <div className="feed-empty">
+              <p>{empty.copy}</p>
+              {empty.action && (
+                <button
+                  type="button"
+                  className="feed-load-more-btn"
+                  onClick={empty.onAction}
+                >
+                  {empty.action}
+                </button>
+              )}
+            </div>
           ) : (
             <ol className="feed-list reveal-stagger">
             {groups.map((group, gi) => (
@@ -701,6 +1010,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
                     gi === 0 ? (
                       <DayActivityMeta
                         checking={checking}
+                        stale={staleNote}
                         stats={dayStatsLine(group.items)}
                         reduce={reduce}
                       />
@@ -716,32 +1026,34 @@ export default function Home({ verb: presetVerb = null } = {}) {
                   className="feed-list"
                   style={ledger ? undefined : { marginTop: 'var(--space-3)' }}
                 >
-                  <AnimatePresence initial={false}>
-                    {group.items.map((item, i) => {
-                      const uri = item?.atUri;
-                      const isNew = uri ? newUris.has(uri) : false;
-                      const stagger = isNew ? (arrivalIndex.get(uri) ?? 0) * 0.06 : 0;
+                  {group.items.map((item, i) => {
+                    if (isHorizonMarker(item)) {
                       return (
-                        <motion.li
-                          key={uri || `fallback-${group.dateKey}-${i}`}
-                          layout
-                          initial={isNew && !reduce ? { opacity: 0, y: -24 } : false}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{
-                            duration: reduce ? 0 : 0.45,
-                            ease: [0.22, 0.61, 0.36, 1],
-                            delay: reduce ? 0 : stagger,
-                          }}
-                        >
-                          <FeedItem
-                            item={item}
-                            layout={ledger ? 'ledger' : 'cards'}
-                            onOpenLightbox={ledger ? openObservationLightbox : undefined}
-                          />
-                        </motion.li>
+                        <HorizonNote key={item.rowKey} verb={item.horizonVerb} />
                       );
-                    })}
-                  </AnimatePresence>
+                    }
+                    // FeedItem is the list item itself, and memoized: a row
+                    // re-renders only when its own item changes, not on every
+                    // reveal, refresh or sheet opening. Rows carry no layout
+                    // animation — measuring every row's box on each of those
+                    // commits was the feed's scroll jank — just the slide-in
+                    // a new arrival plays once, on mount.
+                    const uri = item?.atUri;
+                    const isNew = !reduce && uri ? newUris.has(uri) : false;
+                    const step = isNew
+                      ? Math.min(arrivalIndex.get(uri) ?? 0, ARRIVAL_STAGGER_STEPS)
+                      : 0;
+                    return (
+                      <FeedItem
+                        key={item.rowKey || uri || `fallback-${group.dateKey}-${i}`}
+                        item={item}
+                        layout={ledger ? 'ledger' : 'cards'}
+                        onOpenLightbox={ledger ? openObservationLightbox : undefined}
+                        arriving={isNew}
+                        arrivalDelay={step * 0.06}
+                      />
+                    );
+                  })}
                 </ul>
               </li>
             ))}
@@ -824,15 +1136,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
         <Link className="home-hero-cta-btn" to="/blogging">
           Blog
         </Link>
-        <button
-          type="button"
-          className="home-hero-cta-btn home-hero-guestbook-btn"
-          onClick={() => openPanel('guestbook')}
-          aria-label="Sign the guestbook"
-          title="Sign the guestbook"
-        >
-          <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
-        </button>
+        <GuestbookButton />
         <button
           type="button"
           className="home-hero-cta-btn home-hero-shuffle"

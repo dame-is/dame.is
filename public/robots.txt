@@ -3,6 +3,13 @@ Allow: /
 Disallow: /admin
 Disallow: /oauth-callback
 Disallow: /oauth/callback
+# The functions stay out of the index, except the three that every page points
+# crawlers at: the card images (/api/og), the favicon and the web manifest. A
+# card image blocked here is one X and LinkedIn show without its picture. Google
+# and X take the longest matching rule, so these win over the Disallow below.
+Allow: /api/og
+Allow: /api/favicon
+Allow: /api/manifest
 Disallow: /api/
 
 Sitemap: https://dame.is/sitemap.xml

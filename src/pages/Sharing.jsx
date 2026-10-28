@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import PageShell from '../components/PageShell.jsx';
 import { ProseSkeleton } from '../components/Skeleton.jsx';
 import NotFound from './NotFound.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { renderMarkdown } from '../lib/markdown.js';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
@@ -9,7 +11,12 @@ import '../components/Feed.css';
 export default function Sharing() {
   // Title / intro / body all resolve from `is.dame.page/sharing` when present,
   // falling back to the local defaults in the page registry.
-  const { title, intro, html, loading } = usePageContent('sharing');
+  const { title, intro, body, bodyFormat, loading, source } =
+    usePageContent('sharing');
+  const html = useMemo(
+    () => renderMarkdown(body, bodyFormat),
+    [body, bodyFormat],
+  );
   const { did } = useAtprotoSession();
   const isOwner = did === ME_DID;
 
@@ -30,11 +37,21 @@ export default function Sharing() {
         <ProseSkeleton paragraphs={4} />
       ) : html ? (
         <div className="blog-prose reveal" dangerouslySetInnerHTML={{ __html: html }} />
-      ) : (
+      ) : isOwner ? (
         <p className="feed-empty">
-          No <code>is.dame.page/sharing</code> record yet — write one and refresh. Only you can see
-          this note.
+          {source === 'pds' ? (
+            <>
+              <code>is.dame.page/sharing</code> has no body yet — add one and refresh.
+            </>
+          ) : (
+            <>
+              No <code>is.dame.page/sharing</code> record yet — write one and refresh.
+            </>
+          )}{' '}
+          Only you can see this note.
         </p>
+      ) : (
+        <p className="feed-empty">Nothing here yet.</p>
       )}
     </PageShell>
   );

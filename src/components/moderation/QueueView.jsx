@@ -222,8 +222,12 @@ export default function QueueView({ agent, onOpenAccount }) {
   const total = Object.values(counts).reduce((t, n) => t + (n || 0), 0);
   const matched = reason === 'all' ? total : counts[reason] || 0;
 
+  // Nothing left past what is shown: the server said so on the last page it
+  // sent, the first page or a later one.
+  const done = more.done || (!extra.length && page?.more === false);
+
   const loadMore = useCallback(async () => {
-    if (more.loading || more.done || !page) return;
+    if (more.loading || done || !page) return;
     if (items.length >= matched) {
       setMore((m) => ({ ...m, done: true }));
       return;
@@ -236,13 +240,19 @@ export default function QueueView({ agent, onOpenAccount }) {
         limit: PAGE,
       });
       setExtra((xs) => [...xs, ...next.items]);
-      setMore({ loading: false, done: !next.items.length, error: null });
+      // Done when the server says the queue ran out. An empty page is not
+      // that: every account on it may have left the list some other way.
+      setMore({
+        loading: false,
+        done: next.more === undefined ? !next.items.length : !next.more,
+        error: null,
+      });
     } catch (error) {
       setMore({ loading: false, done: false, error });
     }
-  }, [agent, reason, items.length, matched, more.loading, more.done, page]);
+  }, [agent, reason, items.length, matched, more.loading, done, page]);
 
-  const sentinel = useNearEnd(loadMore, Boolean(page) && !more.done);
+  const sentinel = useNearEnd(loadMore, Boolean(page) && !done);
 
   const decide = useCallback(
     async (item, decision) => {
@@ -418,7 +428,7 @@ export default function QueueView({ agent, onOpenAccount }) {
       {first.loading && <Skeleton rows={4} />}
       <ErrorNote error={first.error} onRetry={first.reload} />
 
-      {page && !items.length && !more.loading && (
+      {page && !items.length && !more.loading && (done || !page.more) && (
         <Empty
           title={
             reason === 'all'
@@ -452,11 +462,11 @@ export default function QueueView({ agent, onOpenAccount }) {
         </ol>
       )}
 
-      {items.length > 0 && (
+      {(items.length > 0 || (page?.more && !done)) && (
         <div className="mh-more" ref={sentinel}>
           <ErrorNote error={more.error} onRetry={loadMore} compact />
           {more.loading && <Skeleton rows={2} />}
-          {!more.loading && !more.done && items.length < matched && (
+          {!more.loading && !done && items.length < matched && (
             <button
               type="button"
               className="mh-button mh-button--quiet"
@@ -465,7 +475,7 @@ export default function QueueView({ agent, onOpenAccount }) {
               Show more ({fmt(matched - items.length)} left)
             </button>
           )}
-          {items.length >= matched && (
+          {(items.length >= matched || done) && (
             <p className="mh-small mh-muted">That is everyone in this view.</p>
           )}
         </div>

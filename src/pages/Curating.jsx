@@ -34,6 +34,10 @@ const COVER_WAIT = 12;
  * from the are.na API, and reuses the snapshot's cover so it costs one
  * request per channel (plus one page fetch for channels added since the
  * last build).
+ *
+ * are.na failing must never read as "no galleries": a channel whose refresh
+ * fails keeps its snapshot entry, and if every refresh fails the whole pass
+ * throws, so useLiveFeed leaves the snapshot on screen untouched.
  */
 async function loadGalleries() {
   const pds = await resolvePds(ME_DID);
@@ -47,16 +51,18 @@ async function loadGalleries() {
     .filter((g) => g.rkey && g.value.arenaSlug && g.value.enabled !== false)
     .sort((a, b) => (a.value.order ?? 0) - (b.value.order ?? 0));
 
-  const snap = await fetchSnapshot('curating')
+  const snapBySlug = await fetchSnapshot('curating')
     .then((s) => new Map((s?.galleries || []).map((g) => [g.slug, g])))
     .catch(() => new Map());
 
   const galleries = [];
+  let refreshed = 0;
   for (const g of enabled) {
+    const snap = snapBySlug.get(g.rkey) || null;
     try {
       const meta = await fetchChannelMeta(g.value.arenaSlug);
-      let cover = snap.get(g.rkey)?.cover || null;
-      let strip = snap.get(g.rkey)?.strip || null;
+      let cover = snap?.cover || null;
+      let strip = snap?.strip || null;
       if (!cover || !strip) {
         // No snapshot cover or strip yet — derive them from the first page,
         // honouring the author's chosen cover block when it happens to be on
@@ -77,11 +83,36 @@ async function loadGalleries() {
         order: g.value.order ?? 0,
         updatedAt: meta?.updated_at || null,
       });
+      refreshed += 1;
     } catch {
-      // A channel that fails live just keeps its snapshot presence (if any).
+      // A channel that fails live keeps its snapshot entry (if it has one),
+      // with the record's own fields — just read fresh — laid over it. Only
+      // channels still enabled get here, so one switched off since the build
+      // stays off.
+      if (snap) {
+        galleries.push({
+          ...snap,
+          title: g.value.title || snap.title,
+          description: g.value.description || snap.description,
+          order: g.value.order ?? 0,
+        });
+      }
     }
   }
+  if (enabled.length > 0 && refreshed === 0) {
+    throw new Error('are.na unreachable: no gallery refreshed');
+  }
   return { galleries };
+}
+
+// Which of a thumb's two sizes the row's <img> will actually fetch. It offers
+// `src2x` as a 2x srcset candidate, which browsers take on retina and phone
+// screens — so preloading `src` alone held the skeleton for images those
+// screens never show, and then downloaded every cover a second time.
+function coverForScreen(cover) {
+  if (!cover?.src) return null;
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  return dpr >= 1.5 && cover.src2x ? cover.src2x : cover.src;
 }
 
 export default function Curating() {
@@ -97,15 +128,23 @@ export default function Curating() {
   const [view, setView] = useSectionView('curating', 'plates');
   const ledger = view === 'index';
   const loading = status === 'loading';
-  const list = galleries || [];
+  const list = useMemo(() => galleries || [], [galleries]);
 
-  // Hold the skeleton until the first rows' gallery covers are ready, so
-  // the grid doesn't swap in with blank cells that pop as they download.
-  // Once revealed we stay revealed. The ledger shows no covers, so it needn't
-  // wait on them.
+  // Hold the skeleton until the first two rows' strips are ready, so the
+  // rows don't swap in with blank cells that pop as they download.
+  // Once revealed we stay revealed. The ledger shows no covers, so it neither
+  // waits on them nor downloads them.
   const coverUrls = useMemo(
-    () => list.slice(0, 2).flatMap(stripOf).map((b) => b.thumb?.src).filter(Boolean).slice(0, COVER_WAIT),
-    [list],
+    () =>
+      ledger
+        ? []
+        : list
+            .slice(0, 2)
+            .flatMap(stripOf)
+            .map((b) => coverForScreen(b.thumb))
+            .filter(Boolean)
+            .slice(0, COVER_WAIT),
+    [list, ledger],
   );
   const coversReady = useImagesReady(coverUrls);
   const [revealed, setRevealed] = useState(false);

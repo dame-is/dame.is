@@ -58,7 +58,7 @@ export default function ListeningAlbums() {
     },
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      return listTealPlays(pds, { repo: ME_DID, max: PLAY_MAX });
+      return listTealPlays(pds, { repo: ME_DID, max: PLAY_MAX, reuse: true });
     },
     mapItems: toAlbums,
     arrivalKey: (album) => album?.key,
@@ -76,14 +76,13 @@ export default function ListeningAlbums() {
   const shelf = useMemo(() => [...filtered].sort(sort), [filtered, sort]);
   const totals = useMemo(() => summarize(albums), [albums]);
 
-  // The pinned running head is the way up (/ listening / albums).
-  const backToListening = null;
-
+  // "Recent", not "every": the shelf is built from a window of the newest
+  // plays (PLAY_MAX per lexicon), not the whole archive, so a record last
+  // played before that window isn't on it.
   return (
     <PageShell
-      above={backToListening}
       title="Albums"
-      intro="Every record that has come round here, ranked by how often. teal.fm scrobbles songs, not albums — these are what the plays add up to."
+      intro="Every record from the recent play history, ranked by how often. teal.fm scrobbles songs, not albums — these are what the plays add up to."
       headTitle="dame.is listening — albums"
     >
       {status === 'loading' ? (
@@ -102,13 +101,12 @@ export default function ListeningAlbums() {
           </section>
 
           <div className="album-toolbar">
-            <div className="album-order" role="tablist" aria-label="Order">
+            <div className="album-order" role="group" aria-label="Order">
               {ORDERS.map((o) => (
                 <button
                   key={o.key}
                   type="button"
-                  role="tab"
-                  aria-selected={order === o.key}
+                  aria-pressed={order === o.key}
                   className={`album-order-tab ${order === o.key ? 'is-active' : ''}`}
                   onClick={() => setOrder(o.key)}
                 >

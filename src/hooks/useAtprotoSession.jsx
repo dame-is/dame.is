@@ -1,66 +1,109 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getOauthClient, getOauthEvents, scopeForAccount } from '../lib/oauthClient.js';
-import { OAUTH_CALLBACK_PATH } from '../config.js';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  OWNER_SCOPE,
+  getOauthClient,
+  getOauthEvents,
+  scopeForAccount,
+} from '../lib/oauthClient.js';
+import {
+  clearSessionHint as clearStoredHint,
+  readSessionHint,
+  restoresAtStartup,
+  writeSessionHint,
+} from '../lib/sessionHint.js';
+import { ME_DID, OAUTH_CALLBACK_PATH } from '../config.js';
 
 const Ctx = createContext(null);
 
-// Cheap, durable "a session may exist" hint. The OAuth stack is the single
-// heaviest thing in the bundle and only the owner + guestbook signers ever
-// need it, so anonymous visitors must not load or run it at startup. We set
-// this flag the moment a sign-in is initiated (before the redirect) and
-// confirm it once `init()` returns a real session; we clear it whenever the
-// session is deleted or `init()` finds none. On startup we only load the
-// client + call `init()` when this hint is set or we've landed on the OAuth
-// callback route — otherwise the whole tree stays unloaded.
-const SESSION_HINT_KEY = 'dame.oauth.session';
+// Cheap, durable "a session may exist" hint (src/lib/sessionHint.js). The
+// OAuth stack is the single heaviest thing in the bundle and only the owner +
+// guestbook signers ever need it, so anonymous visitors must not load or run
+// it at startup. We set the hint the moment a sign-in is initiated (before the
+// redirect) and confirm it once `init()` returns a real session; we clear it
+// whenever the session is deleted or `init()` finds none. The hint also says
+// whose session it is: the owner's is restored at startup, a guestbook
+// signer's only once a surface that can use it calls `restore()`.
 
-function hasSessionHint() {
+function storage() {
   try {
-    return localStorage.getItem(SESSION_HINT_KEY) === '1';
+    return typeof localStorage === 'undefined' ? null : localStorage;
   } catch {
-    return false;
+    return null;
   }
 }
 
-function setSessionHint() {
-  try {
-    localStorage.setItem(SESSION_HINT_KEY, '1');
-  } catch {}
+function setSessionHint(kind) {
+  writeSessionHint(storage(), kind);
 }
 
 function clearSessionHint() {
-  try {
-    localStorage.removeItem(SESSION_HINT_KEY);
-  } catch {}
+  clearStoredHint(storage());
+}
+
+function onCallbackPath() {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.pathname.startsWith(OAUTH_CALLBACK_PATH)
+  );
 }
 
 /**
  * Provides ATProto OAuth session state.
  *
- *   const { session, agent, did, signIn, signOut, loading, error } = useAtprotoSession();
+ *   const { session, agent, did, signIn, signOut, restore, loading, error } =
+ *     useAtprotoSession();
  *
  * `session` is an `OAuthSession` (or `null`). `agent` is an `@atproto/api` Agent
  * bound to that session, ready to use against the user's PDS.
+ *
+ * `restore()` asks for a guestbook signer's session, which (unlike the
+ * owner's) isn't restored at startup. Surfaces that act on it call it when
+ * they mount; it does nothing for a visitor with no session to restore, and
+ * nothing once a restore has run.
  */
 export function AtprotoSessionProvider({ children }) {
   const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Whether to load the OAuth client and restore now. Starts true only where
+  // the session is needed from the first render (see restoresAtStartup) and
+  // flips true, once, when a surface calls restore().
+  const [restoreWanted, setRestoreWanted] = useState(() =>
+    restoresAtStartup({
+      hint: readSessionHint(storage()),
+      onCallback: onCallbackPath(),
+    }),
+  );
+  const [loading, setLoading] = useState(restoreWanted);
+  const restoreRequested = useRef(restoreWanted);
+
+  const restore = useCallback(() => {
+    if (restoreRequested.current || !readSessionHint(storage())) return;
+    restoreRequested.current = true;
+    // `loading` flips in the same render as the request, so a surface that
+    // asks doesn't first draw its signed-out state for a frame.
+    setLoading(true);
+    setRestoreWanted(true);
+  }, []);
 
   useEffect(() => {
-    const onOauthCallback =
-      typeof window !== 'undefined' &&
-      window.location.pathname.startsWith(OAUTH_CALLBACK_PATH);
-
-    // Anonymous visitors: no known session and not completing a callback, so
-    // never load the OAuth stack. This is the site's biggest bundle win.
-    if (!onOauthCallback && !hasSessionHint()) {
+    // Anonymous visitors, and guest signers until a surface asks: never load
+    // the OAuth stack. This is the site's biggest bundle win.
+    if (!restoreWanted) {
       setLoading(false);
       return undefined;
     }
 
     let cancelled = false;
     let detachEvents = null;
+    setLoading(true);
 
     (async () => {
       let client;
@@ -88,7 +131,7 @@ export function AtprotoSessionProvider({ children }) {
         const result = await client.init();
         if (cancelled) return;
         if (result?.session) {
-          setSessionHint();
+          setSessionHint(result.session.sub === ME_DID ? 'owner' : 'guest');
           setSession(result.session);
         } else {
           // No live session (never signed in, or it was revoked/expired) —
@@ -106,7 +149,7 @@ export function AtprotoSessionProvider({ children }) {
       cancelled = true;
       if (detachEvents) detachEvents();
     };
-  }, []);
+  }, [restoreWanted]);
 
   const [agent, setAgent] = useState(null);
 
@@ -128,10 +171,12 @@ export function AtprotoSessionProvider({ children }) {
   const signIn = useCallback(async (input, opts = {}) => {
     const client = await getOauthClient();
     const { returnTo, intent, scope } = opts;
+    const grant = scope || scopeForAccount(input);
     // Optimistically mark that a session may exist so the post-redirect load
     // (and future visits, once init confirms it) runs the OAuth stack. init()
-    // clears this again if the flow doesn't actually yield a session.
-    setSessionHint();
+    // clears this again if the flow doesn't actually yield a session, and
+    // corrects the kind once it knows whose session it is.
+    setSessionHint(grant === OWNER_SCOPE ? 'owner' : 'guest');
     // Remember where the visitor was so the callback can send them back — e.g.
     // signing in from the guestbook sheet returns them to /welcoming. When the
     // sign-in was kicked off to sign the book, leave a one-shot flag so the
@@ -144,7 +189,7 @@ export function AtprotoSessionProvider({ children }) {
     // The owner gets the broad admin scope; everyone else gets a scope that can
     // only write their guestbook signature. Resolves to a redirect — the
     // promise typically never resolves.
-    await client.signIn(input, { scope: scope || scopeForAccount(input) });
+    await client.signIn(input, { scope: grant });
   }, []);
 
   const signOut = useCallback(async () => {
@@ -168,8 +213,9 @@ export function AtprotoSessionProvider({ children }) {
       error,
       signIn,
       signOut,
+      restore,
     }),
-    [session, agent, loading, error, signIn, signOut],
+    [session, agent, loading, error, signIn, signOut, restore],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

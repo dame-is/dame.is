@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import WaypointsSheet from '../components/WaypointsSheet.jsx';
 import { isAutoWaypointHref } from '../lib/waypoints.js';
+import { useActionDock } from './useActionDock.jsx';
+import { useChromePanel } from './useChromePanel.jsx';
 
 const WaypointsModalContext = createContext(null);
 
@@ -29,10 +32,42 @@ const WaypointsModalContext = createContext(null);
  */
 export function WaypointsModalProvider({ children }) {
   const [href, setHref] = useState(null);
+  const { open: dockOpen, closeDock } = useActionDock();
+  const { panel, closePanel } = useChromePanel();
+  const { pathname } = useLocation();
 
-  const openWaypoints = useCallback((target) => {
-    if (target) setHref(String(target));
-  }, []);
+  // The picker is a bottom sheet like the dock and the chrome panels, and
+  // obeys their one-at-a-time rule (useChromePanel) even though its state
+  // lives here: opening it folds those away, and opening any of them, or
+  // navigating, folds it away. Without that, the bottom bar stays live under
+  // the picker's backdrop, so its Menu, Info and Sky buttons stacked a second
+  // sheet on top of this one.
+  const show = useCallback(
+    (target) => {
+      closeDock();
+      closePanel();
+      setHref(String(target));
+    },
+    [closeDock, closePanel],
+  );
+  const [prev, setPrev] = useState({ dockOpen, panel, pathname });
+  if (
+    prev.dockOpen !== dockOpen ||
+    prev.panel !== panel ||
+    prev.pathname !== pathname
+  ) {
+    setPrev({ dockOpen, panel, pathname });
+    const opened =
+      (dockOpen && !prev.dockOpen) || (panel !== null && panel !== prev.panel);
+    if (href != null && (opened || pathname !== prev.pathname)) setHref(null);
+  }
+
+  const openWaypoints = useCallback(
+    (target) => {
+      if (target) show(target);
+    },
+    [show],
+  );
   const close = useCallback(() => setHref(null), []);
 
   useEffect(() => {
@@ -55,21 +90,25 @@ export function WaypointsModalProvider({ children }) {
       if (!isAutoWaypointHref(anchor.href)) return;
 
       e.preventDefault();
-      setHref(anchor.href);
+      show(anchor.href);
     }
 
     // Capture phase so we win before React Router / other handlers, and so a
     // stopPropagation() upstream can't hide the click from us.
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
-  }, []);
+  }, [show]);
 
-  const value = useMemo(() => ({ openWaypoints, close }), [openWaypoints, close]);
+  const open = href != null;
+  const value = useMemo(
+    () => ({ open, openWaypoints, close }),
+    [open, openWaypoints, close],
+  );
 
   return (
     <WaypointsModalContext.Provider value={value}>
       {children}
-      <WaypointsSheet open={href != null} href={href} onClose={close} />
+      <WaypointsSheet open={open} href={href} onClose={close} />
     </WaypointsModalContext.Provider>
   );
 }

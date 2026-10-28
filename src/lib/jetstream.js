@@ -26,6 +26,17 @@ const COLLECTIONS = ['app.bsky.feed.like', 'app.bsky.feed.repost', 'app.bsky.fee
 
 const BACKOFF_MS = [1000, 2000, 5000, 10000, 30000];
 
+// How long a socket has to stay up before its drop counts as a fresh failure
+// rather than the next one in a run. Resetting the backoff on open alone meant
+// an endpoint that accepts and then hangs up — what an overloaded server does
+// — was redialled every second, by every open page, for as long as it kept
+// doing it.
+const STABLE_MS = 10_000;
+
+// Reconnects are spread ±30% so pages that lost the same server at the same
+// moment don't all come back at the same moment too.
+const JITTER = 0.3;
+
 // How far back a reconnect will replay. See replayCursor.
 const MAX_REPLAY_MS = 30_000;
 
@@ -211,6 +222,7 @@ export function watchSubject(
   let rate = 0;
   let kbps = 0;
   let timer = null;
+  let openedAt = 0;
   const meter = createMeter();
   // null / 0 / Infinity all mean "run until told to stop".
   const capped = Number.isFinite(budgetBytes) && budgetBytes > 0;
@@ -248,7 +260,7 @@ export function watchSubject(
     }
 
     ws.onopen = () => {
-      attempt = 0;
+      openedAt = Date.now();
       status('open');
     };
 
@@ -279,11 +291,15 @@ export function watchSubject(
         return;
       }
 
-      // The cursor advances on everything, matched or not.
+      // The cursor advances on everything, matched or not. Its age is kept on
+      // this machine's clock, not read off the event: replayCursor measures the
+      // gap against Date.now(), and a client clock running behind the server's
+      // made every gap negative and threw every resume away.
       const seq = numberField(raw, '"seq":');
-      if (seq) lastSeq = seq;
-      const t = timeMsOf(raw);
-      if (t) lastTimeMs = t;
+      if (seq) {
+        lastSeq = seq;
+        lastTimeMs = Date.now();
+      }
 
       // Reject before parsing. A record that points at this post carries the
       // post's key in its text; a substring test costs 0.6µs against 11µs to
@@ -332,6 +348,8 @@ export function watchSubject(
     };
 
     ws.onclose = () => {
+      if (openedAt && Date.now() - openedAt >= STABLE_MS) attempt = 0;
+      openedAt = 0;
       status('closed');
       schedule();
     };
@@ -339,21 +357,32 @@ export function watchSubject(
 
   const schedule = () => {
     if (stopped) return;
-    const wait = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
+    const base = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
     attempt += 1;
+    const wait = Math.round(base * (1 - JITTER + Math.random() * 2 * JITTER));
     timer = setTimeout(connect, wait);
   };
 
   connect();
 
   return () => {
+    const wasStopped = stopped;
     stopped = true;
     if (timer) clearTimeout(timer);
+    // Silenced before it's closed. The close lands a moment later, and its
+    // 'closed' would be reported through the same onStatus as whatever watch
+    // the caller has opened in this one's place.
+    if (ws) ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
     try {
       ws?.close();
     } catch {
       /* already gone */
     }
+    // So the close is said here instead, while the setter is still this
+    // watch's: a replacement opened next reports over it, and a watch stopped
+    // for good (the seal, a hidden tab) still ends on 'closed' rather than on
+    // its last live rate. A watch that spent its budget already said so.
+    if (!wasStopped) status('closed');
   };
 }
 
@@ -364,6 +393,24 @@ export function watchSubject(
 // How long Jetstream's live socket will look back. Documented as 36 hours; a
 // cursor older than that is refused, so there is no point asking.
 export const LOOKBACK_MS = 36 * 60 * 60 * 1000;
+
+// Settling a replay that has caught up with the present. Every other way a
+// replay ends is an event — one stamped past the window, the budget, the
+// socket closing — and a stream filtered to one account delivers nothing at
+// all once it reaches now, until that account next does something. So a
+// replay is also done when it has gone quiet for a while, but only once it
+// can plausibly have read through the backlog: a filtered stream is just as
+// silent while the server is still scanning the hours before the window.
+//
+// The server replays at about 300x real time (78,000 events a second against a
+// live rate near 260, measured); a third of that is assumed. Plus the rewind:
+// a cursor lands up to half an hour early.
+const REPLAY_SPEEDUP = 100;
+const REPLAY_REWIND_MS = 30 * 60 * 1000;
+const REPLAY_QUIET_MS = 8_000;
+// And a hard stop, whatever the stream is doing: at least two minutes, or three
+// times the expected catch-up.
+const REPLAY_MIN_MS = 2 * 60 * 1000;
 
 /** Is this moment still inside the lookback window? */
 export function withinLookback(ms, nowMs = Date.now()) {
@@ -395,8 +442,9 @@ export function withinLookback(ms, nowMs = Date.now()) {
  * side turns the whole replay into a handful of events.
  *
  * Resolves `{ events, bytes, reachedEnd, error }`. `reachedEnd` is false when
- * the budget stopped it early, so a caller can tell "nothing was there" from
- * "we stopped looking".
+ * the budget or the time limit stopped it early, so a caller can tell "nothing
+ * was there" from "we stopped looking". It always resolves: a replay that has
+ * caught up and gone quiet counts as having reached the end.
  */
 export function replayWindow(
   subject,
@@ -408,6 +456,7 @@ export function replayWindow(
     endpoint = DEFAULT_ENDPOINT,
     budgetBytes = DEFAULT_BUDGET_BYTES,
     onProgress,
+    maxMs,
   } = {},
 ) {
   return new Promise((resolve) => {
@@ -434,10 +483,19 @@ export function replayWindow(
     let bytes = 0;
     let done = false;
     let ws;
+    let watchdog = null;
+
+    const startedAt = Date.now();
+    const catchUpMs = (startedAt - fromMs + REPLAY_REWIND_MS) / REPLAY_SPEEDUP;
+    const caughtUpBy = startedAt + catchUpMs;
+    const giveUpAt =
+      startedAt + (maxMs ?? Math.max(REPLAY_MIN_MS, 3 * catchUpMs));
+    let lastMsgAt = startedAt;
 
     const finish = (reachedEnd, error) => {
       if (done) return;
       done = true;
+      clearInterval(watchdog);
       try {
         ws?.close();
       } catch {
@@ -453,7 +511,23 @@ export function replayWindow(
       return;
     }
 
+    watchdog = setInterval(() => {
+      const now = Date.now();
+      if (now >= giveUpAt) {
+        finish(false, 'the replay ran out of time');
+        return;
+      }
+      if (
+        now > toMs &&
+        now >= caughtUpBy &&
+        now - lastMsgAt >= REPLAY_QUIET_MS
+      ) {
+        finish(true);
+      }
+    }, 1000);
+
     ws.onmessage = (msg) => {
+      lastMsgAt = Date.now();
       const raw = typeof msg.data === 'string' ? msg.data : '';
       bytes += raw.length;
       if (bytes > budgetBytes) {

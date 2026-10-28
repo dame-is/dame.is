@@ -47,7 +47,13 @@
 // everything else on the site asks them for a track name, an artist line, or
 // an origin URL.
 
-import { getRecord, listRecords, rkeyFromAtUri } from './atproto.js';
+import {
+  getRecord,
+  isRecordNotFound,
+  listRecords,
+  listRecordsPage,
+  rkeyFromAtUri,
+} from './atproto.js';
 import { verbConfig } from './verbRegistry.js';
 
 /**
@@ -162,18 +168,48 @@ export function dedupePlaysByRkey(entries, uriOf = defaultUriOf) {
  * Every play on `repo`, both namespaces, deduped by rkey and sorted
  * newest-first. `max` is the per-namespace cap.
  *
- * A namespace that errors (or simply doesn't exist yet on this PDS) yields
- * nothing rather than failing the whole read — during the move, exactly one of
- * the two is usually empty.
+ * A namespace that doesn't exist on this PDS needs no special case: the PDS
+ * answers an unknown collection with an empty list, not an error. So a
+ * namespace that DOES error is a real failure — a timeout, a 5xx — and it
+ * fails the whole read. Reading it as "no plays" used to hand every caller a
+ * confident, empty (or half) history: /listening swapped a full feed for "No
+ * plays yet." on one bad page out of twenty, and a build shipped a thinned
+ * albums index. A rejection is what every caller already knows how to wait out.
+ *
+ * `reuse` (browser pages only) keeps each namespace's last full read for the
+ * session and, before paginating it again, asks the PDS for just its newest
+ * record: if that hasn't changed, neither has the namespace, and the held read
+ * stands. The alpha namespace has been frozen since the move, so on every
+ * listening page after the first it costs one request instead of ten. A
+ * deleted record further down doesn't move the head, which is acceptable here:
+ * the pages already hide what the owner removes this session, and the held
+ * reads go with the tab.
  */
-export async function listTealPlays(pds, { repo, max = 500 } = {}) {
+export async function listTealPlays(pds, { repo, max = 500, reuse = false } = {}) {
   const pages = await Promise.all(
-    TEAL_PLAY_NSIDS.map((collection) =>
-      listRecords(pds, { repo, collection, max }).catch(() => []),
-    ),
+    TEAL_PLAY_NSIDS.map((collection) => readNamespace(pds, { repo, collection, max, reuse })),
   );
   const merged = dedupePlaysByRkey(pages.flat().filter((r) => r?.uri && r.value));
   return merged.sort(comparePlaysDesc);
+}
+
+const namespaceReads = new Map(); // `${pds}|${repo}|${collection}` -> { max, head, records }
+
+async function readNamespace(pds, { repo, collection, max, reuse }) {
+  const key = `${pds}|${repo}|${collection}`;
+  const held = reuse ? namespaceReads.get(key) : null;
+  if (held && held.max >= max) {
+    const probe = await listRecordsPage(pds, { repo, collection, limit: 1 });
+    if (sameRecord(probe?.records?.[0], held.head)) return held.records.slice(0, max);
+  }
+  const records = await listRecords(pds, { repo, collection, max });
+  if (reuse) namespaceReads.set(key, { max, head: records[0] || null, records });
+  return records;
+}
+
+function sameRecord(a, b) {
+  if (!a || !b) return !a && !b;
+  return a.uri === b.uri && a.cid === b.cid;
 }
 
 /**
@@ -193,11 +229,20 @@ function playInstant(record) {
 /**
  * The `self` status singleton, newest `time` across both namespaces, or null
  * when neither exists. Returns the raw record (`{ uri, value }`).
+ *
+ * Only a record that isn't there reads as absent. A namespace that couldn't be
+ * asked (a timeout, a 5xx) fails the whole read, as it does in listTealPlays:
+ * read as null, a blip looked exactly like "nothing is playing", and a caller
+ * that remembers the answer for the repo's head kept saying so until the next
+ * write.
  */
 export async function fetchTealStatus(pds, { repo } = {}) {
   const found = await Promise.all(
     TEAL_STATUS_NSIDS.map((collection) =>
-      getRecord(pds, { repo, collection, rkey: 'self' }).catch(() => null),
+      getRecord(pds, { repo, collection, rkey: 'self' }).catch((err) => {
+        if (isRecordNotFound(err)) return null;
+        throw err;
+      }),
     ),
   );
   const present = found.filter((r) => r?.value?.item);

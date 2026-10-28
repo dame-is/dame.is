@@ -37,17 +37,21 @@
   --plate-keyline: color-mix(in srgb, var(--ink) 12%, transparent);
 }
 
-/* Hover darkens the keyline; the plate doesn't lift. */
-.mothing-tile:hover {
-  --plate-keyline: color-mix(in srgb, var(--ink) 35%, transparent);
+/* Hover darkens the keyline; the plate doesn't lift. Pointer-only, as the
+   site's hover tints are: on touch a hover sticks to whatever was tapped (see
+   the note in typography.css). */
+@media (hover: hover) {
+  .mothing-tile:hover {
+    --plate-keyline: color-mix(in srgb, var(--ink) 35%, transparent);
+  }
+
+  .mothing-tile-empty:hover {
+    --plate-keyline: color-mix(in srgb, var(--ink) 12%, transparent);
+  }
 }
 
 .mothing-tile-empty {
   cursor: default;
-}
-
-.mothing-tile-empty:hover {
-  --plate-keyline: color-mix(in srgb, var(--ink) 12%, transparent);
 }
 
 .mothing-tile img {
@@ -130,16 +134,18 @@
   border-bottom: none;
 }
 
-.mothing-ledger-row:hover {
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+@media (hover: hover) {
+  .mothing-ledger-row:hover {
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+  }
+
+  .mothing-ledger-row-static:hover {
+    background: none;
+  }
 }
 
 .mothing-ledger-row-static {
   cursor: default;
-}
-
-.mothing-ledger-row-static:hover {
-  background: none;
 }
 
 .mothing-ledger-thumb {

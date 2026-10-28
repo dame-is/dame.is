@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
  * from the bitmap before upload so the renderer can size the slot
  * correctly.
  */
-export default function ImageBlockEditor({ block, agent, did, onChange }) {
+export default function ImageBlockEditor({ block, agent, onChange }) {
   const [status, setStatus] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
@@ -31,13 +31,16 @@ export default function ImageBlockEditor({ block, agent, did, onChange }) {
     setPreviewUrl(localUrl);
     try {
       const { blob, aspectRatio } = await uploadImageFile(agent, file);
-      onChange({
-        ...block,
+      // An updater, not a value: the alt text and caption the author typed
+      // while the bytes uploaded are on the block as it is NOW, and a `...block`
+      // from when the file was picked would write them back out.
+      onChange((current) => ({
+        ...current,
         image: blob,
         ...(aspectRatio ? { aspectRatio } : {}),
         // Drop the legacy URL once a fresh blob is in place.
         url: undefined,
-      });
+      }));
       setStatus(null);
     } catch (err) {
       setStatus(`Upload failed: ${err?.message || err}`);
@@ -60,8 +63,15 @@ export default function ImageBlockEditor({ block, agent, did, onChange }) {
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
         role="button"
         tabIndex={0}
+        aria-label={displayUrl ? 'Replace image' : 'Upload an image'}
       >
         {displayUrl ? (
           <img src={displayUrl} alt={block.alt || ''} />

@@ -38,11 +38,18 @@ import {
   BANDS,
 } from '../../src/lib/moderation/score.js';
 import { KINDS } from '../../src/lib/moderation/command.js';
-import { select, selectAll, upsert, update } from './modDb.js';
+import { select, selectAll, upsert, update, count } from './modDb.js';
 import { loadReference } from './reference.js';
 import { listUri } from './listWrite.js';
 import { evidenceUriFor } from './triage.js';
-import { graphFacts, isListed, noteListed } from './graphFacts.js';
+import { closeAdds } from './closeAdds.js';
+import {
+  graphFacts,
+  isListed,
+  noteListed,
+  noteUnlisted,
+  rkeysForWrite,
+} from './graphFacts.js';
 
 /**
  * How many listitems one `approve` will create.
@@ -231,15 +238,31 @@ export async function proposePlan({ link, kind }) {
   };
 }
 
-/** Find a plan by its short code. */
+const PLAN_COLUMNS = 'id,created_at,approved_at,approved_bands,totals,note';
+
+/**
+ * Find a plan by its short code.
+ *
+ * A code is the first eight hex digits of the plan's uuid, so every plan it
+ * could name sits in one range of the primary key. Asked for as that range
+ * rather than by reading every plan ever written to compare eight characters
+ * in memory, which every approve, review, undo and Activity filter used to do.
+ */
 export async function findPlan(code) {
-  const rows = await selectAll('plan', {
-    select: 'id,created_at,approved_at,approved_bands,totals,note',
+  const c = String(code ?? '').toLowerCase();
+  if (!/^[0-9a-f]{8}$/.test(c)) return null;
+  const rows = await select('plan', {
+    select: PLAN_COLUMNS,
+    where: {
+      id: [
+        `gte.${c}-0000-0000-0000-000000000000`,
+        `lte.${c}-ffff-ffff-ffff-ffffffffffff`,
+      ],
+    },
     order: 'created_at.desc',
+    limit: 1,
   });
-  return (
-    rows.find((p) => shortCode(p.id) === String(code).toLowerCase()) ?? null
-  );
+  return rows?.[0] ?? null;
 }
 
 /**
@@ -740,18 +763,116 @@ export function estimateWrites(n, { kind = 'create' } = {}) {
   return `${n.toLocaleString()} writes, ${points.toLocaleString()} points, ${time}`;
 }
 
-/** The most recent plan that actually put someone on the list. */
+/**
+ * The most recent plan that actually put someone on the list.
+ *
+ * Filtered and ordered by the database: the newest live add is one row, not a
+ * read of every decision ever written (scan participants and all) sorted in
+ * memory.
+ */
 export async function lastActedPlan() {
-  const acted = await selectAll('decision', {
-    select: 'plan_id,acted_at,action,undone_at',
-    order: 'plan_id.asc',
+  const rows = await select('decision', {
+    select: 'plan_id',
+    eq: { action: 'list_add' },
+    where: { acted_at: 'not.is.null', undone_at: 'is.null' },
+    order: 'acted_at.desc',
+    limit: 1,
   });
-  const live = acted.filter(
-    (d) => d.acted_at && d.action === 'list_add' && !d.undone_at,
-  );
-  if (!live.length) return null;
-  live.sort((a, b) => Date.parse(b.acted_at) - Date.parse(a.acted_at));
-  return findPlan(shortCode(live[0].plan_id));
+  if (!rows?.length) return null;
+  const plans = await select('plan', {
+    select: PLAN_COLUMNS,
+    eq: { id: rows[0].plan_id },
+  });
+  return plans?.[0] ?? null;
+}
+
+/**
+ * Up to this many accounts, an undo asks Constellation where each one's
+ * listitems are instead of walking the bot's whole repo. "Undo that" after a
+ * single block was a hundred sequential pages to find one record.
+ */
+const LOOKUP_UNDER = 50;
+
+/** A delete of something already gone. Constellation can lag a deletion. */
+const ALREADY_GONE = /not ?found|could not (locate|find)/i;
+
+/**
+ * Where these accounts' listitems are, as did -> rkeys.
+ *
+ * `exhaustive` is true only when the repo walk ran to its end, which is the one
+ * answer that can say an account missing from it is off the list. Constellation
+ * cannot: "none" from it may be an add it has not indexed yet, so the lookup is
+ * used only when it finds every account, and the walk is the fallback.
+ */
+async function listitemsFor(agent, { bot, uri, dids }) {
+  if (dids.length <= LOOKUP_UNDER) {
+    // No walk per account when Constellation cannot answer: the one walk
+    // below covers all of them.
+    const found = await Promise.all(
+      dids.map((did) =>
+        rkeysForWrite(uri, did, { walk: false }).catch(() => null),
+      ),
+    );
+    if (found.every((rkeys) => rkeys?.length)) {
+      return {
+        byDid: new Map(dids.map((did, i) => [did, found[i]])),
+        exhaustive: false,
+      };
+    }
+  }
+
+  const wanted = new Set(dids);
+  const byDid = new Map();
+  let cursor;
+  for (let page = 0; page < 400; page += 1) {
+    const res = await agent.com.atproto.repo.listRecords({
+      repo: bot,
+      collection: 'app.bsky.graph.listitem',
+      limit: 100,
+      cursor,
+    });
+    for (const rec of res.data.records || []) {
+      const did = rec.value?.subject;
+      if (rec.value?.list !== uri || !wanted.has(did)) continue;
+      byDid.set(did, [...(byDid.get(did) || []), rec.uri.split('/').pop()]);
+    }
+    cursor = res.data.cursor;
+    if (!cursor || !(res.data.records || []).length) {
+      return { byDid, exhaustive: true };
+    }
+  }
+  return { byDid, exhaustive: false };
+}
+
+/**
+ * Delete listitems, in one applyWrites. That call is all or nothing, so one
+ * record already gone fails the lot; the batch is then retried a record at a
+ * time, which tolerates it.
+ */
+async function deleteListitems(agent, bot, rkeys) {
+  try {
+    await agent.com.atproto.repo.applyWrites({
+      repo: bot,
+      writes: rkeys.map((rkey) => ({
+        $type: 'com.atproto.repo.applyWrites#delete',
+        collection: 'app.bsky.graph.listitem',
+        rkey,
+      })),
+    });
+  } catch (err) {
+    if (!ALREADY_GONE.test(String(err?.message || err))) throw err;
+    for (const rkey of rkeys) {
+      try {
+        await agent.com.atproto.repo.deleteRecord({
+          repo: bot,
+          collection: 'app.bsky.graph.listitem',
+          rkey,
+        });
+      } catch (one) {
+        if (!ALREADY_GONE.test(String(one?.message || one))) throw one;
+      }
+    }
+  }
 }
 
 /**
@@ -762,9 +883,16 @@ export async function lastActedPlan() {
  * somebody may reasonably ask after the fact -- and an append-only record that
  * quietly rewrites itself is not a record.
  *
- * The listitem rkey is not stored anywhere, so the repo is scanned once and
- * matched by subject. Deletes are 1 point rather than 3, so the cap can be
- * higher than an approval's, but it is still capped and still resumable.
+ * The listitem rkey is not stored anywhere, so it is looked up: one
+ * Constellation request per account for a handful, one walk of the repo for
+ * more. Deletes are 1 point rather than 3, so the cap can be higher than an
+ * approval's, but it is still capped and still resumable.
+ *
+ * AN ACCOUNT ALREADY OFF THE LIST IS CLOSED, NOT RETRIED. Someone taken off by
+ * a path that left their decision open (a typed unblock did, for a while) kept
+ * this plan "live" forever: every undo found no listitem, removed nothing, and
+ * said "1 left, send undo again". When the walk has seen the whole repo, an
+ * account it did not find is off the list, and the record says so.
  */
 export async function undoPlan(
   agent,
@@ -793,52 +921,42 @@ export async function undoPlan(
     };
   }
 
-  const wanted = new Map(live.map((r) => [r.did, r]));
-  const rkeys = [];
-  let cursor;
-  for (let page = 0; page < 400; page += 1) {
-    const res = await agent.com.atproto.repo.listRecords({
-      repo: bot,
-      collection: 'app.bsky.graph.listitem',
-      limit: 100,
-      cursor,
-    });
-    for (const rec of res.data.records || []) {
-      if (rec.value?.list !== uri) continue;
-      if (!wanted.has(rec.value?.subject)) continue;
-      rkeys.push({ rkey: rec.uri.split('/').pop(), did: rec.value.subject });
+  const dids = live.map((r) => r.did);
+  const { byDid, exhaustive } = await listitemsFor(agent, { bot, uri, dids });
+
+  let alreadyOff = 0;
+  if (exhaustive) {
+    const missing = dids.filter((did) => !byDid.has(did));
+    if (missing.length) {
+      await closeAdds(missing, 'already off the list');
+      alreadyOff = missing.length;
     }
-    cursor = res.data.cursor;
-    if (!cursor || !(res.data.records || []).length) break;
   }
 
-  const slice = rkeys.slice(0, max);
+  // Batched by ACCOUNT, so the copies of one account (two plans added them)
+  // come off together and its row is written once: the same key twice in one
+  // upsert is an error Postgres refuses the whole batch over.
+  const batches = [];
+  for (const [did, rkeys] of [...byDid].slice(0, max)) {
+    const last = batches[batches.length - 1];
+    if (last && last.rkeys.length + rkeys.length <= BATCH) {
+      last.dids.push(did);
+      last.rkeys.push(...rkeys);
+    } else {
+      batches.push({ dids: [did], rkeys: [...rkeys] });
+    }
+  }
+
   let removed = 0;
-  for (let i = 0; i < slice.length; i += BATCH) {
-    const batch = slice.slice(i, i + BATCH);
+  for (const batch of batches) {
     try {
-      await agent.com.atproto.repo.applyWrites({
-        repo: bot,
-        writes: batch.map((r) => ({
-          $type: 'com.atproto.repo.applyWrites#delete',
-          collection: 'app.bsky.graph.listitem',
-          rkey: r.rkey,
-        })),
-      });
-      const now = new Date().toISOString();
-      await upsert(
-        'decision',
-        batch.map((r) => ({
-          plan_id: plan.id,
-          did: r.did,
-          band: wanted.get(r.did).band,
-          action: 'list_add',
-          acted_at: wanted.get(r.did).acted_at,
-          undone_at: now,
-          undo_reason: reason,
-        })),
-      );
-      removed += batch.length;
+      await deleteListitems(agent, bot, batch.rkeys);
+      for (const did of batch.dids) noteUnlisted(uri, did);
+      // Every live add of theirs, not only this plan's: every copy came off,
+      // including one another plan put there, and that plan's row left open
+      // would count them as still on the list.
+      await closeAdds(batch.dids, reason);
+      removed += batch.dids.length;
     } catch (err) {
       const message = String(err?.message || err);
       if (/rate ?limit/i.test(message)) break;
@@ -846,47 +964,57 @@ export async function undoPlan(
     }
   }
 
-  const remaining = live.length - removed;
+  const remaining = live.length - removed - alreadyOff;
   return {
     ok: true,
     removed,
     remaining,
+    alreadyOff,
     message:
       `Took ${removed} back off the list.` +
+      (alreadyOff ? ` ${alreadyOff} had already come off another way.` : '') +
       (remaining
         ? ` ${remaining} left, send "undo ${shortCode(plan.id)}" again.`
         : ''),
   };
 }
 
-/** What has been done lately, or to one account. */
+/**
+ * What has been done lately, or to one account.
+ *
+ * The newest `limit` acted rows straight from the database, their plans in one
+ * request, and the total as a count. It used to read every decision row ever
+ * written, scan participants and all, to show eight.
+ */
 export async function historyFor(did = null, { limit = 8 } = {}) {
-  const rows = await selectAll('decision', {
-    select: 'plan_id,did,band,action,acted_at,approved_via,undone_at',
-    ...(did ? { eq: { did } } : {}),
-    order: 'plan_id.asc',
-  });
-  const acted = rows.filter((r) => r.acted_at);
-  acted.sort((a, b) => Date.parse(b.acted_at) - Date.parse(a.acted_at));
-
-  const out = [];
-  const seenPlans = new Map();
-  for (const row of acted) {
-    if (!seenPlans.has(row.plan_id)) {
-      const plan = await select('plan', {
+  const eq = did ? { did } : {};
+  const [rows, total] = await Promise.all([
+    select('decision', {
+      select: 'plan_id,did,band,action,acted_at,approved_via,undone_at',
+      eq,
+      where: { acted_at: 'not.is.null' },
+      order: 'acted_at.desc',
+      limit,
+    }),
+    count('decision', { eq, not_null: 'acted_at' }).catch(() => null),
+  ]);
+  const acted = rows || [];
+  const ids = [...new Set(acted.map((r) => r.plan_id))];
+  const plans = ids.length
+    ? await select('plan', {
         select: 'id,note,approved_bands,created_at',
-        eq: { id: row.plan_id },
-      });
-      seenPlans.set(row.plan_id, plan?.[0] ?? null);
-    }
-    out.push({
+        where: { id: `in.(${ids.join(',')})` },
+      })
+    : [];
+  const byId = new Map((plans || []).map((p) => [p.id, p]));
+  return {
+    total: total ?? acted.length,
+    rows: acted.map((row) => ({
       ...row,
-      plan: seenPlans.get(row.plan_id),
+      plan: byId.get(row.plan_id) ?? null,
       code: shortCode(row.plan_id),
-    });
-    if (out.length >= limit) break;
-  }
-  return { total: acted.length, rows: out };
+    })),
+  };
 }
 
 /**

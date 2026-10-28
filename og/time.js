@@ -19,15 +19,24 @@ const KEYS = [
   '12pm', '1pm', '2pm', '3pm', '4pm', '5pm', '6pm', '7pm', '8pm', '9pm', '10pm', '11pm',
 ];
 
+// Built on first use and kept: constructing an Intl.DateTimeFormat costs far
+// more than formatting with one, and the hour is read on every favicon, every
+// card and every palette tick. Built lazily so that importing this file (the
+// site's entry chunk does) costs nothing.
+let hourFormat = null;
+let dateFormat = null;
+
 /** Current hour (0–23) in Eastern time, DST-aware. `now` overridable for tests. */
 export function easternHour(now = new Date()) {
-  const h = new Intl.DateTimeFormat('en-US', {
-    timeZone: ZONE,
-    hour: 'numeric',
-    hour12: false,
-  }).format(now);
+  if (!hourFormat) {
+    hourFormat = new Intl.DateTimeFormat('en-US', {
+      timeZone: ZONE,
+      hour: 'numeric',
+      hour12: false,
+    });
+  }
   // Intl can emit "24" for midnight in hour12:false — normalise to 0.
-  return Number(h) % 24;
+  return Number(hourFormat.format(now)) % 24;
 }
 
 /**
@@ -35,12 +44,15 @@ export function easternHour(now = new Date()) {
  * hour above reads, so "which night is this" and "which sky is this" agree.
  */
 export function easternDate(now = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
+  if (!dateFormat) {
+    dateFormat = new Intl.DateTimeFormat('en-CA', {
+      timeZone: ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  }
+  return dateFormat.format(now);
 }
 
 /** The sky-avatar key ("6pm", "12am", …) for the current Eastern hour. */
@@ -53,19 +65,33 @@ export function avatarKeys() {
   return KEYS.slice();
 }
 
-// Dame's birthdate (mirrors src/config.js BIRTHDATE). The OG cards print a
-// notebook "folio" — the current day-of-life — in the bottom margin, so every
-// card is quietly stamped with which day of the life/project it was made on.
-const BIRTH_MS = Date.parse('1993-05-07T00:00:00Z');
+// Dame's birthdate: the calendar date src/config.js BIRTHDATE names, restated
+// rather than imported so this file stays free of the site's other modules.
+// The OG cards print a notebook "folio" — the current day-of-life — in the
+// bottom margin, so every card is quietly stamped with which day of the
+// life/project it was made on.
+const BIRTH_DAY = Date.UTC(1993, 4, 7);
+const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-/** Day-of-life: whole days since the birthdate (day 1 = the birthday). */
-export function dayOfLife(now = new Date()) {
-  return Math.floor((now.getTime() - BIRTH_MS) / 86_400_000) + 1;
+/**
+ * Day-of-life: whole days since the birthdate (day 1 = the birthday), counted
+ * between Eastern calendar dates. An instant is read as the date it fell on in
+ * Eastern time; a 'YYYY-MM-DD' string is the day it names (a night's date, for
+ * one). Counted in UTC instead, the folio turned over at 8pm Eastern, and a
+ * card made in the evening carried tomorrow's number while the site showed
+ * today's.
+ */
+export function dayOfLife(at = new Date()) {
+  const match = typeof at === 'string' && CALENDAR_DATE.exec(at);
+  const [y, m, d] = match
+    ? match.slice(1).map(Number)
+    : easternDate(at).split('-').map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - BIRTH_DAY) / 86_400_000) + 1;
 }
 
 /** The folio string for the card margin, with thousands separators. */
-export function folio(now = new Date()) {
-  return dayOfLife(now).toLocaleString('en-US');
+export function folio(at = new Date()) {
+  return dayOfLife(at).toLocaleString('en-US');
 }
 
 /**

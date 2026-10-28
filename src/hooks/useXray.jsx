@@ -7,6 +7,10 @@ import {
   useState,
 } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useChromePanel } from './useChromePanel.jsx';
+import { useEditMode } from './useEditMode.jsx';
+import { escapeWentToOverlay, hasOpenOverlay } from './useEscapeLayer.js';
+import { shortcutBlocked } from '../lib/shortcuts.js';
 
 const XrayContext = createContext(null);
 
@@ -75,26 +79,37 @@ export function XrayProvider({ children }) {
     setFocusUri(null);
   }, [location.pathname]);
 
-  // `i` (for inspect) toggles the mode from anywhere (ignoring keystrokes
-  // inside inputs). Esc pops a focused element back to the full-page view (a
-  // no-op when nothing is focused, and it never preventDefaults, so the
-  // dock/modal Esc handlers still work).
+  // `i` (for inspect) toggles the mode from anywhere. It does what the
+  // bottom bar's inspect button does, not just the toggle: fold any open panel
+  // away and leave the owner's edit mode, which competes for the same rows —
+  // the bare toggle left the owner in both modes at once. It stays out of the
+  // way of typing, chords, auto-repeat and an open modal (shortcutBlocked), and
+  // off /admin, where the button is withheld because there's no public record
+  // markup to inspect.
+  //
+  // Esc pops a focused element back to the full-page view — unless an overlay
+  // is open, in which case the press is the overlay's and closes only that.
+  // Never preventDefaults.
+  const { closePanel } = useChromePanel();
+  const { active: editActive, exit: exitEdit } = useEditMode();
+  const inAdmin = location.pathname === '/admin';
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') {
+        if (hasOpenOverlay() || escapeWentToOverlay(e)) return;
         setFocusUri((f) => (f ? null : f));
         return;
       }
       if (e.key !== 'i' && e.key !== 'I') return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = e.target?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+      if (inAdmin || shortcutBlocked(e)) return;
       e.preventDefault();
+      closePanel();
+      if (editActive) exitEdit();
       toggle();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [toggle]);
+  }, [toggle, closePanel, editActive, exitEdit, inAdmin]);
 
   const value = useMemo(
     () => ({ active, focusUri, enter, exit, toggle, focus, clearFocus, toggleFocus }),

@@ -1,7 +1,5 @@
-import { useMemo } from 'react';
 import { useLiveFeed } from './useLiveFeed.js';
 import { resolvePds, getRecord } from '../lib/atproto.js';
-import { renderMarkdown } from '../lib/markdown.js';
 import { pageDefault } from '../lib/pageRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 
@@ -16,7 +14,11 @@ const LOCAL = { __local: true };
  * defaults in `pageRegistry`. Mirrors the snapshot-first pattern used by the
  * content pages so first paint comes from the snapshot and live confirms.
  *
- *   { title, intro, html, source: 'pds' | 'local', loading }
+ *   { title, intro, body, bodyFormat, source: 'pds' | 'local', loading }
+ *
+ * The body comes back as written, not rendered: the chrome's info sheet calls
+ * this from the entry bundle, and marked is too big to ship there for a sheet
+ * most visits never open. Render it with lib/markdown.js where it is shown.
  */
 export function usePageContent(slug) {
   const def = pageDefault(slug) || {};
@@ -50,16 +52,11 @@ export function usePageContent(slug) {
   // have deliberately cleared it). Otherwise fall back to the local default
   // body so pages authored entirely in the registry (e.g. the info sheet)
   // still render before/without a migration.
-  const html = useMemo(() => {
-    const body = record ? v.body : def.body;
-    const fmt = (record ? v.bodyFormat : def.bodyFormat) || 'markdown';
-    return body ? renderMarkdown(body, fmt) : '';
-  }, [record, v.body, v.bodyFormat, def.body, def.bodyFormat]);
-
   return {
     title: v.title || def.title,
     intro: v.intro || def.intro,
-    html,
+    body: (record ? v.body : def.body) || '',
+    bodyFormat: (record ? v.bodyFormat : def.bodyFormat) || 'markdown',
     source: record ? 'pds' : 'local',
     loading: status === 'loading',
   };

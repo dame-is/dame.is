@@ -377,6 +377,19 @@ export function transformRecords(records, nsid, pds, did = ME_DID, opts = {}) {
     }
   }
 
+  // A custom feed's avatar is a blob ref like any other, and GeneratorCard
+  // reads it from `_url`. It renders at 40px, so point it at the Bluesky CDN's
+  // avatar rendition (the same one bsky.app shows) rather than at getBlob,
+  // which would hand back the full-size original.
+  if (nsid === 'app.bsky.feed.generator') {
+    for (const r of records) {
+      const avatar = r?.value?.avatar;
+      const cid = pickBlobCid(avatar);
+      if (cid)
+        avatar._url = `https://cdn.bsky.app/img/avatar/plain/${did}/${cid}@jpeg`;
+    }
+  }
+
   // Anisota Lab pieces carry bulky reproduction data (gouge paths, synth event
   // grids, reaction-diffusion recipes, sigil core paths…) that never renders —
   // AnisotaLabCard only needs the finished text / tiles / figure / print. Drop
@@ -552,6 +565,51 @@ export function sortUnifiedFeed(unified) {
   return unified;
 }
 
+const OBSERVATION_VERBS = new Set(['mothing', 'observing']);
+
+/**
+ * Observations store their local wall-clock pinned to `Z` (privacy: no tz
+ * offset is ever persisted). That fake-UTC value sorts ~offset hours early
+ * against real-UTC records and buckets into the wrong local day. Rebuild each
+ * observation's ordering timestamp as a local instant so it interleaves and
+ * day-groups correctly, then re-sort. Mutates and returns `items`.
+ *
+ * A no-op in Node/UTC, which is why the static snapshot still carries the
+ * fake-UTC values: anything that paints the snapshot in a browser has to run
+ * it through here too, or late-night moths land under the previous evening
+ * until the live feed replaces them. Both the mirrored and the live-augmented
+ * items carry `observedDate`/`observedTime`.
+ */
+export function localizeObservationInstants(items) {
+  for (const item of items) {
+    if (!OBSERVATION_VERBS.has(item?.verb)) continue;
+    const instant = observationFeedInstant(
+      item.payload?.observedDate,
+      item.payload?.observedTime,
+    );
+    if (instant) item.createdAt = instant;
+  }
+  return sortUnifiedFeed(items);
+}
+
+/** The newest of two ISO instants (either may be null). */
+function newerInstant(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  return compareIsoDesc(a, b) <= 0 ? a : b;
+}
+
+/** The oldest parseable instant `instantOf` finds across `entries`, or null. */
+function oldestInstant(entries, instantOf) {
+  let oldest = null;
+  for (const entry of entries) {
+    const t = instantOf(entry);
+    if (!t || !Number.isFinite(Date.parse(t))) continue;
+    if (!oldest || compareIsoDesc(t, oldest) > 0) oldest = t;
+  }
+  return oldest;
+}
+
 /**
  * Orchestrator: fetch the registry-driven home feed for `me` from the
  * public AppView + their PDS, normalize records, hydrate reference
@@ -563,12 +621,29 @@ export function sortUnifiedFeed(unified) {
  *     perVerb,        // { verb -> deduped feed items[] } for combined files
  *     authorFeed,     // raw bsky author-feed result (used for posts.json)
  *     counts,         // counts keyed by snapshot/per-verb name (debug)
+ *     failures,       // { attempted, failed, labels } over the core fetches
+ *     horizons,       // { verb -> ISO } where a capped fetch ran out
  *   }
  *
  * `pds` is required; resolve it via `resolvePds(ME_DID)` before calling.
  *
  * Errors per-collection are swallowed (logged via `options.warn`) so a
- * single bad NSID can't take down the whole home feed.
+ * single bad NSID can't take down the whole home feed. Swallowing them
+ * also means a build with the network down resolves just like a build of
+ * an empty repo, so the core fetches — the author feed and each own-PDS
+ * listRecords — are tallied in `failures` (`labels` are the NSIDs that
+ * failed; the author feed counts as `app.bsky.feed.post`). Subject
+ * hydration, list members and live observations aren't counted: they only
+ * decorate records that did arrive, and one flaky third-party lookup
+ * shouldn't read as a failed build.
+ *
+ * `horizons` says how far back each verb is actually complete. Every source
+ * is fetched to a fixed cap, and a busy one (thirty posts a day) exhausts it
+ * in a couple of days while a quiet one reaches back months — so past the
+ * oldest record of a source that hit its cap, the merged timeline is missing
+ * that source's history while still showing everyone else's. For each verb
+ * with a capped source, the horizon is the newest of those sources' oldest
+ * instants; anything of that verb older than it is a partial picture.
  */
 export async function buildUnifiedFeed({
   pds,
@@ -614,6 +689,28 @@ export async function buildUnifiedFeed({
     }
   };
 
+  // `safe`, plus a tally of the fetches the feed is made of (see `failures`
+  // in the doc comment above).
+  const failures = { attempted: 0, failed: 0, labels: [] };
+  const core = async (nsid, label, fn, fallback) => {
+    failures.attempted += 1;
+    try {
+      return await fn();
+    } catch (err) {
+      failures.failed += 1;
+      failures.labels.push(nsid);
+      warn(`${label} failed:`, err?.message || err);
+      return fallback;
+    }
+  };
+
+  const horizons = {};
+  const noteHorizon = (verb, entries, cap, instantOf) => {
+    if (!cap || entries.length < cap) return;
+    const oldest = oldestInstant(entries, instantOf);
+    if (oldest) horizons[verb] = newerInstant(horizons[verb], oldest);
+  };
+
   const unified = [];
   const counts = {};
   const perCollection = {};
@@ -623,13 +720,25 @@ export async function buildUnifiedFeed({
   // `posting` owns the author feed; skip the call entirely when posts
   // aren't in the requested verb set.
   const authorFeed = includeVerb('posting')
-    ? await safe(
+    ? await core(
+        'app.bsky.feed.post',
         'getAuthorFeed',
         () => getAuthorFeed(me, { appview, max: authorFeedMax }),
         [],
       )
     : [];
   counts.posts = authorFeed.length;
+  // The author feed is ordered by when each entry landed in it, reposts
+  // included (they count toward the cap even though `reposting` owns them).
+  noteHorizon(
+    'posting',
+    authorFeed,
+    authorFeedMax,
+    (item) =>
+      item?.reason?.indexedAt ||
+      item?.post?.record?.createdAt ||
+      item?.post?.indexedAt,
+  );
   for (const item of authorFeed) {
     const f = blueskyPostToFeedItem(item);
     if (f) unified.push(f);
@@ -642,12 +751,32 @@ export async function buildUnifiedFeed({
         verbConfig.collections.map(async (c) => {
           if (c.kind === 'appviewFeed') return { c, records: [] };
 
-          const fetched = await safe(
+          const cap = capFor(c);
+          const fetched = await core(
+            c.nsid,
             `listRecords:${c.nsid}`,
-            () => listRecords(pds, { repo: me, collection: c.nsid, max: capFor(c) }),
+            () =>
+              listRecords(pds, { repo: me, collection: c.nsid, max: cap }),
             [],
           );
           transformRecords(fetched, c.nsid, pds, me, { leanMedia });
+          // Measured on the raw page, before drafts, dedupe or the age cutoff
+          // thin it: what matters is whether the fetch stopped at its cap.
+          // On the clock the items end up on, so an observation's horizon is
+          // its local instant (see localizeObservationInstants), not the
+          // fake-UTC one it's stored at.
+          noteHorizon(
+            verbConfig.verb,
+            fetched,
+            cap,
+            OBSERVATION_VERBS.has(verbConfig.verb)
+              ? (r) =>
+                  observationFeedInstant(
+                    r?.value?.observedDate,
+                    r?.value?.observedTime,
+                  ) || r?.value?.createdAt
+              : (r) => r?.value?.createdAt,
+          );
           // Drafts must never reach public surfaces — the snapshots written
           // from these records are world-readable. The admin reads the PDS
           // live (authenticated), so it still sees drafts.
@@ -757,24 +886,29 @@ export async function buildUnifiedFeed({
     }, null);
   }
 
-  // Observations store their local wall-clock pinned to `Z` (privacy: no tz
-  // offset is ever persisted). That fake-UTC value sorts ~offset hours early
-  // against real-UTC records and buckets into the wrong local day. Rebuild each
-  // observation's ordering timestamp as a local instant so it interleaves and
-  // day-groups correctly. No-op in Node/UTC (snapshot unchanged); in the
-  // browser it maps the observer's wall-clock to the viewer's clock. Both the
-  // mirrored and the live-augmented items carry `observedDate`/`observedTime`.
-  for (const item of unified) {
-    if (item.verb !== 'mothing' && item.verb !== 'observing') continue;
-    const instant = observationFeedInstant(item.payload?.observedDate, item.payload?.observedTime);
-    if (instant) item.createdAt = instant;
-  }
+  localizeObservationInstants(unified);
 
-  sortUnifiedFeed(unified);
-  counts.unified = unified.length;
+  // A record with no instant at all (a site.standard.publication carries no
+  // createdAt, and listRecords supplies no indexedAt) isn't activity: the feed
+  // is grouped by day, so it could never be drawn, yet it would still be
+  // counted on its chip and hold the infinite scroll open for rows that never
+  // appear. Only the timeline drops it — the per-collection and per-verb
+  // snapshots above keep every record for the pages that list them.
+  const dated = unified.filter((item) =>
+    Number.isFinite(Date.parse(item.createdAt)),
+  );
+  counts.unified = dated.length;
 
-  log('built unified feed', { unified: unified.length });
-  return { unified, perCollection, perVerb, authorFeed, counts };
+  log('built unified feed', { unified: dated.length });
+  return {
+    unified: dated,
+    perCollection,
+    perVerb,
+    authorFeed,
+    counts,
+    failures,
+    horizons,
+  };
 }
 
 /**

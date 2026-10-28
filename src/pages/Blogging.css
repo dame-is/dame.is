@@ -589,9 +589,12 @@
 /* Single-record page (Record.jsx): the plate.
 
    Pinned to the measure at full width, so a short status no longer shrinks
-   the column to 484px while a post gets 588. The title is the record's own
-   sentence on the hero's ruled lines; one colophon line dates it in Dame's
-   clock; the URI closes the page as a quiet folio. */
+   the column to 484px while a post gets 588. (`width: 100%` for the reason
+   .blog-article carries it: as a child of the flex-column .page, the auto
+   margins defeat stretch, and without a width the article shrink-wrapped to
+   its widest line, wider than a phone on a raw-JSON record.) The title is the
+   record's own sentence on the hero's ruled lines; one colophon line dates it
+   in Dame's clock; the URI closes the page as a quiet folio. */
 .record-page {
   width: 100%;
   max-width: var(--measure);
@@ -659,6 +662,8 @@
   color: var(--accent);
 }
 
+/* `max-width: none` because the global `p` cap is 65ch of this smaller type,
+   about 485px, which pulled the centred folio off the column's centre. */
 .record-page-aturi {
   margin-top: var(--space-6);
   max-width: none;

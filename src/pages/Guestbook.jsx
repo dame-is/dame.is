@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Signature } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
@@ -40,9 +40,16 @@ const ARRIVAL_HOLD_MS = 1400;
  */
 export default function Guestbook() {
   const { title, intro } = usePageContent('guestbook');
-  const { agent, did } = useAtprotoSession();
+  const { agent, did, restore } = useAtprotoSession();
   const { openPanel } = useChromePanel();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // A returning signer's session waits for a page that can use it — this one,
+  // where it's what puts "remove" on their own signature.
+  useEffect(() => {
+    restore();
+  }, [restore]);
 
   // Owner + the chrome bar's pencil = moderation: hidden entries surface
   // (dimmed) and every signature grows a hide/unhide control.
@@ -60,6 +67,12 @@ export default function Guestbook() {
   const [cursor, setCursor] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | stale | error
   const [loadingMore, setLoadingMore] = useState(false);
+  // The last "earlier signatures" read failed; the button stays to retry it.
+  const [moreError, setMoreError] = useState(false);
+  // Bumped by "Try again" to re-run the opening read in place; `retrying`
+  // covers the stale case, where the snapshot stays up while it runs.
+  const [retryKey, setRetryKey] = useState(0);
+  const [retrying, setRetrying] = useState(false);
   entriesRef.current = entries;
 
   // Signatures that arrived on the live read and weren't in the snapshot, so
@@ -77,6 +90,10 @@ export default function Guestbook() {
   // Signatures written from the sign sheet this session that the backlink index
   // hasn't caught up with yet. They ride on top of every page until it has.
   const pendingRef = useRef([]);
+  // Signatures their signer removed this visit. The backlink index (and
+  // Slingshot's record cache) can lag a delete just as they lag a write, so a
+  // read that lands afterwards may still carry one; it stays gone regardless.
+  const removedRef = useRef(new Set());
 
   /**
    * Show a page of the book. `page` is whatever `fetchGuestbookEntries` returns
@@ -84,7 +101,9 @@ export default function Guestbook() {
    * optimistic signatures, which drop off as the index catches up with them.
    */
   const paint = useCallback((page, { animate = false } = {}) => {
-    const arrived = Array.isArray(page.entries) ? page.entries : [];
+    const arrived = (Array.isArray(page.entries) ? page.entries : []).filter(
+      (e) => !removedRef.current.has(e.uri),
+    );
     const arrivedUris = new Set(arrived.map((e) => e.uri));
     const pending = pendingRef.current.filter((e) => !arrivedUris.has(e.uri));
     pendingRef.current = pending;
@@ -154,6 +173,7 @@ export default function Guestbook() {
       }
       const live = await livePromise;
       if (cancelled) return;
+      setRetrying(false);
       if (live) {
         const hadSnapshot = sourceRef.current === 'snapshot';
         sourceRef.current = 'live';
@@ -169,7 +189,17 @@ export default function Guestbook() {
     return () => {
       cancelled = true;
     };
-  }, [paint]);
+  }, [paint, retryKey]);
+
+  // "Try again" after a failed opening read (or a stale one). Nothing has been
+  // paged or painted from the live read in either case, so re-running the
+  // effect starts the book over cleanly; a standing snapshot stays up while it
+  // does.
+  function retryLoad() {
+    setStatus((s) => (s === 'error' ? 'loading' : s));
+    setRetrying(true);
+    setRetryKey((k) => k + 1);
+  }
 
   // Retire a pending arrival highlight on unmount.
   useEffect(
@@ -182,19 +212,30 @@ export default function Guestbook() {
   async function loadMore() {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
-    const page = await fetchGuestbookEntries({ cursor });
-    if (page) {
+    setMoreError(false);
+    try {
+      // `null` is the backlink index being unreachable (after its own retries),
+      // which the button would otherwise answer by silently doing nothing.
+      const page = await fetchGuestbookEntries({ cursor });
+      if (!page) {
+        setMoreError(true);
+        return;
+      }
       pagedRef.current = true;
-      for (const entry of page.entries) {
+      const fresh = page.entries.filter((e) => !removedRef.current.has(e.uri));
+      for (const entry of fresh) {
         if (entry.uri) seenUrisRef.current.add(entry.uri);
       }
-      setEntries((prev) => [...(prev || []), ...page.entries]);
+      setEntries((prev) => [...(prev || []), ...fresh]);
       setCursor(page.cursor);
       if (page.total != null) setTotal(page.total);
       // Flagged entries surface page by page; add this page's to the tally.
       setFlaggedCount((c) => c + (page.flaggedCount || 0));
+    } catch {
+      setMoreError(true);
+    } finally {
+      setLoadingMore(false);
     }
-    setLoadingMore(false);
   }
 
   // Put a fresh signature on top of the book at once, ahead of the backlink
@@ -211,15 +252,24 @@ export default function Guestbook() {
   }, []);
 
   // A signature just written from the sign sheet arrives via navigation state.
-  // A ref of consumed URIs guards against a re-render or a back/forward
-  // replaying the same state and inserting it twice.
+  // A ref of consumed URIs guards against a re-render replaying the same state
+  // and inserting it twice.
+  //
+  // The state is then cleared from the history entry. The browser keeps
+  // history state across a reload, and consumedRef doesn't survive one — so a
+  // signature written, removed, and followed by a reload used to come back
+  // from the entry's state, and come back again on every paint after, since
+  // the index it waits on will never list a deleted record.
   const consumedRef = useRef(new Set());
   useEffect(() => {
     const fresh = location.state?.justSigned;
-    if (!fresh?.uri || consumedRef.current.has(fresh.uri)) return;
+    if (!fresh?.uri) return;
+    const { pathname, search, hash } = location;
+    navigate({ pathname, search, hash }, { replace: true, state: null });
+    if (consumedRef.current.has(fresh.uri)) return;
     consumedRef.current.add(fresh.uri);
     addSigned(fresh);
-  }, [location.state, addSigned]);
+  }, [location, navigate, addSigned]);
 
   // Returning from the guestbook-only sign-in flow (see signIn's intent): the
   // note written before the hop is waiting in sessionStorage, so write it now,
@@ -257,8 +307,14 @@ export default function Guestbook() {
   }, [did, agent, openPanel, addSigned]);
 
   async function handleRemove(entry) {
-    if (!agent) return;
+    // The session's Agent loads a beat after the session itself.
+    if (!agent) throw new Error('No session to remove it with yet.');
     await deleteGuestbookEntry(agent, entry.rkey, entry.collection);
+    removedRef.current.add(entry.uri);
+    // A fresh signature also rides in the pending list until the index lists
+    // it, which for a deleted record is never; without this, every later paint
+    // would put it back.
+    pendingRef.current = pendingRef.current.filter((e) => e.uri !== entry.uri);
     setEntries((prev) => (prev || []).filter((e) => e.uri !== entry.uri));
     setTotal((t) => (typeof t === 'number' && t > 0 ? t - 1 : t));
   }
@@ -335,10 +391,19 @@ export default function Guestbook() {
         {status === 'loading' ? (
           <CommentsSkeleton rows={4} />
         ) : status === 'error' ? (
-          <p className="feed-empty">
-            The backlink index is unreachable right now. The signatures are safe on their
-            signers' PDSes; try again in a bit.
-          </p>
+          <div className="guestbook-load-error">
+            <p className="feed-empty">
+              The backlink index is unreachable right now. The signatures are
+              safe on their signers' PDSes.
+            </p>
+            <button
+              type="button"
+              className="guestbook-more"
+              onClick={retryLoad}
+            >
+              Try again
+            </button>
+          </div>
         ) : !visible || visible.length === 0 ? (
           <>
             {/* An empty book that speaks to the visitor. */}
@@ -377,12 +442,26 @@ export default function Guestbook() {
                 {loadingMore ? 'Turning the page…' : 'Earlier signatures'}
               </button>
             )}
+            {cursor && moreError && !loadingMore && (
+              <p className="guestbook-more-error gutter" role="status">
+                Couldn&rsquo;t reach the backlink index for earlier signatures.
+                Try again in a moment.
+              </p>
+            )}
           </>
         )}
         {status === 'stale' && (
           <p className="guestbook-stale-note gutter">
-            The backlink index is unreachable, so this is the book as it stood at the last
-            build — anything signed since is missing, not lost.
+            The backlink index is unreachable, so this is the book as it stood
+            at the last build — anything signed since is missing, not lost.{' '}
+            <button
+              type="button"
+              className="guestbook-stale-retry"
+              onClick={retryLoad}
+              disabled={retrying}
+            >
+              {retrying ? 'Trying…' : 'Try again'}
+            </button>
           </p>
         )}
       </section>

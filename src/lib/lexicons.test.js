@@ -6,7 +6,11 @@ import {
   emptyLeafletContent,
   hasLeafletContent,
 } from './lexicons.js';
-import { COLLECTIONS } from '../config.js';
+import {
+  COLLECTIONS,
+  BLOG_PUBLICATION,
+  PORTFOLIO_PUBLICATION,
+} from '../config.js';
 // Imported HERE and not in lexicons.js: the module itself must stay free of JSX
 // component imports (see the note on the photoLayout options), which is exactly
 // why the duplicated list needs a test holding the two in step.
@@ -147,5 +151,40 @@ describe('LEXICONS field shapes', () => {
         if (f.supersededBy) expect(keys, `${nsid}.${f.key}`).toContain(f.supersededBy);
       }
     }
+  });
+});
+
+describe('site.standard.document derive', () => {
+  const derive = LEXICONS['site.standard.document'].derive;
+  const work = (path) => ({
+    site: PORTFOLIO_PUBLICATION,
+    title: 'A work',
+    path,
+  });
+
+  it('stores a portfolio slug with exactly one leading slash, however it was typed', () => {
+    // Standard Site consumers join publication.url + path, so a bare slug
+    // would read as https://dame.is/creatingmy-work.
+    expect(derive(work('my-work'), { rkey: '3abc' }).path).toBe('/my-work');
+    expect(derive(work('  /a '), { rkey: '3abc' }).path).toBe('/a');
+    expect(derive(work('//a'), { rkey: '3abc' }).path).toBe('/a');
+    expect(derive(work('/already'), { rkey: '3abc' }).path).toBe('/already');
+  });
+
+  it('falls back to the record key when the slug is blank', () => {
+    expect(derive(work(''), { rkey: '3abc' }).path).toBe('/3abc');
+    expect(derive(work('   '), { rkey: '3abc' }).path).toBe('/3abc');
+    expect(derive(work('/'), { rkey: '3abc' }).path).toBe('/3abc');
+    expect(derive(work(undefined), { rkey: '3abc' }).path).toBe('/3abc');
+  });
+
+  it('always gives a blog post its record key', () => {
+    const post = { site: BLOG_PUBLICATION, title: 'A post', path: '/custom' };
+    expect(derive(post, { rkey: '3abc' }).path).toBe('/3abc');
+  });
+
+  it('leaves a record without a key alone', () => {
+    const record = work('my-work');
+    expect(derive(record, {})).toBe(record);
   });
 });

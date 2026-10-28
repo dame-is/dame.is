@@ -15,15 +15,24 @@ import { atUriParts, parseAtUri, shortenCid, shortenDid, subjectOfRecord } from 
 export function XrayTag({ atUri, onOpen }) {
   const parts = atUriParts(atUri);
   if (!parts) return null;
+  // Only the address is decorative. The inspect button is a real control, and
+  // inside aria-hidden it took keyboard focus while saying nothing, so a
+  // screen reader could Tab onto every card's drill-in and never learn what
+  // it was.
   return (
-    <div className="xray-tag" aria-hidden="true">
-      <span className="bp-uri">
+    <div className="xray-tag">
+      <span className="bp-uri" aria-hidden="true">
         <span className="did">{parts.prefix}</span>
         <span className="nsid">{parts.nsid}</span>
         <span className="rkey">{parts.rkey}</span>
       </span>
       {onOpen && (
-        <button type="button" className="xray-tag-open" onClick={onOpen}>
+        <button
+          type="button"
+          className="xray-tag-open"
+          onClick={onOpen}
+          aria-label={`Inspect this ${parts.nsid} record`}
+        >
           inspect ↓
         </button>
       )}

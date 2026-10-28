@@ -1,9 +1,22 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import DebugPane from './DebugPane.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import { shortcutBlocked } from '../lib/shortcuts.js';
 import './DebugSheet.css';
+
+// Where focus lands when the sheet closes and its opener is gone. The usual
+// opener is the inspect HUD's "details" button, and the HUD stands aside while
+// a sheet is up, so that button is unmounted by the time the sheet closes; the
+// HUD comes back in the same commit, so its new button is there to take it.
+// Failing that (opened with `?`, x-ray off), the bar's inspect toggle.
+function detailsTrigger() {
+  return (
+    document.querySelector('.xray-hud-inspect') ||
+    document.querySelector('.chrome-xray')
+  );
+}
 
 /**
  * The atmosphere readout for the current route — at-uri, cid, lexicon, pds,
@@ -14,18 +27,20 @@ import './DebugSheet.css';
  * BottomSheet, coordinated with the other panels + the dock by useChromePanel.
  *
  * Owns the `?` shortcut, which toggles this sheet from anywhere in the app
- * (ignoring keystrokes inside text inputs).
+ * (ignoring typing, chords, auto-repeat, and keys pressed under a modal — see
+ * shortcutBlocked).
+ *
+ * Memoised: it takes no props, and the bottom bar that renders it re-renders
+ * as the page scrolls.
  */
-export default function DebugSheet() {
+function DebugSheet() {
   const { panel, togglePanel, closePanel } = useChromePanel();
   const open = panel === 'debug';
 
   useEffect(() => {
     function onKey(e) {
       if (e.key !== '?') return;
-      const tag = e.target?.tagName;
-      const editing = tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable;
-      if (editing) return;
+      if (shortcutBlocked(e)) return;
       e.preventDefault();
       togglePanel('debug');
     }
@@ -41,6 +56,7 @@ export default function DebugSheet() {
       id="chrome-debug-sheet"
       size="fill"
       className="debug-sheet-panel"
+      restoreFocusTo={detailsTrigger}
     >
       <div className="debug-sheet-header">
         <span className="small-caps">atmosphere · this page</span>
@@ -57,3 +73,5 @@ export default function DebugSheet() {
     </BottomSheet>
   );
 }
+
+export default memo(DebugSheet);

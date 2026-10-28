@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { paletteForHour } from './src/lib/skyTheme.js';
+import { injectSkyBoot } from './src/lib/skyBoot.js';
 import { effectiveSkyTuning } from './src/lib/skyTuning.js';
 
 // Build identity for the auto-update watcher (see src/hooks/useAutoUpdate.js).
@@ -50,10 +50,11 @@ function readNavSeed() {
   }
 }
 
-// The is.dame.sky/self tuning, baked in the same way so the palette is the
-// tuned hour from the first frame (see src/main.jsx). It used to arrive after
-// paint, so a cold load went untuned cyan → tuned page. Null with no snapshot
-// or an empty record, and the app falls back to the runtime fetch.
+// The raw is.dame.sky/self record, baked in so the mark's first render already
+// knows whether the owner has hidden it (useTheme's SKY_SEED). The tuning
+// itself reaches the bundle through `virtual:sky-tuning` (skyBootPaint below).
+// Null with no snapshot or an empty record, and the app falls back to the
+// runtime fetch.
 function readSkySeed() {
   try {
     const path = fileURLToPath(new URL('./public/data/sky.json', import.meta.url));
@@ -65,38 +66,6 @@ function readSkySeed() {
 }
 
 const SKY_SEED = readSkySeed();
-
-// The tokens the first frame needs before any module has run: the page, the
-// bar surfaces the browser tints its own chrome from, and the inks.
-const FIRST_PAINT_TOKENS = ['page', 'surface-raised', 'surface-deep', 'ink', 'ink-faint', 'accent'];
-
-// Inline a 24-hour table of those tokens (tuning and contrast floor applied)
-// into <head>, with a few lines that pick this Eastern hour's row. Before
-// this, everything ahead of the entry module painted in theme.css's
-// fallbacks, so a cold load opened on the retired parchment. main.jsx then
-// writes the full palette over it, from the same derivation. About 1 KB.
-function skyFirstPaint() {
-  return {
-    name: 'dame-sky-first-paint',
-    transformIndexHtml(html) {
-      const tuning = effectiveSkyTuning(SKY_SEED);
-      const rows = Array.from({ length: 24 }, (_, h) => {
-        const p = paletteForHour(h, tuning);
-        return [p.day ? 1 : 0, ...FIRST_PAINT_TOKENS.map((k) => p.vars[`--sky-${k}`].slice(1))].join(',');
-      });
-      const script =
-        '<script>(function(){try{' +
-        `var T=${JSON.stringify(rows)},K=${JSON.stringify(FIRST_PAINT_TOKENS)};` +
-        "var h=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false}).format(new Date()))%24;" +
-        "var r=T[h].split(','),s=document.documentElement.style;" +
-        "for(var i=0;i<K.length;i++)s.setProperty('--sky-'+K[i],'#'+r[i+1]);" +
-        "s.colorScheme=r[0]==='1'?'light':'dark';" +
-        "var m=document.querySelector('meta[name=\"theme-color\"]');if(m)m.setAttribute('content','#'+r[2]);" +
-        '}catch(e){}})();</script>';
-      return html.replace('<!-- sky-first-paint -->', script);
-    },
-  };
-}
 
 // Emit dist/version.json (matching the baked-in build id) so the running app
 // can poll it and detect when a newer build has been deployed. Written in
@@ -121,8 +90,47 @@ function emitVersionJson() {
   };
 }
 
+// The owner's is.dame.sky tuning as `npm run build` prefetched it, read once
+// here for both sides of the first paint: index.html's sky boot table (see
+// src/lib/skyBoot.js), and `virtual:sky-tuning`, which main.jsx installs
+// before the bundle's first paint. One reading, so the colour the page boots
+// in is the colour the bundle then paints, and only the normalised tuning
+// ships rather than the raw record. Read on every request, so a dev server
+// picks up a fresh prefetch without a restart. No snapshot (a fresh clone, a
+// `build:offline`) means no tuning on either side: the built-in palette.
+const SKY_TUNING_ID = 'virtual:sky-tuning';
+const RESOLVED_SKY_TUNING_ID = '\0' + SKY_TUNING_ID;
+
+function skyBootPaint() {
+  let snapshot = resolve(process.cwd(), 'public/data/sky.json');
+  const readTuning = () =>
+    existsSync(snapshot)
+      ? effectiveSkyTuning(JSON.parse(readFileSync(snapshot, 'utf8')))
+      : null;
+  return {
+    name: 'dame-sky-boot-paint',
+    configResolved(config) {
+      snapshot = resolve(config.root, 'public/data/sky.json');
+    },
+    resolveId(id) {
+      return id === SKY_TUNING_ID ? RESOLVED_SKY_TUNING_ID : null;
+    },
+    load(id) {
+      if (id !== RESOLVED_SKY_TUNING_ID) return null;
+      this.addWatchFile(snapshot);
+      return `export default ${JSON.stringify(readTuning())};`;
+    },
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        return injectSkyBoot(html, readTuning());
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), skyFirstPaint(), emitVersionJson()],
+  plugins: [react(), emitVersionJson(), skyBootPaint()],
   server: {
     port: 5173,
   },

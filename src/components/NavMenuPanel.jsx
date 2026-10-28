@@ -25,6 +25,7 @@ import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { NAV_NSID } from '../config.js';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { DEFAULT_ROUTES } from '../lib/navRoutes.js';
+import { getRecordIfExists, isSwapConflict } from '../lib/recordWrites.js';
 import './NavMenuPanel.css';
 
 const toItem = (r) => ({ to: r.to, label: r.label, hidden: false });
@@ -80,6 +81,13 @@ export default function NavMenuPanel({ agent, did }) {
   // What was last read from (or written to) the PDS. `null` until the load
   // settles, which is what keeps the strip quiet while the editor is still empty.
   const [baseline, setBaseline] = useState(null);
+  // Whether is.dame.nav/self is on the PDS — the first save after "no" is a
+  // create, and only a create.
+  const [exists, setExists] = useState(false);
+  // A read that failed for any reason but "no such record", and the nonce
+  // "Try again" bumps to run the load once more.
+  const [loadError, setLoadError] = useState(null);
+  const [loadNonce, setLoadNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,27 +96,36 @@ export default function NavMenuPanel({ agent, did }) {
       // baseline is taken from exactly what the editor was seeded with — a
       // normalization can never read as an unsaved edit.
       let next = { enabled: false, items: seedItems(), createdAt: null };
+      let res;
       try {
-        const res = await agent.com.atproto.repo.getRecord({
+        res = await getRecordIfExists(agent, {
           repo: did,
           collection: NAV_NSID,
           rkey: 'self',
         });
-        const v = res?.data?.value;
-        if (v) {
-          next = {
-            enabled: Boolean(v.enabled),
-            items:
-              Array.isArray(v.items) && v.items.length
-                ? v.items.map(normalizeItem).map(withUid)
-                : seedItems(),
-            createdAt: v.createdAt || null,
-          };
-        }
-      } catch {
-        // No record yet — seed the editor from the site defaults.
+      } catch (err) {
+        // Only the PDS saying "no such record" means there is none. Anything
+        // else leaves the editor closed: opened on the built-in routes, it
+        // would read as the saved menu, and Save would write them over it.
+        if (cancelled) return;
+        setLoadError(err?.message || String(err));
+        setLoading(false);
+        return;
+      }
+      const v = res?.data?.value;
+      if (v) {
+        next = {
+          enabled: Boolean(v.enabled),
+          items:
+            Array.isArray(v.items) && v.items.length
+              ? v.items.map(normalizeItem).map(withUid)
+              : seedItems(),
+          createdAt: v.createdAt || null,
+        };
       }
       if (cancelled) return;
+      setExists(Boolean(res));
+      setLoadError(null);
       setEnabled(next.enabled);
       setItems(next.items);
       setCreatedAt(next.createdAt);
@@ -118,7 +135,13 @@ export default function NavMenuPanel({ agent, did }) {
     return () => {
       cancelled = true;
     };
-  }, [agent, did]);
+  }, [agent, did, loadNonce]);
+
+  const retryLoad = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
+    setLoadNonce((n) => n + 1);
+  }, []);
 
   /* --- reordering, and keeping the control with the entry ----------------- */
 
@@ -244,7 +267,12 @@ export default function NavMenuPanel({ agent, did }) {
         collection: NAV_NSID,
         rkey: 'self',
         record,
+        // The first save is create-only: the PDS said there was no record when
+        // this loaded, and one that has turned up since is not this editor's to
+        // replace with a list built from the defaults.
+        ...(exists ? {} : { swapRecord: null }),
       });
+      setExists(true);
       setCreatedAt(record.createdAt);
       setItems(kept);
       // The post-save baseline is what was WRITTEN, not what was on screen when
@@ -263,11 +291,15 @@ export default function NavMenuPanel({ agent, did }) {
       // counts cache holds for a minute, so say so rather than waiting it out.
       invalidate([NAV_NSID]);
     } catch (err) {
-      setError(err?.message || String(err));
+      setError(
+        isSwapConflict(err) && !exists
+          ? `${NAV_NSID}/self turned up on your PDS after this studio loaded, so nothing was written over it. Reload to edit what is there.`
+          : err?.message || String(err),
+      );
     } finally {
       setSaving(false);
     }
-  }, [agent, did, items, enabled, createdAt, invalidate]);
+  }, [agent, did, items, enabled, createdAt, exists, invalidate]);
 
   /* --- what the shell needs to know ------------------------------------- */
 
@@ -280,6 +312,11 @@ export default function NavMenuPanel({ agent, did }) {
   const save = useCallback(() => saveRef.current(), []);
 
   useEffect(() => {
+    // Nothing to save over a record that could not be read.
+    if (loadError) {
+      registerActions(null);
+      return;
+    }
     registerActions({
       save,
       remove: null,
@@ -291,7 +328,7 @@ export default function NavMenuPanel({ agent, did }) {
       canDelete: false,
       isNew: false,
     });
-  }, [registerActions, save, saving, loading]);
+  }, [registerActions, save, saving, loading, loadError]);
 
   const dirtyState = useMemo(() => {
     if (!baseline) return null;
@@ -322,6 +359,25 @@ export default function NavMenuPanel({ agent, did }) {
 
       {loading ? (
         <AdminRecordListSkeleton rows={4} />
+      ) : loadError ? (
+        // A block of its own, not a fragment: the pane's blurb is a <p> just
+        // above, and a sibling paragraph takes the prose indent.
+        <div>
+          <p className="placeholder-card">
+            The nav override could not be read, so the editor stays closed
+            rather than opening on the built-in routes.
+          </p>
+          <p className="admin-field-hint">{loadError}</p>
+          <div className="admin-actions">
+            <button
+              type="button"
+              className="admin-gate-button"
+              onClick={retryLoad}
+            >
+              Try again
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <label className="nav-enable">

@@ -25,6 +25,7 @@ import {
   ME_DID,
   COLLECTIONS,
   MOTHING_OBSERVATION_NSID,
+  OBSERVING_OBSERVATION_NSID,
   RATIOED_PATH,
   RATIOED_DOC_RKEY,
   RATIOED_PUBLICATION,
@@ -33,6 +34,7 @@ import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/at
 import { fetchMothObservations } from '../src/lib/inaturalist.js';
 import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
 import { arenaText } from '../src/lib/arena.js';
+import { VERB_REGISTRY, VERB_LABELS } from '../src/lib/verbRegistry.js';
 import {
   TEAL_PLAY_NSIDS,
   listTealPlays,
@@ -53,6 +55,7 @@ import {
   showOnCreating,
   showOnBlog,
   isDraft,
+  isPortfolioDoc,
 } from '../src/lib/publications.js';
 import {
   brokenTakes,
@@ -69,7 +72,30 @@ const PDS_TIMEOUT_MS = 2500;
 const INAT_TIMEOUT_MS = 3000;
 const ARENA_TIMEOUT_MS = 2500;
 
-// Sections whose leaf pages render a single AT-Protocol record.
+// Sections whose leaves are addressed by something other than an rkey in a
+// verb's own collections, and so resolve through a function of their own below:
+// blogging/creating are slug-addressed and read the snapshots, curating pulls
+// its title from the are.na-backed `curating` snapshot.
+const SLUG_SECTIONS = ['blogging', 'creating', 'curating'];
+
+// rkey-addressed sections → the collection(s) a getRecord(rkey) should try, in
+// order. Every verb in the registry that App.jsx gives a `/{verb}/:rkey` page,
+// derived rather than listed: this used to name four of them, so a photo, a
+// like or a flush resolved nothing, carded as the home page, and answered 200
+// to an rkey that never existed. Every collection lives in ME_DID's repo, which
+// is all liveByRkey needs. Two are spelled out because they aren't simply the
+// registry's list: listening reads both of teal.fm's play lexicons (a shared
+// /listening/{rkey} link resolves against whichever one holds that play), and
+// /mothing/:rkey is an observation while /mothing/:date is a night.
+const SECTION_COLLECTIONS = {
+  listening: TEAL_PLAY_NSIDS,
+  mothing: [MOTHING_OBSERVATION_NSID],
+};
+for (const { verb, collections } of VERB_REGISTRY) {
+  if (SLUG_SECTIONS.includes(verb) || SECTION_COLLECTIONS[verb]) continue;
+  SECTION_COLLECTIONS[verb] = collections.map((c) => c.nsid);
+}
+
 /**
  * Sections whose `/section/:id` leaves address a RECORD this module can
  * resolve. Exported because middleware.js has to make the same distinction
@@ -79,26 +105,9 @@ const ARENA_TIMEOUT_MS = 2500;
  * and must never be judged against a record lookup.
  */
 export const RECORD_SECTIONS = new Set([
-  'blogging',
-  'creating',
-  'curating',
-  'posting',
-  'logging',
-  'listening',
-  'mothing',
+  ...SLUG_SECTIONS,
+  ...Object.keys(SECTION_COLLECTIONS),
 ]);
-
-// rkey-addressed sections → the collection(s) a getRecord(rkey) should try, in
-// order. (blogging/creating are slug-addressed and resolve via snapshots;
-// curating pulls its title from the are.na-backed `curating` snapshot.)
-const SECTION_COLLECTIONS = {
-  posting: ['app.bsky.feed.post', 'net.anisota.feed.post'],
-  logging: [COLLECTIONS.now],
-  // teal.fm's production + alpha play lexicons; a shared /listening/{rkey}
-  // link resolves against whichever one holds that play.
-  listening: TEAL_PLAY_NSIDS,
-  mothing: [MOTHING_OBSERVATION_NSID],
-};
 
 /** Resolve after `ms`, whichever comes first, so a hung fetch never blocks. */
 function withTimeout(promise, ms) {
@@ -163,11 +172,28 @@ const CARD_EXTRACTORS = {
   'app.bsky.feed.post': (v) => ({ title: firstText(v.text), description: '', textOnly: true }),
   'net.anisota.feed.post': (v) => ({ title: firstText(v.text), description: '', textOnly: true }),
   'is.dame.now': (v) => ({ title: firstText(v.status, v.text), description: '', textOnly: true }),
-  'is.dame.mothing.observation': (v) => {
+  [MOTHING_OBSERVATION_NSID]: (v) => {
     const common = firstText(v.taxon?.commonName);
     const sci = firstText(v.taxon?.name);
     return { title: common || sci || 'Moth observation', description: common && sci ? sci : '', textOnly: false };
   },
+  // Everything else iNaturalist holds, mirrored in the same shape.
+  [OBSERVING_OBSERVATION_NSID]: (v) => {
+    const common = firstText(v.taxon?.commonName);
+    const sci = firstText(v.taxon?.name);
+    return {
+      title: common || sci || 'Observation',
+      description: common && sci ? sci : '',
+      textOnly: false,
+    };
+  },
+  // A feed generator calls its name `displayName`, which the generic branch
+  // doesn't look for.
+  'app.bsky.feed.generator': (v) => ({
+    title: firstText(v.displayName),
+    description: firstText(v.description),
+    textOnly: false,
+  }),
   'is.dame.arena.channel': (v, ctx) => ({
     title: firstText(v.title, ctx?.title, humanizeSlug(ctx?.slug)),
     description: firstText(v.description, ctx?.description),
@@ -219,17 +245,41 @@ export function isRecordRoute(pathname) {
 
 // ── resolvers: snapshot-first, then a time-boxed live PDS fallback ───────────
 
-// /blogging/:id — id is the rkey; standard docs first, then leaflets.
+// /blogging/:id — id is the rkey; standard docs first, then leaflets. (No
+// leaflet snapshot is ever written — pub.leaflet.document isn't in the verb
+// registry — so leaflets are only ever found live.)
 async function resolveBlog(origin, slug) {
   const blogs = await fetchSnapshot(origin, 'blogs');
   const std = Array.isArray(blogs)
     ? blogs.find((r) => endsWithRkey(r?.uri, slug) && !isDraft(r?.value) && showOnBlog(r?.value))
     : null;
   if (std) return std;
-  const leaflets = await fetchSnapshot(origin, 'leaflets');
-  const leaf = Array.isArray(leaflets) ? leaflets.find((r) => endsWithRkey(r?.uri, slug)) : null;
-  if (leaf) return leaf;
-  return withTimeout(liveByRkey(slug, [COLLECTIONS.blogging, COLLECTIONS.leaflet]), PDS_TIMEOUT_MS);
+  return withTimeout(liveBlogByRkey(slug), PDS_TIMEOUT_MS);
+}
+
+/**
+ * A blog post too fresh for the snapshot, read live — filtered the way the
+ * snapshot is. Unfiltered, a draft answered 200 here with its title in the
+ * card, and a portfolio-only work got a self-canonical /blogging page the SPA
+ * renders as Not Found. A standard doc that exists but isn't a blog post is a
+ * definite answer, so the leaflet collection isn't asked after it.
+ */
+async function liveBlogByRkey(rkey) {
+  const pds = await resolvePds(ME_DID).catch(() => null);
+  if (!pds) return null;
+  const std = await getRecord(pds, {
+    repo: ME_DID,
+    collection: COLLECTIONS.blogging,
+    rkey,
+  }).catch(() => null);
+  if (std?.value)
+    return !isDraft(std.value) && showOnBlog(std.value) ? std : null;
+  const leaf = await getRecord(pds, {
+    repo: ME_DID,
+    collection: COLLECTIONS.leaflet,
+    rkey,
+  }).catch(() => null);
+  return leaf?.value ? leaf : null;
 }
 
 // /creating/:slug — slug is the doc's `path` (or an rkey); portfolio-homed
@@ -309,14 +359,19 @@ async function resolveChannel(origin, slug) {
   };
 }
 
+// Every collection is asked at once and the first in order that holds the rkey
+// wins. One after another, /crafting's nine lexicons spent the whole time box
+// on the misses before reaching a record in the last of them, and a page for a
+// record that exists would have answered 404.
 async function liveByRkey(rkey, collections) {
   const pds = await resolvePds(ME_DID).catch(() => null);
   if (!pds) return null;
-  for (const collection of collections) {
-    const rec = await getRecord(pds, { repo: ME_DID, collection, rkey }).catch(() => null);
-    if (rec?.value) return rec;
-  }
-  return null;
+  const found = await Promise.all(
+    collections.map((collection) =>
+      getRecord(pds, { repo: ME_DID, collection, rkey }).catch(() => null),
+    ),
+  );
+  return found.find((rec) => rec?.value) || null;
 }
 
 async function liveWorkBySlug(slug) {
@@ -335,13 +390,66 @@ async function liveWorkBySlug(slug) {
 }
 
 /**
- * The one address a record should be indexed under. Only `/creating` addresses
- * a record two ways (see canonicalWorkPath); every other section already has
- * one form, so the requested path stands.
+ * The one address a record should be indexed under. `/creating` addresses a
+ * record two ways (see canonicalWorkPath), and a standard document can be
+ * cross-posted onto the other section by a tag — but its `site` stays its
+ * home, so the copy under the other section points there. Without that, a blog
+ * post tagged `creating` was indexable at two self-canonical URLs, and both
+ * were in the sitemap. Legacy is.dame.creating.work records carry no `site`,
+ * which is why this keys on the collection rather than on isPortfolioDoc alone.
+ * Every other section already has one form, so the requested path stands.
  */
 function canonicalPathFor(section, record, slug) {
+  const rkey = rkeyFromAtUri(record?.uri);
+  const isStandardDoc = collectionFromUri(record?.uri) === COLLECTIONS.blogging;
+  if (
+    isStandardDoc &&
+    rkey &&
+    (section === 'blogging' || section === 'creating')
+  ) {
+    return isPortfolioDoc(record.value)
+      ? canonicalWorkPath(record.value, rkey, slug)
+      : `/blogging/${encodeURIComponent(rkey)}`;
+  }
   if (section !== 'creating') return `/${section}/${encodeURIComponent(slug)}`;
-  return canonicalWorkPath(record?.value, rkeyFromAtUri(record?.uri), slug);
+  return canonicalWorkPath(record?.value, rkey, slug);
+}
+
+/** "A like" from "a like": the registry's label, as the start of a sentence. */
+const sentenceCase = (s) =>
+  String(s || '').replace(/^\w/, (c) => c.toUpperCase());
+
+/**
+ * What a post says when it says nothing: a quote post, a photo, a link. Read
+ * off the embed, so the card names the kind of post it is.
+ */
+function embedLine(embed) {
+  const type = String(embed?.$type || '');
+  const mediaType = String(embed?.media?.$type || '');
+  const linked = firstText(
+    embed?.external?.title,
+    embed?.media?.external?.title,
+  );
+  if (linked) return `A link to “${linked}”`;
+  if (type.startsWith('app.bsky.embed.record')) return 'A quote post';
+  if (type === 'app.bsky.embed.images' || mediaType === 'app.bsky.embed.images')
+    return 'A photo post';
+  if (type === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video')
+    return 'A video post';
+  return '';
+}
+
+/**
+ * A stand-in line for a record that resolved but has no text of its own to
+ * card with — a quote post, a like, a follow, a status left blank. Those used
+ * to come back null, which the middleware takes to mean "no such record": the
+ * page answered 404 with noindex although the record was right there. Only the
+ * rkey-addressed verb sections get one; the slug-addressed ones have fallbacks
+ * of their own, and an unknown record with nothing in it stays null.
+ */
+function fallbackTitle(section, value) {
+  if (!SECTION_COLLECTIONS[section]) return '';
+  return firstText(embedLine(value?.embed), sentenceCase(VERB_LABELS[section]));
 }
 
 function shapeMeta(record, section, slug) {
@@ -349,7 +457,10 @@ function shapeMeta(record, section, slug) {
   const atUri = record.uri || null;
   const collection = collectionFromUri(atUri);
   const { title, description, textOnly } = extractCard(collection, v, { slug });
-  const cleanTitle = firstText(title);
+  // A record that is there and says nothing gets a stand-in line, carded the
+  // way a post's text is: the section names the page (see fallbackTitle).
+  const standIn = firstText(title) ? '' : fallbackTitle(section, v);
+  const cleanTitle = firstText(title, standIn);
   if (!cleanTitle) return null;
   const cid = record.cid || null;
   // `site` is the site.standard.document → site.standard.publication link
@@ -368,7 +479,7 @@ function shapeMeta(record, section, slug) {
   return {
     title: cleanTitle,
     description: firstText(description),
-    textOnly: Boolean(textOnly),
+    textOnly: Boolean(textOnly || standIn),
     section,
     atUri,
     cid,

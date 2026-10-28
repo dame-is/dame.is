@@ -32,6 +32,8 @@ import { InspectMargin } from '../components/XraySubstrate.jsx';
 import {
   SEED_PIECES,
   loadPieces,
+  loadLivePieces,
+  ratioedPds,
   composeEventLog,
   findPieceByRef,
   pieceSlug,
@@ -51,7 +53,7 @@ import {
   audienceIsFresh,
   fmtReach,
 } from '../lib/ratioedReach.js';
-import { aturiUniversalUrl, getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
+import { aturiUniversalUrl, getRecord, resolveProfiles } from '../lib/atproto.js';
 import { DEFAULT_COPY, loadCopy, fillCopy } from '../lib/ratioedCopy.js';
 import { pieceStats } from '../lib/ratioedStats.js';
 import RatioedStats from '../components/RatioedStats.jsx';
@@ -94,7 +96,11 @@ export default function RatioedPiece() {
   const [pieces, setPieces] = useState(SEED_PIECES);
   const [bundled, setBundled] = useState(null);
   const [audience, setAudience] = useState(null);
-  const [delta, setDelta] = useState(null);
+  // The afterlife delta, with the piece it was read for. A pair because this
+  // component outlives a change of piece — RouteTransition's reduced-motion
+  // path renders the routes with no key — and a bare delta put the previous
+  // take's "+N since" on the next one until Constellation answered for it.
+  const [deltaFor, setDeltaFor] = useState(null); // { rkey, delta }
   const [profiles, setProfiles] = useState({});
   // The page's own words. Defaults until the record answers, so nothing here
   // ever renders blank or waits on a fetch to say anything.
@@ -111,6 +117,17 @@ export default function RatioedPiece() {
 
   useEffect(() => {
     let alive = true;
+    // The copy the build captured, straight away and beside the build's
+    // pieces. It used to wait for the PLC lookup along with the PDS's copy, so
+    // every piece opened in the built-in wording and rewrote itself a moment
+    // later into the artist's. The PDS's answer still wins whenever it lands —
+    // and this can't overwrite it if the two arrive the wrong way round.
+    let wordsFromPds = false;
+    loadCopy(null)
+      .then((words) => {
+        if (alive && words && !wordsFromPds) setCopy(words);
+      })
+      .catch(() => {});
     (async () => {
       // The snapshot first, and on its own: it already holds every piece as of
       // the last build, and nothing about rendering those should wait on the
@@ -122,15 +139,20 @@ export default function RatioedPiece() {
       if (fromSnap?.length) setPieces(fromSnap);
 
       // Then the PDS, which is the only place a piece published since that
-      // build exists. Worth waiting for; not worth waiting for forever.
-      const pds = await deadline(resolvePds(ME_DID).catch(() => null));
+      // build exists. Worth waiting for; not worth waiting for forever. Both
+      // reads are shared with the essay and the roster, so a reader arriving
+      // from either has them already.
+      const pds = await deadline(ratioedPds());
       const [fresh, words] = await Promise.all([
-        pds ? deadline(loadPieces(pds).catch(() => null)) : null,
-        deadline(loadCopy(pds).catch(() => null)),
+        pds ? deadline(loadLivePieces().catch(() => null)) : null,
+        pds ? deadline(loadCopy(pds).catch(() => null)) : null,
       ]);
       if (!alive) return;
       if (fresh?.length) setPieces(fresh);
-      if (words) setCopy(words);
+      if (words) {
+        wordsFromPds = true;
+        setCopy(words);
+      }
       setSettled(true);
     })();
     return () => {
@@ -203,13 +225,21 @@ export default function RatioedPiece() {
   // take as an actor just as happily.
   const breakerDid = piece?.breaker?.did || null;
   const breakerHandle = piece?.breaker?.currentHandle || piece?.breaker?.handle || '';
-  useEffect(() => {
-    let alive = true;
+  // Who to ask about, as one string, so the ask is made once per set of people
+  // rather than once per `events` array. That array is rebuilt whenever the
+  // piece is re-read (bundle, snapshot, PDS) or the audience table lands, and
+  // each rebuild asked the AppView for the same accounts again.
+  const actorKey = useMemo(() => {
     const named = breakerHandle && breakerHandle !== 'unknown' ? breakerHandle : '';
     const actors = [
       ...(events || []).filter((e) => e.did && !e.self).map((e) => e.did),
       ...(breakerDid ? [breakerDid] : named ? [named] : []),
     ];
+    return [...new Set(actors)].sort().join('\n');
+  }, [events, breakerDid, breakerHandle]);
+  useEffect(() => {
+    let alive = true;
+    const actors = actorKey ? actorKey.split('\n') : [];
     if (!actors.length) return undefined;
     resolveProfiles(actors).then((p) => {
       if (!alive) return;
@@ -225,7 +255,7 @@ export default function RatioedPiece() {
     return () => {
       alive = false;
     };
-  }, [events, breakerDid, breakerHandle]);
+  }, [actorKey]);
 
   // Is this piece still up? A record written the moment the post goes up and
   // sealed later, so `sealedAt` is the whole test — and while it's absent this
@@ -238,25 +268,31 @@ export default function RatioedPiece() {
     if (!piece?.subject || running) return undefined;
     let alive = true;
     fetchLiveDeltas([piece]).then((d) => {
-      if (alive) setDelta(d?.[piece.rkey] || null);
+      if (alive) setDeltaFor({ rkey: piece.rkey, delta: d?.[piece.rkey] || null });
     });
     return () => {
       alive = false;
     };
   }, [piece, running]);
+  const delta = piece && deltaFor?.rkey === piece.rkey ? deltaFor.delta : null;
 
   // While a piece is up, its record is the one thing on this site that changes
   // as you watch: the studio writes what it witnesses onto it as the piece
   // runs, and sealing writes the measurement. So it's re-read on a timer — one
   // small fetch, and it's what turns this page from a dashboard into a record
   // at the moment the piece ends, without anybody reloading anything.
+  //
+  // Not while the tab is hidden: nobody is watching it change, and a page left
+  // open behind others was reading the PDS every ten seconds for as long as
+  // the piece stood. Coming back reads it at once, so the gap costs nothing.
   useEffect(() => {
     if (!running || !piece?.rkey) return undefined;
     const rkey = piece.rkey;
     let on = true;
     let timer = null;
+    let onVis = null;
     (async () => {
-      const pds = await resolvePds(ME_DID).catch(() => null);
+      const pds = await ratioedPds();
       if (!pds || !on) return;
       const read = async () => {
         const res = await getRecord(pds, {
@@ -269,11 +305,19 @@ export default function RatioedPiece() {
         setPieces((prev) => prev.map((p) => (p.rkey === rkey ? fresh : p)));
       };
       await read();
-      if (on) timer = setInterval(read, LIVE_POLL_MS);
+      if (!on) return;
+      timer = setInterval(() => {
+        if (document.visibilityState !== 'hidden') read();
+      }, LIVE_POLL_MS);
+      onVis = () => {
+        if (document.visibilityState === 'visible') read();
+      };
+      document.addEventListener('visibilitychange', onVis);
     })();
     return () => {
       on = false;
       if (timer) clearInterval(timer);
+      if (onVis) document.removeEventListener('visibilitychange', onVis);
     };
   }, [running, piece?.rkey]);
 
@@ -426,7 +470,11 @@ export default function RatioedPiece() {
   // What the log section makes its case with. Counted rather than written down,
   // so it can't drift from the pieces on screen the way a hardcoded figure did
   // in the essay's reaction chart.
-  const deletedLikes = pieces.filter((p) => p.breaker?.likeSurvives === false).length;
+  //
+  // Over the finished pieces only. A take that is up right now has no breaker
+  // yet, and the record's missing one reads as a deleted like — so every
+  // finished page counted the live piece as one more, out of one more.
+  const deletedLikes = finishedPieces.filter((p) => p.breaker?.likeSurvives === false).length;
   // Records somebody made and unmade while the piece was being watched. The
   // measured log has no row for any of them, by construction: a record that no
   // longer exists is in no index.
@@ -707,7 +755,7 @@ export default function RatioedPiece() {
               {withdrawn.length > 0 &&
                 ' The struck-through rows are from the log the studio kept: those records were deleted, so no index holds them.'}
               {deletedLikes > 0 &&
-                ` ${deletedLikes} of the project's ${pieces.length} breaking likes ${
+                ` ${deletedLikes} of the project's ${finishedPieces.length} breaking likes ${
                   deletedLikes === 1 ? 'has' : 'have'
                 } since been deleted by the people who cast them.`}
             </p>

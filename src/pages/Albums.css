@@ -67,8 +67,10 @@
   border-left: 1px solid var(--rule);
 }
 
-.album-order-tab:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .album-order-tab:hover {
+    color: var(--ink);
+  }
 }
 
 .album-order-tab.is-active {
@@ -126,9 +128,16 @@
   background: linear-gradient(135deg, var(--rule-soft), var(--surface-raised));
 }
 
-.album-link:hover .album-cover,
+/* Hover only where a pointer can hover (see the note in typography.css);
+   keyboard focus gets the same cue unconditionally. */
 .album-link:focus-visible .album-cover {
   border-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .album-link:hover .album-cover {
+    border-color: var(--accent-soft);
+  }
 }
 
 .album-cell-body {
@@ -163,11 +172,18 @@
   text-overflow: ellipsis;
 }
 
-.album-link:hover .album-cell-title,
 .album-link:focus-visible .album-cell-title {
   color: var(--accent);
   text-decoration: underline;
   text-decoration-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .album-link:hover .album-cell-title {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+  }
 }
 
 .album-cell-artist {
@@ -310,11 +326,18 @@
   flex: 1 1 auto;
 }
 
-.album-track > a:hover .album-track-name,
 .album-track > a:focus-visible .album-track-name {
   color: var(--accent);
   text-decoration: underline;
   text-decoration-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .album-track > a:hover .album-track-name {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+  }
 }
 
 .album-track-count {

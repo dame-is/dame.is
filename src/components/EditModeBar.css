@@ -66,7 +66,7 @@
 }
 
 .edit-mode-bar-error {
-  color: var(--tan);
+  color: var(--danger);
   font-size: 0.8rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -95,11 +95,20 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.edit-mode-bar-btn:hover:not(:disabled),
 .edit-mode-bar-btn:focus-visible:not(:disabled) {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+/* Pointer-only, as the site's hover tints are: on touch a tapped button keeps
+   the tint until something else is touched (see the note in typography.css). */
+@media (hover: hover) {
+  .edit-mode-bar-btn:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
 }
 
 .edit-mode-bar-btn:disabled {
@@ -115,23 +124,42 @@
   border-color: var(--accent);
 }
 
-.edit-mode-bar-save:hover:not(:disabled),
+/* Hover DARKENS the fill, as the home hero's primary does: --accent-soft is a
+   paler step, and the --page label on it lost its contrast. Mixing toward
+   black deepens the label's contrast by day and costs little of it at night. */
 .edit-mode-bar-save:focus-visible:not(:disabled) {
   color: var(--page);
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 85%, #000);
+  border-color: color-mix(in srgb, var(--accent) 85%, #000);
+}
+
+@media (hover: hover) {
+  .edit-mode-bar-save:hover:not(:disabled) {
+    color: var(--page);
+    background: color-mix(in srgb, var(--accent) 85%, #000);
+    border-color: color-mix(in srgb, var(--accent) 85%, #000);
+  }
 }
 
 /* Delete is the destructive primary — tint it so it's unmistakable, but keep
-   it quiet until hovered so an accidental tap is less likely. */
+   it quiet until hovered so an accidental tap is less likely. --danger, not
+   --tan: the sky theme derives --tan from the same hue as --accent, which made
+   Delete the colour of Save beside it (theme.css explains the token). */
 .edit-mode-bar-delete {
-  color: var(--tan);
-  border-color: color-mix(in srgb, var(--tan) 45%, var(--rule));
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--rule));
 }
 
-.edit-mode-bar-delete:hover:not(:disabled),
 .edit-mode-bar-delete:focus-visible:not(:disabled) {
   color: var(--page);
-  background: var(--tan);
-  border-color: var(--tan);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+@media (hover: hover) {
+  .edit-mode-bar-delete:hover:not(:disabled) {
+    color: var(--page);
+    background: var(--danger);
+    border-color: var(--danger);
+  }
 }

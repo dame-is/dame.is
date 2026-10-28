@@ -14,7 +14,7 @@ import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { compareIsoDesc } from '../lib/time.js';
 import { smartenText } from '../lib/smartPunctuation.js';
-import { coverThumb } from '../lib/creatingHelpers.js';
+import { coverThumb, swapToOriginal } from '../lib/creatingHelpers.js';
 import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -49,7 +49,13 @@ function WorkPlate({ record }) {
     <li className="creating-plate" data-nsid={nsidFromAtUri(record.uri) || undefined}>
       <Link to={`/creating/${slug}`} className="creating-plate-link">
         {thumb ? (
-          <img className="creating-plate-cover" src={thumb.url} alt={thumb.alt || ''} loading="lazy" />
+          <img
+            className="creating-plate-cover"
+            src={thumb.url}
+            alt={thumb.alt || ''}
+            loading="lazy"
+            onError={(e) => swapToOriginal(e, thumb.original)}
+          />
         ) : (
           <div className="creating-plate-title-page" aria-hidden="true">
             <span className="creating-plate-tp-kind">{category}</span>
@@ -120,7 +126,7 @@ export default function Creating() {
   const [view, setView] = useSectionView('creating', 'plates');
   const ledger = view === 'index';
   const loading = status === 'loading';
-  const safeWorks = works || [];
+  const safeWorks = useMemo(() => works || [], [works]);
   const kinds = useMemo(
     () => Array.from(new Set(safeWorks.map((r) => workCategory(r.value)).filter(Boolean))),
     [safeWorks],
@@ -143,9 +149,19 @@ export default function Creating() {
   // grid doesn't swap in with blank cells that pop as they download. Once
   // revealed we stay revealed — later filter/search changes just re-render
   // the grid (their covers are already cached) rather than re-skeletoning.
+  // The ledger draws no covers, so it preloads none — it is the default
+  // layout, and a dozen hidden image downloads only competed with the requests
+  // the page actually needed. Switching to cards later just lazy-loads the
+  // grid, since `revealed` has already latched.
   const coverUrls = useMemo(
-    () => filtered.slice(0, COVER_WAIT).map((r) => coverThumb(r.value)?.url).filter(Boolean),
-    [filtered],
+    () =>
+      ledger
+        ? []
+        : filtered
+            .slice(0, COVER_WAIT)
+            .map((r) => coverThumb(r.value)?.url)
+            .filter(Boolean),
+    [filtered, ledger],
   );
   const coversReady = useImagesReady(coverUrls);
   const [revealed, setRevealed] = useState(false);

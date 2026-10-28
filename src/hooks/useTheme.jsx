@@ -5,6 +5,7 @@ import {
   secondsUntilNextHour,
   skyHourKey,
   setSkyTuning,
+  getSkyTuning,
 } from '../lib/skyTheme.js';
 import { effectiveSkyTuning, skyMarkVisible } from '../lib/skyTuning.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
@@ -29,10 +30,17 @@ export const SKY_SEED = typeof __SKY_SEED__ !== 'undefined' ? __SKY_SEED__ : nul
 // palette through the day by hand.
 const THEME = 'sky';
 
-function applyTheme(skyHour) {
+// `nudge` is for the user-gesture paths only (see applyThemeColor).
+function applyTheme(skyHour, { nudge = false } = {}) {
   document.documentElement.setAttribute('data-theme', THEME);
   const palette = applySkyTheme(skyHour ?? easternHour());
-  applyThemeColor(palette.themeColor);
+  applyThemeColor(palette.themeColor, { nudge });
+}
+
+// Two tunings paint identically when they serialise identically: both come
+// out of effectiveSkyTuning, which builds them in the record's own order.
+function sameTuning(a, b) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
 // State for the iOS re-tint scroll nudge below. Module-level so
@@ -44,11 +52,15 @@ function applyTheme(skyHour) {
 let nudgeBaseY = null;
 let nudgeRestoreRaf = 0;
 
-function applyThemeColor(color) {
+function applyThemeColor(color, { nudge = false } = {}) {
   if (typeof document === 'undefined') return;
   const head = document.head;
 
-  head.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+  const current = head.querySelectorAll('meta[name="theme-color"]');
+  const unchanged =
+    current.length === 1 && current[0].getAttribute('content') === color;
+  if (unchanged) return;
+  current.forEach((m) => m.remove());
   const meta = document.createElement('meta');
   meta.setAttribute('name', 'theme-color');
   meta.setAttribute('content', color);
@@ -61,6 +73,13 @@ function applyThemeColor(color) {
   // is captured once per settled position and the pending restore is
   // cancelled, so back-to-back nudges always restore to where the page
   // actually started.
+  //
+  // Only when a gesture asked for it. Applies driven by the clock or by a
+  // fetch landing used to nudge too — three times in the first couple of
+  // seconds of every load — and a programmatic scroll cancels an iOS
+  // momentum scroll the reader has just started. Those tints catch up on
+  // the reader's next scroll anyway.
+  if (!nudge) return;
   try {
     if (nudgeBaseY == null) nudgeBaseY = window.scrollY || window.pageYOffset || 0;
     window.scrollTo(0, nudgeBaseY + 1);
@@ -69,7 +88,9 @@ function applyThemeColor(color) {
       window.scrollTo(0, nudgeBaseY);
       nudgeBaseY = null;
     });
-  } catch {}
+  } catch {
+    /* no scrolling to nudge (e.g. a non-browser render) */
+  }
 }
 
 export function ThemeProvider({ children }) {
@@ -117,7 +138,11 @@ export function ThemeProvider({ children }) {
   // this guard the state-driven effect would re-apply the identical hour
   // right after — a second scroll nudge per tap. The signature folds in
   // tuningRev so a freshly-loaded override re-applies even on the same hour.
-  const appliedRef = useRef(null);
+  //
+  // Seeded with what main.jsx already painted before React mounted (this
+  // hour, with the tuning baked in at build time — rev 0), so mounting
+  // doesn't repaint an identical palette.
+  const appliedRef = useRef(`sky:${liveHour}:0`);
 
   useEffect(() => {
     // Skip while the admin SkyThemeStudio is live-painting its own
@@ -137,15 +162,22 @@ export function ThemeProvider({ children }) {
   // swap-in, then the live record. Installs it globally (setSkyTuning) and
   // bumps tuningRev to re-paint. Absent / disabled / empty → the built-in
   // hourly palette stands, exactly like the nav-menu override.
+  //
+  // main.jsx has usually installed the build's copy of this same record
+  // already, so the common case is that neither answer changes anything —
+  // and then nothing repaints. When the live record says the override is
+  // off, empty or gone, that has to clear whatever the build baked in:
+  // otherwise switching a tuning off in the studio didn't reach visitors
+  // until the next rebuild.
   useEffect(() => {
     let cancelled = false;
     const install = (record) => {
       if (cancelled) return;
-      // The mark flag is read on its own, BEFORE the tuning early-return:
-      // a record with `enabled: false` still gets to hide the mark.
+      // The mark flag is read on its own: a record with `enabled: false`
+      // still gets to hide the mark.
       setMarkVisible(skyMarkVisible(record));
       const tuning = effectiveSkyTuning(record);
-      if (!tuning) return;
+      if (sameTuning(tuning, getSkyTuning())) return;
       setSkyTuning(tuning);
       setTuningRev((n) => n + 1);
     };
@@ -156,8 +188,11 @@ export function ThemeProvider({ children }) {
         const pds = await resolvePds(ME_DID);
         const rec = await getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.sky, rkey: 'self' });
         if (rec?.value) install(rec);
-      } catch {
-        // No override (getRecord 404s until one exists) — defaults stand.
+      } catch (err) {
+        // The PDS answers a missing record with 400 RecordNotFound (some
+        // with 404): there is no override, so the built-in palette stands.
+        // Anything else is the network — keep what the snapshot gave.
+        if (err?.status === 400 || err?.status === 404) install(null);
       }
     })();
     return () => {
@@ -197,7 +232,7 @@ export function ThemeProvider({ children }) {
   const advanceSkyHour = useCallback(() => {
     const next = (skyHourRef.current + 1) % 24;
     // Sync apply for the same iOS theme-color gesture reason as above.
-    applyTheme(next);
+    applyTheme(next, { nudge: true });
     appliedRef.current = `sky:${next}:${tuningRevRef.current}`;
     setSkyOverride(next);
   }, []);
@@ -208,7 +243,7 @@ export function ThemeProvider({ children }) {
   // sync-apply + appliedRef guard as advanceSkyHour (iOS theme-color).
   const setSkyHour = useCallback((next) => {
     const h = next == null ? easternHour() : next;
-    applyTheme(h);
+    applyTheme(h, { nudge: true });
     appliedRef.current = `sky:${h}:${tuningRevRef.current}`;
     setSkyOverride(next);
   }, []);

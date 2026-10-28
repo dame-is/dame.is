@@ -21,6 +21,12 @@
 // already present, the previous recovery attempt didn't produce a working
 // shell, so we log and stop — a genuine outage must never reload-loop.
 //
+// That guard only holds until the app boots and strips it, and most pages are
+// lazy chunks fetched after that. So once the app is running the stub hands
+// the reload to it (src/lib/chunkRecovery.js, exposed by src/main.jsx), whose
+// guard survives the reload; on its own, a chunk this deploy lacks reloaded
+// the page forever.
+//
 // Everything is no-store: no cache may ever adopt a recovery response as the
 // real asset.
 //
@@ -50,6 +56,10 @@ export default function handler(req, res) {
     res.end(
       '(function () {\n' +
         '  try {\n' +
+        "    if (typeof window.__dameRecoverChunk === 'function') {\n" +
+        '      window.__dameRecoverChunk();\n' +
+        '      return;\n' +
+        '    }\n' +
         '    var u = new URL(window.location.href);\n' +
         "    if (u.searchParams.has('_r')) {\n" +
         '      // Already retried once — the fresh shell still references a\n' +

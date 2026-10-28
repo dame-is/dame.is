@@ -32,9 +32,13 @@
   --plate-keyline: color-mix(in srgb, var(--ink) 14%, transparent);
 }
 
-/* Hover darkens the keyline. No card, no mat, no lift. */
-.creating-plate-link:hover {
-  --plate-keyline: color-mix(in srgb, var(--ink) 38%, transparent);
+/* Hover darkens the keyline: no card, no mat, no lift. Pointer-only, as the
+   site's hover tints are: on touch a hover sticks to whatever was tapped, and
+   stays after navigating back (see the note in typography.css). */
+@media (hover: hover) {
+  .creating-plate-link:hover {
+    --plate-keyline: color-mix(in srgb, var(--ink) 38%, transparent);
+  }
 }
 
 /* Every cover is cut to 4:3, so a row's covers stay level however long the

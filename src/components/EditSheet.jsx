@@ -5,8 +5,8 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ExternalLink, X } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
-import { useActionDock } from '../hooks/useActionDock.jsx';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
+import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
 import RecordEditor from './RecordEditor.jsx';
 import { lexiconFor } from '../lib/lexicons.js';
 import { ME_DID } from '../config.js';
@@ -26,10 +26,18 @@ function parseAtUri(uri) {
  * A footer link hands off to the full editor in the admin panel.
  */
 export default function EditSheet() {
-  const { editSheet, closeEditSheet, markRemoved, clearSelection, exit, setSheetEditor } =
-    useEditMode();
+  const {
+    editSheet,
+    closeEditSheet,
+    discardEditSheet,
+    confirmSheetDiscard,
+    setSheetDirty,
+    markRemoved,
+    clearSelection,
+    exit,
+    setSheetEditor,
+  } = useEditMode();
   const { agent, did } = useAtprotoSession();
-  const { open: dockOpen } = useActionDock();
   const reduce = useReducedMotion();
   // Imperative handle into the editor + its live status, so the edit action
   // bar can host the Save / Delete controls instead of the sheet itself.
@@ -53,22 +61,26 @@ export default function EditSheet() {
     isNew: false,
   });
   const handleStatus = useCallback((s) => setEditorStatus(s), []);
+  // Straight into the context's ref, so every way of closing the sheet can ask
+  // before it throws the edits away (useEditMode's `closeEditSheet`).
+  const handleDirty = useCallback(
+    (d) => setSheetDirty(d?.dirty),
+    [setSheetDirty],
+  );
 
-  // The nav dock and this sheet share the same slot above the chrome; if the
-  // menu opens, fold the sheet away so they never stack.
-  useEffect(() => {
-    if (dockOpen && editSheet) closeEditSheet();
-  }, [dockOpen, editSheet, closeEditSheet]);
+  // The nav dock and this sheet share the same slot above the chrome, so the
+  // menu opening folds the sheet away. That is the provider's to do, not this
+  // effect's: it leaves edit mode for the same reason, and it asks first when
+  // the sheet holds unsaved edits (useEditMode.jsx).
 
-  // Esc closes the sheet.
-  useEffect(() => {
-    if (!editSheet) return undefined;
-    function onKey(e) {
-      if (e.key === 'Escape') closeEditSheet();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [editSheet, closeEditSheet]);
+  // Esc closes the sheet — unless something inside it already used the key. The
+  // blocks editor spends Esc on closing its insert palette, and the same press
+  // used to carry on up to here and close the whole sheet behind it. Through the
+  // shared Escape stack rather than a listener of its own, so a sheet opened over
+  // this one takes the press first, and one press closes one overlay.
+  useEscapeLayer(!!editSheet, (e) => {
+    if (!e.defaultPrevented) closeEditSheet();
+  });
 
   const parts = editSheet ? parseAtUri(editSheet.atUri) : null;
   // Only the owner's own records are quick-editable here.
@@ -156,10 +168,11 @@ export default function EditSheet() {
                     compact
                     hideActions
                     onStatus={handleStatus}
+                    onDirtyChange={handleDirty}
                     onDeleted={() => {
                       markRemoved(editSheet.atUri);
                       clearSelection();
-                      closeEditSheet();
+                      discardEditSheet();
                     }}
                   />
                 ) : (
@@ -176,7 +189,13 @@ export default function EditSheet() {
                   <Link
                     to={adminHref}
                     className="edit-sheet-admin-link"
-                    onClick={() => {
+                    onClick={(e) => {
+                      // The full editor loads the record afresh, so anything
+                      // typed here does not travel with it.
+                      if (!confirmSheetDiscard()) {
+                        e.preventDefault();
+                        return;
+                      }
                       // Leaving for the full editor ends edit mode so we don't
                       // land on the admin page still in a selection state.
                       // (The Link handles the navigation itself.)

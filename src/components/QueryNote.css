@@ -1,0 +1,21 @@
+/* The visible half of a `?q=` filter (QueryNote.jsx): one quiet line above the
+   feed, in the same mono gutter voice as the "refreshed …" line below it. */
+.query-note {
+  margin: 0 0 var(--space-5);
+  text-indent: 0;
+}
+
+.query-note-clear {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.query-note-clear:hover {
+  color: var(--ink);
+}

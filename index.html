@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="sky">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <!--
@@ -55,17 +55,61 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <!-- The sky palette's midnight bar colour; the script below swaps in this
-         hour's before first paint. -->
-    <meta name="theme-color" content="#0d0d0d" />
+    <meta name="theme-color" content="#e3d8ba" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#13180f" media="(prefers-color-scheme: dark)" />
     <!--
-      This hour's sky, painted before any module runs: vite.config.js
-      (skyFirstPaint) replaces the marker with a 24-hour table of the page,
-      bar and ink colours, tuned and floored, and a few lines that pick the
-      current Eastern hour's row. The static data-theme above already selects
-      the sky mapping, so nothing here waits on the bundle.
+      Sky boot paint.
+
+      The page's palette is computed per Eastern hour by src/lib/skyTheme.js,
+      which only runs once the entry module has downloaded. Until then the
+      stylesheet's bare :root — the retired parchment theme — painted the
+      page, so every load flashed beige before turning into the hour's sky
+      (and at night, beige to near-black), with the status bar tinted to
+      match the wrong one. This puts the sky theme, this hour's page colour,
+      its colour scheme and its browser-chrome tint in place before the first
+      paint; main.jsx then writes the full palette over the same colours.
+      Nothing else is visible before the bundle runs, so the page colour is
+      all it needs.
+
+      SKY_BOOT is paletteForHour() per hour from 12am, as [page, theme-color,
+      color-scheme]. vite.config.js writes it in at build time (and on every
+      dev request) from the same is.dame.sky snapshot main.jsx installs, or
+      the built-in palette without one, so the boot paint can't disagree with
+      the bundle's (src/lib/skyBoot.js). The two metas above stay for readers
+      without scripts, whose page is the :root one.
     -->
-    <!-- sky-first-paint -->
+    <script>
+      (function () {
+        var SKY_BOOT = __SKY_BOOT__;
+        try {
+          // Same clock as og/time.js easternHour(): DST-aware, and Intl can
+          // say "24" for midnight.
+          var hour =
+            Number(
+              new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York',
+                hour: 'numeric',
+                hour12: false,
+              }).format(new Date()),
+            ) % 24;
+          var sky = SKY_BOOT[hour];
+          var root = document.documentElement;
+          root.setAttribute('data-theme', 'sky');
+          root.style.setProperty('--sky-page', sky[0]);
+          root.style.colorScheme = sky[2];
+          var metas = document.querySelectorAll('meta[name="theme-color"]');
+          for (var i = 0; i < metas.length; i += 1) {
+            metas[i].parentNode.removeChild(metas[i]);
+          }
+          var meta = document.createElement('meta');
+          meta.setAttribute('name', 'theme-color');
+          meta.setAttribute('content', sky[1]);
+          document.head.appendChild(meta);
+        } catch (e) {
+          // No Intl time zones: the parchment paint stands until the bundle.
+        }
+      })();
+    </script>
     <!-- iOS / Android standalone install hints -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

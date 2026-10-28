@@ -8,9 +8,10 @@
 // removed ones are deleted. Location data is stripped upstream in
 // `src/lib/inaturalist.js` and never reaches the PDS.
 //
-// Auth: if CRON_SECRET is set, the request must carry
-// `Authorization: Bearer <CRON_SECRET>` (Vercel sends this automatically for
-// cron invocations). Requires BSKY_APP_PASSWORD (+ optional BSKY_IDENTIFIER).
+// Auth: the request must carry `Authorization: Bearer <CRON_SECRET>` (Vercel
+// sends this automatically for cron invocations), and an unset CRON_SECRET
+// refuses every request. Requires BSKY_APP_PASSWORD (+ optional
+// BSKY_IDENTIFIER).
 
 import { AtpAgent } from '@atproto/api';
 
@@ -21,12 +22,18 @@ import { syncInaturalistMirror } from '../src/lib/inaturalistMirror.js';
 export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
+  // Fail CLOSED, as api/rebuild.js does: this run logs in with the app
+  // password and writes to the PDS, so an environment that forgot to set
+  // CRON_SECRET must refuse everybody rather than serve anybody.
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers?.authorization || '';
-    if (auth !== `Bearer ${secret}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  if (!secret) {
+    return res.status(401).json({
+      error: 'CRON_SECRET must be configured to authorize mirror runs.',
+    });
+  }
+  const auth = req.headers?.authorization || '';
+  if (auth !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const identifier = process.env.BSKY_IDENTIFIER || process.env.ATP_IDENTIFIER || ME_HANDLE;

@@ -61,20 +61,22 @@ export default function ScrollFrame({
     );
   }, [vertical]);
 
-  // After every render, because what these frames hold is re-rendered with
-  // fewer or more columns than it had — a sort, an expand, the live deltas
-  // landing a `+n` in every right-hand cell — and, on the vertical ones, a row
-  // per arrival while somebody is watching.
-  useEffect(measure);
-
+  // Measured when something can have moved an edge, rather than after every
+  // render: what these frames hold is re-rendered with fewer or more columns
+  // than it had — a sort, an expand, the live deltas landing a `+n` in every
+  // right-hand cell — and, on the vertical ones, a row per arrival while
+  // somebody is watching, but every one of those changes the content's size,
+  // which the observers below hear about. A render that changes nothing no
+  // longer pays for a layout read.
   useEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
+    measure();
     el.addEventListener('scroll', measure, { passive: true });
     let ro;
     // Absent in jsdom, and in any browser old enough not to have it the frame
-    // simply keeps whatever the last render measured — the scroll listener
-    // still updates it, so the fade is never wrong, only occasionally late.
+    // simply keeps whatever it last measured until it is next scrolled, so the
+    // fade is occasionally late but never stuck.
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver(measure);
       ro.observe(el);
@@ -82,9 +84,28 @@ export default function ScrollFrame({
       // frame's width alone can still reflow the table inside it.
       for (const child of el.children) ro.observe(child);
     }
+    // A child that is swapped for another (an empty state giving way to the
+    // table, a list re-keyed) is content the resize observer has never seen,
+    // so it is told about the newcomer, and the edges measured for it.
+    let mo;
+    if (typeof MutationObserver !== 'undefined') {
+      mo = new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.removedNodes) {
+            if (node.nodeType === 1) ro?.unobserve(node);
+          }
+          for (const node of record.addedNodes) {
+            if (node.nodeType === 1) ro?.observe(node);
+          }
+        }
+        measure();
+      });
+      mo.observe(el, { childList: true });
+    }
     return () => {
       el.removeEventListener('scroll', measure);
       ro?.disconnect();
+      mo?.disconnect();
     };
   }, [measure]);
 

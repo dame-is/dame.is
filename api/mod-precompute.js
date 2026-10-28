@@ -22,7 +22,15 @@ import {
   readCurationMembers,
   indexCircleFollows,
 } from '../src/lib/moderation/precompute.js';
-import { select, upsert, update, rpc, count, del } from './_lib/modDb.js';
+import {
+  select,
+  selectAll,
+  upsert,
+  update,
+  rpc,
+  count,
+  del,
+} from './_lib/modDb.js';
 import { authorize } from './_lib/serviceAuth.js';
 
 export const config = { maxDuration: 60 };
@@ -71,17 +79,20 @@ async function startSnapshot(pds) {
   if (!circle.length)
     throw new Error('read zero follows — refusing to snapshot');
 
-  await upsert(
-    'circle',
-    circle.map((did) => ({ taken_at: takenAt, did })),
-  );
-
   // The protected set is rebuilt with each snapshot rather than appended to, so
   // removing someone from a curation list actually removes their protection
   // instead of leaving a veto nobody remembers granting. Manual entries are
   // kept: those were added by hand and are nobody's derived state.
+  //
+  // THE NEW SET GOES IN BEFORE THE OLD ONE COMES OUT, and all of it before the
+  // snapshot exists. This used to delete every derived row, then write the new
+  // ones, then carry on -- with the circle already written. A write failing in
+  // between left only the manual rows, so the veto was off for everyone dame
+  // follows, and the next firing found a snapshot in progress and went straight
+  // to collecting: nothing retried the rebuild for a week. Now a failure here
+  // leaves the old set whole and no new snapshot, and the next firing starts
+  // this again.
   const curated = await readCurationMembers({ pds, did: ME_DID });
-  await del('protected', { eq: { source: 'derived' } });
   const rows = [
     ...circle.map((did) => ({
       did,
@@ -93,6 +104,32 @@ async function startSnapshot(pds) {
       .map(([did, reason]) => ({ did, reason, source: 'derived' })),
   ];
   await upsert('protected', rows);
+  const keep = new Set(rows.map((r) => r.did));
+  const stale = (
+    await selectAll('protected', {
+      select: 'did',
+      eq: { source: 'derived' },
+      order: 'did.asc',
+    })
+  )
+    .map((r) => r.did)
+    .filter((did) => !keep.has(did));
+  for (let i = 0; i < stale.length; i += 50) {
+    await del('protected', {
+      eq: { source: 'derived' },
+      where: {
+        did: `in.(${stale
+          .slice(i, i + 50)
+          .map((d) => `"${d}"`)
+          .join(',')})`,
+      },
+    });
+  }
+
+  await upsert(
+    'circle',
+    circle.map((did) => ({ taken_at: takenAt, did })),
+  );
 
   return { takenAt, members: circle.length, protected: rows.length };
 }

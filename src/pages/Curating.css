@@ -35,8 +35,12 @@
   transition: outline-color 200ms ease;
 }
 
-.curating-block-button:hover {
-  outline-color: color-mix(in srgb, var(--ink) 35%, transparent);
+/* Pointer-only, as the site's hover tints are (see the note in
+   typography.css): on touch a hover sticks to whatever was tapped. */
+@media (hover: hover) {
+  .curating-block-button:hover {
+    outline-color: color-mix(in srgb, var(--ink) 35%, transparent);
+  }
 }
 
 .curating-block-button:focus-visible {

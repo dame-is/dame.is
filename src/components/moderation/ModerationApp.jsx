@@ -22,7 +22,14 @@ import BlockedView from './BlockedView.jsx';
 import CheckView from './CheckView.jsx';
 import QueueView from './QueueView.jsx';
 import SettingsView from './SettingsView.jsx';
-import { ToastHost, compact, fmt, usd, useCached } from './ui.jsx';
+import {
+  SNAPSHOT_STALE_HOURS,
+  ToastHost,
+  compact,
+  fmt,
+  usd,
+  useCached,
+} from './ui.jsx';
 import { TAB_KEYS, paramsForRoute, routeFromParams } from './routes.js';
 import './moderation.css';
 
@@ -73,8 +80,17 @@ function Stats({ data, onGo }) {
   const snapAge = data.snapshot?.ageHours;
   return (
     <div className="mh-stats">
-      <button type="button" className="mh-stat" onClick={() => onGo('queue')}>
-        <span className="mh-stat-n">{fmt(data.queue?.total ?? 0)}</span>
+      <button
+        type="button"
+        className="mh-stat"
+        onClick={() => onGo('queue')}
+        // A queue that could not be read is not an empty one. The overview
+        // answers null for it, and "0 to review" said the opposite.
+        title={data.queue ? undefined : 'The queue could not be read'}
+      >
+        <span className="mh-stat-n">
+          {data.queue ? fmt(data.queue.total ?? 0) : '—'}
+        </span>
         <span className="mh-stat-label">to review</span>
       </button>
       <button type="button" className="mh-stat" onClick={() => onGo('blocked')}>
@@ -95,7 +111,7 @@ function Stats({ data, onGo }) {
       </button>
       <button
         type="button"
-        className={`mh-stat${snapAge > 48 ? ' is-warn' : ''}`}
+        className={`mh-stat${snapAge > SNAPSHOT_STALE_HOURS ? ' is-warn' : ''}`}
         onClick={() => onGo('settings')}
       >
         <span className="mh-stat-n">
@@ -187,6 +203,9 @@ export default function ModerationApp({ agent }) {
               planFilters={route.planFilters}
               onPlan={(plan) =>
                 setRoute((r) => ({ ...r, plan, planFilters: {} }))
+              }
+              onFilters={(planFilters) =>
+                setRoute((r) => ({ ...r, planFilters }))
               }
               onOpenAccount={openAccount}
             />

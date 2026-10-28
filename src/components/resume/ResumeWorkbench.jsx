@@ -7,6 +7,8 @@ import { COLLECTIONS } from '../../config.js';
 import { useAdminShell } from '../../admin/useAdminShell.jsx';
 import { rkeyFromAtUri } from '../../lib/atproto.js';
 import { setActiveResume } from '../../lib/resumeAdmin.js';
+import { isSwapConflict } from '../../lib/recordWrites.js';
+import { holdReload } from '../../lib/reloadHold.js';
 import {
   formatDateRange,
   parseHighlightRef,
@@ -199,6 +201,15 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
   // changed — the thing that has to clear every sibling — by comparing to this.
   const featuredAtLoad = useRef(false);
 
+  // The CID of every record the drafts were seeded from (uri → cid), replaced by
+  // each write's response, and handed back as `swapRecord` on save. The drafts
+  // are copies taken when this version opened, so a plain `putRecord` wrote that
+  // copy over anything saved since — from a phone, or another tab — without a
+  // word. A record with no CID on hand (a fork this pane minted) saves as before.
+  const seededCids = useRef(new Map());
+  // The last save lost that compare-and-swap; offers "Save mine over it".
+  const [conflict, setConflict] = useState(false);
+
   // Initialize drafts once per rkey, from the loaded bundle. The "not yet"
   // sentinel is `undefined`, NOT null: `?view=resume-tailor` with no `&r=` is a
   // reachable hand-typed URL (the rail and the Front Desk hide the surface
@@ -236,12 +247,18 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
     for (const r of [...(jobs || []), ...(education || [])]) {
       m.set(r.uri, JSON.parse(JSON.stringify(r.value)));
     }
+    const cids = new Map();
+    for (const r of [rec, ...(jobs || []), ...(education || [])]) {
+      if (r?.cid) cids.set(r.uri, r.cid);
+    }
+    seededCids.current = cids;
     setDraft(JSON.parse(JSON.stringify(rec.value)));
     setRecordDrafts(m);
     setDirtyUris(new Set());
     setResumeDirty(false);
     setNotFound(false);
     setError(null);
+    setConflict(false);
     featuredAtLoad.current = Boolean(rec.value?.featured);
     initializedFor.current = rkey;
   }, [bundleLoading, resumes, jobs, education, rkey, go]);
@@ -317,10 +334,28 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
   // recognises under pressure.
   const versionName = draft?.title || rkey;
 
-  const save = useCallback(async () => {
+  /**
+   * @param {{overwrite?: boolean}} [opts] `overwrite: true` writes without the
+   *   compare-and-swap — the owner's answer to a conflict, having been told what
+   *   it overwrites.
+   */
+  const save = useCallback(async ({ overwrite = false } = {}) => {
     if (saving || !draft) return;
     setSaving(true);
     setError(null);
+    setConflict(false);
+    // What is being written right now, so a lost swap can say which record.
+    let writing = versionName;
+    const swapFor = (uri) => {
+      const cid = overwrite ? null : seededCids.current.get(uri);
+      return cid ? { swapRecord: cid } : {};
+    };
+    const landed = (uri, res) => {
+      const cid = (res?.data || res)?.cid;
+      if (cid) seededCids.current.set(uri, cid);
+      else seededCids.current.delete(uri);
+      return cid;
+    };
     try {
       const now = new Date().toISOString();
       const written = [];
@@ -332,13 +367,16 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
         const value = recordDrafts.get(uri);
         if (!collection || !r || !value) continue;
         const staged = { ...value, $type: value.$type || collection, updatedAt: now };
-        await agent.com.atproto.repo.putRecord({
+        const kind = collection === COLLECTIONS.resumeJob ? 'job' : 'education';
+        writing = recordLabel(kind, value) || r;
+        const res = await agent.com.atproto.repo.putRecord({
           repo: did,
           collection,
           rkey: r,
           record: staged,
+          ...swapFor(uri),
         });
-        written.push({ collection, uri, value: staged });
+        written.push({ collection, uri, value: staged, cid: landed(uri, res) });
       }
       const record = { ...draft, $type: COLLECTIONS.resume, updatedAt: now };
       if (!record.createdAt) record.createdAt = now;
@@ -349,14 +387,21 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
         if (Array.isArray(record[k]) && record[k].length === 0) delete record[k];
       }
       if (!record.contact) delete record.contact;
-      await agent.com.atproto.repo.putRecord({
+      const uri = `at://${did}/${COLLECTIONS.resume}/${rkey}`;
+      writing = versionName;
+      const res = await agent.com.atproto.repo.putRecord({
         repo: did,
         collection: COLLECTIONS.resume,
         rkey,
         record,
+        ...swapFor(uri),
       });
-      const uri = `at://${did}/${COLLECTIONS.resume}/${rkey}`;
-      written.push({ collection: COLLECTIONS.resume, uri, value: record });
+      written.push({
+        collection: COLLECTIONS.resume,
+        uri,
+        value: record,
+        cid: landed(uri, res),
+      });
 
       // The "Active" checkbox is staged like every other field — nothing is
       // written on click — but the flag is an exclusive one: bare /available
@@ -384,11 +429,21 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
       setResumeDirty(false);
       setSavedFlash(true);
     } catch (err) {
-      setError(err?.message || String(err));
+      if (isSwapConflict(err)) {
+        // Records written before this one stay written — each carries its new
+        // CID, so the next save rewrites them without tripping — and nothing
+        // after it was attempted, the version itself included.
+        setConflict(true);
+        setError(
+          `“${writing}” was changed somewhere else after this version was opened, so it was not saved over. Reload the page to see that change (your edits here will be lost), or save yours over it.`,
+        );
+      } else {
+        setError(err?.message || String(err));
+      }
     } finally {
       setSaving(false);
     }
-  }, [agent, did, rkey, draft, recordDrafts, dirtyUris, saving, resumes]);
+  }, [agent, did, rkey, draft, recordDrafts, dirtyUris, saving, resumes, versionName]);
 
   // `asked` is how the action bar's ⋯ menu says it has already put the question
   // — with the version's NAME in it, which a generic bar confirm cannot do. The
@@ -514,6 +569,18 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
     [registerActions, reportDirty],
   );
 
+  // "Try again" on a failed load. Settles whenever the bundle answers — each
+  // fetch, failed or not, hands back fresh arrays — so the button cannot be left
+  // spinning by a retry that failed with the same message as before.
+  const [retrying, setRetrying] = useState(false);
+  const retryLoad = useCallback(() => {
+    setRetrying(true);
+    reloadRef.current?.();
+  }, []);
+  useEffect(() => {
+    setRetrying(false);
+  }, [resumes, loadError]);
+
   // Losing a workbench session to a stray tab-close hurts; warn while dirty.
   useEffect(() => {
     if (!dirty) return undefined;
@@ -525,7 +592,40 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
+  // And hold the deploy auto-updater off for as long. The shell holds too, but
+  // only while the dirty state reported above stands — and the shell resets it to
+  // clean on every navigation, including the version switch the init effect then
+  // refuses. A staged reorder or a toggled bullet leaves no text field behind for
+  // the updater's own DOM check to notice.
+  useEffect(() => (dirty ? holdReload('resume-dirty') : undefined), [dirty]);
+
   /* ----------------------------- render ----------------------------- */
+
+  // A bundle that failed to LOAD is not a version that does not exist. On a
+  // failed fetch the bundle comes back empty, the init effect finds no record
+  // and sets `notFound` — and the card below used to tell the owner this version
+  // "may have been renamed or deleted", over a network error it then hid. That
+  // reads as a reason to recreate it. Said as what it is, with the way back.
+  if (loadError && !draft) {
+    return (
+      <div className="rw-studio">
+        <p className="placeholder-card">
+          The resume records could not be loaded.
+        </p>
+        <p className="admin-field-hint">{loadError}</p>
+        <div className="admin-actions">
+          <button
+            type="button"
+            className="admin-gate-button"
+            onClick={retryLoad}
+            disabled={retrying}
+          >
+            {retrying ? 'Trying again…' : 'Try again'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (notFound) {
     return (
@@ -583,6 +683,18 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
       </div>
 
       {error && <p className="admin-error">{error}</p>}
+      {conflict && (
+        <div className="admin-actions">
+          <button
+            type="button"
+            className="admin-gate-button admin-gate-button-tight admin-danger"
+            onClick={() => saveRef.current?.({ overwrite: true })}
+            disabled={saving}
+          >
+            Save mine over it
+          </button>
+        </div>
+      )}
       {loadError && <p className="admin-error">{loadError}</p>}
 
       {isLoading ? (

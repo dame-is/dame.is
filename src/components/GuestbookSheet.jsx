@@ -1,12 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
-import GuestbookSignForm from './GuestbookSignForm.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { getProfile } from '../lib/atproto.js';
 import './GuestbookSheet.css';
+
+// Lazy: the pen carries the guestbook library and the profanity matcher,
+// which were a sizeable share of every visitor's entry chunk, and only a
+// visitor who opens the sheet needs them. Its stylesheet (pages/Guestbook.css)
+// is already in the entry through lib/pageStyles.js, so only the JavaScript
+// moves.
+const loadSignForm = () => import('./GuestbookSignForm.jsx');
+const GuestbookSignForm = lazy(loadSignForm);
 
 /**
  * The guestbook sign sheet — the bottom-chrome surface behind every "Sign the
@@ -27,8 +41,21 @@ import './GuestbookSheet.css';
 export default function GuestbookSheet() {
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'guestbook';
-  const { session, agent, did, signIn } = useAtprotoSession();
+  const { session, agent, did, loading, signIn, restore } = useAtprotoSession();
   const navigate = useNavigate();
+
+  // A returning signer's session isn't restored at startup (see
+  // useAtprotoSession); opening the pen is what asks for it. A layout effect,
+  // so the sheet's first frame already knows a restore is under way.
+  useLayoutEffect(() => {
+    if (open) restore();
+  }, [open, restore]);
+
+  // Fetch the pen as the sheet opens (and while any session restores), so the
+  // waits overlap and the form is usually there by the time the sheet is.
+  useEffect(() => {
+    if (open) loadSignForm().catch(() => {});
+  }, [open]);
 
   // The signer's profile, for the form's "signing as" line and to render their
   // fresh signature optimistically before Constellation indexes the backlink.
@@ -81,14 +108,26 @@ export default function GuestbookSheet() {
         </button>
       </div>
 
-      <GuestbookSignForm
-        agent={agent}
-        did={did}
-        signedIn={Boolean(session)}
-        signerHandle={signerHandle}
-        signIn={signIn}
-        onSigned={handleSigned}
-      />
+      {loading ? (
+        // `loading` also covers a live session whose Agent is still loading;
+        // the pen can't write without it.
+        <p className="guestbook-sheet-restoring">Restoring your session…</p>
+      ) : (
+        <Suspense
+          fallback={
+            <p className="guestbook-sheet-restoring">Loading the form…</p>
+          }
+        >
+          <GuestbookSignForm
+            agent={agent}
+            did={did}
+            signedIn={Boolean(session)}
+            signerHandle={signerHandle}
+            signIn={signIn}
+            onSigned={handleSigned}
+          />
+        </Suspense>
+      )}
     </BottomSheet>
   );
 }

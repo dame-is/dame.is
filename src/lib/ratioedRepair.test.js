@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { pieceGaps, worthRepairing, gapSummary, healPiece } from './ratioedRepair.js';
+import {
+  pieceGaps,
+  worthRepairing,
+  gapSummary,
+  healPiece,
+  onlyOnPds,
+  takeRuns,
+} from './ratioedRepair.js';
 
 const POSTED = '2026-08-17T00:00:00.000Z';
 const postedMs = Date.parse(POSTED);
@@ -323,5 +330,60 @@ describe('healPiece — audienceAt', () => {
       at: '2026-08-18T00:00:00.000Z',
     });
     expect(value.audienceAt).toBe(SEALED);
+  });
+});
+
+describe('onlyOnPds', () => {
+  // The bundle's two halves as they stand: the seed has the figures of takes
+  // 1–35 and no logs at all, the harvest has the event logs of 1–11.
+  const figures = new Set(Array.from({ length: 35 }, (_, i) => `rk${i + 1}`));
+  const logs = new Set(Array.from({ length: 11 }, (_, i) => `rk${i + 1}`));
+  const row = (take, extra = {}) => [`rk${take}`, { take, ...extra }];
+  const live = Object.fromEntries([
+    row(3, { events: [{ k: 'like' }] }),
+    row(14, { events: [{ k: 'reply' }] }),
+    row(20, { events: [{ k: 'reply' }], witnessed: [{ k: 'like' }] }),
+    row(30),
+    row(38, { events: [{ k: 'like' }] }),
+  ]);
+
+  it('names a piece in the seed whose log is on the PDS alone', () => {
+    // The case the delete dialog called recoverable: take 14 is in the seed,
+    // and its event log has never been anywhere but its record.
+    const out = onlyOnPds(live, { figures, logs });
+    expect(out.find((u) => u.take === 14)).toMatchObject({
+      figures: false,
+      events: true,
+      witnessed: false,
+    });
+  });
+
+  it('counts every witnessed log, since no bundle ever holds one', () => {
+    const out = onlyOnPds({ rk3: { take: 3, witnessed: [{ k: 'like' }] } }, { figures, logs });
+    expect(out).toEqual([{ rkey: 'rk3', take: 3, figures: false, events: false, witnessed: true }]);
+  });
+
+  it('leaves out what the bundle can put back', () => {
+    const out = onlyOnPds(live, { figures, logs });
+    // Take 3's log is in the harvest; take 30 has figures only, and the seed
+    // has them.
+    expect(out.map((u) => u.take)).toEqual([14, 20, 38]);
+  });
+
+  it('marks a piece sealed since the seed as missing its figures too', () => {
+    const out = onlyOnPds(live, { figures, logs });
+    expect(out.find((u) => u.take === 38)).toMatchObject({ figures: true, events: true });
+  });
+});
+
+describe('takeRuns', () => {
+  it('folds consecutive takes into runs', () => {
+    expect(takeRuns([12, 13, 14, 15, 36, 37, 41])).toBe('12–15, 36–37, 41');
+  });
+
+  it('sorts, de-duplicates and keeps a lone take as itself', () => {
+    expect(takeRuns([9, 1, 2, 2, 3])).toBe('1–3, 9');
+    expect(takeRuns([7])).toBe('7');
+    expect(takeRuns([])).toBe('');
   });
 });

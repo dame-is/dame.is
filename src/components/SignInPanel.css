@@ -50,6 +50,8 @@
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
+/* Hover goes a step further from the page, never back toward --accent-soft,
+   so the --page label's contrast only rises. */
 @media (hover: hover) {
   .signin-button:hover:not(:disabled) {
     background: var(--accent-fill-hover);
@@ -65,11 +67,14 @@
   cursor: not-allowed;
 }
 
+/* --danger, not --tan: under the sky theme --tan shares the accent's hue, so a
+   failed sign-in read as one more link. Every sign, location and moderation
+   error in the guestbook borrows this class too. */
 .signin-error {
   margin: 0;
   font-family: var(--sans);
   font-size: var(--text-xs);
-  color: var(--tan);
+  color: var(--danger);
 }
 
 .signin-status {

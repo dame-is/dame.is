@@ -427,3 +427,27 @@ describe('memory and watching', () => {
     expect(sent[0]).toMatch(/^Watching it for 12h/);
   });
 });
+
+describe('a classic question the model cannot answer', () => {
+  it('says so, marks it failed, and still answers the next message', async () => {
+    const generate = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error('This operation was aborted'), {
+          name: 'AbortError',
+        }),
+      )
+      .mockResolvedValueOnce({ text: 'The second answer.', steps: [] });
+    const { chat, sent, reactions } = chatWith([
+      msg('m1', 'what is going on in these replies?'),
+      msg('m2', 'and who started it?'),
+    ]);
+    await pass(chat, { generate, mode: 'classic' });
+    expect(sent).toEqual([
+      'That took too long and I stopped.',
+      'The second answer.',
+    ]);
+    expect(reactions).toContain('+❌@m1');
+    expect(reactions).not.toContain('+❌@m2');
+  });
+});

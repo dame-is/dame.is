@@ -854,7 +854,7 @@ export function buildActionTools(ctx, deps = DEPS) {
 
     history: tool({
       description:
-        'What has been done to the list, most recent first, or everything recorded about one account: when, band, how it was approved, plan code, whether it was undone.',
+        'What has been done to the list, most recent first, or everything recorded about one account: when, whether it was an addition or a removal, band, how it was approved, plan code, whether it was undone.',
       inputSchema: z.object({
         actor: z
           .string()
@@ -870,6 +870,7 @@ export function buildActionTools(ctx, deps = DEPS) {
             rows: h.rows.map((r) => ({
               when: r.acted_at,
               did: r.did,
+              change: r.action === 'list_remove' ? 'removed' : 'added',
               band: r.band,
               via: r.approved_via,
               code: r.code,

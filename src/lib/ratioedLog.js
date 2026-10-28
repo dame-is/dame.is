@@ -66,14 +66,33 @@ export function composeEventLog(recordLog, bundleLog) {
   // backlink index does not carry it, so it survives ONLY here. Recorded rows
   // used to win outright, which shadowed every harvested `n` and left the
   // hidden-replies list calling all fifteen of them "reply to the sealed post".
+  //
+  // The same composition folds a piece's WATCHED log into its measured one,
+  // and a watched row knows one more thing neither of the others does: the
+  // record's own key. A measured row has none — an index answers a piece with
+  // counts and handles — so without it the replay could not ask the AppView
+  // for a reply it was showing, and a reply that carried a picture or a link
+  // never got the mark or the panel that shows it. The harvest has no keys,
+  // so there this changes nothing.
+  //
+  // A key is an identity, so it is handed over one to one: two replies from
+  // one account inside a second and a half both match the first watched row,
+  // and taking its key twice would make two rows the same record. Each takes
+  // the first match nobody has claimed, and only that one passes its key on.
+  const claimed = new Set();
   const withText = rec.map((e) => {
-    if (e.t && e.n != null) return e;
-    const harvested = bun.find((x) => (x.t || x.n != null) && sameRow(e, x));
+    if (e.t && e.n != null && e.rkey) return e;
+    const fits = (x) => (x.t || x.n != null || x.rkey) && sameRow(e, x);
+    const mate = bun.find((x) => !claimed.has(x) && fits(x));
+    const harvested = mate || bun.find(fits);
     if (!harvested) return e;
+    if (mate) claimed.add(mate);
     return {
       ...e,
       ...(!e.t && harvested.t ? { t: harvested.t } : {}),
       ...(e.n == null && harvested.n != null ? { n: harvested.n } : {}),
+      ...(mate && !e.rkey && mate.rkey ? { rkey: mate.rkey } : {}),
+      ...(mate && !e.did && mate.did ? { did: mate.did } : {}),
     };
   });
   // Everything the harvest holds and the record does not: the alive window of a

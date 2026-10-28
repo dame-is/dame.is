@@ -13,18 +13,31 @@
 // Guards:
 //   - Production only. Dev hot-reloads itself and ships no version.json.
 //   - Never interrupts work in progress — defers while the owner is in edit
-//     mode, has a quick-edit sheet open, is focused in a text field, or a
-//     long-running job holds the tab (lib/reloadHold.js — e.g. the analytics
-//     archive build's multi-minute sweep) — then applies the update on the
-//     next safe moment (a navigation, edit mode closing, or the next poll).
+//     mode, has a quick-edit sheet open, a sheet / modal / the dock is open,
+//     a text field has focus or unsent text, media is playing or an embed
+//     has focus, or a long-running job holds the tab (lib/reloadHold.js —
+//     e.g. the analytics archive build's multi-minute sweep) — then applies
+//     the update on the next safe moment (a navigation, one of those
+//     closing, or the next poll).
 //   - Reloads at most once per distinct deployed id, so a misconfigured
-//     build (baked id vs. version.json disagreeing) can never loop.
+//     build (baked id vs. version.json disagreeing) can never loop — and not
+//     at all when storage is blocked, since that guard couldn't survive the
+//     reload it exists to limit.
 
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useEditMode } from './useEditMode.jsx';
+import { useChromePanel } from './useChromePanel.jsx';
+import { useActionDock } from './useActionDock.jsx';
 import { BUILD_ID } from '../lib/appVersion.js';
 import { isReloadHeld } from '../lib/reloadHold.js';
+import { isStorageVolatile } from '../lib/storageGuard.js';
+import {
+  RELOAD_TARGET_KEY,
+  attemptReload,
+  documentIsBusy,
+  readReloadTarget,
+} from '../lib/autoUpdate.js';
 
 // How often to ask the server whether a newer build has shipped. Cheap:
 // version.json is a few bytes, usually answered with a 304, and only polled
@@ -35,24 +48,16 @@ const CHECK_INTERVAL_MS = 60_000;
 // Let first paint settle before the first look.
 const KICKOFF_DELAY_MS = 3_000;
 
-// Remembers which build we last reloaded *to*. If a deploy's baked id and
-// its version.json ever disagree we'd otherwise reload forever; keying on
-// the target id means we reload at most once per distinct id.
-const RELOAD_TARGET_KEY = 'dame.update.reloadedTo';
+// A return to the tab fires `visibilitychange` and `focus` back to back, and
+// each used to fetch version.json. One look per return is plenty: a wake within
+// this long of the last check is skipped.
+const WAKE_DEDUPE_MS = 5_000;
 
-function readReloadTarget() {
+function sessionStore() {
   try {
-    return sessionStorage.getItem(RELOAD_TARGET_KEY);
+    return window.sessionStorage;
   } catch {
     return null;
-  }
-}
-
-function writeReloadTarget(id) {
-  try {
-    sessionStorage.setItem(RELOAD_TARGET_KEY, id);
-  } catch {
-    /* sessionStorage may be unavailable (private mode, etc.) */
   }
 }
 
@@ -68,24 +73,21 @@ async function fetchDeployedBuildId() {
   return data && typeof data.id === 'string' ? data.id : null;
 }
 
-// Reload to apply `served` if it's safe and we haven't already tried it.
-// Returns true if a reload was triggered.
-function attemptReload(served, isSafe) {
-  if (!served) return false;
-  if (!isSafe()) return false; // defer: user is mid-edit
-  if (readReloadTarget() === served) return false; // loop guard
-  writeReloadTarget(served);
-  window.location.reload();
-  return true;
-}
-
 export default function useAutoUpdate() {
   const location = useLocation();
   const editMode = useEditMode();
+  const { panel } = useChromePanel();
+  const { open: dockOpen } = useActionDock();
 
   // The deployed build id we've detected as newer than ours and are waiting
   // to apply. Null when we're up to date.
   const pendingRef = useRef(null);
+
+  // A build the reader has already turned down this page: the reload was
+  // answered with the browser's "Leave site?" prompt and they stayed. Not
+  // asked again until they navigate — re-prompting every poll would be
+  // worse than staying stale a while.
+  const declinedRef = useRef(null);
 
   // Latest "safe to reload?" test, kept in a ref so the polling loop reads
   // current edit state without re-arming its interval on every keystroke.
@@ -93,15 +95,26 @@ export default function useAutoUpdate() {
   isSafeRef.current = () => {
     if (editMode.active) return false; // owner is bulk-editing the feed
     if (editMode.editSheet) return false; // a quick-edit sheet is open
+    if (panel != null || dockOpen) return false; // a chrome sheet or the dock is open
     if (isReloadHeld()) return false; // a long-running job holds the tab (e.g. the analytics archive build)
-    const el = typeof document !== 'undefined' ? document.activeElement : null;
-    if (el) {
-      const tag = el.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
-      if (el.isContentEditable) return false;
-    }
+    if (documentIsBusy(document)) return false; // a field, player, sheet or draft is in use
     return true;
   };
+
+  const tryReload = (served) => {
+    if (declinedRef.current === served) return false;
+    return attemptReload(served, {
+      isSafe: isSafeRef.current,
+      win: window,
+      storage: sessionStore(),
+      volatile: isStorageVolatile('sessionStorage'),
+      onStillHere: () => {
+        declinedRef.current = served;
+      },
+    });
+  };
+  const tryReloadRef = useRef(tryReload);
+  tryReloadRef.current = tryReload;
 
   // The poll loop + listeners. Armed once; reads live state through refs.
   useEffect(() => {
@@ -109,12 +122,14 @@ export default function useAutoUpdate() {
     if (typeof window === 'undefined') return;
 
     let cancelled = false;
+    let lastCheckAt = 0;
 
     // If we reloaded to reach this build and we're now running it, clear the
     // loop-guard marker so a *future* deploy can reload again.
-    if (readReloadTarget() === BUILD_ID) {
+    const storage = sessionStore();
+    if (readReloadTarget(storage) === BUILD_ID) {
       try {
-        sessionStorage.removeItem(RELOAD_TARGET_KEY);
+        storage.removeItem(RELOAD_TARGET_KEY);
       } catch {
         /* ignore */
       }
@@ -122,6 +137,7 @@ export default function useAutoUpdate() {
 
     const check = async () => {
       if (cancelled || document.hidden) return;
+      lastCheckAt = Date.now();
       let served;
       try {
         served = await fetchDeployedBuildId();
@@ -134,11 +150,12 @@ export default function useAutoUpdate() {
         return;
       }
       pendingRef.current = served;
-      attemptReload(served, isSafeRef.current);
+      tryReloadRef.current(served);
     };
 
     const onWake = () => {
-      if (!document.hidden) check();
+      if (document.hidden || Date.now() - lastCheckAt < WAKE_DEDUPE_MS) return;
+      check();
     };
 
     const intervalId = setInterval(check, CHECK_INTERVAL_MS);
@@ -157,15 +174,22 @@ export default function useAutoUpdate() {
     };
   }, []);
 
+  // Navigating is moving on: a build turned down on the last page may be
+  // offered again.
+  useEffect(() => {
+    declinedRef.current = null;
+  }, [location.pathname]);
+
   // Retry a deferred reload the moment it becomes safe: the reader navigates
   // (edit mode + selection clear on route change) or closes edit mode / the
-  // quick-edit sheet. A short delay lets focus settle after the state change.
+  // quick-edit sheet / a chrome sheet / the dock. A short delay lets focus
+  // settle after the state change.
   useEffect(() => {
     if (!import.meta.env.PROD) return;
     if (!pendingRef.current) return;
     const t = setTimeout(() => {
-      attemptReload(pendingRef.current, isSafeRef.current);
+      tryReloadRef.current(pendingRef.current);
     }, 400);
     return () => clearTimeout(t);
-  }, [location.pathname, editMode.active, editMode.editSheet]);
+  }, [location.pathname, editMode.active, editMode.editSheet, panel, dockOpen]);
 }

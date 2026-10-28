@@ -78,7 +78,15 @@
   border-color: color-mix(in srgb, currentColor 32%, transparent);
 }
 
+/* Named at the specificity that set the animation. A bare `.rk-chip` here lost
+   to `.rk-sm.rk-like` and `.rk-lg.rk-like` whatever the media query said, so
+   the ring throbbed on for exactly the readers who had asked it not to. The
+   still ring stands in for it on the alarm, except where the alarm is muted. */
 @media (prefers-reduced-motion: reduce) {
-  .rk-chip { animation: none; }
-  .rk-lg.rk-like { box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 30%, transparent); }
+  .rk-chip,
+  .rk-sm.rk-like,
+  .rk-lg.rk-like { animation: none; }
+  .rk-lg.rk-like:not(.is-muted) {
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 30%, transparent);
+  }
 }

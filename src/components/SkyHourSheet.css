@@ -60,7 +60,6 @@
   transition: border-color 120ms ease, background 120ms ease;
 }
 
-.sky-hour-sheet-live:hover,
 .sky-hour-sheet-live:focus-visible {
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
@@ -88,7 +87,6 @@
   transition: color 120ms ease, border-color 120ms ease;
 }
 
-.sky-hour-sheet-step:hover,
 .sky-hour-sheet-step:focus-visible {
   color: var(--ink);
   border-color: var(--accent-soft);
@@ -189,4 +187,32 @@
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
   border-bottom: 6px solid currentColor;
+}
+
+/* Touch. On a phone each cell is a few pixels wide: too narrow to aim a finger
+   at, which is what the scrub is for, and at 20px too short to land one on, so
+   the strip stands at the 44px platform minimum instead of shrinking. The step
+   arrows stretch with it, and reach out toward the sheet's edge (away from the
+   cells) for the width their glyph can't spare. */
+@media (pointer: coarse) {
+  .sky-hour-sheet-cell {
+    height: 2.75rem;
+  }
+  .sky-hour-sheet-step {
+    position: relative;
+  }
+  .sky-hour-sheet-step::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+  }
+  .sky-hour-sheet-step-prev::before {
+    left: -12px;
+    right: 0;
+  }
+  .sky-hour-sheet-step-next::before {
+    left: 0;
+    right: -12px;
+  }
 }

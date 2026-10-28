@@ -15,9 +15,11 @@
 // identical-looking rows. The artist is part of the key so two records called
 // "Home" by two different people stay two albums.
 //
-// Import-light on purpose (teal.js and nothing else): this module is read from
-// the Edge runtime, from a plain Node build script, and from the browser.
+// Import-light on purpose (teal.js, and ghostPlays.js, which is as pure): this
+// module is read from the Edge runtime, from a plain Node build script, and
+// from the browser.
 
+import { dropGhostPlays } from './ghostPlays.js';
 import { playArtistNames, playTrackName, playedAtOf } from './teal.js';
 
 /** How many of an album's tracks the snapshot carries. Past this it's a box set
@@ -41,7 +43,8 @@ function normalizePlay(entry) {
   if (!value || typeof value !== 'object') return null;
   const uri = entry?.uri || entry?.atUri || null;
   const at = entry?.createdAt || playedAtOf(value) || value.createdAt || null;
-  return { uri, value, at, ms: instant(at) };
+  // `payload` / `createdAt` are the feed-item spellings dropGhostPlays reads.
+  return { uri, value, at, ms: instant(at), payload: value, createdAt: at };
 }
 
 /**
@@ -49,12 +52,90 @@ function normalizePlay(entry) {
  * scrobble named no release. A play with no `releaseName` is a single as far as
  * this site can tell, and inventing an album for it would put a made-up page on
  * the map.
+ *
+ * The key is folded past punctuation (see `foldName`): Apple writes the same
+ * record's title with a curly apostrophe on one edition and a straight one on
+ * the next, and keyed on the raw text that was two albums — which also share
+ * one slug, so one of the two shelf cells could never be opened.
  */
 export function albumIdentity(value) {
   const title = String(value?.releaseName ?? '').trim();
   if (!title) return null;
   const artist = playArtistNames(value)[0] || '';
-  return { key: `${lower(title)}|${lower(artist)}`, title, artist };
+  return { key: `${foldName(title)}|${foldName(artist)}`, title, artist };
+}
+
+/**
+ * Text as an album key compares it: case, spacing, punctuation and symbols
+ * folded away (and `&`/`+` read as "and", as the slug does), letters of every
+ * script kept. Falls back to the plain lowercased text for a name made of
+ * nothing but symbols, so two such names don't fold onto one key.
+ */
+function foldName(s) {
+  const raw = String(s ?? '').trim();
+  const folded = raw
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[&+]/g, ' and ')
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return folded || raw.toLowerCase();
+}
+
+// How a credit names more than one artist, after the lead: "Bas & J. Cole",
+// "Victoria Monét & USHER", "Kelela, Asmara", "X feat. Y".
+const CREDIT_JOINS = [' & ', ', ', ' and ', ' x ', ' with ', ' feat', ' ft.', ' ft '];
+
+/**
+ * Maps each album identity among `identities` to the one it should count as,
+ * so one record credited two ways is one album.
+ *
+ * Apple credits a collaboration as a single artist string, so the same record
+ * arrives as "JAGUAR II" by "Victoria Monét" on one track and by "Victoria Monét
+ * & USHER" on the next — and since the key is title plus first artist, that was
+ * two albums with the plays split between them, the bigger half under the
+ * feature credit. Splitting every credit on "&" would be wrong the other way
+ * (Simon & Garfunkel, Earth, Wind & Fire), so this only merges what the plays
+ * themselves pair up: a credit that is another credit for the same title, plus
+ * a join and more names, counts as that shorter, lead credit.
+ *
+ * Returns `identity => identity`, giving back the identity itself when nothing
+ * merges it. Album pages, the shelf and the listening stats all resolve through
+ * this, so they agree about where a play's album is.
+ */
+export function albumIdentityResolver(identities) {
+  const byTitle = new Map();
+  for (const id of identities || []) {
+    if (!id?.key) continue;
+    const title = id.key.slice(0, id.key.indexOf('|'));
+    let group = byTitle.get(title);
+    if (!group) byTitle.set(title, (group = new Map()));
+    if (!group.has(id.key)) group.set(id.key, id);
+  }
+  const canonical = new Map();
+  for (const group of byTitle.values()) {
+    if (group.size < 2) continue;
+    // Shortest credit first, so a lead is settled before anything that
+    // features it, and "A & B & C" lands on "A" rather than on "A & B".
+    const ids = Array.from(group.values()).sort(
+      (a, b) => a.artist.length - b.artist.length || a.key.localeCompare(b.key),
+    );
+    for (const id of ids) {
+      const lead = ids.find((other) => other !== id && isCreditOf(id.artist, other.artist));
+      if (lead) canonical.set(id.key, canonical.get(lead.key) || lead);
+    }
+  }
+  return (id) => (id ? canonical.get(id.key) || id : null);
+}
+
+/** True when `credit` is `lead` plus a join and more names. */
+function isCreditOf(credit, lead) {
+  const full = lower(credit);
+  const head = lower(lead);
+  if (!head || full.length <= head.length || !full.startsWith(head)) return false;
+  const rest = full.slice(head.length);
+  return CREDIT_JOINS.some((join) => rest.startsWith(join));
 }
 
 /** djb2, base 36. Not a checksum — a short, stable tail for a slug that would
@@ -102,21 +183,29 @@ export function albumSlug(title, artist) {
  *
  * Each album is plain JSON so the build can write it straight into a snapshot:
  *
- *   { key, slug, title, artist, artists[], plays, seconds, tracks,
+ *   { key, slug, aliases[]?, title, artist, artists[], plays, seconds, tracks,
  *     firstPlayed, lastPlayed, lastUri, sample, trackList[] }
  *
  * `sample` is one play's record value, kept so a cover can be looked up later
  * (the art ladder needs an ISRC / Apple id / track+artist, none of which an
  * album has of its own). `trackList` is `{ name, plays, seconds, lastPlayed,
- * lastUri }` per track, most-played first.
+ * lastUri }` per track, most-played first. `aliases` are the slugs of any
+ * other credits merged into this album (see `albumIdentityResolver`), so a
+ * link built from one of those plays still finds it.
+ *
+ * Ghost plays — doubles and echoes the scrobbler logged with nobody listening
+ * (src/lib/ghostPlays.js) — are left out first, the same as the /listening
+ * feed and its stats leave them out, so an album's count is the count of plays
+ * that page shows rather than half again as many.
  */
 export function buildAlbums(plays, { maxTracks = 0 } = {}) {
   const byKey = new Map();
+  const real = dropGhostPlays((plays || []).map(normalizePlay).filter(Boolean));
+  const resolve = albumIdentityResolver(real.map((play) => albumIdentity(play.value)));
 
-  for (const entry of plays || []) {
-    const play = normalizePlay(entry);
-    if (!play) continue;
-    const id = albumIdentity(play.value);
+  for (const play of real) {
+    const own = albumIdentity(play.value);
+    const id = resolve(own);
     if (!id) continue;
 
     let album = byKey.get(id.key);
@@ -124,6 +213,7 @@ export function buildAlbums(plays, { maxTracks = 0 } = {}) {
       album = {
         key: id.key,
         slug: albumSlug(id.title, id.artist),
+        aliases: new Set(),
         title: id.title,
         artist: id.artist,
         artists: [],
@@ -136,6 +226,10 @@ export function buildAlbums(plays, { maxTracks = 0 } = {}) {
         tracks: new Map(),
       };
       byKey.set(id.key, album);
+    }
+    if (own.key !== id.key) {
+      const alias = albumSlug(own.title, own.artist);
+      if (alias && alias !== album.slug) album.aliases.add(alias);
     }
 
     album.plays += 1;
@@ -182,11 +276,13 @@ export function buildAlbums(plays, { maxTracks = 0 } = {}) {
   }
 
   // `tracks` counts them and `trackList` is them, so the accumulator's Map
-  // (which is neither, and doesn't survive JSON) is dropped here.
-  const albums = Array.from(byKey.values()).map(({ tracks: byTrack, ...album }) => {
+  // (which is neither, and doesn't survive JSON) is dropped here. So is an
+  // empty alias set, which is nearly every album's.
+  const albums = Array.from(byKey.values()).map(({ tracks: byTrack, aliases, ...album }) => {
     const trackList = Array.from(byTrack.values()).sort(compareTracks);
     return {
       ...album,
+      ...(aliases.size ? { aliases: Array.from(aliases).sort() } : {}),
       sample: artSample(album.sample),
       tracks: trackList.length,
       trackList: maxTracks > 0 ? trackList.slice(0, maxTracks) : trackList,
@@ -266,7 +362,8 @@ export function findAlbum(albums, slug) {
   let best = null;
   for (const album of albums || []) {
     const has = album?.slug || albumSlug(album?.title, album?.artist);
-    if (has !== want) continue;
+    const answers = has === want || (Array.isArray(album?.aliases) && album.aliases.includes(want));
+    if (!answers) continue;
     if (!best || compareAlbums(album, best) < 0) best = album;
   }
   return best;
@@ -329,15 +426,18 @@ function plural(n, word) {
  * `{ title, description }` for an album's <head> and its card — the copy a
  * crawler reads and the copy a share preview carries, from one place so they
  * say the same thing.
+ *
+ * No "played here since": an album is built from a window of the newest plays,
+ * not the whole archive, so its first play in the window is not its first play
+ * here, and a card claiming the history would be wrong for any older record.
  */
 export function albumCardCopy(album) {
   const title = album?.title || 'Album';
   const by = album?.artist ? ` by ${album.artist}` : '';
   const summary = albumSummaryParts(album).join(', ');
-  const since = album?.firstPlayed ? ` Played here since ${monthYear(album.firstPlayed)}.` : '';
   return {
     title,
-    description: `${title}${by} on dame.is — ${summary}.${since}`,
+    description: `${title}${by} on dame.is — ${summary}.`,
   };
 }
 

@@ -103,12 +103,16 @@ export default function AdminShell({ agent, did }) {
     };
   }, [stacked]);
 
-  // Clear any residual select mode inherited from a public route. `exit` is
-  // useCallback-stable, so this runs exactly once.
-  const { exit } = useEditMode();
+  // Clear any residual select mode inherited from a public route. Both are
+  // useCallback-stable, so this runs exactly once. The quick-edit sheet goes
+  // first and unasked: `exit` would ask about its unsaved edits, but the route
+  // change closes the sheet regardless (useEditMode's route reset), so no
+  // answer here could keep them.
+  const { exit, discardEditSheet } = useEditMode();
   useEffect(() => {
+    discardEditSheet();
     exit();
-  }, [exit]);
+  }, [exit, discardEditSheet]);
 
   // The software keyboard covers the LAYOUT viewport rather than shrinking it,
   // which is what `.wb` is pinned to (`position: fixed; inset: 0`). Tracked only

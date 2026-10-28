@@ -46,6 +46,7 @@ import {
 } from './og/markdown.js';
 import { pageJsonLd, jsonLdScript } from './og/jsonld.js';
 import { ME_DID, COLLECTIONS, BLOG_PUBLICATION, PORTFOLIO_PUBLICATION } from './src/config.js';
+import { nsidConfig } from './src/lib/verbRegistry.js';
 
 const ORIGIN = 'https://dame.is';
 
@@ -74,12 +75,34 @@ const TOP_LEVEL_PAGE_RKEY = {
   '/listening': 'listening',
 };
 
-/** The at:// URI backing a top-level surface, or null. */
-function topLevelAtUri(path) {
+/**
+ * The at:// URI backing a top-level surface, or null.
+ *
+ * /themself names its record only once it has resolved one: is.dame.profile/
+ * self is a record the owner authors when they get to it, and until then the
+ * page advertised a link to nothing (and said so in its fallback prose). The
+ * page records always exist, so those are named outright.
+ */
+function topLevelAtUri(path, resolvedUri) {
   const rkey = TOP_LEVEL_PAGE_RKEY[path];
   if (rkey) return `at://${ME_DID}/${COLLECTIONS.page}/${rkey}`;
-  if (path === '/themself') return `at://${ME_DID}/${COLLECTIONS.profile}/self`;
+  if (path === '/themself') return resolvedUri || null;
   return null;
+}
+
+/** Clip to `max` characters on a word boundary, with an ellipsis if cut. */
+function clip(text, max) {
+  const s = String(text || '').trim();
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max - 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
+
+/** A record's date as ISO 8601, or null when it doesn't parse as one. */
+function isoDate(value) {
+  const t = Date.parse(value || '');
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
 }
 
 // Everything except the paths served by a function or straight off the
@@ -155,6 +178,23 @@ function injectStandardSiteHead(html, { document: documentUri, publication: publ
   if (documentUri) tags += `    <link rel="site.standard.document" href="${escapeAttr(documentUri)}" />\n`;
   if (publicationUri) tags += `    <link rel="site.standard.publication" href="${escapeAttr(publicationUri)}" />\n`;
   return tags ? html.replace(/<\/head>/i, `${tags}  </head>`) : html;
+}
+
+// The front door's first paint is the feed snapshot, which Home only asks for
+// once the entry module has downloaded, parsed and mounted: two round trips
+// back to back. Preloading it from the HTML starts the second with the first.
+// `as="fetch"` plus `crossorigin` (anonymous) is exactly what Home's plain
+// fetch() of a same-origin URL sends, cors mode with same-origin credentials,
+// and a preload that differs in either is fetched a second time instead of
+// reused. Injected last in <head>, so the entry module and stylesheet the
+// shell already names are still requested first.
+const HOME_SNAPSHOT = '/data/unifiedFeed.json';
+
+function injectHomeSnapshotPreload(html) {
+  return html.replace(
+    /<\/head>/i,
+    `    <link rel="preload" as="fetch" href="${HOME_SNAPSHOT}" crossorigin />\n  </head>`,
+  );
 }
 
 /** Fetch the built SPA shell, or null if it can't be read.
@@ -309,6 +349,9 @@ export default async function middleware(request) {
     // 404 (served HTTP 200 by the SPA rewrite), so we noindex it below rather
     // than let crawlers index a section-fallback card as if it were the record.
     let noindex = false;
+    // A real page that just shouldn't be in an index: still 200 and cacheable,
+    // but marked noindex the same way.
+    let deindex = false;
     // Standard Site refs: the site.standard.document + its publication, for the
     // Bluesky rich embed. `stdDoc` only on article pages; `stdPub` on articles
     // and the publication home pages (/blogging, /creating).
@@ -325,6 +368,10 @@ export default async function middleware(request) {
     let body = '';
     let date = null;
     let isArticle = false;
+    // What the card image shows, for a reader who can't see it. Usually the
+    // title; a post's card is its text, and announcing every one of them as
+    // "dame.is posting" told a screen reader nothing.
+    let imageAlt = null;
     // Leaf routes: `/section/:id`, plus the one section whose leaves have
     // leaves of their own — a Ratioed piece, the roster, and one person in it.
     // All of them resolve to a single subject and get the same card /
@@ -383,6 +430,7 @@ export default async function middleware(request) {
           // text is the whole of the body — repeating it under the heading
           // would just print it twice (ssrContent skips a body equal to desc).
           heading = section.title;
+          imageAlt = clip(rec.title, 420);
         } else {
           title = `${rec.title} — ${SITE.domain}`;
           desc = rec.description || section.desc;
@@ -440,7 +488,15 @@ export default async function middleware(request) {
       // callback. A sub-path has no copy of its own, so it borrows its
       // section's card and description rather than dropping to the site-wide
       // default — /available/v2 reads as the résumé, not as the home page.
-      const sectionPath = segs.length ? `/${sectionSeg}` : '/';
+      // The lexicon-form record addresses (/is.dame.now/:rkey) borrow the copy
+      // of the verb that owns the lexicon, for the same reason.
+      const ownerVerb =
+        segs.length === 2 ? nsidConfig(sectionSeg)?.verb?.verb : null;
+      const sectionPath = ownerVerb
+        ? `/${ownerVerb}`
+        : segs.length
+          ? `/${sectionSeg}`
+          : '/';
       const metaPath = PAGES[path] ? path : PAGES[sectionPath] ? sectionPath : path;
       const meta = pageMeta(metaPath);
       title = meta.title;
@@ -461,7 +517,13 @@ export default async function middleware(request) {
       // index draws the ordinary card instead of an empty shelf.
       if (onAlbums) ogParams.set('albums', '1');
       ogImage = `${ORIGIN}/api/og?${ogParams.toString()}`;
-      atUri = topLevelAtUri(path);
+      atUri = topLevelAtUri(path, pageContent?.atUri);
+      // The explorer's sub-pages are anybody's repository, collection or
+      // record: an unbounded set of thin pages, mostly about other people. The
+      // explorer's landing page stays indexable; what it leads to does not. A
+      // meta tag rather than a robots.txt Disallow, so a crawler that already
+      // holds these URLs is told to drop them rather than never told anything.
+      if (sectionSeg === 'exploring' && segs.length > 1) deindex = true;
       // Publication home pages advertise their publication for the embed.
       stdPub = SECTION_PUBLICATION[path] || null;
     }
@@ -486,6 +548,7 @@ export default async function middleware(request) {
           headers: {
             'content-type': MARKDOWN_TYPE,
             vary: VARY,
+            ...(deindex ? { 'x-robots-tag': 'noindex' } : {}),
             'cache-control': noindex
               ? 'no-store'
               : 'public, max-age=0, must-revalidate, s-maxage=60',
@@ -507,10 +570,20 @@ export default async function middleware(request) {
     html = setMeta(html, 'property', 'og:title', title);
     html = setMeta(html, 'property', 'og:description', desc);
     html = setMeta(html, 'property', 'og:image', ogImage);
-    html = setMeta(html, 'property', 'og:image:alt', title);
+    html = setMeta(html, 'property', 'og:image:alt', imageAlt || title);
     html = setMeta(html, 'name', 'twitter:title', title);
     html = setMeta(html, 'name', 'twitter:description', desc);
     html = setMeta(html, 'name', 'twitter:image', ogImage);
+    html = setMeta(html, 'name', 'twitter:image:alt', imageAlt || title);
+
+    // A blog post is an article to Open Graph too, not only to the JSON-LD
+    // below, which already called it a BlogPosting while og:type said website.
+    if (isArticle) {
+      html = setMeta(html, 'property', 'og:type', 'article');
+      const published = isoDate(date);
+      if (published)
+        html = setMeta(html, 'property', 'article:published_time', published);
+    }
 
     // Advertise the canonical URL for every route we serve, so the same record
     // reachable at multiple live URLs collapses to one address. This used to be
@@ -524,7 +597,7 @@ export default async function middleware(request) {
     // signal; noindex is kept alongside it because the body still renders the
     // section as a graceful fallback for a person, and that fallback shouldn't
     // be indexed under a record URL that doesn't exist.
-    if (noindex) html = setMeta(html, 'name', 'robots', 'noindex');
+    if (noindex || deindex) html = setMeta(html, 'name', 'robots', 'noindex');
 
     // Record/leaf pages (and the top-level surfaces) advertise their canonical
     // at:// URI so AT-aware crawlers can find the backing record.
@@ -544,6 +617,8 @@ export default async function middleware(request) {
         )}\n  </head>`,
     );
 
+    if (path === '/') html = injectHomeSnapshotPreload(html);
+
     // The page's content, for readers that never run the app. Hidden wherever
     // JavaScript is available (see og/ssrContent.js), so nothing about the
     // rendered site changes.
@@ -554,6 +629,7 @@ export default async function middleware(request) {
       headers: {
         'content-type': 'text/html; charset=utf-8',
         vary: VARY,
+        ...(deindex ? { 'x-robots-tag': 'noindex' } : {}),
         // Edge-cache the rendered shell briefly to keep middleware cost down —
         // but NEVER serve it stale. The shell embeds the build's content-hashed
         // entry asset (/assets/index-<hash>.js), and every deploy rotates that

@@ -23,18 +23,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import BreakableId from '../components/BreakableId.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
 import RatioedStats from '../components/RatioedStats.jsx';
 import {
   SEED_PIECES,
   SEED_PEOPLE,
   loadPieces,
+  loadLivePieces,
   loadPeople,
   livingRoster,
   composeEventLog,
   brokenTakes,
   roleOf,
   isRatioedParent,
+  finished,
   pieceSlug,
   piecePath,
   fmtDuration,
@@ -47,11 +50,12 @@ import {
   participantDossier,
 } from '../lib/ratioedParticipant.js';
 import { applyAudience, audienceIndex, fmtReach } from '../lib/ratioedReach.js';
-import { resolvePds, resolveProfiles } from '../lib/atproto.js';
+import { resolveHandle, resolveProfiles } from '../lib/atproto.js';
+import { UNRESOLVED } from '../lib/ratioedIdentity.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { formatDateFull } from '../lib/time.js';
-import { ME_DID, RATIOED_DOC_RKEY } from '../config.js';
+import { RATIOED_DOC_RKEY } from '../config.js';
 import './RatioedPiece.css';
 import './RatioedParticipant.css';
 
@@ -74,11 +78,20 @@ export default function RatioedParticipant() {
   const [people, setPeople] = useState(SEED_PEOPLE);
   const [bundled, setBundled] = useState(null);
   const [audience, setAudience] = useState(null);
-  const [profile, setProfile] = useState(null);
+  // Today's portrait, with the account it was asked for. Held as a pair because
+  // this component outlives a change of person: RouteTransition's reduced-
+  // motion path renders the routes with no key, so prev/next re-renders the
+  // same instance, and a bare `profile` put the previous person's portrait,
+  // handle, follower count and <title> on the next one's page until the new
+  // answer landed.
+  const [portrait, setPortrait] = useState(null); // { lookup, profile }
   // The bundle is always there, so `settled` only says whether the network has
   // had its say. It gates the not-found screen, which must never fire on
   // somebody the seed simply predates.
   const [settled, setSettled] = useState(false);
+  const [snapshotIn, setSnapshotIn] = useState(false);
+  // The DID a handle the roster has never seen resolves to today. See below.
+  const [aka, setAka] = useState(null); // { ref, did }
 
   const { skyDisplayHour } = useTheme();
   const scale = useMemo(() => ratioedScaleVars(skyDisplayHour), [skyDisplayHour]);
@@ -93,9 +106,11 @@ export default function RatioedParticipant() {
       if (!alive) return;
       if (snapPieces?.length) setPieces(snapPieces);
       if (snapPeople?.length) setPeople(snapPeople);
+      setSnapshotIn(true);
 
-      const pds = await deadline(resolvePds(ME_DID).catch(() => null));
-      const fresh = pds ? await deadline(loadPieces(pds).catch(() => null)) : null;
+      // Twice the deadline, because it covers what used to be two waits of
+      // one each: the PLC lookup, then the read.
+      const fresh = await deadline(loadLivePieces().catch(() => null), PDS_DEADLINE_MS * 2);
       if (!alive) return;
       if (fresh?.length) setPieces(fresh);
       setSettled(true);
@@ -151,10 +166,41 @@ export default function RatioedParticipant() {
   // named breakers are in no roster at all. Anyone who only ever touched a
   // finished piece still has a page; they are just not a participant, and the
   // page says so rather than 404ing on somebody who is demonstrably there.
-  const person = useMemo(
+  const direct = useMemo(
     () => findParticipant(roster.rows, ref) || findParticipant(people, ref),
     [roster.rows, people, ref],
   );
+
+  // A handle the roster doesn't hold, asked of the network before this page
+  // gives up on it. The roster names people by the handle their log stamped at
+  // the time, and never again; the faces and the replay link by whatever the
+  // account is called today. So everybody who has renamed since their last
+  // take — thirteen of the people here, last counted — was a link to "No such
+  // participant", from a face on a page that had just shown them. Their DID
+  // hasn't changed, and the roster is keyed by it.
+  const asksNetwork =
+    !direct && snapshotIn && /\./.test(ref || '') && !String(ref).startsWith('did:');
+  useEffect(() => {
+    if (!asksNetwork) return undefined;
+    let alive = true;
+    resolveHandle(String(ref).replace(/^@/, ''))
+      .catch(() => null)
+      .then((did) => {
+        if (alive) setAka({ ref, did: did || null });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [asksNetwork, ref]);
+  const viaDid = !direct && aka?.ref === ref && aka.did ? aka.did : null;
+  const person = useMemo(
+    () =>
+      direct ||
+      (viaDid ? findParticipant(roster.rows, viaDid) || findParticipant(people, viaDid) : null),
+    [direct, viaDid, roster.rows, people],
+  );
+  // Still finding out, as far as the not-found screen is concerned.
+  const asking = asksNetwork && aka?.ref !== ref;
 
   const dossier = useMemo(
     () => (person ? participantDossier(person, { pieces, resolveEvents }) : null),
@@ -176,13 +222,15 @@ export default function RatioedParticipant() {
     resolveProfiles([lookup])
       .then((found) => {
         if (!alive) return;
-        setProfile(found[lookup] || Object.values(found)[0] || null);
+        setPortrait({ lookup, profile: found[lookup] || Object.values(found)[0] || null });
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
   }, [lookup]);
+  const answered = portrait?.lookup === lookup ? portrait : null;
+  const profile = answered?.profile || null;
 
   // A participant page hangs off the essay, so it only answers under the
   // essay's own address — either form of it.
@@ -197,12 +245,13 @@ export default function RatioedParticipant() {
   }
 
   if (!person) {
+    const gaveUp = settled && !asking;
     return (
       <PageShell
-        title={settled ? 'No such participant' : 'Loading…'}
-        headTitle={settled ? 'Not found — dame.is' : 'Ratioed — dame.is'}
+        title={gaveUp ? 'No such participant' : 'Loading…'}
+        headTitle={gaveUp ? 'Not found — dame.is' : 'Ratioed — dame.is'}
       >
-        {settled && (
+        {gaveUp && (
           <p>
             Nobody by the name <code>{ref}</code> is in the Ratioed roster.{' '}
             <Link to={`/creating/${slug}`}>Back to the project.</Link>
@@ -214,6 +263,13 @@ export default function RatioedParticipant() {
 
   const handle = profile?.handle || person.h;
   const name = profile?.displayName || person.dn || '';
+  // Only an answer can say an account has gone: before one, the frame is
+  // simply empty, the way every other portrait on the site waits. And a
+  // profile in hand outranks the log's placeholder, as on a piece's faces.
+  const gone = !profile && (Boolean(answered) || !person.h || person.h === UNRESOLVED);
+  // The series as a count of takes that have happened. A piece that is up
+  // right now is one nobody can have been in yet.
+  const takesSoFar = finished(pieces).length;
   const found = audiences[person.did] || audiences[person.h] || null;
   const followers = typeof profile?.followers === 'number' ? profile.followers : found?.fr;
   const broke = brokenTakes(person);
@@ -230,7 +286,7 @@ export default function RatioedParticipant() {
       key: 'pieces',
       label: 'pieces',
       value: dossier.live || null,
-      note: `of the ${pieces.length} takes, while they were still alive`,
+      note: `of the ${takesSoFar} takes, while they were still alive`,
     },
     {
       key: 'records',
@@ -302,7 +358,7 @@ export default function RatioedParticipant() {
 
   return (
     <PageShell
-      title={`@${handle}`}
+      title={<BreakableId>{`@${handle}`}</BreakableId>}
       headTitle={`@${handle} in Ratioed — dame.is`}
     >
       <article className="ratioed-piece ratioed-participant reveal" style={scale}>
@@ -314,7 +370,7 @@ export default function RatioedParticipant() {
           {/* An account that no longer answers is an empty frame rather than a
               stand-in face: they were here, and there is nobody left to show.
               Same rule, and the same square frame, as the faces on a piece. */}
-          <span className="ratioed-face-frame" data-gone={profile ? undefined : true}>
+          <span className="ratioed-face-frame" data-gone={gone || undefined}>
             {profile?.avatar ? (
               <img src={profile.avatar} alt="" width="72" height="72" />
             ) : (

@@ -1,9 +1,11 @@
 // Lazy singleton for the BrowserOAuthClient.
 //
 // Production: burns metadata that mirrors what /client-metadata.json serves.
-// Development: uses the loopback fallback the spec provides for localhost,
+// Development: uses the loopback client the spec provides for localhost,
 //   which means we don't need to tunnel for the OAuth server to fetch our
-//   metadata. The library auto-redirects `localhost` origins to `127.0.0.1`.
+//   metadata. Its redirect URI has to name 127.0.0.1 (RFC 8252 forbids the
+//   `localhost` hostname there), and the session the callback stores lives at
+//   that origin — so start a local sign-in from http://127.0.0.1:<port>.
 
 // `@atproto/oauth-client-browser` (with its zod / jose dependency tree) is
 // the single heaviest thing in the bundle, yet only the owner and guestbook
@@ -13,7 +15,6 @@
 import { ME_HANDLE, ME_DID, OAUTH_CALLBACK_PATH } from '../config.js';
 
 let _clientPromise = null;
-let _loopbackUrl = null;
 
 // Module-level event bus. The BrowserOAuthClient itself does not expose
 // addEventListener — it surfaces session lifecycle through `onDelete` /
@@ -47,12 +48,22 @@ function isLoopbackHost(hostname) {
   );
 }
 
-function buildLoopbackMetadataUrl(origin, redirectPath) {
-  // Per the lib docs, when running on a loopback origin, `client_id` must
-  // be `http://localhost?redirect_uri=<encoded>` even though the actual
-  // page runs at 127.0.0.1 — the library handles the dance.
-  const redirect = `${origin}${redirectPath}`;
-  return `http://localhost?redirect_uri=${encodeURIComponent(redirect)}`;
+/**
+ * A loopback client's `client_id` IS its metadata: `http://localhost` plus
+ * query params naming its redirect URI and scope, which the authorization
+ * server parses instead of fetching a document. The scope has to be declared
+ * here for the same reason it is in the production metadata — every sign-in
+ * narrows to one of OWNER_SCOPE / GUESTBOOK_SCOPE, and a server checks the
+ * request against what the client declared.
+ */
+export function buildLoopbackClientId(origin, redirectPath) {
+  const redirect = new URL(redirectPath, origin);
+  if (redirect.hostname === 'localhost') redirect.hostname = '127.0.0.1';
+  const params = new URLSearchParams({
+    redirect_uri: redirect.href,
+    scope: CLIENT_SCOPE,
+  });
+  return `http://localhost?${params}`;
 }
 
 /**
@@ -86,10 +97,12 @@ async function createOauthClient() {
   };
 
   if (isLoopbackHost(window.location.hostname)) {
-    _loopbackUrl = buildLoopbackMetadataUrl(origin, redirectPath);
-    return new BrowserOAuthClient({
+    // `load` turns the loopback client_id into the metadata object the
+    // constructor wants; handing the constructor the bare URL string (as this
+    // once did) failed validation on every local sign-in.
+    return BrowserOAuthClient.load({
+      clientId: buildLoopbackClientId(origin, redirectPath),
       handleResolver: 'https://bsky.social',
-      clientMetadata: _loopbackUrl,
       ...hooks,
     });
   }
@@ -127,6 +140,43 @@ export function scopeForAccount(input) {
     .replace(/^@/, '');
   const isOwner = id === ME_HANDLE.toLowerCase() || id === ME_DID.toLowerCase();
   return isOwner ? OWNER_SCOPE : GUESTBOOK_SCOPE;
+}
+
+/**
+ * A sign-in that couldn't start (the handle didn't resolve, the PDS's
+ * authorization server didn't answer), in words a visitor can act on. The
+ * library's own messages are written for developers — an unresolvable handle
+ * surfaces as "Failed to resolve identity: …", a bad config as a zod issue
+ * dump — so the sign-in forms show this and log the original.
+ */
+export function signInErrorMessage(err) {
+  const message = String(err?.message || '');
+  if (/resolve identity|invalid (handle|did)|handle must be/i.test(message)) {
+    return 'Couldn’t find that account. Check the handle (it looks like you.bsky.social), or paste your DID.';
+  }
+  const serverRefused =
+    /resolve oauth server metadata|not protected by issuer|does not support/i;
+  if (serverRefused.test(message)) {
+    return 'Found the account, but its server isn’t accepting sign-ins from here right now.';
+  }
+  if (err?.name === 'TypeError' && /fetch|network|load failed/i.test(message)) {
+    return 'Couldn’t reach the account’s server. Check your connection and try again.';
+  }
+  return 'Sign-in couldn’t start. Check the handle and try again.';
+}
+
+/**
+ * The same for a sign-in that came back from the authorization server without
+ * a session — declined at the consent screen, or the callback couldn't be
+ * matched to the request that started it (an old tab, a reload).
+ */
+export function callbackErrorMessage(err) {
+  const code =
+    typeof err?.params?.get === 'function' ? err.params.get('error') : null;
+  if (code === 'access_denied') {
+    return 'Access wasn’t granted, so you’re not signed in.';
+  }
+  return 'Sign-in didn’t finish, so you’re not signed in. Nothing was changed.';
 }
 
 export { OWNER_SCOPE, GUESTBOOK_SCOPE, CLIENT_SCOPE };

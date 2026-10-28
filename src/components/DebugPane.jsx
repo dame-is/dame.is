@@ -1,14 +1,26 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAtUri } from '../hooks/useAtUri.js';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { usePageCensus } from '../hooks/usePageRecords.js';
-import RecordEditor from './RecordEditor.jsx';
+// Where RecordEditor used to be imported: its stylesheets stay here. See below.
+import './blocks/blocks.css';
+import '../pages/Admin.css';
+import { AdminEditorSkeleton } from './Skeleton.jsx';
 import { ME_DID } from '../config.js';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { censusLine } from '../lib/xray.js';
 import { BUILD_ID } from '../lib/appVersion.js';
 import './DebugOverlay.css';
+
+// Lazy: only the owner can open the editor, and it was the last static path
+// pulling the block editors, the résumé fields and the lexicon table into
+// every visitor's entry chunk. Its CSS stays eager, at the spot the import
+// used to be, for the reason lib/pageStyles.js gives for the pages: several
+// editor labels pair an Admin.css or blocks.css class with `.small-caps` or
+// `.gutter`, and the global rule has always won that tie. A stylesheet that
+// arrived with a lazy chunk would land after typography.css and win it.
+const RecordEditor = lazy(() => import('./RecordEditor.jsx'));
 
 /**
  * Atmosphere debug content for the current route. Rendered inside the
@@ -127,18 +139,22 @@ export default function DebugPane({ onClose }) {
 
       {editing && canEdit ? (
         <div className="debug-overlay-editor">
-          <RecordEditor
-            agent={agent}
-            did={ME_DID}
-            collection={recordCollection}
-            rkey={recordRkey}
-            compact
-            onDeleted={() => {
-              setEditing(false);
-              onClose?.();
-              window.location.assign('/');
-            }}
-          />
+          {/* The editor draws this same skeleton while it reads the record, so
+              fetching its chunk first reads as one wait, not two. */}
+          <Suspense fallback={<AdminEditorSkeleton fields={3} />}>
+            <RecordEditor
+              agent={agent}
+              did={ME_DID}
+              collection={recordCollection}
+              rkey={recordRkey}
+              compact
+              onDeleted={() => {
+                setEditing(false);
+                onClose?.();
+                window.location.assign('/');
+              }}
+            />
+          </Suspense>
         </div>
       ) : value ? (
         <>

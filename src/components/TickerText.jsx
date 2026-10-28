@@ -47,6 +47,12 @@ export default function TickerText({ children, className = '', title, marquee = 
     setRested(false);
   }, [children]);
 
+  // Armed once per pair of elements, not once per text. Both observed spans are
+  // inline-block and sized by their text, so new text that changes the width
+  // reaches `measure` through the observer on its own. Keyed on `children` — a
+  // fresh element on every parent render — this tore the observer down and
+  // built it again on every chrome tick. Only `marquee` swaps the span that
+  // `innerRef` points at.
   useEffect(() => {
     const wrap = wrapRef.current;
     const inner = innerRef.current;
@@ -68,7 +74,7 @@ export default function TickerText({ children, className = '', title, marquee = 
     ro.observe(wrap);
     ro.observe(inner);
     return () => ro.disconnect();
-  }, [children]);
+  }, [marquee]);
 
   const truncated = overflow > 0;
 

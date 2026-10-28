@@ -3,14 +3,23 @@
 // 5xx errors and return `null` so the UI can render "Unavailable" without
 // wrapping every call site in try/catch.
 
+import { fetchWithTimeout } from './atproto.js';
+
 const CONSTELLATION_BASE = 'https://constellation.microcosm.blue';
 const RETRY_DELAYS_MS = [1000, 2500, 5000, 10_000];
+// The longest a Retry-After is taken at its word. The guestbook waits on these
+// calls with nothing on screen, and an instance that asks for ten minutes has
+// effectively said no; a capped wait still backs off, and the last retry still
+// gives up.
+const MAX_RETRY_DELAY_MS = 15_000;
 
 async function fetchJsonOrNull(url, init) {
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     if (init?.signal?.aborted) return null;
     try {
-      const res = await fetch(url, {
+      // Each attempt gets its own ceiling. A hung request then fails into the
+      // retry below rather than holding the page that waits on it.
+      const res = await fetchWithTimeout(url, {
         ...init,
         headers: { Accept: 'application/json', ...init?.headers },
       });
@@ -35,11 +44,15 @@ function retryDelayMs(response, attempt) {
   const raw = response.headers?.get?.('retry-after');
   if (raw) {
     const seconds = Number(raw);
-    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+    if (Number.isFinite(seconds)) return clampDelay(seconds * 1000);
     const dateMs = Date.parse(raw);
-    if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
+    if (Number.isFinite(dateMs)) return clampDelay(dateMs - Date.now());
   }
   return RETRY_DELAYS_MS[attempt];
+}
+
+function clampDelay(ms) {
+  return Math.min(MAX_RETRY_DELAY_MS, Math.max(0, ms));
 }
 
 function wait(ms, signal) {

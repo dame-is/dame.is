@@ -6,6 +6,7 @@ import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { ME_DID } from '../config.js';
+import { deleteEveryCopy, playCopiesOf } from '../lib/tealPlayDelete.js';
 import './EditModeBar.css';
 
 /**
@@ -142,14 +143,13 @@ export default function EditModeBar() {
     try {
       for (const t of targets) {
         // Sequential keeps the PDS write load gentle and lets a mid-batch
-        // failure surface without leaving the rest in limbo.
-        // eslint-disable-next-line no-await-in-loop
-        await agent.com.atproto.repo.deleteRecord({
-          repo: t.repo,
-          collection: t.collection,
-          rkey: t.rkey,
-        });
-        removed.push(`at://${t.repo}/${t.collection}/${t.rkey}`);
+        // failure surface without leaving the rest in limbo. A play goes from
+        // both teal namespaces: the feed shows one copy of a play written to
+        // both, and deleting only that one let the other surface in its place.
+        await deleteEveryCopy(agent, t);
+        for (const collection of playCopiesOf(t.collection)) {
+          removed.push(`at://${t.repo}/${collection}/${t.rkey}`);
+        }
       }
     } catch (err) {
       setError(err?.message || String(err));

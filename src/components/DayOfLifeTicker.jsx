@@ -3,8 +3,8 @@ import TickerText from './TickerText.jsx';
 import { xrayNotARecord } from '../lib/xray.js';
 
 export default function DayOfLifeTicker() {
-  const { day, dayOfYear, year } = useLiveDayOfLife();
-  const tooltip = `Day ${day} · ${dayOfYear} of 365 · Year ${year}`;
+  const { day, dayOfYear, year, yearLength } = useLiveDayOfLife();
+  const tooltip = `Day ${day.toLocaleString()} · ${dayOfYear} of ${yearLength} · Year ${year}`;
   return (
     <span className="chrome-signal chrome-signal-day" {...xrayNotARecord('computed')}>
       {/* Reads as one small-caps phrase — "on day 12,124 of their life" — with

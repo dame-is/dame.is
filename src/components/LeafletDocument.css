@@ -280,7 +280,7 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 
 .leaflet-website-title {
   font-family: var(--serif);
-  font-size: var(--text-md);
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--ink);
 }
@@ -319,7 +319,6 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   color: var(--ink);
 }
 
-.leaflet-bsky-post-loading,
 .leaflet-bsky-post-missing {
   color: var(--ink-faint);
   font-style: italic;

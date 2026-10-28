@@ -51,21 +51,40 @@
   gap: var(--space-3);
   margin: 0;
 }
+/* There are always five, and auto-fit only ever fitted four of them on a
+   tablet or a small laptop, stranding the fifth on a row of its own. Once the
+   column can hold five, it holds exactly five. */
+@media (min-width: 52rem) {
+  .exploring-home-stats {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
 .exploring-home-stat {
+  position: relative;
   border: 1px solid var(--rule);
   border-radius: var(--radius-2);
   background: var(--page);
   padding: var(--space-3);
   transition: transform 200ms ease, border-color 200ms ease;
 }
-.exploring-home-stat.is-link:hover {
-  border-color: var(--accent-soft);
-  transform: translateY(-2px);
+/* Pointer-only, as the site's hover tints are: on touch the lift sticks to
+   whatever was tapped (see the note in typography.css). */
+@media (hover: hover) {
+  .exploring-home-stat.is-link:hover {
+    border-color: var(--accent-soft);
+    transform: translateY(-2px);
+  }
 }
-.exploring-home-stat-inner {
-  display: block;
+/* The card's link lives in its <dd> (see Stat) and covers the card from
+   there, so the whole tile stays one click target. */
+.exploring-home-stat-link {
   color: inherit;
   text-decoration: none;
+}
+.exploring-home-stat-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
 }
 .exploring-home-stat-label {
   display: block;
@@ -111,9 +130,11 @@
   background: var(--page-edge);
   transition: transform 200ms ease, border-color 200ms ease;
 }
-.exploring-home-lexicon:hover {
-  border-color: var(--accent-soft);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .exploring-home-lexicon:hover {
+    border-color: var(--accent-soft);
+    transform: translateY(-2px);
+  }
 }
 .exploring-home-lexicon-head {
   display: flex;
@@ -129,8 +150,11 @@
   font-style: italic;
   color: var(--accent);
 }
+/* BreakableId puts the break opportunities between segments; `anywhere` is
+   only the fallback for a segment wider than the card on its own. (break-all
+   split identifiers mid-word: `chronicle.expeditio` / `n.camp`.) */
 .exploring-home-lexicon-nsid {
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 .exploring-home-lexicon-blurb {
   margin: 0;
@@ -198,9 +222,10 @@
   min-width: 0;
   margin: 0;
   font-size: var(--text-sm);
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 .exploring-home-identity-mono {
+  min-width: 0;
   font-family: var(--mono-ui, var(--mono));
 }
 .exploring-home-copy {
@@ -274,7 +299,7 @@
   font-size: var(--text-sm);
   color: var(--ink);
   text-decoration: none;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 .exploring-home-collection-link:hover {
   color: var(--accent);

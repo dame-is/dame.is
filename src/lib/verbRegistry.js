@@ -385,6 +385,21 @@ export function nsidConfig(nsid) {
   return REGISTRY_BY_NSID[nsid] || null;
 }
 
+/**
+ * The verbs in `verbs` whose every collection is among `nsids` — given a build's
+ * failed fetches (buildUnifiedFeed's `failures.labels`, where the author feed is
+ * filed under `app.bsky.feed.post`), the verbs it got nothing at all for. An
+ * unknown verb, or one with no collections, is never in the answer.
+ */
+export function verbsWithEverySourceIn(verbs, nsids) {
+  const set = new Set(nsids || []);
+  if (!set.size) return [];
+  return Array.from(verbs || []).filter((verb) => {
+    const collections = REGISTRY_BY_VERB[verb]?.collections || [];
+    return collections.length > 0 && collections.every((c) => set.has(c.nsid));
+  });
+}
+
 /** Verb -> primary NSID, used for routing/legacy lookups. */
 export function primaryNsid(verb) {
   return REGISTRY_BY_VERB[verb]?.collections[0]?.nsid || null;

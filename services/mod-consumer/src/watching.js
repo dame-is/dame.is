@@ -18,11 +18,20 @@ import {
   alertText,
   WATCH_EVERY_MS,
 } from '../../../api/_lib/watch.js';
-import { savePending, confirmLine } from '../../../api/_lib/chatUx.js';
+import {
+  savePending,
+  confirmLine,
+  questionOpen,
+} from '../../../api/_lib/chatUx.js';
 
 /**
  * Send one digest or alert, with its question stored when it asks one.
  * `links` are the URLs this code built and may render tappable.
+ *
+ * A QUESTION FROM THE CONVERSATION WINS. There is one stored question per
+ * convo, and this runs on a timer while dame may be mid-answer to something the
+ * agent asked. When one is open, the message still goes, without its 👍 line
+ * and without replacing what a "yes" or a 👍 would run.
  */
 export async function say(
   chat,
@@ -30,7 +39,8 @@ export async function say(
   { text, pending, describe, links = [] },
 ) {
   if (!convoId || !text) return [];
-  const body = pending?.length ? `${text}\n\n${confirmLine([describe])}` : text;
+  const asks = pending?.length > 0 && !(await questionOpen(convoId));
+  const body = asks ? `${text}\n\n${confirmLine([describe])}` : text;
   const ids = [];
   for (const chunk of chunkForDm(body)) {
     const facets = ownLinkFacets(chunk, { allow: links });
@@ -40,17 +50,25 @@ export async function say(
     });
     if (sent?.data?.id) ids.push(sent.data.id);
   }
-  if (pending?.length) {
+  if (asks) {
     await savePending(convoId, {
       commands: pending,
       describe,
       messageIds: ids,
+      background: true,
     });
   }
   return ids;
 }
 
-/** Read every watch that is due, send the digests that are, end the expired. */
+/**
+ * Read every watch that is due, send the digests that are, end the expired.
+ *
+ * A digest waits while a question from the conversation is open in its convo:
+ * the watch keeps reading, its counts keep adding up, and the update goes once
+ * dame has answered or the question has lapsed. A closing digest cannot wait,
+ * so say() sends that one without a question of its own.
+ */
 export async function tickWatches({
   chat,
   agent,
@@ -59,6 +77,13 @@ export async function tickWatches({
   log = () => {},
   now = Date.now(),
 }) {
+  const asking = new Map();
+  const busy = async (convoId) => {
+    if (!asking.has(convoId)) {
+      asking.set(convoId, await questionOpen(convoId, { now }));
+    }
+    return asking.get(convoId);
+  };
   for (const w of await endExpired({ now })) {
     const d = await digestFor(w, { now, ending: true });
     if (d) await say(chat, w.convo_id, d);
@@ -88,6 +113,7 @@ export async function tickWatches({
       });
       continue;
     }
+    if (await busy(w.convo_id)) continue;
     const d = await digestFor(w, { now });
     if (d) {
       await say(chat, w.convo_id, d);
@@ -96,16 +122,23 @@ export async function tickWatches({
   }
 }
 
-/** Offer a watch on any of dame's posts that has suddenly taken off. */
+/**
+ * Offer a watch on any of dame's posts that has suddenly taken off.
+ *
+ * Not while a question from the conversation is open: an alert always asks
+ * something, and it is offered once, so it waits for the next tick rather than
+ * going out without the 👍 that is the point of it.
+ */
 export async function tickAlerts({
   chat,
   convoFor,
   log = () => {},
   now = Date.now(),
 }) {
+  const convoId = await convoFor();
+  if (convoId && (await questionOpen(convoId, { now }))) return 0;
   const alerts = await ownPostAlerts({ now });
   if (!alerts.length) return 0;
-  const convoId = await convoFor();
   for (const a of alerts) {
     await say(chat, convoId, alertText(a));
     log('Offered a watch on a post taking off', {

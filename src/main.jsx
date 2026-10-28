@@ -1,3 +1,6 @@
+// First, before anything that might touch storage evaluates: a browser that
+// blocks site data makes `window.localStorage` itself throw. See the module.
+import { readStorage } from './lib/storageGuard.js';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -5,8 +8,8 @@ import App from './App.jsx';
 import { PAPER_ENABLED } from './hooks/usePaper.jsx';
 import { FONT_SWITCHER_ENABLED } from './hooks/useFont.jsx';
 import { applySkyTheme, easternHour, setSkyTuning } from './lib/skyTheme.js';
-import { effectiveSkyTuning } from './lib/skyTuning.js';
-import { SKY_SEED } from './hooks/useTheme.jsx';
+import { recoverFromChunkError } from './lib/chunkRecovery.js';
+import bakedSkyTuning from 'virtual:sky-tuning';
 import './styles/reset.css';
 import './styles/theme.css';
 import './styles/typography.css';
@@ -26,19 +29,47 @@ try {
 } catch {
   /* URL/history unavailable — nothing to clean up */
 }
+// That also ends the "_r" guard for the rest of this page's life, but most
+// pages are lazy chunks fetched from here on. So api/asset-recovery.js's stub
+// for a missing chunk hands its reload to the app's own recovery, whose guard
+// survives the reload, rather than looping on a deploy that lacks the chunk.
+window.__dameRecoverChunk = () => recoverFromChunkError();
+
+// Scroll positions are restored by the app, not the browser — the browser
+// restores a Back at popstate time, against the page that is still fading
+// out, and long before a feed has loaded. RouteTransition.jsx explains.
+try {
+  if ('scrollRestoration' in window.history) {
+    window.history.scrollRestoration = 'manual';
+  }
+} catch {
+  /* history unavailable — the browser keeps its own behaviour */
+}
 
 // The site runs a single, always-on theme: the hour-tracking sky mode.
 // Set it here (before React mounts) so the first paint is in the right
 // palette. The retired static light/dark themes are no longer selectable.
-// Keep in sync with useTheme.jsx.
+// Keep in sync with useTheme.jsx. (index.html's inline boot script has
+// usually set it already, along with this hour's page colour, so the paint
+// before this bundle arrives isn't the unstyled parchment :root.)
 document.documentElement.setAttribute('data-theme', 'sky');
+
+// The owner's is.dame.sky tuning as it stood at build time — `npm run build`
+// prefetches the record into public/data/sky.json before bundling. Installed
+// before the paint below, because ThemeProvider only fetches it after React
+// mounts: until then every daytime load painted the untuned derivation and
+// then repainted a moment later (at 6am, brown to navy). ThemeProvider still
+// fetches the snapshot and the live record, and only repaints if they differ.
+//
+// Served by vite.config.js, already normalised, from the same reading that
+// writes index.html's boot table. public/data/ is gitignored and only exists
+// after a prefetch, so on a fresh clone's `npm run dev`, or a `build:offline`,
+// it is null.
+if (bakedSkyTuning) setSkyTuning(bakedSkyTuning);
 
 // Sky mode's palette is computed per hour, not static — derive this
 // hour's tokens before the first paint and take the browser-chrome tint
-// from them. The owner's tuning is installed first, from the snapshot baked
-// in at build, so this paint is already the tuned hour (index.html's inline
-// table has painted the same colours since the first byte).
-setSkyTuning(effectiveSkyTuning(SKY_SEED));
+// from them.
 const initialThemeColor = applySkyTheme(easternHour()).themeColor;
 
 document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
@@ -53,7 +84,7 @@ document.head.appendChild(themeColorMeta);
 // resolves to blank; the stored preference is left in place for when it
 // returns. Keep in sync with usePaper.jsx.
 const VALID_PAPER = ['blank', 'ruled', 'dots'];
-const storedPaper = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.paper') : null;
+const storedPaper = readStorage('dame.paper');
 document.documentElement.setAttribute(
   'data-paper',
   PAPER_ENABLED && VALID_PAPER.includes(storedPaper) ? storedPaper : 'blank',
@@ -65,7 +96,7 @@ document.documentElement.setAttribute(
 // start. When FONT_SWITCHER_ENABLED is flipped back on in useFont.jsx the
 // stored preference is honoured again (default serif). Keep in sync.
 const VALID_FONTS = ['mixed', 'serif'];
-const storedFont = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.font') : null;
+const storedFont = readStorage('dame.font');
 document.documentElement.setAttribute(
   'data-font',
   FONT_SWITCHER_ENABLED && VALID_FONTS.includes(storedFont) ? storedFont : 'serif',

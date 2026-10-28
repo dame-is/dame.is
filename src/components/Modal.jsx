@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
+import { useScrollLock } from '../hooks/useScrollLock.js';
 import './Modal.css';
 
 const PRESETS = {
@@ -46,6 +48,15 @@ const PRESETS = {
  * non-interactive motion.div as the visual layer, animating its
  * backgroundColor and backdropFilter directly (not opacity) so both ramp
  * smoothly to 0 instead of snapping off at unmount.
+ *
+ * The dialog role lives on modal-root, not on the panel. The panel scales as
+ * it opens, and a transform makes it the containing block for anything fixed
+ * inside it, so controls that pin to the viewport (the lightbox's bar) can't
+ * live in the panel. They used to be portalled to <body> instead, outside the
+ * dialog, where a screen reader that honours aria-modal (VoiceOver) never
+ * reaches them: Close, Previous and Next couldn't be swiped to. modal-root is
+ * never transformed, so `outside` renders them inside it, beside the panel and
+ * within the dialog.
  */
 export default function Modal({
   open,
@@ -59,26 +70,21 @@ export default function Modal({
   children,
   closeOnEscape = true,
   focusTrapRef,
+  outside = null,
 }) {
   const reduce = useReducedMotion();
   const panelRef = useRef(null);
   // Keep a touch-drag on the panel from scrolling the page behind it when
-  // its content fits without overflowing.
+  // its content fits without overflowing, and a wheel or PageDown too.
   usePreventScrollChain(panelRef, open);
+  useScrollLock(open);
   // Make the aria-modal="true" claim true: pull focus into the panel on open,
   // trap Tab within it, and restore focus to the opener on close. `focusTrapRef`
-  // lets a consumer extend the trap over controls it portals outside the panel
-  // subtree (the image lightbox does this — see Lightbox.jsx).
+  // extends the trap over controls outside the panel itself (the lightbox's
+  // bar, rendered through `outside` — see Lightbox.jsx).
   useFocusTrap(panelRef, { active: open, extraContainers: focusTrapRef });
-
-  useEffect(() => {
-    if (!open || !closeOnEscape) return;
-    function onKey(e) {
-      if (e.key === 'Escape') onClose?.();
-    }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, closeOnEscape, onClose]);
+  // Escape closes this modal only while it's the top overlay.
+  useEscapeLayer(open, closeOnEscape ? onClose : null);
 
   const preset = PRESETS[motionPreset] || PRESETS.rise;
   const ease = [0.32, 0.72, 0, 1];
@@ -116,6 +122,9 @@ export default function Modal({
   return createPortal(
     <div
       className={`modal-root modal-variant-${variant} ${open ? 'is-open' : ''}`}
+      role={open ? 'dialog' : undefined}
+      aria-modal={open ? 'true' : undefined}
+      aria-label={open ? label : undefined}
       aria-hidden={!open}
       onClick={handleRootClick}
     >
@@ -149,9 +158,6 @@ export default function Modal({
             ref={panelRef}
             id={id}
             className={`modal-panel ${className}`}
-            role="dialog"
-            aria-modal="true"
-            aria-label={label}
             initial={preset.initial}
             animate={preset.animate}
             exit={preset.exit}
@@ -161,6 +167,7 @@ export default function Modal({
           </motion.div>
         )}
       </AnimatePresence>
+      {outside}
     </div>,
     document.body,
   );

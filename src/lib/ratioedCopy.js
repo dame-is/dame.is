@@ -88,14 +88,34 @@ export function fillCopy(text, vars = {}) {
   );
 }
 
+// The build's copy, read once a session. A piece page asks for it twice — on
+// its own for the first paint, and again under the PDS's answer as the fallback
+// — and every piece a reader steps through asks again; the file is the same
+// file each time. A miss is not kept, so a later page gets to try.
+let snapRead = null;
+function snapshotCopy() {
+  if (!snapRead) {
+    const read = fetchSnapshot('ratioedCopy')
+      .catch(() => null)
+      .then((snap) => snap?.value || (Array.isArray(snap) ? snap[0]?.value : null) || null);
+    snapRead = read;
+    read.then((value) => {
+      if (!value && snapRead === read) snapRead = null;
+    });
+  }
+  return snapRead;
+}
+
 /**
  * The copy as it stands: the build's snapshot first so the page paints with the
  * right words, then the PDS, which is the only place a rewrite from ten minutes
  * ago exists. Never throws — every failure lands on the defaults.
+ *
+ * Asked without a PDS, it is the snapshot's answer alone — which is what a page
+ * shows while it waits for the PDS to be found.
  */
 export async function loadCopy(pds) {
-  const snap = await fetchSnapshot('ratioedCopy').catch(() => null);
-  const fromSnap = snap?.value || (Array.isArray(snap) ? snap[0]?.value : null);
+  const fromSnap = await snapshotCopy();
   if (!pds) return mergeCopy(fromSnap);
   const live = await getRecord(pds, {
     repo: ME_DID,

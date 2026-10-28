@@ -244,10 +244,17 @@ export function noteUnlisted(list, did) {
  * add this process made too recently to be indexed, minus a removal likewise.
  * Falls back to walking the repo when Constellation cannot say. null means
  * nobody could tell.
+ *
+ * `walk: false` skips that fallback, for a caller asking about many accounts at
+ * once: fifty lookups each walking the repo is fifty walks where it wanted one.
  */
-export async function rkeysForWrite(list, did, { now = Date.now() } = {}) {
+export async function rkeysForWrite(
+  list,
+  did,
+  { now = Date.now(), walk = true } = {},
+) {
   let rkeys = await listitemRkeys(list, did).catch(() => null);
-  if (rkeys === null) {
+  if (rkeys === null && walk) {
     const listed = await readListed(list).catch(() => null);
     rkeys = listed ? listed.get(did) || [] : null;
   }

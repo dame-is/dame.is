@@ -23,36 +23,69 @@
 // fresh prefetch run starts from a clean slate.
 
 import { APPVIEW } from '../config.js';
-import { resolvePds, getRecord } from './atproto.js';
+import {
+  resolvePds,
+  getRecord,
+  fetchWithTimeout,
+  isRecordNotFound,
+} from './atproto.js';
 
 const POSTS_BATCH = 25;
 const PROFILES_BATCH = 25;
 const CONCURRENCY = 8;
+
+// How long a lookup that failed for a passing reason (a timeout, a 429, a 5xx,
+// a PDS that couldn't be found) is left alone before it's tried again.
+//
+// Only a definite answer is kept for the life of the resolver: the AppView
+// answered and the post wasn't in it, the PDS said RecordNotFound. Home keeps
+// one resolver for the whole visit (pages/Home.jsx), and remembering a blip as
+// an answer showed a like or a repost as deleted until the reader reloaded.
+// Not retried at once either, though: a host that is down tends to stay down
+// for a while, and asking it again on every feed rebuild, at up to 15s a
+// request, would stall each rebuild behind it.
+const RETRY_AFTER_MS = 60_000;
 
 export function createSubjectResolver({ appview = APPVIEW, concurrency = CONCURRENCY, warn } = {}) {
   const postCache = new Map();
   const profileCache = new Map();
   const recordCache = new Map();
   const pdsCache = new Map();
-  const log = warn || ((..._args) => {});
+  const log = warn || (() => {});
+
+  // Keys that failed transiently, prefixed by kind (a DID is both a profile
+  // and a PDS key) → when they may be asked about again.
+  const retryAt = new Map();
+  const resting = (key) => {
+    const at = retryAt.get(key);
+    if (at === undefined) return false;
+    if (Date.now() < at) return true;
+    retryAt.delete(key);
+    return false;
+  };
+  const rest = (key) => retryAt.set(key, Date.now() + RETRY_AFTER_MS);
 
   async function resolveBskyPosts(uris) {
     const want = Array.from(new Set((uris || []).filter(Boolean))).filter(
-      (u) => !postCache.has(u),
+      (u) => !postCache.has(u) && !resting(`post:${u}`),
     );
     for (let i = 0; i < want.length; i += POSTS_BATCH) {
       const chunk = want.slice(i, i + POSTS_BATCH);
       try {
         const url = new URL(`${appview}/xrpc/app.bsky.feed.getPosts`);
         for (const u of chunk) url.searchParams.append('uris', u);
-        const res = await fetch(url, { headers: { accept: 'application/json' } });
+        const res = await fetchWithTimeout(url, {
+          headers: { accept: 'application/json' },
+        });
         if (!res.ok) throw new Error(`getPosts ${res.status}`);
         const json = await res.json();
+        // A post the AppView answered without is deleted, blocked or taken
+        // down — an answer, and kept as one.
         const found = new Map((json?.posts || []).map((p) => [p.uri, p]));
         for (const u of chunk) postCache.set(u, found.get(u) || null);
       } catch (err) {
         log('[subjectResolver] getPosts failed:', err?.message || err);
-        for (const u of chunk) if (!postCache.has(u)) postCache.set(u, null);
+        for (const u of chunk) rest(`post:${u}`);
       }
     }
     const out = new Map();
@@ -62,21 +95,23 @@ export function createSubjectResolver({ appview = APPVIEW, concurrency = CONCURR
 
   async function resolveBskyProfiles(dids) {
     const want = Array.from(new Set((dids || []).filter(Boolean))).filter(
-      (d) => !profileCache.has(d),
+      (d) => !profileCache.has(d) && !resting(`profile:${d}`),
     );
     for (let i = 0; i < want.length; i += PROFILES_BATCH) {
       const chunk = want.slice(i, i + PROFILES_BATCH);
       try {
         const url = new URL(`${appview}/xrpc/app.bsky.actor.getProfiles`);
         for (const a of chunk) url.searchParams.append('actors', a);
-        const res = await fetch(url, { headers: { accept: 'application/json' } });
+        const res = await fetchWithTimeout(url, {
+          headers: { accept: 'application/json' },
+        });
         if (!res.ok) throw new Error(`getProfiles ${res.status}`);
         const json = await res.json();
         const found = new Map((json?.profiles || []).map((p) => [p.did, p]));
         for (const d of chunk) profileCache.set(d, found.get(d) || null);
       } catch (err) {
         log('[subjectResolver] getProfiles failed:', err?.message || err);
-        for (const d of chunk) if (!profileCache.has(d)) profileCache.set(d, null);
+        for (const d of chunk) rest(`profile:${d}`);
       }
     }
     const out = new Map();
@@ -86,7 +121,7 @@ export function createSubjectResolver({ appview = APPVIEW, concurrency = CONCURR
 
   async function resolveAtUris(uris) {
     const want = Array.from(new Set((uris || []).filter(Boolean))).filter(
-      (u) => !recordCache.has(u),
+      (u) => !recordCache.has(u) && !resting(`record:${u}`),
     );
     await runWithConcurrency(want, concurrency, async (uri) => {
       const parsed = parseAtUri(uri);
@@ -97,14 +132,15 @@ export function createSubjectResolver({ appview = APPVIEW, concurrency = CONCURR
       const { did, collection, rkey } = parsed;
       const pds = await resolvePdsCached(did);
       if (!pds) {
-        recordCache.set(uri, null);
+        rest(`record:${uri}`);
         return;
       }
       try {
         const rec = await getRecord(pds, { repo: did, collection, rkey });
         recordCache.set(uri, rec || null);
       } catch (err) {
-        recordCache.set(uri, null);
+        if (isRecordNotFound(err)) recordCache.set(uri, null);
+        else rest(`record:${uri}`);
       }
     });
     const out = new Map();
@@ -114,12 +150,15 @@ export function createSubjectResolver({ appview = APPVIEW, concurrency = CONCURR
 
   async function resolvePdsCached(did) {
     if (pdsCache.has(did)) return pdsCache.get(did);
+    if (resting(`pds:${did}`)) return null;
     try {
       const pds = await resolvePds(did);
       pdsCache.set(did, pds);
       return pds;
     } catch {
-      pdsCache.set(did, null);
+      // Every record on this DID would read as missing if this were kept, so
+      // it is only rested, never remembered.
+      rest(`pds:${did}`);
       return null;
     }
   }
@@ -273,9 +312,9 @@ async function runWithConcurrency(items, limit, worker) {
       const item = queue.shift();
       try {
         await worker(item);
-      } catch (err) {
+      } catch {
         // Swallow per-item failures so a single bad URI doesn't sink the run.
-        // Caller already sees the resulting `null` cache entry.
+        // The caller reads it as `null` this round.
       }
     }
   });

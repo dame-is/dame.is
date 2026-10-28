@@ -1,10 +1,18 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
-import { skyAvatarUrl } from '../lib/skyAvatars.js';
+import { skyMarkUrl } from '../lib/skyAvatars.js';
+import { buildCrumbs, parentPathFor } from '../lib/breadcrumbs.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -39,7 +47,6 @@ import GuestbookSheet from './GuestbookSheet.jsx';
 import DebugSheet from './DebugSheet.jsx';
 import SkyHourSheet from './SkyHourSheet.jsx';
 import Footer from './Footer.jsx';
-import { resolveCrumbs, upFrom } from '../lib/recordPlate.js';
 import './ChromeBar.css';
 
 // The home handle is a router <Link>; wrap it so it can participate in the
@@ -96,7 +103,9 @@ export default function ChromeBar() {
   // `showMark`, flipped in the admin Sky theme studio). Off, the site name
   // stands alone in the top chrome.
   const { skyDisplayHour, showSkyMark } = useTheme();
-  const targetAvatar = showSkyMark ? skyAvatarUrl(skyDisplayHour) : null;
+  // The small copy of the frame (skyMarkUrl): the mark is about 23px, and the
+  // full frame is ~360 KB.
+  const targetAvatar = showSkyMark ? skyMarkUrl(skyDisplayHour) : null;
 
   // The mark never paints a half-loaded image: an incoming URL is fetched
   // and decoded off-screen, and only swapped in — on the SAME persistent
@@ -104,11 +113,12 @@ export default function ChromeBar() {
   // turnover, or stepping the sky-hour chip) holds the previous frame
   // instead of flashing an empty square while the next one loads. A URL
   // that fails to load is never committed; the old frame just stays.
+  //
+  // The mark's box is drawn from the first paint, empty until the first frame
+  // decodes, so the site name beside it never moves. Only a frame that fails
+  // with nothing before it to hold takes the box away.
   const [avatar, setAvatar] = useState(null);
-  // The mark's square is held open while its first frame decodes, so the
-  // wordmark sits where it will stay instead of jumping right when the
-  // image lands. Only a frame that fails to load gives the space back.
-  const [failedAvatar, setFailedAvatar] = useState(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   useEffect(() => {
     if (!targetAvatar) {
       setAvatar(null);
@@ -117,14 +127,16 @@ export default function ChromeBar() {
     let cancelled = false;
     const img = new Image();
     const commit = () => {
-      if (!cancelled) setAvatar(targetAvatar);
+      if (cancelled) return;
+      setAvatar(targetAvatar);
+      setAvatarFailed(false);
     };
     // decode() resolves once the bitmap is paint-ready (not merely
     // fetched); onload is the fallback where decode isn't supported.
     // Committing twice is a harmless same-value setState.
     img.onload = commit;
     img.onerror = () => {
-      if (!cancelled) setFailedAvatar(targetAvatar);
+      if (!cancelled) setAvatarFailed(true);
     };
     img.src = targetAvatar;
     if (img.decode) img.decode().then(commit).catch(() => {});
@@ -132,7 +144,7 @@ export default function ChromeBar() {
       cancelled = true;
     };
   }, [targetAvatar]);
-  const showAvatar = !!targetAvatar && (!!avatar || failedAvatar !== targetAvatar);
+  const showMarkBox = !!targetAvatar && (!!avatar || !avatarFailed);
 
   const topRef = useRef(null);
   const crumbRef = useRef(null);
@@ -145,15 +157,25 @@ export default function ChromeBar() {
   // date header of the section currently scrolled under the chrome, so it
   // reveals on the home page too once you're past the first day header.
   // It folds back up on the way to the top.
-  // Each parent resolves through the verb registry (a section with no page
-  // of its own is plain text, never a link to the 404), and the last crumb
-  // is the page's own human label when it gives one.
-  const crumbs = resolveCrumbs(
-    location.pathname,
+  // A crumb links only where a page answers (breadcrumbs.js), and the last
+  // one is the page's own human label when it gives one through PageShell's
+  // `crumb` ("Oct 26 · 5:36 pm" rather than a record's rkey).
+  const crumbs = withPageLabel(
+    buildCrumbs(location.pathname),
     pageCrumb?.path === location.pathname ? pageCrumb.label : null,
   );
   const scrolledDown = useScrolledDown();
-  const dayLabel = useCurrentDayLabel();
+  // The path whose page is actually on screen, which for the length of the
+  // route transition's exit fade is still the one being left. The sweeps
+  // below read the page's DOM, so they follow this rather than the URL; see
+  // useMountedPathname.
+  const pinDetailRef = useRef(crumbs.length >= 2);
+  const applyChromeSizeRef = useRef(null);
+  const mountedPath = useMountedPathname((path) => {
+    pinDetailRef.current = buildCrumbs(path).length >= 2;
+    applyChromeSizeRef.current?.();
+  });
+  const dayLabel = useCurrentDayLabel(mountedPath);
   // Individual (detail) pages — anything two or more segments deep, e.g.
   // /blogging/:slug, /creating/:slug, /curating/:slug, or a generic record —
   // pin the breadcrumb open as their standing back-affordance (it replaces
@@ -187,9 +209,14 @@ export default function ChromeBar() {
   // site.standard.document, and the registry names only the first, so every
   // standard doc was captioned with a lexicon it isn't.
   const { pageRecord } = useEditMode();
-  const feedNsid = useTopFeedNsid();
+  const feedNsid = useTopFeedNsid(mountedPath);
   const routeVerbNsid = primaryNsid(location.pathname.split('/')[1] || '');
-  const pageRecordNsid = nsidFromAtUri(pageRecord?.atUri);
+  // Only this page's own record: the last page's lingers until this one
+  // registers (the same guard ChromeBarBottom's edit button uses).
+  const pageRecordNsid =
+    pageRecord?.path === location.pathname
+      ? nsidFromAtUri(pageRecord.atUri)
+      : null;
   const stripNsid =
     feedNsid ||
     (pageRecordNsid && pageRecordNsid !== COLLECTIONS.page ? pageRecordNsid : routeVerbNsid) ||
@@ -218,7 +245,11 @@ export default function ChromeBar() {
   // Both values are custom properties on <html>, and changing one restyles
   // every element on the page whether anything reads it or not. So they're
   // only written when they actually change.
-  useEffect(() => {
+  //
+  // A layout effect, so a hard load of a detail page lays out with the pinned
+  // strip's room already reserved; from a passive effect the first frame could
+  // paint with the title under the strip and then jump 38px (71 on a phone).
+  useLayoutEffect(() => {
     const el = topRef.current;
     if (!el) return undefined;
     const rootStyle = document.documentElement.style;
@@ -238,9 +269,19 @@ export default function ChromeBar() {
       // own content (the title). Publish its height as `--chrome-crumb-pin-h`
       // so the content column can reserve that much extra top padding; 0 on
       // pages where the strip only rides over on scroll.
-      const pinnedH = isDetailPage && crumb ? crumb.getBoundingClientRect().height : 0;
+      //
+      // Keyed to the page that's mounted (pinDetailRef), not to the URL: the
+      // padding is on `.main`, which also holds the page being faded out, and
+      // switching it at the click shoved that page down by the strip's height
+      // as it left. useMountedPathname calls back in here the moment the
+      // incoming page is in the DOM, before it paints.
+      const pinnedH =
+        pinDetailRef.current && crumb
+          ? crumb.getBoundingClientRect().height
+          : 0;
       publish('--chrome-crumb-pin-h', `${Math.max(0, Math.ceil(pinnedH))}px`);
     };
+    applyChromeSizeRef.current = apply;
     apply();
     let raf = 0;
     const schedule = () => {
@@ -269,6 +310,9 @@ export default function ChromeBar() {
       window.removeEventListener('resize', schedule);
       if (raf) cancelAnimationFrame(raf);
       clearTimeout(settle);
+      if (applyChromeSizeRef.current === apply) {
+        applyChromeSizeRef.current = null;
+      }
     };
   }, [showBreadcrumb, isDetailPage]);
 
@@ -327,23 +371,21 @@ export default function ChromeBar() {
         <div ref={primaryRef} className="chrome-bar-row chrome-bar-primary">
           <div className="chrome-cluster">
             <Link to="/" className="chrome-title">
-              {showAvatar && (
+              {showMarkBox && (
                 <span className="chrome-mark chrome-mark-avatar" aria-hidden="true">
                   {/* No key: the element persists across src swaps so the
                       old frame stays painted right up to the instant the
                       pre-decoded next frame replaces it. */}
-                  {avatar ? (
+                  {avatar && (
                     <img
                       className="chrome-mark-img"
                       src={avatar}
                       alt=""
                       onError={() => {
-                        setFailedAvatar(avatar);
                         setAvatar(null);
+                        setAvatarFailed(true);
                       }}
                     />
-                  ) : (
-                    <span className="chrome-mark-img" />
                   )}
                 </span>
               )}
@@ -461,7 +503,7 @@ export default function ChromeBar() {
                   {crumbs.map((c, i) => {
                     const last = i === crumbs.length - 1;
                     return (
-                      <li key={`${i}:${c.label}`} className="chrome-crumb">
+                      <li key={c.path} className="chrome-crumb">
                         {i > 0 && (
                           <span className="chrome-crumb-sep" aria-hidden="true">
                             /
@@ -476,7 +518,9 @@ export default function ChromeBar() {
                             {c.label}
                           </Link>
                         ) : (
-                          <span className="chrome-crumb-plain">{c.label}</span>
+                          // A segment no page answers (see breadcrumbs.js):
+                          // still part of where you are, just not somewhere to go.
+                          <span className="chrome-crumb-text">{c.label}</span>
                         )}
                       </li>
                     );
@@ -494,12 +538,22 @@ export default function ChromeBar() {
         </div>
       </header>
 
-      <ChromeBarBottom dockOpen={dockOpen} toggleDock={toggleDock} />
+      <ChromeBarBottom
+        dockOpen={dockOpen}
+        toggleDock={toggleDock}
+        mountedPath={mountedPath}
+      />
     </>
   );
 }
 
-function ChromeBarBottom({ dockOpen, toggleDock }) {
+// Memoised: ChromeBar re-renders as the page scrolls (the breadcrumb's day
+// label and record NSID track the scroll), and none of that reaches down here.
+const ChromeBarBottom = memo(function ChromeBarBottom({
+  dockOpen,
+  toggleDock,
+  mountedPath,
+}) {
   const [params] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -514,11 +568,12 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const skyPanelOpen = panel === 'sky';
   const reduce = useReducedMotion();
   const atTop = useAtTopOfPage();
-  const scrolledPast = useScrolledPastFeedItems();
+  const { digits: scrolledPastDigits, store: scrolledPastStore } =
+    useScrolledPastFeedItems(mountedPath);
   // The footer rides the bottom chrome the way the breadcrumb rides the top:
   // it slides up out of the bar once you reach the last stretch of the page.
-  const nearBottom = useNearPageBottom();
-  const canScroll = useCanScroll();
+  // `short` is a page with nothing to scroll, settled as such.
+  const { near: nearBottom, short: pageTooShort } = useNearPageBottom();
   const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
   const { skyHourKey, advanceSkyHour, skyOverridden } = useTheme();
@@ -552,9 +607,10 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   // page editor it opened directly is showing.
   const chromeEditOpen = editActive || !!editSheet;
   // Trigger buttons highlight when the corresponding URL state is
-  // populated — search has a `?q=`, filter has a custom verb set.
+  // populated — search has a `?q=`, filter has a custom set: verbs on home,
+  // post types on /posting, kinds of work on /creating.
   const searchActive = !!params.get('q');
-  const filterCustomized = params.has('verbs');
+  const filterCustomized = FILTER_PARAMS.some((k) => params.has(k));
   const onHomePage = location.pathname === '/';
   // The admin SkyThemeStudio has its own hour bar for tuning; the chip keeps
   // its tap-to-advance behavior there instead of opening the SkyHourSheet.
@@ -626,19 +682,22 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   }, []);
 
   // Every page except home gets a back handle in the bottom bar. It walks
-  // back through history (mirroring the browser's back button) so you return
-  // to wherever you came from: home → a post → back lands on home, not on
-  // the post's section. When this page is the first one of the visit (a
-  // fresh tab, or a link in from Bluesky), there's no in-site history to
-  // walk, so it goes up the running head's trail instead (a record to its
-  // section, a section to home) rather than sending the visitor off the site.
-  // React Router keys the visit's first entry 'default'.
-  const up = upFrom(location.pathname);
-  const hasHistory = location.key !== 'default';
+  // back through history (mirroring the browser's back button) so you can
+  // return to wherever you came from — including home → /blogging → back →
+  // home, not just deep sub-pages like /creating/:slug. On a fresh or
+  // deep-linked load with no in-app history, it falls back to the breadcrumb
+  // parent: the nearest section that's a page, else home.
+  const parentPath = parentPathFor(buildCrumbs(location.pathname));
 
   function goBack() {
-    if (hasHistory) navigate(-1);
-    else navigate(up.to);
+    // Prefer real history so the back button mirrors the browser's, but only
+    // history made on this site. `history.length` counts the whole tab, so a
+    // visitor who followed a link here from a search result or from Bluesky
+    // has a length of 2 or more, and walking back sent them off the site.
+    // The router numbers its own entries in `history.state.idx`, from 0 on
+    // the entry the visitor landed on; past 0 there's an in-app step to take.
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate(parentPath);
   }
 
   function scrollToTop() {
@@ -666,6 +725,20 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     transition: { duration: reduce ? 0 : 0.2, ease: [0.22, 0.61, 0.36, 1] },
   };
   const layoutProp = reduce ? undefined : true;
+  // The scroll-jump arrow on a page with nothing to scroll did nothing when
+  // pressed, which the /admin rule below calls worse than absent.
+  const showScrollJump = !inAdmin && !pageTooShort;
+  // What can move the right cluster's buttons: one of its controls coming or
+  // going, or the count gaining a digit. Motion measures a `layout` element on
+  // every render unless told what its layout depends on, and this bar renders
+  // whenever the page scrolls past a feed item.
+  const layoutDependency = [
+    onHomePage,
+    scrolledPastDigits,
+    showScrollJump,
+    dockOpen,
+    isOwner,
+  ].join('|');
 
   return (
     // `layoutScroll layoutRoot` — the bar is `position: fixed`, and its right-
@@ -758,12 +831,21 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     onClick={() => togglePanel('filter')}
                     aria-expanded={filterPanelOpen}
                     aria-controls="chrome-filter-sheet"
-                    aria-label={filterPanelOpen ? 'Close filters' : 'Open filters'}
+                    aria-label={
+                      filterPanelOpen
+                        ? 'Close filters'
+                        : filterCustomized
+                          ? 'Open filters (filtered)'
+                          : 'Open filters'
+                    }
                   >
                     <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
-                {SEARCH_ENABLED && (
+                {/* Shown while a query is active even with search switched
+                    off: a `?q=` link still filters the page behind it, and
+                    this is the one control that says so and can clear it. */}
+                {(SEARCH_ENABLED || searchActive) && (
                   <button
                     type="button"
                     className={`chrome-nav chrome-search-btn ${searchPanelOpen || searchActive ? 'is-open' : ''}`}
@@ -941,26 +1023,26 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             button always lands directly beside the scroll-jump arrow instead
             of being pushed away by the count. */}
         <AnimatePresence mode="popLayout" initial={false}>
-          {scrolledPast > 0 && (
+          {scrolledPastDigits > 0 && (
             <motion.span
               key="scroll-count"
               layout={layoutProp}
+              layoutDependency={layoutDependency}
               className="chrome-scroll-count gutter"
-              aria-label={`${scrolledPast} items scrolled past`}
               {...controlFade}
             >
-              {scrolledPast}
+              <ScrollCount store={scrolledPastStore} />
             </motion.span>
           )}
           {!onHomePage && (
             <motion.button
               key="back"
               layout={layoutProp}
+              layoutDependency={layoutDependency}
               type="button"
               className="chrome-nav chrome-back-btn"
               onClick={goBack}
-              aria-label={hasHistory ? 'Go back' : `Up to ${up.label}`}
-              title={hasHistory ? 'Go back' : `Up to ${up.label}`}
+              aria-label="Go back"
               {...controlFade}
             >
               <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
@@ -973,28 +1055,40 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             nothing to move. A button that does nothing when pressed is worse
             than an absent one, and its 36px is exactly what the admin's own
             three controls need at 320. */}
-        {/* Also withheld on a page too short to scroll, where it had nothing
-            to jump to. */}
-        {!inAdmin && canScroll && (
-          <motion.button
-            layout={layoutProp}
-            type="button"
-            className="chrome-nav chrome-scroll-jump"
-            onClick={atTop ? scrollToBottom : scrollToTop}
-            aria-label={atTop ? 'Scroll to bottom' : 'Scroll to top'}
-          >
-            {atTop ? (
-              <ArrowDown className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-            ) : (
-              <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-            )}
-          </motion.button>
-        )}
+        <AnimatePresence mode="popLayout" initial={false}>
+          {showScrollJump && (
+            <motion.button
+              key="scroll-jump"
+              layout={layoutProp}
+              layoutDependency={layoutDependency}
+              type="button"
+              className="chrome-nav chrome-scroll-jump"
+              onClick={atTop ? scrollToBottom : scrollToTop}
+              aria-label={atTop ? 'Scroll to bottom' : 'Scroll to top'}
+              {...controlFade}
+            >
+              {atTop ? (
+                <ArrowDown
+                  className="chrome-nav-glyph"
+                  aria-hidden="true"
+                  strokeWidth={1.75}
+                />
+              ) : (
+                <ArrowUp
+                  className="chrome-nav-glyph"
+                  aria-hidden="true"
+                  strokeWidth={1.75}
+                />
+              )}
+            </motion.button>
+          )}
+        </AnimatePresence>
         <AnimatePresence mode="popLayout" initial={false}>
           {!onHomePage && (
             <MotionLink
               key="home"
               layout={layoutProp}
+              layoutDependency={layoutDependency}
               to="/"
               className="chrome-nav chrome-home-btn"
               aria-label="Go home"
@@ -1019,6 +1113,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             <motion.button
               key="account"
               layout={layoutProp}
+              layoutDependency={layoutDependency}
               type="button"
               className={`chrome-nav chrome-tool-account ${view === 'account' ? 'is-open' : ''}`}
               onClick={() => setView(view === 'account' ? 'menu' : 'account')}
@@ -1043,6 +1138,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
         {isOwner && (
           <motion.button
             layout={layoutProp}
+            layoutDependency={layoutDependency}
             type="button"
             className={`chrome-nav chrome-admin-nav ${adminNavOpen || adminDirectoryOpen ? 'is-open' : ''}`}
             onClick={() => togglePanel(adminSurface ? ADMIN_NAV_PANEL : ADMIN_DIRECTORY_PANEL)}
@@ -1058,6 +1154,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
         )}
         <motion.button
           layout={layoutProp}
+          layoutDependency={layoutDependency}
           type="button"
           className={`chrome-nav chrome-nav-bottom ${dockOpen ? 'is-open' : ''}`}
           onClick={toggleDock}
@@ -1102,8 +1199,17 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
       {isOwner && <AdminDirectorySheet />}
     </motion.div>
   );
+});
+
+/** The trail with its last crumb relabelled, when the page names itself. */
+function withPageLabel(crumbs, label) {
+  if (!label || crumbs.length === 0) return crumbs;
+  return [...crumbs.slice(0, -1), { ...crumbs[crumbs.length - 1], label }];
 }
 
+// The URL params a page's filter sheet writes (Home, Posting, Creating): any of
+// them present means the list on screen is filtered.
+const FILTER_PARAMS = ['verbs', 'postTypes', 'kinds'];
 
 /** True once the window is scrolled past `threshold` px from the top.
  *  Drives the tertiary breadcrumb: it slides down as you leave the top of
@@ -1118,9 +1224,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
  *  scroll frame; a feed renders at most a few dozen of them, and querying
  *  live keeps freshly-loaded groups ("Load more", background refresh)
  *  accurate without observers. */
-function useCurrentDayLabel() {
+function useCurrentDayLabel(mountedPath) {
   const [label, setLabel] = useState(null);
-  const location = useLocation();
   useEffect(() => {
     let frame = 0;
     const apply = () => {
@@ -1130,10 +1235,7 @@ function useCurrentDayLabel() {
         // The strip's own reveal grows --chrome-top-h, which nudges this
         // threshold down a touch once shown — harmless hysteresis at the
         // section boundary.
-        const chromeBottom =
-          parseFloat(
-            getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-h'),
-          ) || 0;
+        const chromeBottom = chromeTopPx();
         for (const h of headers) {
           if (h.getBoundingClientRect().top < chromeBottom + 12) current = h;
           else break;
@@ -1148,12 +1250,14 @@ function useCurrentDayLabel() {
     schedule();
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
+    window.addEventListener(ROUTE_SETTLED, schedule);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
+      window.removeEventListener(ROUTE_SETTLED, schedule);
     };
-  }, [location.pathname]);
+  }, [mountedPath]);
   return label;
 }
 
@@ -1162,22 +1266,24 @@ function useCurrentDayLabel() {
  *  pages without record lists. Same DOM-driven, rAF-throttled sweep as
  *  useCurrentDayLabel above; entries publish their collection via a
  *  `data-nsid` attribute (FeedItem rows, the /creating grid, the
- *  /blogging table of contents). */
-function useTopFeedNsid() {
+ *  /blogging table of contents).
+ *
+ *  "Visible" means on screen, not merely below the chrome: a record page's
+ *  first `data-nsid` is often a comment far down the page, and it used to
+ *  caption the post at the top with the comment's lexicon. When the first
+ *  candidate is past the fold, nothing on screen is a listed record, and the
+ *  strip falls back to the page's own. */
+function useTopFeedNsid(mountedPath) {
   const [nsid, setNsid] = useState(null);
-  const location = useLocation();
   useEffect(() => {
     let frame = 0;
     const apply = () => {
-      const chromeBottom =
-        parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-h'),
-        ) || 0;
+      const chromeBottom = chromeTopPx();
       let current = null;
       for (const el of document.querySelectorAll('[data-nsid]')) {
         const rect = el.getBoundingClientRect();
         if (rect.height > 0 && rect.bottom > chromeBottom + 12) {
-          current = el.dataset.nsid;
+          if (rect.top < window.innerHeight) current = el.dataset.nsid;
           break;
         }
       }
@@ -1190,13 +1296,105 @@ function useTopFeedNsid() {
     schedule();
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
+    window.addEventListener(ROUTE_SETTLED, schedule);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
+      window.removeEventListener(ROUTE_SETTLED, schedule);
     };
-  }, [location.pathname]);
+  }, [mountedPath]);
   return nsid;
+}
+
+/** The top chrome's bottom edge, as ChromeBar last published it. Read off
+ *  <html>'s inline style, where it's written, rather than through
+ *  getComputedStyle: the sweeps run every scroll frame, and a computed-style
+ *  read there is a style recalc every frame. */
+function chromeTopPx() {
+  const value =
+    document.documentElement.style.getPropertyValue('--chrome-top-h');
+  return parseFloat(value) || 0;
+}
+
+// RouteTransition's announcement that a page's content is in the DOM and its
+// scroll position restored — later than the page's mount when the page is a
+// lazy chunk still on the wire. The sweeps re-run on it as well as on mount.
+const ROUTE_SETTLED = 'route:settled';
+
+// How long to wait for the incoming page to appear before assuming it has.
+// RouteTransition's exit fade is 180ms; this only matters if it ever stops
+// rendering the `.route-transition` element this watches for.
+const ROUTE_MOUNT_TIMEOUT_MS = 600;
+
+/** The pathname whose page is actually in the DOM.
+ *
+ *  RouteTransition fades the outgoing page out before it mounts the incoming
+ *  one (AnimatePresence, mode="wait"), so for ~180ms after a navigation the
+ *  URL is the new page's and the DOM is still the old one's. The chrome's DOM
+ *  sweeps used to re-run once, one frame after the URL changed — reading the
+ *  page on its way out — and then not again until a scroll, so a blog post
+ *  opened from the feed was captioned with the feed's first row's lexicon
+ *  until the reader scrolled. They follow this instead, which flips once the
+ *  incoming page has mounted: a MutationObserver sees its `.route-transition`
+ *  arrive. `onMount(pathname)` runs right then, before that page paints, for
+ *  work that can't wait for the re-render (see the pinned-breadcrumb padding).
+ *  With reduced motion the pages swap in one commit and this flips at once. */
+function useMountedPathname(onMount) {
+  const { pathname } = useLocation();
+  const [mounted, setMounted] = useState(pathname);
+  const mountedRef = useRef(pathname);
+  // The route element that was on screen when `mounted` last changed. A
+  // navigation that finds a different one there (an error boundary that
+  // reset, say) is already looking at its new page.
+  const pageElRef = useRef(null);
+  const onMountRef = useRef(onMount);
+  useLayoutEffect(() => {
+    onMountRef.current = onMount;
+  });
+  useLayoutEffect(() => {
+    const main = document.getElementById('main-content');
+    const current = () => main?.querySelector('.route-transition') || null;
+    if (pathname === mountedRef.current) {
+      pageElRef.current = current();
+      return undefined;
+    }
+    const settle = (el) => {
+      mountedRef.current = pathname;
+      pageElRef.current = el;
+      onMountRef.current?.(pathname);
+      setMounted(pathname);
+    };
+    const outgoing = current();
+    if (!main || !outgoing || outgoing !== pageElRef.current) {
+      settle(outgoing);
+      return undefined;
+    }
+    let timer = 0;
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          const el = node.nodeType === 1 ? node : null;
+          if (el?.classList.contains('route-transition')) {
+            stop();
+            settle(el);
+            return;
+          }
+        }
+      }
+    });
+    const stop = () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+    observer.observe(main, { childList: true, subtree: true });
+    timer = setTimeout(() => {
+      stop();
+      settle(current());
+    }, ROUTE_MOUNT_TIMEOUT_MS);
+    return stop;
+  }, [pathname]);
+  return mounted;
 }
 
 function useScrolledDown(threshold = 220) {
@@ -1379,36 +1577,14 @@ function useTierSlide({ expanded, reduce, primaryRef, wrapRef, innerRef, followe
  *  ResizeObserver on the body re-measures when the page's own height changes,
  *  so a reveal decided while the page was short is revised the instant real
  *  content arrives. Coalesced through requestAnimationFrame so the state flip
- *  (and the transform it drives) never runs synchronously inside a scroll. */
-/** Whether the page is tall enough to scroll at all (by more than 4px),
- *  re-measured on resize and once the body's height settles. */
-function useCanScroll() {
-  const [can, setCan] = useState(true);
-  useEffect(() => {
-    let settle = 0;
-    const measure = () => {
-      const full = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-      setCan(full - (window.innerHeight || 0) > 4);
-    };
-    const schedule = () => {
-      clearTimeout(settle);
-      settle = setTimeout(measure, 250);
-    };
-    schedule();
-    window.addEventListener('resize', schedule, { passive: true });
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
-    if (ro) ro.observe(document.body);
-    return () => {
-      clearTimeout(settle);
-      window.removeEventListener('resize', schedule);
-      if (ro) ro.disconnect();
-    };
-  }, []);
-  return can;
-}
-
+ *  (and the transform it drives) never runs synchronously inside a scroll.
+ *
+ *  Returns `{ near, short }`: `short` is that same settled verdict that the
+ *  page can't scroll at all, which also withdraws the scroll-jump arrow. It
+ *  flips back the moment the page can scroll. */
 function useNearPageBottom(fraction = 0.05) {
   const [near, setNear] = useState(false);
+  const [short, setShort] = useState(false);
   useEffect(() => {
     let frame = 0;
     let shortTimer = 0;
@@ -1441,13 +1617,17 @@ function useNearPageBottom(fraction = 0.05) {
         clearShortTimer();
         shortTimer = setTimeout(() => {
           shortTimer = 0;
-          if (tooShort()) setNear(true);
+          if (tooShort()) {
+            setNear(true);
+            setShort(true);
+          }
         }, SHORT_PAGE_SETTLE_MS);
         return;
       }
       // The page can scroll: cancel any pending short-page reveal and track
       // the scroll position directly.
       clearShortTimer();
+      setShort(false);
       const remaining = maxScroll - (window.scrollY || 0);
       setNear(remaining <= maxScroll * fraction);
     }
@@ -1481,7 +1661,7 @@ function useNearPageBottom(fraction = 0.05) {
       window.removeEventListener('resize', schedule);
     };
   }, [fraction]);
-  return near;
+  return { near, short };
 }
 
 /** True while the window is scrolled to (or within 1px of) the top.
@@ -1501,37 +1681,78 @@ function useAtTopOfPage() {
 }
 
 /** Count of `.feed-item` elements whose bottom edge has passed above
- *  the viewport — i.e. items the user has scrolled past. Returns 0 on
- *  pages with no feed, so the count chip naturally hides itself.
+ *  the viewport — i.e. items the user has scrolled past. 0 on pages with
+ *  no feed, so the count chip naturally hides itself.
  *
- *  Coalesced through requestAnimationFrame so a flurry of scroll
- *  events on a long feed only triggers one DOM walk per frame. Also
- *  recomputes on route change since the feed content swaps out. */
-function useScrolledPastFeedItems() {
-  const [count, setCount] = useState(0);
-  const location = useLocation();
+ *  Coalesced through requestAnimationFrame so a flurry of scroll events on
+ *  a long feed only triggers one count per frame. Also recomputes once the
+ *  incoming page has mounted, since the feed content swaps out.
+ *
+ *  The rows are in document order, top to bottom, so the ones scrolled past
+ *  are a prefix of the list and a binary search finds where it ends: about
+ *  ten rect reads a frame instead of one per row, which at the end of a
+ *  550-row feed was the largest single cost of scrolling it.
+ *
+ *  The count changes with every row, but the bar only needs to know when it
+ *  appears, disappears or gains a digit. So it lives in a small store that
+ *  only the number itself (ScrollCount) subscribes to, and the bar gets
+ *  `digits`: 0 when there's no count, else how many digits it has. */
+function useScrolledPastFeedItems(mountedPath) {
+  const [store] = useState(createCountStore);
+  const [digits, setDigits] = useState(0);
   useEffect(() => {
     let frame = 0;
     function update() {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const items = document.querySelectorAll('.feed-item');
-        let n = 0;
-        for (const el of items) {
-          const r = el.getBoundingClientRect();
-          if (r.bottom < 0) n += 1;
+        let lo = 0;
+        let hi = items.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (items[mid].getBoundingClientRect().bottom < 0) lo = mid + 1;
+          else hi = mid;
         }
-        setCount(n);
+        store.set(lo);
+        setDigits(lo > 0 ? String(lo).length : 0);
       });
     }
     update();
     window.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update, { passive: true });
+    window.addEventListener(ROUTE_SETTLED, update);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
+      window.removeEventListener(ROUTE_SETTLED, update);
     };
-  }, [location.pathname]);
-  return count;
+  }, [mountedPath, store]);
+  return { digits, store };
+}
+
+// `get` is the number to show: the last count above zero. Back at the top the
+// count drops to 0 and the chip fades out, and it fades out on the count it
+// had rather than on a 0.
+function createCountStore() {
+  let shown = 0;
+  const listeners = new Set();
+  return {
+    get: () => shown,
+    set(next) {
+      if (next === 0 || next === shown) return;
+      shown = next;
+      for (const fn of listeners) fn();
+    },
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+  };
+}
+
+/** The scrolled-past number, the only thing that re-renders per row. */
+function ScrollCount({ store }) {
+  const n = useSyncExternalStore(store.subscribe, store.get);
+  return <span aria-label={`${n} items scrolled past`}>{n}</span>;
 }

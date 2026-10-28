@@ -11,6 +11,29 @@
 
 import { promises as dns } from 'node:dns';
 
+/**
+ * How long either proxy waits on an upstream, for the whole exchange: every
+ * redirect hop and the body read share it. Without a bound, a host that
+ * trickles bytes holds the function open until Vercel kills it at maxDuration.
+ */
+export const UPSTREAM_TIMEOUT_MS = 5000;
+
+/**
+ * True when the browser says a page on ANOTHER site made this request.
+ *
+ * Both proxies are called by one thing, the admin block editor, with a
+ * same-origin fetch(). A browser stamps that `Sec-Fetch-Site: same-origin`, and
+ * stamps a link or an <img> on somebody else's page `cross-site`, so refusing
+ * the second keeps dame.is from being a free image proxy for the web. A request
+ * without the header (curl, an older browser) passes: the header is a browser's
+ * statement about its own context, and a script that leaves it out could just
+ * as easily lie in it. `none` (a URL typed into the address bar) passes too.
+ */
+export function isCrossSiteRequest(req) {
+  const site = String(req?.headers?.['sec-fetch-site'] || '').toLowerCase();
+  return site === 'cross-site' || site === 'same-site';
+}
+
 /** IPv4 dotted-quad → true if it falls in a private / reserved / non-routable range. */
 function isPrivateV4(ip) {
   const parts = ip.split('.');

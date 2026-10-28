@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -9,6 +9,7 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { usePageCensus, useHoveredRecord } from '../hooks/usePageRecords.js';
+import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { censusLine } from '../lib/xray.js';
 import { AtUriMono, XraySubstratePanel } from './XraySubstrate.jsx';
@@ -27,11 +28,12 @@ export default function XrayLayer() {
   const { open: dockOpen } = useActionDock();
   const { panel } = useChromePanel();
   const [inlineUri, setInlineUri] = useState(null);
+  const { open: waypointsOpen } = useWaypointsModal();
 
-  // The HUD shares the bottom edge with the nav dock and the search/filter/info
-  // panels. When one of those opens, yield the space (hide the HUD) rather than
-  // exiting the mode — closing them brings it back.
-  const suppressed = dockOpen || Boolean(panel);
+  // The HUD shares the bottom edge with the nav dock, the search/filter/info
+  // panels and the "Open in…" sheet. When one of those opens, yield the space
+  // (hide the HUD) rather than exiting the mode — closing them brings it back.
+  const suppressed = dockOpen || Boolean(panel) || waypointsOpen;
 
   // Inline records (the bar's live signals, the hero's phrases) have no row to
   // open a tree under, so a tap on one opens its tree in the HUD instead.
@@ -66,6 +68,7 @@ export default function XrayLayer() {
 
 function XrayHud({ inlineFocus }) {
   const reduce = useReducedMotion();
+  const panelRef = useRef(null);
   const derived = useAtUri();
   const { pageRecord } = useEditMode();
   const { openPanel } = useChromePanel();
@@ -92,6 +95,31 @@ function XrayHud({ inlineFocus }) {
     openPanel('debug');
   }
 
+  // The HUD stays up for as long as the mode is on, in the band directly over
+  // the bottom bar, which is where the footer strip reveals and where the end
+  // of the page comes to rest. So while it's mounted, publish its height as
+  // `--xray-hud-h` and mark <html> with `data-xray-hud`: Xray.css reserves the
+  // room at the bottom of the page, and hides the footer strip the HUD would
+  // otherwise paint over. Measured off the panel, which is its full height
+  // from the first frame of its slide (a transform, which doesn't change it).
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (!el) return undefined;
+    const root = document.documentElement;
+    const apply = () =>
+      root.style.setProperty('--xray-hud-h', `${Math.ceil(el.offsetHeight)}px`);
+    apply();
+    root.setAttribute('data-xray-hud', '');
+    const ro =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
+    if (ro) ro.observe(el);
+    return () => {
+      if (ro) ro.disconnect();
+      root.removeAttribute('data-xray-hud');
+      root.style.removeProperty('--xray-hud-h');
+    };
+  }, []);
+
   // Rise up out of the bottom chrome on the shared BottomSheet mechanism
   // (fixed clip pinned on the bar, the panel sliding up out of it) so it reads
   // as one system with the search/filter/info panels — minus the
@@ -100,6 +128,7 @@ function XrayHud({ inlineFocus }) {
   return (
     <motion.div className="bottom-sheet-wrap xray-hud-wrap">
       <motion.div
+        ref={panelRef}
         className="bottom-sheet-panel bottom-sheet-panel-compact xray-hud"
         role="status"
         aria-live="polite"

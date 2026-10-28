@@ -1,9 +1,19 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { flushSync } from 'react-dom';
 import TextBlockEditor from './TextBlockEditor.jsx';
 import HeadingBlockEditor from './HeadingBlockEditor.jsx';
 import ImageBlockEditor, { uploadImageFile } from './ImageBlockEditor.jsx';
 import WebsiteBlockEditor from './WebsiteBlockEditor.jsx';
+import { linkCopies, locateBlock } from './blockIdentity.js';
 import CodeBlockEditor from './CodeBlockEditor.jsx';
 import ListBlockEditor from './ListBlockEditor.jsx';
 import BskyPostBlockEditor from './BskyPostBlockEditor.jsx';
@@ -27,6 +37,20 @@ const CONTENT_TYPE = 'pub.leaflet.content';
 const MARKDOWN_KEY = 'dame.blocks.markdown';
 
 /**
+ * How a save that is NOT a click gets this editor's pending markdown resolved.
+ *
+ * Markdown written in a text block resolves when the author leaves the block,
+ * and every Save button relies on that: a press outside the editor runs the
+ * capture-phase dismisser below, which converts the block before the button's
+ * own handler reads the document. A keyboard shortcut presses nothing, so Cmd+S
+ * published `## Heading` as literal text. The record editor provides a Set
+ * here; each mounted blocks editor adds a flush to it, and the editor's
+ * imperative `save()` runs them all (inside `flushSync`) before it builds the
+ * payload. Null outside a record editor, where nothing saves.
+ */
+export const BlocksFlushContext = createContext(null);
+
+/**
  * Editor for a `pub.leaflet.content` body. Produces records compatible
  * with site.standard.document and pub.leaflet.document.
  *
@@ -38,6 +62,50 @@ const MARKDOWN_KEY = 'dame.blocks.markdown';
 export default function BlocksEditor({ agent, did, value, onChange, onSetCover }) {
   const content = useMemo(() => ensureShape(value), [value]);
   const blocks = content.pages[0].blocks;
+
+  // Where a block went. Each edit replaces a block object with a new one, so an
+  // async completion holding the block it started on can follow this chain to
+  // the block's current version — and from there to its current INDEX, which a
+  // move, an insert above it or a delete may have changed while the upload ran
+  // (blockIdentity.js). A WeakMap, so a replaced block is collectable once
+  // nothing holds it.
+  const successorsRef = useRef(null);
+  if (!successorsRef.current) successorsRef.current = new WeakMap();
+  const succeed = useCallback((prev, next) => {
+    if (prev && next && prev !== next && typeof prev === 'object') {
+      successorsRef.current.set(prev, next);
+    }
+  }, []);
+
+  // The document as it stands NOW, for every write. An image upload, a gallery
+  // and a link card's metadata all finish seconds after they start, and the
+  // handlers that started them close over the render they started in — so
+  // building the result from that render's `content` wrote back the whole body
+  // as it was before the upload, and every word typed meanwhile (the image's
+  // own alt text and caption included) went with it. Written through on each
+  // emit too, so two writes in one tick build on each other rather than on the
+  // same stale render.
+  //
+  // A document that arrives from OUTSIDE instead of through `emit` — the record
+  // editor's display-URL pass, the copy a save leaves behind, a trip through
+  // the JSON view — is a copy in which every block is a new object, and an
+  // upload still in flight would find nothing left to land on. So its blocks
+  // are linked to the ones they replace (blockIdentity.js).
+  const contentRef = useRef(content);
+  if (contentRef.current !== content) {
+    linkCopies(contentRef.current, content, successorsRef.current);
+    contentRef.current = content;
+  }
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const emit = useCallback((next) => {
+    contentRef.current = next;
+    onChangeRef.current(next);
+  }, []);
+  const latestBlocks = useCallback(
+    () => contentRef.current.pages[0].blocks,
+    [],
+  );
 
   const [activeIndex, setActiveIndex] = useState(null);
   // Which gap's "insert here" palette is open (an index into blocks, meaning
@@ -65,9 +133,10 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
 
   const commit = useCallback(
     (nextBlocks, meta = {}) => {
+      const current = contentRef.current;
       const coalesce = meta.kind === 'text' && coalesceRef.current === meta.blockIndex;
       if (!coalesce) {
-        historyRef.current.push(content);
+        historyRef.current.push(current);
         if (historyRef.current.length > 200) historyRef.current.shift();
         setCanUndo(true);
       }
@@ -75,69 +144,97 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
       // A fresh edit invalidates the redo stack.
       futureRef.current = [];
       setCanRedo(false);
-      onChange({
-        ...content,
-        pages: [{ ...content.pages[0], blocks: nextBlocks }],
+      emit({
+        ...current,
+        pages: [{ ...current.pages[0], blocks: nextBlocks }],
       });
     },
-    [content, onChange],
+    [emit],
   );
 
   const undo = useCallback(() => {
     const prev = historyRef.current.pop();
     if (prev == null) return;
-    futureRef.current.push(content);
+    futureRef.current.push(contentRef.current);
     setCanRedo(true);
     coalesceRef.current = null;
     setCanUndo(historyRef.current.length > 0);
     setActiveIndex(null);
-    onChange(prev);
-  }, [content, onChange]);
+    emit(prev);
+  }, [emit]);
 
   const redo = useCallback(() => {
     const next = futureRef.current.pop();
     if (next == null) return;
-    historyRef.current.push(content);
+    historyRef.current.push(contentRef.current);
     setCanUndo(true);
     setCanRedo(futureRef.current.length > 0);
     coalesceRef.current = null;
     setActiveIndex(null);
-    onChange(next);
-  }, [content, onChange]);
+    emit(next);
+  }, [emit]);
 
+  /**
+   * Replace one block. `nextBlock` is either the new block — every synchronous
+   * edit, built from the block on screen — or an UPDATER `(current) => next`,
+   * which is how a write that lands after an await says "apply this to the block
+   * as it is by then". An updater is aimed by `from`, the block object the write
+   * started on, rather than by `index`: the block is followed through its
+   * successors to wherever it now sits, and an upload whose block was deleted in
+   * the meantime is dropped rather than written over a neighbour.
+   */
   const updateBlock = useCallback(
-    (index, nextBlock) => {
-      // A same-type edit is text (coalesces); a $type change is structural.
-      const kind = blocks[index]?.block?.$type === nextBlock?.$type ? 'text' : 'structural';
-      const next = blocks.slice();
-      next[index] = { $type: WRAPPER_TYPE, block: nextBlock };
-      commit(next, { kind, blockIndex: index });
+    (index, nextBlock, from = null) => {
+      const current = latestBlocks();
+      let at = index;
+      let next = nextBlock;
+      if (typeof nextBlock === 'function') {
+        at = locateBlock(current, from, successorsRef.current);
+        if (at < 0) return;
+        next = nextBlock(current[at].block);
+        if (next === current[at].block) return;
+      }
+      const prev = current[at]?.block;
+      // A same-type edit is text (coalesces); a $type change is structural. So is
+      // anything that landed asynchronously: an upload is its own undo step, not
+      // one more keystroke in the caption typed while it ran.
+      const kind =
+        typeof nextBlock !== 'function' && prev?.$type === next?.$type
+          ? 'text'
+          : 'structural';
+      succeed(prev, next);
+      const nextBlocks = current.slice();
+      nextBlocks[at] = { $type: WRAPPER_TYPE, block: next };
+      commit(nextBlocks, { kind, blockIndex: at });
     },
-    [blocks, commit],
+    [commit, latestBlocks, succeed],
   );
 
   const insertBlock = useCallback(
     (block, atIndex = null) => {
-      const next = blocks.slice();
+      const next = latestBlocks().slice();
       const wrapped = { $type: WRAPPER_TYPE, block };
-      const index = atIndex == null ? next.length : atIndex;
-      if (atIndex == null) next.push(wrapped);
-      else next.splice(atIndex, 0, wrapped);
+      const index =
+        atIndex == null ? next.length : Math.min(atIndex, next.length);
+      next.splice(index, 0, wrapped);
       commit(next, { kind: 'structural' });
       setActiveIndex(index); // jump straight into editing the new block
     },
-    [blocks, commit],
+    [commit, latestBlocks],
   );
 
+  // A gallery upload lands here seconds after the slot it was opened from was
+  // chosen, so the slot is clamped to the document as it is by then.
   const insertMany = useCallback(
     (newBlocks, atIndex = null) => {
       const wrapped = newBlocks.map((b) => ({ $type: WRAPPER_TYPE, block: b }));
-      const next = blocks.slice();
-      const index = atIndex == null ? next.length : atIndex;
+      const next = latestBlocks().slice();
+      const index =
+        atIndex == null ? next.length : Math.min(atIndex, next.length);
       next.splice(index, 0, ...wrapped);
       commit(next, { kind: 'structural' });
     },
-    [blocks, commit],
+    [commit, latestBlocks],
   );
 
   // Replace the text block at `index` with a paste that was detected as
@@ -158,12 +255,12 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
       }
       if (seq.length === 0) return;
       const wrapped = seq.map((b) => ({ $type: WRAPPER_TYPE, block: b }));
-      const next = blocks.slice();
+      const next = latestBlocks().slice();
       next.splice(index, 1, ...wrapped);
       commit(next, { kind: 'structural' });
       setActiveIndex(null);
     },
-    [blocks, commit],
+    [commit, latestBlocks],
   );
 
   useEffect(() => {
@@ -187,15 +284,17 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
    */
   const resolveMarkdown = useCallback(() => {
     const i = activeIndex;
-    const converted = i == null || !autoMarkdown ? null : textBlockToBlocks(blocks[i]?.block);
+    const current = latestBlocks();
+    const converted =
+      i == null || !autoMarkdown ? null : textBlockToBlocks(current[i]?.block);
     if (!converted) return null;
     const wrapped = converted.map((b) => ({ $type: WRAPPER_TYPE, block: b }));
-    const nextBlocks = blocks.slice();
+    const nextBlocks = current.slice();
     nextBlocks.splice(i, 1, ...wrapped);
     commit(nextBlocks, { kind: 'structural' });
     // One block became several, so anything after it has shifted along.
     return { at: i, grew: wrapped.length - 1 };
-  }, [activeIndex, autoMarkdown, blocks, commit]);
+  }, [activeIndex, autoMarkdown, commit, latestBlocks]);
 
   /**
    * Leave the block being edited, moving focus to `next` (or nowhere),
@@ -220,7 +319,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
 
   const removeBlock = useCallback(
     (index) => {
-      const next = blocks.slice();
+      const next = latestBlocks().slice();
       next.splice(index, 1);
       if (next.length === 0) {
         next.push({
@@ -231,7 +330,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
       commit(next, { kind: 'structural' });
       setActiveIndex(null);
     },
-    [blocks, commit],
+    [commit, latestBlocks],
   );
 
   // Set the gallery layout across a span of image blocks. Every member of a run
@@ -240,7 +339,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
   // otherwise the run would silently split in two.
   const setGalleryLayout = useCallback(
     (start, end, value) => {
-      const next = blocks.slice();
+      const next = latestBlocks().slice();
       for (let k = start; k <= end; k += 1) {
         const block = next[k]?.block;
         if (block?.$type !== IMAGE_BLOCK_TYPE) continue;
@@ -248,30 +347,32 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
         // Two-up is what an absent field means; don't write it out.
         if (value === GALLERY_DEFAULT_LAYOUT) delete updated.gallery;
         else updated.gallery = value;
+        // A copied image block is still the block an upload may be landing on.
+        succeed(block, updated);
         next[k] = { $type: WRAPPER_TYPE, block: updated };
       }
       commit(next, { kind: 'structural' });
     },
-    [blocks, commit],
+    [commit, latestBlocks, succeed],
   );
 
   const moveBlock = useCallback(
     (index, dir) => {
+      const next = latestBlocks().slice();
       const target = index + dir;
-      if (target < 0 || target >= blocks.length) return;
-      const next = blocks.slice();
+      if (target < 0 || target >= next.length) return;
       [next[index], next[target]] = [next[target], next[index]];
       commit(next, { kind: 'structural' });
       setActiveIndex(target); // follow the block that moved
     },
-    [blocks, commit],
+    [commit, latestBlocks],
   );
 
   // Move a block from `from` to an insertion slot (0..length).
   const moveTo = useCallback(
     (from, insertion) => {
       if (from == null) return;
-      const next = blocks.slice();
+      const next = latestBlocks().slice();
       const [moved] = next.splice(from, 1);
       let target = from < insertion ? insertion - 1 : insertion;
       target = Math.max(0, Math.min(target, next.length));
@@ -279,7 +380,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
       commit(next, { kind: 'structural' });
       setActiveIndex(null);
     },
-    [blocks, commit],
+    [commit, latestBlocks],
   );
 
   const handleDragStart = useCallback((e, i) => {
@@ -383,6 +484,25 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
       document.removeEventListener('click', onClick, true);
     };
   }, [activeIndex, openInsertSlot, resolveMarkdown]);
+
+  // The keyboard's way to the same resolution (see BlocksFlushContext). It
+  // collapses the block only when its markdown actually converted, exactly as a
+  // press outside would: the block being edited has just become several, and an
+  // editor left open over the first of them is not the block the author was in.
+  // A save with nothing to convert leaves the caret where it was.
+  const flushers = useContext(BlocksFlushContext);
+  const flushRef = useRef(null);
+  flushRef.current = () => {
+    if (resolveMarkdown()) setActiveIndex(null);
+  };
+  useEffect(() => {
+    if (!flushers) return undefined;
+    const flush = () => flushRef.current?.();
+    flushers.add(flush);
+    return () => {
+      flushers.delete(flush);
+    };
+  }, [flushers]);
 
   // Editing a block and an open insert palette are mutually exclusive focuses:
   // opening one closes the other.
@@ -603,7 +723,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
                     block={block}
                     agent={agent}
                     did={did}
-                    onChange={(next) => updateBlock(i, next)}
+                    onChange={(next) => updateBlock(i, next, block)}
                     onSetCover={onSetCover}
                     onPasteBlocks={(payload) => pasteBlocksAt(i, payload)}
                   />

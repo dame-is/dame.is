@@ -26,6 +26,7 @@ import {
   SEED_PIECES,
   SEED_PEOPLE,
   loadPieces,
+  loadLivePieces,
   loadPeople,
   livingRoster,
   composeEventLog,
@@ -39,10 +40,12 @@ import {
 import { participantPath, participantBoard } from '../lib/ratioedParticipant.js';
 import { medianOf } from '../lib/ratioedStats.js';
 import { applyAudience, audienceIndex, fmtReach } from '../lib/ratioedReach.js';
-import { resolvePds, resolveProfiles } from '../lib/atproto.js';
+import { resolveProfiles } from '../lib/atproto.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
+import { UNRESOLVED } from '../lib/ratioedIdentity.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
-import { ME_DID, RATIOED_DOC_RKEY } from '../config.js';
+import { RATIOED_DOC_RKEY } from '../config.js';
 import './RatioedPiece.css';
 import './RatioedParticipants.css';
 
@@ -52,10 +55,15 @@ import './RatioedParticipants.css';
 // there for anyone who wants to read the tail.
 const PAGE = 25;
 
-// How many portraits to resolve. Each request covers 25 accounts, so this is
-// four of them for a roster of two hundred; past that the page is fetching
-// pictures nobody has scrolled to. Rows beyond it wear the initial instead.
+// How many portraits to resolve before the reader has asked for the whole
+// board. Each request covers 25 accounts, so this is four of them; past that,
+// re-sorting is fetching pictures nobody has scrolled to. Once "show all" is
+// pressed, or the filter is in use, every row on screen is one somebody asked
+// for — the cap used to hold there too, and left everybody past the hundredth
+// wearing an initial for good.
 const PORTRAIT_CAP = 100;
+// What one getProfiles request covers.
+const PROFILES_PER_ASK = 25;
 
 // Two axes, matching the two figures a row carries. Records are still what
 // breaks a tie in the ranking and still the second figure on somebody's own
@@ -72,6 +80,14 @@ export default function RatioedParticipants() {
   const [bundled, setBundled] = useState(null);
   const [audience, setAudience] = useState(null);
   const [profiles, setProfiles] = useState({});
+  // The accounts the AppView was asked about and had nothing for. Kept apart
+  // from "not asked yet", because only the first is an account that no longer
+  // answers — see `Who`.
+  const [absent, setAbsent] = useState(() => new Set());
+  // Which of the slower inputs have had their say, landed or failed. The figure
+  // tiles hold a place for what they are waiting on rather than appearing when
+  // it lands, which re-wrapped the grid and shoved the board down the page.
+  const [loaded, setLoaded] = useState({ snapshot: false, events: false, audience: false });
   const [sort, setSort] = useState('live');
   const [dir, setDir] = useState(-1);
   const [shown, setShown] = useState(PAGE);
@@ -90,10 +106,9 @@ export default function RatioedParticipants() {
       if (!alive) return;
       if (snapPieces?.length) setPieces(finished(snapPieces));
       if (snapPeople?.length) setPeople(snapPeople);
+      setLoaded((l) => ({ ...l, snapshot: true }));
 
-      const pds = await resolvePds(ME_DID).catch(() => null);
-      if (!pds) return;
-      const fresh = await loadPieces(pds).catch(() => null);
+      const fresh = await loadLivePieces().catch(() => null);
       if (alive && fresh?.length) setPieces(finished(fresh));
     })();
     return () => {
@@ -103,16 +118,21 @@ export default function RatioedParticipants() {
 
   useEffect(() => {
     let alive = true;
+    const done = (key) => {
+      if (alive) setLoaded((l) => ({ ...l, [key]: true }));
+    };
     import('../data/ratioedEvents.json')
       .then((m) => {
         if (alive) setBundled(m.default || m);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => done('events'));
     import('../data/ratioedAudience.json')
       .then((m) => {
         if (alive) setAudience(m.default || m);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => done('audience'));
     return () => {
       alive = false;
     };
@@ -172,8 +192,9 @@ export default function RatioedParticipants() {
   // gating on the answer would leave them permanently missing, so every render
   // would ask again, forever.
   const asked = useRef(new Set());
+  const everything = Boolean(wanted) || shown >= rows.length;
   useEffect(() => {
-    const room = PORTRAIT_CAP - asked.current.size;
+    const room = everything ? Infinity : PORTRAIT_CAP - asked.current.size;
     if (room <= 0) return;
     const missing = visible
       .map((p) => p.did)
@@ -188,12 +209,24 @@ export default function RatioedParticipants() {
     // already in `asked`, so those rows wore the initial forever. That was
     // every avatar on the board. A late answer is safe to apply — the merge
     // is idempotent, and applying after unmount is a no-op.
-    resolveProfiles(missing)
-      .then((found) => {
-        if (Object.keys(found).length) setProfiles((prev) => ({ ...prev, ...found }));
-      })
-      .catch(() => {});
-  }, [visible]);
+    //
+    // Asked a request's worth at a time, and each answer read on its own.
+    // `resolveProfiles` swallows a failed chunk and returns the rest, so asked
+    // for the whole board at once, one 429 among a dozen requests came back as
+    // twenty-five accounts with no profile — and drew all of them as gone.
+    (async () => {
+      for (let i = 0; i < missing.length; i += PROFILES_PER_ASK) {
+        const ask = missing.slice(i, i + PROFILES_PER_ASK);
+        const found = await resolveProfiles(ask).catch(() => ({}));
+        // Nothing back at all is a failed call, not a batch of deactivated
+        // accounts, and says nothing about any of them.
+        if (!Object.keys(found).length) continue;
+        setProfiles((prev) => ({ ...prev, ...found }));
+        const none = ask.filter((did) => !found[did]);
+        if (none.length) setAbsent((prev) => new Set([...prev, ...none]));
+      }
+    })();
+  }, [visible, everything]);
 
   if (!isRatioedParent(slug, { rkey: RATIOED_DOC_RKEY })) {
     return (
@@ -217,6 +250,11 @@ export default function RatioedParticipants() {
   const topBreaker = totals.mostBroken;
   const mostBroken = topBreaker ? brokenTakes(topBreaker).length : 0;
   const maxPieces = most?.live || 1;
+  // What a tile shows while the input it reads has not arrived: the place it
+  // will take, holding the same label and note, so the grid is the shape it
+  // will end up rather than growing a row when the audience table lands.
+  const pending = '—';
+  const logsIn = loaded.snapshot && loaded.events;
 
   const headline = [
     {
@@ -237,10 +275,13 @@ export default function RatioedParticipants() {
       value: totals.breakers || null,
       note: 'liked a post and sealed it',
     },
-    totals.audience > 0 && {
+    (totals.audience > 0 || !loaded.audience) && {
       key: 'audience',
       label: 'between them',
-      value: fmtReach(totals.audience),
+      // Held until the dated table is in. Before it, the total is the handful
+      // of logs that recorded their own follower counts, which is a real
+      // number that is not this one.
+      value: loaded.audience ? fmtReach(totals.audience) : pending,
       // Not "N accounts unpriced". The four it was counting are accounts that
       // have since been deleted or deactivated, so there is nothing to read and
       // nothing a reader can do about it; the total is a floor either way, and
@@ -250,10 +291,10 @@ export default function RatioedParticipants() {
   ];
 
   const texture = [
-    totals.records > 0 && {
+    (totals.records > 0 || !logsIn) && {
       key: 'records',
       label: 'records',
-      value: totals.records,
+      value: logsIn ? totals.records : pending,
       note: totals.recordsBlind
         ? `made while a piece stood; ${totals.recordsBlind} rows no log covers`
         : 'made while a piece was standing',
@@ -275,11 +316,12 @@ export default function RatioedParticipants() {
       value: mostBroken,
       note: `@${topBreaker.h}`,
     },
-    biggest && {
+    (biggest || !loaded.audience) && {
       key: 'biggest',
       label: 'biggest audience',
-      value: fmtReach(biggest.fr),
-      note: `@${biggest.h}`,
+      value: biggest && loaded.audience ? fmtReach(biggest.fr) : pending,
+      // A blank line rather than none, so the tile is already its full height.
+      note: biggest && loaded.audience ? `@${biggest.h}` : '\u00a0',
     },
     split.afterOnly > 0 && {
       key: 'late',
@@ -362,7 +404,7 @@ export default function RatioedParticipants() {
                   data-broke={broke.length ? '' : undefined}
                 >
                   <span className="ratioed-board-rank">{p.rank}</span>
-                  <Who person={p} profile={profile} path={path} />
+                  <Who person={p} profile={profile} absent={absent.has(p.did)} path={path} />
                   <span className="ratioed-board-bar">
                     {/* The bar is the distribution: one person at six, a
                         handful at three, and everybody else at one. A chart
@@ -381,7 +423,9 @@ export default function RatioedParticipants() {
                       {p.fr >= 0 ? fmtReach(p.fr) : '·'}
                     </span>
                     <span className="ratioed-board-role">
-                      <span className={`ratioed-tag ${role.key}`}>{role.label}</span>
+                      <span className={`ratioed-tag ${role.key}`} title={role.label}>
+                        {role.label}
+                      </span>
                     </span>
                   </span>
                 </li>
@@ -415,14 +459,21 @@ export default function RatioedParticipants() {
 
 /** A person's cell: portrait, handle, and the name they were carrying when the
  *  roster was harvested. Linked wherever there is a handle to address. */
-function Who({ person, profile, path }) {
+function Who({ person, profile, absent, path }) {
   const handle = profile?.handle || person.h;
   const name = profile?.displayName || person.dn || '';
+  // Dashed means an account that no longer answers — the AppView was asked and
+  // had nobody, or the harvest could never name them — which is what the same
+  // frame means on a piece's roster. It used to mean "no portrait yet", which
+  // drew every row of the board as deactivated while the portraits loaded. A
+  // profile in hand outranks the log: an account logged as unresolvable that
+  // answers today is not gone.
+  const gone = !profile && (absent || !person.h || person.h === UNRESOLVED);
   const body = (
     <>
-      <span className="ratioed-face-frame" data-gone={profile ? undefined : true}>
+      <span className="ratioed-face-frame" data-gone={gone || undefined}>
         {profile?.avatar ? (
-          <img src={profile.avatar} alt="" loading="lazy" width="36" height="36" />
+          <img src={avatarThumb(profile.avatar)} alt="" loading="lazy" width="36" height="36" />
         ) : (
           <span className="ratioed-face-blank" aria-hidden="true">
             {(handle || '?').slice(0, 1)}

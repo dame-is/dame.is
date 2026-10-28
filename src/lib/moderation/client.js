@@ -595,10 +595,10 @@ export function listMembers(agent, { listUri, cursor, signal } = {}) {
 /* ----------------------------------------------------------------- the plans */
 
 /** Recent plans, newest first, with what each one carried. */
-export function planList(agent, { signal } = {}) {
+export function planList(agent, { before, kind, signal } = {}) {
   return call(agent, '/api/mod-plan', {
     lxm: LXM.plan,
-    body: { action: 'plans' },
+    body: { action: 'plans', before, kind },
     signal,
   });
 }

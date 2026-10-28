@@ -24,13 +24,11 @@ import { COLLECTIONS } from '../config.js';
 export const VERB_TO_COLLECTION = Object.fromEntries(
   VERB_REGISTRY.map((v) => [v.verb, primaryNsid(v.verb)]).filter(([, n]) => n),
 );
-
-// A repost record on Dame's PDS lives at `app.bsky.feed.repost`, but the
-// page actually *renders* the original post (the repost record's only
-// payload is a pointer). The on-site URL form `/reposting/{rkey}` uses
-// the *original post's* rkey because that's what the home feed snapshot
-// is keyed by — we don't snapshot Dame's repost records directly.
-VERB_TO_COLLECTION.reposting = 'app.bsky.feed.post';
+// `/reposting/{rkey}` is keyed by Dame's own `app.bsky.feed.repost` record —
+// the verb's primary NSID — not by the post it points at, even though the page
+// renders that post: Record.jsx reads the repost first and the subject second.
+// Mapping it to `app.bsky.feed.post` made the page's not-found copy, and the
+// at:// it advertised while loading, name a record that doesn't exist.
 
 /**
  * Inverse of VERB_TO_COLLECTION — collection → verb. For NSIDs that are

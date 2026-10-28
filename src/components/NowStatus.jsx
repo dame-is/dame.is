@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useNowStatus } from '../hooks/useNowStatus.js';
 import { relativeTime } from '../lib/time.js';
@@ -14,7 +15,9 @@ function compactRelative(value) {
   return full;
 }
 
-export default function NowStatus() {
+// Memoised: it takes no props, and the top chrome around it re-renders as the
+// page scrolls.
+export default memo(function NowStatus() {
   const { record } = useNowStatus();
   const value = record?.value;
   const text = (value?.status || value?.text || '').trim();
@@ -39,4 +42,4 @@ export default function NowStatus() {
       </TickerText>
     </span>
   );
-}
+});

@@ -146,11 +146,18 @@ export const LEXICONS = {
     //
     // Portfolio works are different: /creating *does* route by `path` (workSlug),
     // so they keep a user-entered slug and only fall back to the rkey when blank.
+    // The slug is stored with exactly one leading slash whatever was typed: the
+    // site's own routing strips slashes and copes either way, but a Standard
+    // Site consumer joins publication.url + path, and "my-work" made that
+    // https://dame.is/creatingmy-work.
     derive: (record, { rkey }) => {
       if (!rkey) return record;
-      const path =
-        record.site === BLOG_PUBLICATION ? `/${rkey}` : record.path || `/${rkey}`;
-      return { ...record, path };
+      if (record.site === BLOG_PUBLICATION)
+        return { ...record, path: `/${rkey}` };
+      const slug = String(record.path || '')
+        .trim()
+        .replace(/^\/+/, '');
+      return { ...record, path: slug ? `/${slug}` : `/${rkey}` };
     },
   },
 

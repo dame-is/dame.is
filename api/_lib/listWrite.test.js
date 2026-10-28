@@ -1,13 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const protectedRows = new Map();
+const decisions = [];
 vi.mock('./modDb.js', () => ({
   select: vi.fn(async (table, { eq }) =>
     table === 'protected' && protectedRows.has(eq.did)
       ? [{ reason: protectedRows.get(eq.did) }]
       : [],
   ),
-  upsert: vi.fn(async () => 0),
+  selectAll: vi.fn(async (table, { eq = {}, where = {} }) =>
+    table === 'decision'
+      ? decisions.filter(
+          (r) =>
+            r.action === eq.action &&
+            where.did.includes(`"${r.did}"`) &&
+            r.acted_at &&
+            !r.undone_at,
+        )
+      : [],
+  ),
+  upsert: vi.fn(async (table, rows) => {
+    if (table === 'decision') {
+      for (const row of rows) {
+        const at = decisions.findIndex(
+          (r) => r.plan_id === row.plan_id && r.did === row.did,
+        );
+        if (at === -1) decisions.push({ ...row });
+        else decisions[at] = { ...decisions[at], ...row };
+      }
+    }
+    return rows.length;
+  }),
 }));
 const graph = {
   rkeysForWrite: vi.fn(),
@@ -46,6 +69,7 @@ function agent() {
 
 beforeEach(() => {
   protectedRows.clear();
+  decisions.length = 0;
   graph.rkeysForWrite.mockReset();
   graph.noteListed.mockReset();
   graph.noteUnlisted.mockReset();
@@ -100,6 +124,27 @@ describe('one unblock', () => {
     expect(out).toMatchObject({ ok: true, changed: true });
     expect(a.com.atproto.repo.deleteRecord).toHaveBeenCalledTimes(2);
     expect(graph.noteUnlisted).toHaveBeenCalled();
+  });
+
+  it('closes the decision that added them, so "undo last" moves past it', async () => {
+    decisions.push({
+      plan_id: 'plan-block',
+      did: 'did:plc:xtest',
+      band: 'UNKNOWN',
+      action: 'list_add',
+      acted_at: '2026-10-01T10:00:00Z',
+      undone_at: null,
+    });
+    graph.rkeysForWrite.mockResolvedValue(['r1']);
+    const out = await applyCommand(agent(), 'list_remove', 'x.test', {
+      raw: 'unblock @x.test',
+    });
+    expect(out).toMatchObject({ ok: true, changed: true });
+    const block = decisions.find((r) => r.plan_id === 'plan-block');
+    expect(block.undone_at).toBeTruthy();
+    expect(block.undo_reason).toBe('unblock @x.test');
+    // The unblock is still recorded as an action of its own.
+    expect(decisions.some((r) => r.action === 'list_remove')).toBe(true);
   });
 
   it('treats an already-deleted copy as done, and an unknown list as no', async () => {

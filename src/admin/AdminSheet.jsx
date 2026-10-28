@@ -27,11 +27,12 @@
 // The bar-height and keyboard-inset custom properties it reads are published on
 // `<html>` by AdminShell for exactly this reason.
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
+import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
 import './adminChrome.css';
 
 /**
@@ -64,14 +65,9 @@ export default function AdminSheet({
   // the trap is what makes the keyboard honour the dialog.
   useFocusTrap(panelRef, { active: open });
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (event) => {
-      if (event.key === 'Escape') onClose?.();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  // On the shared Escape stack with the site's sheets, so a chrome sheet
+  // opened over this one closes alone.
+  useEscapeLayer(open, onClose);
 
   if (typeof document === 'undefined') return null;
 
