@@ -1,5 +1,4 @@
 import { lazy, memo, Suspense } from 'react';
-import { X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
@@ -45,18 +44,15 @@ function InfoSheet() {
   const heading = title || 'About this site';
 
   return (
-    <BottomSheet open={open} onClose={closePanel} label={heading} id="chrome-info-sheet" size="fill" className="info-sheet-panel">
-      <div className="info-sheet-header">
-        <span className="small-caps">{heading}</span>
-        <button
-          type="button"
-          className="info-sheet-close"
-          onClick={closePanel}
-          aria-label="Close"
-        >
-          <X size={16} aria-hidden="true" />
-        </button>
-      </div>
+    <BottomSheet
+      open={open}
+      onClose={closePanel}
+      title={heading}
+      id="chrome-info-sheet"
+      size="fill"
+      className="info-sheet-panel"
+      bodyClassName="info-sheet-content"
+    >
 
       {body ? (
         <Suspense fallback={LOADING}>

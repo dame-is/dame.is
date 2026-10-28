@@ -1,10 +1,10 @@
 import { useSearchParams } from 'react-router-dom';
-import { CornerDownRight, X } from 'lucide-react';
-import { VERBS, DEFAULT_HOME_VERBS } from '../lib/verbRegistry.js';
+import { VERBS, VERB_GROUPS, DEFAULT_HOME_VERBS, verbConfig } from '../lib/verbRegistry.js';
 import { selfThreadMembers } from '../lib/threadGrouping.js';
 import { playArtistNames } from '../lib/teal.js';
-import VerbIcon from './VerbIcon.jsx';
+import { formatFilterCount, kindsSummary } from '../lib/filterCounts.js';
 import BottomSheet from './BottomSheet.jsx';
+import FilterIndex, { FilterMeta, FilterQuick } from './FilterIndex.jsx';
 import { useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import './FeedFilters.css';
@@ -27,8 +27,13 @@ const FILTER_KEYS = [REPLYING, ...VERBS];
  * lives in the bottom chrome bar. Mounting this component registers the
  * filter affordance with the context so the chrome bar knows to show
  * its filter button while the host is on screen.
+ *
+ * The sheet is an index of the seventeen kinds under four heads (FEED-08).
+ * `counts` are per kind; `estimatedVerbs` came from the snapshot rather
+ * than a live fetch, and `cappedVerbs` hit `fetchCap` on their first
+ * fetch, so they print as "100+" rather than as a total.
  */
-export default function FeedFilters({ counts, estimatedVerbs }) {
+export default function FeedFilters({ counts, estimatedVerbs, cappedVerbs, fetchCap = 100 }) {
   const [params, setParams] = useSearchParams();
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'filter';
@@ -92,6 +97,8 @@ export default function FeedFilters({ counts, estimatedVerbs }) {
       activeVerbs={activeVerbs}
       counts={counts}
       estimatedVerbs={estimatedVerbs}
+      cappedVerbs={cappedVerbs}
+      fetchCap={fetchCap}
       usingDefaults={usingDefaults}
       onToggleVerb={toggleVerb}
       onSelectOnly={(v) => setVerbs(new Set([v]))}
@@ -103,11 +110,33 @@ export default function FeedFilters({ counts, estimatedVerbs }) {
   );
 }
 
+// The replying line has no registry entry of its own (its records are
+// posting's), so its place and gloss are set here.
+const REPLYING_LINE = { group: 'words', gloss: 'replies to other people' };
+
+/**
+ * The index's groups, in VERB_GROUPS order, each holding its verbs in
+ * registry order; replying sits straight after posting.
+ */
+function filterGroups() {
+  const byGroup = new Map(VERB_GROUPS.map((g) => [g, []]));
+  for (const key of VERBS) {
+    const v = verbConfig(key);
+    byGroup.get(v?.group || 'social')?.push({ key, gloss: v?.gloss || null });
+    if (key === 'posting') byGroup.get(REPLYING_LINE.group).push({ key: REPLYING, gloss: REPLYING_LINE.gloss });
+  }
+  return VERB_GROUPS.map((g) => ({ key: g, label: g, verbs: byGroup.get(g) })).filter((g) => g.verbs.length);
+}
+
+const GROUPS = filterGroups();
+
 function FilterModal({
   open,
   activeVerbs,
   counts,
   estimatedVerbs,
+  cappedVerbs,
+  fetchCap,
   usingDefaults,
   onToggleVerb,
   onSelectOnly,
@@ -118,92 +147,51 @@ function FilterModal({
 }) {
   const allActive = !usingDefaults && activeVerbs.size === FILTER_KEYS.length;
   const noneActive = !usingDefaults && activeVerbs.size === 0;
+  const shown = FILTER_KEYS.filter((k) => activeVerbs.has(k)).length;
+  // `replying` is a view of posting's records, so it shares posting's cap.
+  const capped = (k) => Boolean(cappedVerbs?.has(k === REPLYING ? 'posting' : k));
+  const groups = GROUPS.map((g) => ({
+    key: g.key,
+    label: g.label,
+    items: g.verbs.map(({ key, gloss }) => ({
+      key,
+      label: key,
+      gloss,
+      on: activeVerbs.has(key),
+      count: formatFilterCount({
+        count: counts?.[key],
+        estimate: estimatedVerbs?.has(key),
+        capped: capped(key),
+      }),
+    })),
+  }));
   return (
-    <BottomSheet open={open} onClose={onClose} label="Filter feed" id="chrome-filter-sheet" className="feed-filter-sheet-panel">
-      <div className="feed-filter-modal-header">
-        <span className="small-caps">filter by type</span>
-        <button
-          type="button"
-          className="feed-filter-modal-close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <X size={16} aria-hidden="true" />
-        </button>
-      </div>
-      <div className="feed-filter-modal-quick" role="group" aria-label="Quick selection">
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${allActive ? 'is-active' : ''}`}
-          onClick={onSelectAll}
-        >
-          <span className="small-caps">show all</span>
-        </button>
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${noneActive ? 'is-active' : ''}`}
-          onClick={onSelectNone}
-        >
-          <span className="small-caps">show none</span>
-        </button>
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${usingDefaults ? 'is-active' : ''}`}
-          onClick={onReset}
-        >
-          <span className="small-caps">defaults</span>
-        </button>
-      </div>
-      <div className="feed-chips" role="group" aria-label="Filter by verb">
-        {FILTER_KEYS.map((v) => {
-          const active = activeVerbs.has(v);
-          const count = counts?.[v];
-          const isEstimate = estimatedVerbs?.has(v);
-          return (
-            <div
-              key={v}
-              className={`feed-chip-wrap ${active ? 'is-active' : ''}`}
-            >
-              <button
-                type="button"
-                className="feed-chip feed-chip-toggle"
-                onClick={() => onToggleVerb(v)}
-                aria-pressed={active}
-              >
-                {v === REPLYING ? (
-                  <CornerDownRight size={13} strokeWidth={1.75} className="feed-chip-icon" aria-hidden="true" />
-                ) : (
-                  <VerbIcon verb={v} size={13} className="feed-chip-icon" />
-                )}
-                <span className="feed-chip-label small-caps">{v}</span>
-                {typeof count === 'number' && (
-                  <span
-                    className={`feed-chip-count gutter ${isEstimate ? 'is-estimate' : ''}`.trim()}
-                    title={
-                      isEstimate
-                        ? 'Estimated from the latest saved snapshot — enable this filter to load the exact count'
-                        : undefined
-                    }
-                    aria-label={isEstimate ? `about ${count}, estimated from snapshot` : undefined}
-                  >
-                    {isEstimate ? '~' : ''}
-                    {count}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                className="feed-chip-only"
-                onClick={() => onSelectOnly(v)}
-                aria-label={`Show only ${v}`}
-                title={`Show only ${v}`}
-              >
-                <span className="small-caps">only</span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      title="Filter the ledger"
+      meta={<FilterMeta summary={kindsSummary(shown, FILTER_KEYS.length)} defaults={usingDefaults} />}
+      actions={
+        <FilterQuick
+          all={allActive}
+          none={noneActive}
+          defaults={usingDefaults}
+          onAll={onSelectAll}
+          onNone={onSelectNone}
+          onDefaults={onReset}
+        />
+      }
+      id="chrome-filter-sheet"
+      className="feed-filter-sheet-panel"
+      bodyClassName="filter-sheet-content"
+    >
+      <FilterIndex
+        label="Kinds of activity"
+        groups={groups}
+        onToggle={onToggleVerb}
+        onOnly={onSelectOnly}
+        note={`Counts are what’s loaded: at most the latest ${fetchCap} records from each collection, and a + means there are more. A ~ marks an estimate from the last saved snapshot, and — means not loaded yet.`}
+      />
     </BottomSheet>
   );
 }

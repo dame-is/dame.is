@@ -1,66 +1,11 @@
 /* Interior of the info bottom sheet. BottomSheet owns positioning, the
-   surface, and the expand animation; only the prose layout lives here. */
-.info-sheet-panel {
-  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x,
-     kept on :root for exactly this) so the prose lines up with the nav dock,
-     the breadcrumb, and the bottom-bar buttons at every breakpoint. */
-  padding: var(--space-4) var(--chrome-pad-x);
+   surface, the expand animation and the header (title and ×); only the prose
+   layout lives here, on the chrome bars' shared column (--chrome-pad-x) so it
+   lines up with the nav dock, the breadcrumb and the bottom-bar buttons. */
+.info-sheet-content {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.info-sheet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  color: var(--ink-faint);
-}
-
-.info-sheet-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: var(--page);
-  color: var(--ink-soft);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.info-sheet-close:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 14%, var(--page));
-}
-
-@media (hover: hover) {
-  .info-sheet-close:hover {
-    color: var(--accent);
-    border-color: var(--accent-soft);
-    background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  }
-}
-
-/* Touch target: 44px on a coarse pointer without growing the painted 28px
-   box, as the bottom bar's chips do (ChromeBar.css). */
-@media (pointer: coarse) {
-  .info-sheet-close {
-    position: relative;
-  }
-  .info-sheet-close::before {
-    content: '';
-    position: absolute;
-    inset: -8px;
-  }
 }
 
 .info-sheet-body {

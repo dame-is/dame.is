@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Copy, Check, ArrowUpRight } from 'lucide-react';
+import { Copy, Check, ArrowUpRight } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import { resolveWaypoints, groupWaypoints, describeResolved } from '../lib/waypoints.js';
 import './WaypointsSheet.css';
@@ -78,22 +78,14 @@ export default function WaypointsSheet({ open, href, onClose }) {
   }
 
   return (
-    <BottomSheet open={open} onClose={onClose} label="Open in…" id="waypoints-sheet">
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      title="Open in…"
+      meta={subtitle || null}
+      id="waypoints-sheet"
+    >
       <div className="waypoints-sheet" data-no-waypoints>
-        <div className="waypoints-sheet-header">
-          <div className="waypoints-sheet-heading">
-            <span className="small-caps">open in…</span>
-            {subtitle && <span className="waypoints-sheet-subtitle">{subtitle}</span>}
-          </div>
-          <button
-            type="button"
-            className="waypoints-sheet-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={16} aria-hidden="true" />
-          </button>
-        </div>
 
         <div className="waypoints-sheet-body">
           {status === 'loading' && (

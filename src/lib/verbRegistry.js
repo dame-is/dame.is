@@ -43,6 +43,10 @@
 //   recordHref:  Optional template for per-record page URL. `null` (the
 //                default) means use the generic `/{nsid}/{rkey}` form.
 //   pastTense:   Used by ReferenceCard's "Dame {pastTense} {subject}" label.
+//   group:       Which head of the filter sheet's index the verb sits under:
+//                words, making, noticing or social (VERB_GROUPS below).
+//   gloss:       The filter sheet's one line on what the verb covers. Plain,
+//                lower case, a few words; keep it true when collections change.
 //   dedupe:      Optional. `'rkey'` collapses records that appear in more than
 //                one of the verb's collections under the same rkey, keeping the
 //                one from the collection listed first. For lexicons that moved
@@ -64,6 +68,8 @@ function anisotaRecordHref(atUri) {
 export const VERB_REGISTRY = [
   {
     verb: 'logging',
+    group: 'words',
+    gloss: 'status lines, like “playing tennis”',
     icon: 'NotebookPen',
     renderer: 'StatusEntry',
     recordHref: ({ rkey }) => (rkey ? `/logging/${rkey}` : null),
@@ -74,6 +80,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'posting',
+    group: 'words',
+    gloss: 'Bluesky and Anisota posts',
     icon: 'MessageCircle',
     renderer: 'PostCard',
     // Bluesky posts get a bespoke `/posting/{rkey}` page (Record.jsx);
@@ -97,6 +105,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'blogging',
+    group: 'words',
+    gloss: 'essays on standard.site',
     icon: 'BookOpen',
     renderer: 'BlogCard',
     pastTense: 'blogged',
@@ -117,6 +127,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'listening',
+    group: 'noticing',
+    gloss: 'plays from teal.fm',
     icon: 'Headphones',
     renderer: 'ListenRow',
     recordHref: ({ rkey }) => (rkey ? `/listening/${rkey}` : null),
@@ -134,6 +146,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'creating',
+    group: 'making',
+    gloss: 'works and projects',
     icon: 'Hammer',
     renderer: 'CreatingCard',
     pastTense: 'created',
@@ -151,6 +165,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'photographing',
+    group: 'making',
+    gloss: 'Grain galleries and stories',
     icon: 'Camera',
     renderer: 'MediaCard',
     pastTense: 'photographed',
@@ -161,6 +177,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'mothing',
+    group: 'noticing',
+    gloss: 'moths, via iNaturalist',
     icon: 'Bug',
     renderer: 'ObservationCard',
     // Observation records are mirrored from iNaturalist onto the PDS by
@@ -179,6 +197,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'observing',
+    group: 'noticing',
+    gloss: 'other iNaturalist sightings',
     icon: 'Binoculars',
     renderer: 'ObservationCard',
     // Every non-moth iNaturalist observation (birds, plants, fungi,
@@ -199,6 +219,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'liking',
+    group: 'social',
+    gloss: 'likes, favourites and stars',
     icon: 'Heart',
     renderer: 'ReferenceCard',
     pastTense: 'liked',
@@ -211,6 +233,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'reposting',
+    group: 'social',
+    gloss: 'posts passed along',
     icon: 'Repeat2',
     // Repost records on the PDS are just pointers (`subject = { uri, cid }`).
     // The prefetch step hydrates each one's subject via
@@ -235,6 +259,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'following',
+    group: 'social',
+    gloss: 'accounts followed',
     icon: 'UserPlus',
     renderer: 'ReferenceCard',
     pastTense: 'followed',
@@ -246,6 +272,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'listing',
+    group: 'social',
+    gloss: 'Bluesky lists',
     icon: 'ListChecks',
     renderer: 'ListCard',
     pastTense: 'curated',
@@ -255,6 +283,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'feeding',
+    group: 'social',
+    gloss: 'custom feeds',
     icon: 'Rss',
     renderer: 'GeneratorCard',
     pastTense: 'published a feed',
@@ -264,6 +294,8 @@ export const VERB_REGISTRY = [
   },
   {
     verb: 'commenting',
+    group: 'words',
+    gloss: 'comments on Grain and Leaflet',
     icon: 'MessagesSquare',
     renderer: 'CommentCard',
     pastTense: 'commented',
@@ -281,6 +313,8 @@ export const VERB_REGISTRY = [
     // status, so it's there for anyone who turns the chip on rather than
     // sitting in the timeline by default.
     verb: 'flushing',
+    group: 'words',
+    gloss: 'check-ins from Flushes',
     icon: 'Toilet',
     renderer: 'FlushCard',
     pastTense: 'flushed',
@@ -295,6 +329,8 @@ export const VERB_REGISTRY = [
     // One umbrella verb keeps the chip list tidy; AnisotaLabCard branches by
     // collection to render each piece (poem text, sigil figure, print, etc.).
     verb: 'crafting',
+    group: 'making',
+    gloss: 'Anisota lab pieces',
     icon: 'FlaskConical',
     renderer: 'AnisotaLabCard',
     pastTense: 'crafted',
@@ -336,6 +372,13 @@ for (const v of VERB_REGISTRY) {
 
 /** All gerund verbs in registry order. Drives FeedFilters chip layout. */
 export const VERBS = VERB_REGISTRY.map((v) => v.verb);
+
+/**
+ * The heads of the filter sheet's index, in the order they're read: what
+ * Dame writes, what they make, what they notice, and what they do with other
+ * people. Each verb names one in its `group`.
+ */
+export const VERB_GROUPS = ['words', 'making', 'noticing', 'social'];
 
 /**
  * Verbs enabled in the home feed by default (when no `verbs=` URL param

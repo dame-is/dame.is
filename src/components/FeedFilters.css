@@ -1,252 +1,238 @@
-.feed-filters {
+/* The filter sheets (FeedFilters, PostingFilters, CreatingFilters), set as
+   an index (FilterIndex.jsx) rather than the cloud of chips they were: ruled
+   lines under group heads, two columns where there's room and one on a
+   phone. Each line reads box, name, gloss, dot leaders, count, with the
+   names, glosses and counts on shared verticals so the eye can run down any
+   of them. The header (title, "14 of 17 kinds", All · None · Defaults, ×) is
+   BottomSheet's. */
+
+.filter-sheet-content {
+  padding-bottom: var(--space-5);
+}
+
+/* "All · None · Defaults": text buttons in the header's action slot. */
+.filter-quick {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: 0 var(--space-2);
+}
+
+.filter-quick-sep {
+  color: var(--ink-faint);
+}
+
+@media (max-width: 400px) {
+  .filter-meta-defaults {
+    display: none;
+  }
+}
+
+/* ---- The index ----------------------------------------------------- */
+
+/* Two columns once each can be 20rem; the browser balances them, which
+   with these four groups puts words and making on the left and noticing and
+   social on the right. */
+.filter-index {
+  columns: 2 20rem;
+  column-gap: var(--space-7);
+}
+
+.filter-group {
+  break-inside: avoid;
   padding-bottom: var(--space-4);
-  margin-bottom: var(--space-5);
+  /* Each group measures its own column, so a line knows whether its gloss
+     fits beside the name or goes under it. */
+  container-type: inline-size;
 }
 
-.feed-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+.filter-group-title {
+  margin: 0;
+  padding: var(--space-2) 0 var(--space-1);
+  border-bottom: 1px solid var(--rule);
 }
 
-.feed-chips-sources {
-  font-size: 0.9em;
+.filter-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.feed-chip-source {
-  font-size: var(--text-xs);
-  padding: 0.25em 0.7em;
-}
-
-.feed-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  padding: 0.35em 0.9em;
-  border-radius: 0;
-  border: 1px solid var(--rule);
-  background: var(--page);
-  color: var(--ink-muted);
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.feed-chip-icon {
-  flex: 0 0 auto;
-  color: var(--ink-faint);
-  transition: color 120ms ease;
-}
-
-.feed-chip:hover .feed-chip-icon {
-  color: var(--accent);
-}
-
-.feed-chip.is-active .feed-chip-icon {
-  color: var(--accent);
-}
-
-.feed-chip:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-.feed-chip.is-active {
-  background: var(--highlight);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-/* Full-strength accent: the count is small text on the chip's tinted fill,
-   and a 0.75 opacity took it to 2.6:1 even with the accent itself at AA. */
-.feed-chip.is-active .feed-chip-count {
-  color: var(--accent);
-}
-
-.feed-chip-label {
-  letter-spacing: 0.14em;
-}
-
-.feed-chip-count {
-  font-size: 0.85em;
-  color: var(--ink-faint);
-}
-
-/* Count estimated from the static snapshot (verb not yet fetched live).
-   The leading "~" already signals approximation; italics reinforce it
-   and the dotted underline hints there's a tooltip explaining why. */
-.feed-chip-count.is-estimate {
-  font-style: italic;
-  cursor: help;
-  border-bottom: 1px dotted var(--rule);
-}
-
-.feed-chip-clear {
-  border-style: dashed;
-  color: var(--ink-faint);
-}
-
-.feed-chip-more {
-  border-style: dashed;
-  color: var(--ink-muted);
-}
-
-.feed-chip-more:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-/* Filter sheet ------------------------------------------------------- */
-
-/* Interior of the filter bottom sheet. BottomSheet owns positioning, the
-   surface, and the expand animation; only the interior layout (padding,
-   internal spacing, header/grid) lives here. Full-width — it fills the
-   full-bleed chrome rather than sitting as a narrow centered modal. */
-.feed-filter-sheet-panel {
-  width: 100%;
-  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
-     so the filter grid lines up with the nav dock, breadcrumb, and the
-     bottom-bar buttons at every breakpoint. */
-  padding: var(--space-4) var(--chrome-pad-x);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  /* Extra breathing room below the last row so the sheet doesn't feel
-     cramped against its bottom edge. Overrides the shorthand's bottom pad. */
-  padding-bottom: var(--space-6);
-}
-
-.feed-filter-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  color: var(--ink-faint);
-  letter-spacing: 0.14em;
-}
-
-.feed-filter-modal-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.8rem;
-  height: 1.8rem;
-  border: 1px solid var(--rule);
-  background: var(--page);
-  color: var(--ink-muted);
-  cursor: pointer;
-  border-radius: 0;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-
-.feed-filter-modal-close:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-/* Quick-action pills (show all / none / defaults) -------------------- */
-
-.feed-filter-modal-quick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding-bottom: var(--space-3);
+/* A line is two targets side by side: the toggle, and "only" in a fixed
+   column at the end, apart from the count rather than fused to the toggle. */
+.filter-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3rem;
   border-bottom: 1px solid var(--rule-soft);
 }
 
-.feed-filter-quick-pill {
-  display: inline-flex;
+.filter-toggle {
+  display: grid;
+  grid-template-columns: 0.875rem 7.25rem minmax(0, max-content) minmax(0.75rem, 1fr) auto;
+  grid-template-areas: 'box name gloss leader count';
   align-items: center;
-  gap: 0.45em;
-  padding: 0.35em 0.9em;
-  border-radius: 0;
-  border: 1px dashed var(--rule);
-  background: var(--page);
+  column-gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--control-h-md);
+  padding: var(--space-1) 0;
+  font: inherit;
+  text-align: left;
   color: var(--ink-muted);
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.feed-filter-quick-pill:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-.feed-filter-quick-pill.is-active {
-  background: var(--highlight);
-  color: var(--accent);
-  border-color: var(--accent);
-  border-style: solid;
-}
-
-/* Chip + per-chip "only" affordance ---------------------------------- */
-
-.feed-chip-wrap {
-  display: inline-flex;
-  align-items: stretch;
-  border: 1px solid var(--rule);
-  background: var(--page);
-  transition: border-color 120ms ease, background 120ms ease;
-}
-
-.feed-chip-wrap.is-active {
-  background: var(--highlight);
-  border-color: var(--accent);
-}
-
-/* Toggle area shares the chip look but lives inside the wrapper, so the
-   per-chip border belongs to the wrap and the "only" affordance sits
-   flush against the toggle without a doubled rule between them. */
-.feed-chip-wrap .feed-chip.feed-chip-toggle {
+  background: none;
   border: 0;
-  background: transparent;
   border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.feed-chip-wrap .feed-chip.feed-chip-toggle:hover {
-  border: 0;
-  background: transparent;
+.filter-toggle:focus-visible,
+.filter-only:focus-visible {
+  outline-offset: -2px;
 }
 
-.feed-chip-wrap.is-active .feed-chip.feed-chip-toggle {
-  color: var(--accent);
+@media (hover: hover) {
+  .filter-toggle:hover {
+    background: var(--wash-hover);
+  }
+  .filter-toggle:hover .filter-name {
+    color: var(--accent);
+  }
 }
 
-.feed-chip-wrap.is-active .feed-chip.feed-chip-toggle .feed-chip-icon {
-  color: var(--accent);
-}
-
-.feed-chip-wrap.is-active .feed-chip.feed-chip-toggle .feed-chip-count {
-  color: var(--accent);
-}
-
-.feed-chip-only {
+/* The box: empty and quiet when off; when on, the kit's "on" look (the
+   selected wash, an accent hairline) with an ink check. On and off are told
+   apart by the box and the type, not by a tint alone. */
+.filter-box {
+  grid-area: box;
   display: inline-flex;
   align-items: center;
-  padding: 0 0.6em;
-  border: 0;
-  border-left: 1px solid var(--rule-soft);
-  background: transparent;
-  color: var(--ink-faint);
+  justify-content: center;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 1px solid var(--ink-muted);
+  color: var(--ink);
+}
+
+.filter-line.is-checked .filter-box {
+  border-color: var(--accent);
+  background: var(--wash-selected);
+}
+
+.filter-name {
+  grid-area: name;
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-line.is-checked .filter-name {
+  color: var(--ink);
+}
+
+.filter-gloss {
+  grid-area: gloss;
+  min-width: 0;
   font-family: var(--sans);
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dot leaders from the gloss to the count, set on the text's baseline. */
+.filter-leader {
+  grid-area: leader;
+  align-self: end;
+  margin-bottom: 0.6em;
+  border-bottom: 1px dotted var(--rule);
+}
+
+.filter-count {
+  grid-area: count;
+  min-width: 2.75em;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums lining-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.filter-line.is-checked .filter-count {
+  color: var(--ink-soft);
+}
+
+/* "only": shown on the line under the pointer or the keyboard, in its own
+   column so nothing shifts when it appears; always shown under a finger. */
+.filter-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 0 0 var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease;
+  visibility: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.feed-chip-wrap.is-active .feed-chip-only {
-  border-left-color: var(--accent-soft);
+.filter-line:hover .filter-only,
+.filter-line:focus-within .filter-only {
+  visibility: visible;
 }
 
-.feed-chip-only:hover {
-  color: var(--accent);
-  background: var(--highlight);
+@media (hover: hover) {
+  .filter-only:hover {
+    color: var(--accent);
+    text-decoration-color: var(--accent-soft);
+  }
+}
+
+/* A narrow column (a phone, or a slim sheet): the gloss takes a second line
+   under the name, and the leaders run from the name to the count. */
+@container (max-width: 26rem) {
+  .filter-toggle {
+    grid-template-columns: 0.875rem minmax(0, auto) minmax(0.75rem, 1fr) auto;
+    grid-template-areas:
+      'box name leader count'
+      '. gloss gloss gloss';
+    row-gap: 0;
+    padding: var(--space-2) 0;
+  }
+  .filter-leader {
+    align-self: center;
+    margin-bottom: 0;
+    transform: translateY(0.35em);
+  }
+}
+
+/* Under a finger: every line at least 44px, and "only" always there as a
+   target the full height of the line. */
+@media (pointer: coarse) {
+  .filter-toggle {
+    min-height: var(--control-h-touch);
+  }
+  .filter-only {
+    visibility: visible;
+    min-height: var(--control-h-touch);
+  }
+}
+
+.filter-note {
+  max-width: var(--measure);
+  margin: var(--space-2) 0 0;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  color: var(--ink-muted);
+  text-indent: 0;
 }

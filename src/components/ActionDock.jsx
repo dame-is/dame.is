@@ -9,6 +9,7 @@ import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
 import { useScrollLock } from '../hooks/useScrollLock.js';
+import { useOverlayHistory } from '../hooks/useOverlayHistory.js';
 import SignInPanel from './SignInPanel.jsx';
 import RouteList from './RouteList.jsx';
 import { SHEET_SLIDE } from './BottomSheet.jsx';
@@ -61,6 +62,8 @@ export default function ActionDock() {
   usePreventScrollChain(panelRef, open);
   // …and a wheel or PageDown over it, which that hook doesn't see.
   useScrollLock(open);
+  // Back folds the menu away rather than leaving the page (MOB-04).
+  useOverlayHistory(open, closeDock);
   // Focus into the dock on open, trap Tab within it, restore focus on close.
   // Escape stays owned by the handler below (it pops the sub-view first).
   useFocusTrap(panelRef, { active: open });

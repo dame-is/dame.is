@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
-import { FileText, Image, Link, Quote, Reply, X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
+import FilterIndex, { FilterMeta, FilterQuick } from './FilterIndex.jsx';
+import { formatFilterCount, kindsSummary } from '../lib/filterCounts.js';
 import { useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import {
@@ -28,18 +29,19 @@ const TYPE_LABELS = {
   text: 'text only',
 };
 
-const TYPE_ICONS = {
-  reply: Reply,
-  image: Image,
-  link: Link,
-  quote: Quote,
-  text: FileText,
+// The index's one line on each type, from postingCategories' own rules.
+const TYPE_GLOSSES = {
+  reply: 'answers to someone else’s post',
+  image: 'photos and video',
+  link: 'posts with a link card',
+  quote: 'posts quoting another',
+  text: 'words alone',
 };
 
 /**
  * Filter modal host for the /posting page. Mirrors the FeedFilters
  * pattern: registers with the chrome bar's filter trigger and renders
- * its own Modal when the trigger is tapped. Filters are sub-types of
+ * its own sheet when the trigger is tapped, the same index of lines. Filters are sub-types of
  * the same `posting` verb (replies, image posts, link posts, quote
  * posts, plain text), not separate verbs.
  */
@@ -95,76 +97,42 @@ export default function PostingFilters({ counts }) {
   const noneActive = !usingDefaults && activeTypes.size === 0;
 
   return (
-    <BottomSheet open={open} onClose={closePanel} label="Filter posts" id="chrome-filter-sheet" className="feed-filter-sheet-panel">
-      <div className="feed-filter-modal-header">
-        <span className="small-caps">filter by post type</span>
-        <button
-          type="button"
-          className="feed-filter-modal-close"
-          onClick={closePanel}
-          aria-label="Close"
-        >
-          <X size={16} aria-hidden="true" />
-        </button>
-      </div>
-      <div className="feed-filter-modal-quick" role="group" aria-label="Quick selection">
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${allActive ? 'is-active' : ''}`}
-          onClick={selectAll}
-        >
-          <span className="small-caps">show all</span>
-        </button>
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${noneActive ? 'is-active' : ''}`}
-          onClick={selectNone}
-        >
-          <span className="small-caps">show none</span>
-        </button>
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${usingDefaults ? 'is-active' : ''}`}
-          onClick={resetToDefault}
-        >
-          <span className="small-caps">defaults</span>
-        </button>
-      </div>
-      <div className="feed-chips" role="group" aria-label="Filter by post type">
-        {POSTING_TYPES.map((t) => {
-          const active = activeTypes.has(t);
-          const count = counts?.[t];
-          const Icon = TYPE_ICONS[t];
-          return (
-            <div
-              key={t}
-              className={`feed-chip-wrap ${active ? 'is-active' : ''}`}
-            >
-              <button
-                type="button"
-                className="feed-chip feed-chip-toggle"
-                onClick={() => toggleType(t)}
-                aria-pressed={active}
-              >
-                {Icon && <Icon size={13} className="feed-chip-icon" aria-hidden="true" strokeWidth={1.75} />}
-                <span className="feed-chip-label small-caps">{TYPE_LABELS[t]}</span>
-                {typeof count === 'number' && (
-                  <span className="feed-chip-count gutter">{count}</span>
-                )}
-              </button>
-              <button
-                type="button"
-                className="feed-chip-only"
-                onClick={() => setTypes(new Set([t]))}
-                aria-label={`Show only ${TYPE_LABELS[t]}`}
-                title={`Show only ${TYPE_LABELS[t]}`}
-              >
-                <span className="small-caps">only</span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
+    <BottomSheet
+      open={open}
+      onClose={closePanel}
+      title="Filter posts"
+      meta={<FilterMeta summary={kindsSummary(activeTypes.size, POSTING_TYPES.length, { noun: 'types' })} defaults={usingDefaults} />}
+      actions={
+        <FilterQuick
+          all={allActive}
+          none={noneActive}
+          defaults={usingDefaults}
+          onAll={selectAll}
+          onNone={selectNone}
+          onDefaults={resetToDefault}
+        />
+      }
+      id="chrome-filter-sheet"
+      className="feed-filter-sheet-panel"
+      bodyClassName="filter-sheet-content"
+    >
+      <FilterIndex
+        label="Filter by post type"
+        groups={[
+          {
+            key: 'types',
+            items: POSTING_TYPES.map((t) => ({
+              key: t,
+              label: TYPE_LABELS[t],
+              gloss: TYPE_GLOSSES[t] || null,
+              on: activeTypes.has(t),
+              count: formatFilterCount({ count: counts?.[t] }),
+            })),
+          },
+        ]}
+        onToggle={toggleType}
+        onOnly={(t) => setTypes(new Set([t]))}
+      />
     </BottomSheet>
   );
 }

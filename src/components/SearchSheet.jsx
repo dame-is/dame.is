@@ -76,7 +76,14 @@ function SearchSheet() {
   }
 
   return (
-    <BottomSheet open={open} onClose={closePanel} label="Search" id="chrome-search-sheet" className="search-sheet-panel">
+    <BottomSheet
+      open={open}
+      onClose={closePanel}
+      title="Search"
+      id="chrome-search-sheet"
+      className="search-sheet-panel"
+      bodyClassName="search-sheet-content"
+    >
       <form className="search-sheet-form" onSubmit={handleSubmit} role="search">
         <div className="search-sheet-field">
           <Search size={18} aria-hidden="true" className="search-sheet-icon" />

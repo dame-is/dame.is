@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
-import { X } from 'lucide-react';
+import FilterIndex, { FilterMeta, FilterQuick } from './FilterIndex.jsx';
+import { formatFilterCount, kindsSummary } from '../lib/filterCounts.js';
 import BottomSheet from './BottomSheet.jsx';
 import { useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
@@ -78,71 +79,41 @@ function CreatingFilterSheet({ kinds, counts }) {
   }
 
   return (
-    <BottomSheet open={open} onClose={closePanel} label="Filter projects" id="chrome-filter-sheet" className="feed-filter-sheet-panel">
-      <div className="feed-filter-modal-header">
-        <span className="small-caps">filter by kind</span>
-        <button
-          type="button"
-          className="feed-filter-modal-close"
-          onClick={closePanel}
-          aria-label="Close"
-        >
-          <X size={16} aria-hidden="true" />
-        </button>
-      </div>
-      <div className="feed-filter-modal-quick" role="group" aria-label="Quick selection">
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${allActive ? 'is-active' : ''}`}
-          onClick={selectAll}
-        >
-          <span className="small-caps">show all</span>
-        </button>
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${noneActive ? 'is-active' : ''}`}
-          onClick={selectNone}
-        >
-          <span className="small-caps">show none</span>
-        </button>
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${usingDefaults ? 'is-active' : ''}`}
-          onClick={resetToDefault}
-        >
-          <span className="small-caps">defaults</span>
-        </button>
-      </div>
-      <div className="feed-chips" role="group" aria-label="Filter by kind">
-        {kinds.map((k) => {
-          const a = active.has(k);
-          const count = counts?.[k];
-          return (
-            <div key={k} className={`feed-chip-wrap ${a ? 'is-active' : ''}`}>
-              <button
-                type="button"
-                className="feed-chip feed-chip-toggle"
-                onClick={() => toggleKind(k)}
-                aria-pressed={a}
-              >
-                <span className="feed-chip-label small-caps">{k}</span>
-                {typeof count === 'number' && (
-                  <span className="feed-chip-count gutter">{count}</span>
-                )}
-              </button>
-              <button
-                type="button"
-                className="feed-chip-only"
-                onClick={() => setKinds(new Set([k]))}
-                aria-label={`Show only ${k}`}
-                title={`Show only ${k}`}
-              >
-                <span className="small-caps">only</span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
+    <BottomSheet
+      open={open}
+      onClose={closePanel}
+      title="Filter projects"
+      meta={<FilterMeta summary={kindsSummary(active.size, kinds.length)} defaults={usingDefaults} />}
+      actions={
+        <FilterQuick
+          all={allActive}
+          none={noneActive}
+          defaults={usingDefaults}
+          onAll={selectAll}
+          onNone={selectNone}
+          onDefaults={resetToDefault}
+        />
+      }
+      id="chrome-filter-sheet"
+      className="feed-filter-sheet-panel"
+      bodyClassName="filter-sheet-content"
+    >
+      <FilterIndex
+        label="Filter by kind"
+        groups={[
+          {
+            key: 'kinds',
+            items: kinds.map((k) => ({
+              key: k,
+              label: k,
+              on: active.has(k),
+              count: formatFilterCount({ count: counts?.[k] }),
+            })),
+          },
+        ]}
+        onToggle={toggleKind}
+        onOnly={(k) => setKinds(new Set([k]))}
+      />
     </BottomSheet>
   );
 }

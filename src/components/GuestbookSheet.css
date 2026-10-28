@@ -1,73 +1,15 @@
 /* Interior of the guestbook sign sheet. BottomSheet owns positioning, the
-   surface, and the expand animation; the padding + header here mirror the info
-   sheet (InfoSheet.css) so every bottom-chrome sheet reads as one system. The
-   pen reuses the .guestbook-form styles from the /welcoming page
-   (Guestbook.css, imported by GuestbookSignForm) and the .signin-* controls
-   from SignInPanel. */
-.guestbook-sheet-panel {
-  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x,
-     kept on :root for exactly this) so the sheet lines up with the nav dock,
-     the breadcrumb, and the bottom-bar buttons at every breakpoint. Extra
-     bottom inset so the sign button clears the chrome bar below it rather than
-     crowding its top edge. Content height, like the other sheets, so it sits
-     on the bar where the thumb is. */
-  padding: var(--space-4) var(--chrome-pad-x) var(--space-6);
+   surface, the expand animation and the header; the pen reuses the
+   .guestbook-form styles from the /welcoming page (Guestbook.css, imported by
+   GuestbookSignForm) and the kit's buttons. Content height, like the other
+   sheets, so it sits on the bar where the thumb is, with extra room at the
+   foot so the sign button clears the bar below rather than crowding its
+   edge. */
+.guestbook-sheet-content {
+  padding-bottom: var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.guestbook-sheet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  color: var(--ink-muted);
-}
-
-.guestbook-sheet-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: var(--page);
-  color: var(--ink-soft);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.guestbook-sheet-close:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 14%, var(--page));
-}
-
-@media (hover: hover) {
-  .guestbook-sheet-close:hover {
-    color: var(--accent);
-    border-color: var(--accent-soft);
-    background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  }
-}
-
-/* Touch target: 44px on a coarse pointer without growing the painted 28px
-   box, as the bottom bar's chips do (ChromeBar.css). */
-@media (pointer: coarse) {
-  .guestbook-sheet-close {
-    position: relative;
-  }
-  .guestbook-sheet-close::before {
-    content: '';
-    position: absolute;
-    inset: -8px;
-  }
 }
 
 /* A returning signer's session restoring as the sheet opens. */

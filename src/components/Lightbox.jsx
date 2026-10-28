@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Modal from './Modal.jsx';
+import { useOverlayHistory } from '../hooks/useOverlayHistory.js';
 import './Lightbox.css';
 
 /**
@@ -35,6 +36,8 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   const [active, setActive] = useState(index);
   const [loadedSrcs, setLoadedSrcs] = useState(() => new Set());
   const reduce = useReducedMotion();
+  // Back closes the photo rather than leaving the gallery behind it (MOB-04).
+  useOverlayHistory(open, onClose);
   // The control bar renders beside the Modal panel rather than inside it (a
   // scale transform on the panel would trap the fixed bar inside the panel's
   // box). Handing this ref to the Modal's focus trap keeps the controls inside
