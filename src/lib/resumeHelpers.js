@@ -326,24 +326,35 @@ export function resolveResume(resumeRecord, jobs, education, documents) {
     cid: resumeRecord?.cid,
     experience,
     education: education_,
-    skills: Array.isArray(value.skills) ? value.skills : [],
+    skills: Array.isArray(value.skills)
+      ? value.skills.map((group) => ({
+          ...group,
+          items: mendSkillItems(group?.items),
+        }))
+      : [],
     contact: value.contact || null,
     unresolved,
   };
 }
 
-const renderable = (r) => r?.value && (r.value.visibility || 'public') !== 'private';
+// A résumé's visibility defaults to private — the lexicon says so, and the
+// admin (ResumeStudio, recordVisibility.js) labels a version without the field
+// "private". Reading it as public here meant a version written without one
+// (through the record explorer, say) went live while the admin called it hidden.
+const visibilityOf = (r) => r?.value?.visibility || 'private';
+const renderable = (r) => Boolean(r?.value) && visibilityOf(r) !== 'private';
 
 /**
  * Choose the single active resume shown at /available: the one flagged
  * `featured` (set from the admin panel), else the first public one, else any
- * renderable one. `private` resumes are skipped.
+ * renderable one. `private` resumes — including any without a visibility —
+ * are skipped.
  */
 export function pickDefaultResume(resumes) {
   const list = (resumes || []).filter(renderable);
   return (
     list.find((r) => r.value.featured) ||
-    list.find((r) => (r.value.visibility || 'public') === 'public') ||
+    list.find((r) => visibilityOf(r) === 'public') ||
     list[0] ||
     null
   );
@@ -356,4 +367,60 @@ export function findResumeBySlug(resumes, slug) {
       .filter(renderable)
       .find((r) => (r.value.slug || rkeyFromAtUri(r.uri)) === slug) || null
   );
+}
+
+/**
+ * Split a comma-separated tag list, leaving commas inside parentheses alone:
+ * "browser extensions (Chrome, Firefox), MV3" is two tags, not three. A paren
+ * still open (mid-typing, say) doesn't hold the rest of the list together.
+ */
+export function splitTags(text) {
+  return String(text || '')
+    .split(/,(?![^()]*\))/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const parenDepth = (s) =>
+  (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
+
+/**
+ * Rejoin skill items that a plain comma split cut through a parenthetical —
+ * ["browser extensions (Chrome", "Firefox)"] back into one item. Records saved
+ * before the editor learned `splitTags` still hold the pieces, and the page
+ * shouldn't wait on a re-save to stop printing them as two chips. An opening
+ * paren that never closes is left as it is.
+ */
+export function mendSkillItems(items) {
+  const list = (Array.isArray(items) ? items : []).filter(
+    (s) => typeof s === 'string',
+  );
+  const out = [];
+  for (let i = 0; i < list.length; i += 1) {
+    let item = list[i];
+    let depth = parenDepth(item);
+    let j = i;
+    let joined = item;
+    while (depth > 0 && j + 1 < list.length) {
+      j += 1;
+      joined += `, ${list[j]}`;
+      depth += parenDepth(list[j]);
+    }
+    if (depth === 0 && j > i) {
+      item = joined;
+      i = j;
+    }
+    out.push(item);
+  }
+  return out;
+}
+
+/**
+ * A link as it reads on paper: no scheme, no `www.`, no trailing slash —
+ * "https://bsky.app/profile/dame.is/" → "bsky.app/profile/dame.is". '' for
+ * anything that isn't an http(s) URL.
+ */
+export function printableUrl(url) {
+  const m = /^https?:\/\/(?:www\.)?(.+?)\/?$/i.exec(String(url || '').trim());
+  return m ? m[1] : '';
 }

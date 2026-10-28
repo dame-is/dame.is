@@ -7,13 +7,27 @@ import { matchesQuery } from './FeedSearch.jsx';
 import { workCategory, workSlug } from '../lib/publications.js';
 import './FeedFilters.css';
 
+// "Show none" — distinct from an empty `kinds=`, which reads as all of them.
+const NONE_SENTINEL = '__none__';
+
 /**
  * Filter modal host for the /creating portfolio. Mirrors PostingFilters
  * — the available "kinds" (project categories) are derived from the
  * loaded records since the registry doesn't enumerate them, then
  * surfaced as toggleable chips inside the chrome-bar filter modal.
+ *
+ * Nothing to filter by (still loading, or fewer than two kinds) means
+ * neither registering nor rendering, so the chrome-bar filter button stays
+ * hidden rather than showing a button with no sheet behind it. The
+ * registration lives in the sheet for that reason: a hook can't sit behind
+ * the early return.
  */
 export default function CreatingFilters({ kinds, counts }) {
+  if (!kinds || kinds.length < 2) return null;
+  return <CreatingFilterSheet kinds={kinds} counts={counts} />;
+}
+
+function CreatingFilterSheet({ kinds, counts }) {
   const [params, setParams] = useSearchParams();
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'filter';
@@ -27,7 +41,7 @@ export default function CreatingFilters({ kinds, counts }) {
   function setKinds(next) {
     setParams((prev) => {
       const out = new URLSearchParams(prev);
-      out.set('kinds', Array.from(next).join(','));
+      out.set('kinds', kindsParamValue(next));
       return out;
     }, { replace: true });
   }
@@ -50,7 +64,7 @@ export default function CreatingFilters({ kinds, counts }) {
   function selectNone() {
     setParams((prev) => {
       const out = new URLSearchParams(prev);
-      out.set('kinds', '__none__');
+      out.set('kinds', NONE_SENTINEL);
       return out;
     }, { replace: true });
   }
@@ -62,10 +76,6 @@ export default function CreatingFilters({ kinds, counts }) {
       return out;
     }, { replace: true });
   }
-
-  // Nothing to filter by — don't register or render. The chrome-bar
-  // filter button will stay hidden.
-  if (!kinds || kinds.length < 2) return null;
 
   return (
     <BottomSheet open={open} onClose={closePanel} label="Filter projects" id="chrome-filter-sheet" className="feed-filter-sheet-panel">
@@ -137,11 +147,22 @@ export default function CreatingFilters({ kinds, counts }) {
   );
 }
 
+/**
+ * The `kinds` param for a set of active kinds. Switching off the last chip
+ * leaves an empty set, and an empty value means "all" (it's what "show all"
+ * writes), so the empty set is spelled with the sentinel instead — otherwise
+ * clearing the last kind would bring every project back.
+ */
+export function kindsParamValue(kinds) {
+  const list = Array.from(kinds || []);
+  return list.length ? list.join(',') : NONE_SENTINEL;
+}
+
 export function resolveActiveKinds(params, allKinds) {
   const all = Array.isArray(allKinds) ? allKinds : [];
   if (!params.has('kinds')) return new Set(all);
   const value = params.get('kinds') || '';
-  if (value === '__none__') return new Set();
+  if (value === NONE_SENTINEL) return new Set();
   const raw = value.split(',').filter(Boolean);
   if (raw.length === 0) return new Set(all);
   return new Set(raw);
