@@ -24,7 +24,7 @@ import {
   beginRefresh,
   endRefresh,
 } from '../lib/feedCache.js';
-import { groupByDay } from '../lib/time.js';
+import { formatTime, groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
 import { collapseObservations } from '../lib/observationBatches.js';
 import { markFirstSightings, mergeFirstSightings } from '../lib/firstSightings.js';
@@ -57,6 +57,7 @@ import { useChromePanelActions } from '../hooks/useChromePanel.jsx';
 import { useFirstSightings } from '../hooks/useFirstSightings.js';
 import { useNow } from '../hooks/useNow.js';
 import { ME_DID } from '../config.js';
+import Fleuron from '../components/Fleuron.jsx';
 import '../components/Feed.css';
 
 const FEED_CACHE_KEY = 'unifiedFeed';
@@ -234,9 +235,12 @@ function LedgerColophon({ known, since, oldest, verbs }) {
     // A busy day can use up a kind's whole fetch, and then not even today
     // is whole; the day after the horizon being today reads as just that.
     const first = longDay(since, now, { next: true });
-    if (longDay(since, now) === today) line = 'Even today is only partly here.';
-    else if (first === today) line = 'The ledger is complete for today.';
-    else line = `The ledger is complete back to ${first}.`;
+    // Above this line each kind runs back as far as its own fetch reached,
+    // so "complete for today" would undersell what's there and "complete"
+    // alone would overclaim: say which days hold every kind.
+    if (longDay(since, now) === today) line = 'Not even today holds every kind of record yet.';
+    else if (first === today) line = 'Only today holds every kind of record.';
+    else line = `Every kind of record is here back to ${first}.`;
   } else if (known && oldest) {
     line = `That’s everything, back to ${longDay(oldest, now)}.`;
   }
@@ -244,7 +248,7 @@ function LedgerColophon({ known, since, oldest, verbs }) {
   return (
     <footer className="ledger-colophon">
       <p className="ledger-colophon-mark" aria-hidden="true">
-        <span className="fleuron">&#x2767;</span>
+        <Fleuron />
       </p>
       {line && <p className="ledger-colophon-line">{line}</p>}
       {since && pages.length > 0 && (
@@ -992,7 +996,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
     staleNote =
       feedSourceRef.current === 'snapshot' || !loadedAt
         ? 'live refresh failed · showing the saved snapshot'
-        : `live refresh failed · as of ${loadedAt.toLocaleTimeString()}`;
+        : `live refresh failed · as of ${formatTime(loadedAt)}`;
   }
 
   // The home feed aggregates many records; it has no single is.dame.page/home

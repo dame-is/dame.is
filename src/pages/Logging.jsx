@@ -16,7 +16,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
-import { groupByDay } from '../lib/time.js';
+import { formatTime, groupByDay } from '../lib/time.js';
 import { resolvePds, listRecords, getLatestCommit } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
@@ -182,8 +182,8 @@ export default function Logging() {
       {!loading && refreshedAt && (
         <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
           {status === 'stale'
-            ? `live refresh failed · snapshot from ${refreshedAt.toLocaleTimeString()}`
-            : `refreshed ${refreshedAt.toLocaleTimeString()}`}
+            ? `live refresh failed · snapshot from ${formatTime(refreshedAt)}`
+            : `refreshed ${formatTime(refreshedAt)}`}
         </p>
       )}
     </PageShell>

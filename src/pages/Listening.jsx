@@ -15,7 +15,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
-import { groupByDay } from '../lib/time.js';
+import { formatTime, groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
 import { dropGhostPlays } from '../lib/ghostPlays.js';
 import { resolvePds, getLatestCommit } from '../lib/atproto.js';
@@ -184,8 +184,8 @@ export default function Listening() {
       {!loading && refreshedAt && (
         <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
           {status === 'stale'
-            ? `live refresh failed · snapshot from ${refreshedAt.toLocaleTimeString()}`
-            : `refreshed ${refreshedAt.toLocaleTimeString()}`}
+            ? `live refresh failed · snapshot from ${formatTime(refreshedAt)}`
+            : `refreshed ${formatTime(refreshedAt)}`}
         </p>
       )}
     </PageShell>

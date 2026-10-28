@@ -4,11 +4,16 @@
 // LedgerCite and DayOfLifeHeader do. Kept apart so the rules can be tested
 // without a browser.
 //
-// Every date here is read off `formatDateShort` / `formatDateFull` rather than
-// a Date's own getters, so whatever calendar time.js settles on (the reader's
-// zone, or Dame's), the ledger names the same day its day headers do.
+// Every day here is read through time.js (`calendarDay`, `dateKey`,
+// `formatDateShort`) rather than a Date's own getters, so the ledger names the
+// same day, on Dame's calendar, that its day headers and groups do.
 
-import { formatDateFull, formatDateShort, formatTime } from './time.js';
+import {
+  calendarDay as timeCalendarDay,
+  dateKey,
+  formatDateShort,
+  formatTime,
+} from './time.js';
 import { indexPathForVerb } from './recordPlate.js';
 
 /**
@@ -30,24 +35,20 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 
 /**
  * The calendar day an instant falls on, as `{ y, m, d, weekday }` (m 0-based),
- * or null. Parsed back out of time.js's own long date so it can't disagree
- * with it; the weekday is then a property of that date, not of the instant.
+ * or null: time.js's day on Dame's calendar, plus the weekday of that date
+ * (a property of the date, not of the instant).
  */
 export function calendarDay(at) {
-  const m = /^([A-Za-z]+) (\d{1,2}), (\d{4})$/.exec(formatDateFull(at));
-  if (!m) return null;
-  const month = MONTHS.indexOf(m[1]);
-  if (month < 0) return null;
-  const y = Number(m[3]);
-  const d = Number(m[2]);
-  return { y, m: month, d, weekday: WEEKDAYS[new Date(Date.UTC(y, month, d)).getUTCDay()] };
+  const p = timeCalendarDay(at);
+  if (!p) return null;
+  return { ...p, weekday: WEEKDAYS[new Date(Date.UTC(p.y, p.m, p.d)).getUTCDay()] };
 }
 
-/** Two instants on the same calendar day (by the rule above). */
+/** Two instants on the same calendar day, by the day key time.js groups on. */
 export function sameDay(a, b) {
   if (!a || !b) return false;
-  const da = formatDateShort(a);
-  return Boolean(da) && da === formatDateShort(b);
+  const da = dateKey(a);
+  return Boolean(da) && da === dateKey(b);
 }
 
 /**

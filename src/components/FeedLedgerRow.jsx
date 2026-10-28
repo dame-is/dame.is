@@ -30,6 +30,7 @@ import { dayOfLife } from '../lib/dayOfLife.js';
 import InkblotFigure from './cards/InkblotFigure.jsx';
 import RedactedPost from './cards/RedactedPost.jsx';
 import AlbumCover from './AlbumCover.jsx';
+import Time from './Time.jsx';
 import { LedgerCite, LedgerEmbed, citeFromPostView, citeFromRepost } from './LedgerCite.jsx';
 import { ME_DID, ME_HANDLE } from '../config.js';
 
@@ -264,7 +265,16 @@ export default function FeedLedgerRow({
  * time.
  */
 function TimeLink({ href, dateTime, className, children }) {
-  const time = <time dateTime={dateTime || undefined}>{children}</time>;
+  // <Time> keeps the printed text (the folio's "from 1:27" pieces, a
+  // member's date) and adds the full moment, on Dame's clock and the
+  // reader's, as its tooltip.
+  const time = dateTime ? (
+    <Time value={dateTime} variant="clock" tabular>
+      {children}
+    </Time>
+  ) : (
+    <time>{children}</time>
+  );
   return href ? (
     <Link className={className} to={href}>
       {time}
@@ -349,7 +359,7 @@ function DiaryDate({ date }) {
       <h3 className="day-header" aria-label={longDay(date)} data-day-short={named ? label : shortDay(date)}>
         {named ? label : shortDay(date)}
       </h3>
-      <span className="ledger-diary-dol">day {dayOfLife(date).toLocaleString()}</span>
+      <span className="ledger-diary-dol">day {dayOfLife(date).toLocaleString('en-US')}</span>
     </header>
   );
 }

@@ -86,7 +86,7 @@ export default function DayOfLifeHeader({
       </h3>
       <p className="day-header-meta">
         {meta && <span className="day-header-counts">{meta}</span>}
-        <span className="day-header-folio">day {day.toLocaleString()}</span>
+        <span className="day-header-folio">day {day.toLocaleString('en-US')}</span>
       </p>
     </header>
   );
