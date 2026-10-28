@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Shuffle, Signature } from 'lucide-react';
+import { Shuffle, Signature, X } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import FeedFilters, {
   feedFilterCounts,
@@ -11,7 +11,10 @@ import FeedFilters, {
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
+import VerbIcon from '../components/VerbIcon.jsx';
+import { verbIndexIntro } from '../lib/recordPlate.js';
 import Lightbox from '../components/Lightbox.jsx';
+import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import {
@@ -263,8 +266,21 @@ const GuestbookButton = memo(function GuestbookButton() {
 });
 
 
-export default function Home() {
-  const [params, setParams] = useSearchParams();
+/**
+ * The home ledger. With `verb`, it's that verb's generated index instead
+ * (/reposting, /liking, …, see GENERATED_INDEX_VERBS): the same ledger filtered
+ * to the one verb, under "dame is reposting" rather than the hero, with a line
+ * saying what's filtered and a way back to everything.
+ */
+export default function Home({ verb: presetVerb = null } = {}) {
+  const [rawParams, setParams] = useSearchParams();
+  // A preset verb stands in for `?verbs=` until the visitor picks their own.
+  const params = useMemo(() => {
+    if (!presetVerb || rawParams.has('verbs')) return rawParams;
+    const p = new URLSearchParams(rawParams);
+    p.set('verbs', presetVerb);
+    return p;
+  }, [rawParams, presetVerb]);
 
   // Which verbs the active filter set actually needs fetched. `replying`
   // is a virtual filter over `posting` records, so it folds onto posting.
@@ -957,44 +973,19 @@ export default function Home() {
   // "Edit record" surface a raw PDS "Could not locate record" error and emitted
   // a dead <link rel="alternate"> hint. See pageRkeyForPath in
   // src/hooks/useAtUri.js.
-  return (
-    <PageShell
-      title={<HeroSentence shuffleRef={shuffleRef} />}
-      headTitle="dame.is"
-      selectable
-    >
-      <nav className="home-hero-cta" aria-label="Primary destinations">
-        <Link className="home-hero-cta-btn home-hero-cta-primary" to="/available">
-          Resume
-        </Link>
-        <Link className="home-hero-cta-btn" to="/creating">
-          Projects
-        </Link>
-        <Link className="home-hero-cta-btn" to="/blogging">
-          Blog
-        </Link>
-        <GuestbookButton />
-        <button
-          type="button"
-          className="home-hero-cta-btn home-hero-shuffle"
-          onClick={() => shuffleRef.current?.()}
-          aria-label="Shuffle hero statement"
-          title="Shuffle hero statement"
-        >
-          <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-      </nav>
-
-      <section className="home-latest">
-        <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
+  // The ledger itself, shared by the home page and the generated verb
+  // indexes. The cold-load skeleton, the day groups and the photo lightbox
+  // all ride along.
+  const feedBody = (
+    <>
         {/* One flex child holds the whole feed body (or the cold-load
             fetching line) so its spacing rides in the wrapper rather than
             in the parent's animatable flex `gap`. */}
         <div className={`home-feed-region${ledger ? ' feed-ledger' : ''}`}>
           {loading || (checking && filtered.length === 0) ? (
-            <p className="feed-activity-standalone" role="status" aria-live="polite">
-              Fetching latest activity&hellip;
-            </p>
+            // Shaped like the ledger (verb | body | time), so the rows land
+            // in its place rather than below a status line.
+            <FeedSkeleton rows={6} label="Fetching latest activity" ledger={ledger} />
           ) : filtered.length === 0 ? (
             <div className="feed-empty">
               <p>{empty.copy}</p>
@@ -1086,14 +1077,82 @@ export default function Home() {
             </div>
           )
         )}
-      </section>
-
       <Lightbox
         open={lightboxIndex >= 0}
         index={Math.max(0, lightboxIndex)}
         onClose={() => setLightboxIndex(-1)}
         images={observationPhotos.images}
       />
+    </>
+  );
+
+  if (presetVerb) {
+    return (
+      <PageShell
+        title={
+          <>
+            dame is <span className="gerund">{presetVerb}</span>
+          </>
+        }
+        intro={verbIndexIntro(presetVerb)}
+        headTitle={`dame is ${presetVerb} — dame.is`}
+        selectable
+      >
+        <section className="home-latest">
+          <p className="verb-index-filter">
+            <span className="small-caps">showing</span>
+            <span aria-hidden="true">·</span>
+            <span className="verb-index-filter-verb">
+              <VerbIcon verb={presetVerb} size={13} />
+              {presetVerb}
+            </span>
+            <span aria-hidden="true">·</span>
+            <Link to="/" className="verb-index-filter-clear">
+              <X size={12} strokeWidth={1.75} aria-hidden="true" />
+              clear
+            </Link>
+          </p>
+          {feedBody}
+        </section>
+      </PageShell>
+    );
+  }
+
+  return (
+    <PageShell
+      title={<HeroSentence shuffleRef={shuffleRef} />}
+      headTitle="dame.is"
+      selectable
+    >
+      {/* Resume is the one filled button; the guestbook and shuffle ride at
+          the end of the row as icon buttons. */}
+      <nav className="home-hero-cta" aria-label="Primary destinations">
+        <Link className="home-hero-cta-btn home-hero-cta-primary" to="/available">
+          Resume
+        </Link>
+        <Link className="home-hero-cta-btn" to="/creating">
+          Projects
+        </Link>
+        <Link className="home-hero-cta-btn" to="/blogging">
+          Blog
+        </Link>
+        <GuestbookButton />
+        <button
+          type="button"
+          className="home-hero-cta-btn home-hero-shuffle"
+          onClick={() => shuffleRef.current?.()}
+          aria-label="Shuffle hero statement"
+          title="Shuffle hero statement"
+        >
+          <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      </nav>
+
+      <section className="home-latest">
+        <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
+        {feedBody}
+      </section>
+
     </PageShell>
   );
 }

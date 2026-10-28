@@ -232,3 +232,23 @@ a.comment-author-name:focus-visible {
 .comment-embed > * {
   margin-top: 0;
 }
+
+/* An empty thread, collapsed to one ruled line. */
+.comments-empty-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5em;
+  max-width: none;
+  margin: var(--space-6) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule-soft);
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.comments-empty-line .small-caps {
+  letter-spacing: 0.12em;
+}

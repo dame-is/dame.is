@@ -38,6 +38,14 @@ export default function TickerText({ children, className = '', title, marquee = 
   const [contentWidth, setContentWidth] = useState(0);
   const [hovered, setHovered] = useState(false);
   const reduce = useReducedMotion();
+  // The marquee runs one pass and then rests on the start of the text, the
+  // way the home hero rests after three swaps; a new value runs once more.
+  // (It used to loop for as long as the page was open, pausing only under a
+  // pointer or keyboard focus.)
+  const [rested, setRested] = useState(false);
+  useEffect(() => {
+    setRested(false);
+  }, [children]);
 
   // Armed once per pair of elements, not once per text. Both observed spans are
   // inline-block and sized by their text, so new text that changes the width
@@ -76,7 +84,7 @@ export default function TickerText({ children, className = '', title, marquee = 
     // the second copy and the gap padding are gated on this, so a fitting or
     // reduced-motion value renders as a single still copy (with the same fade
     // as the hover mode's idle state).
-    const playing = truncated && !reduce;
+    const playing = truncated && !reduce && !rested;
     // The track travels one copy-plus-gap per cycle; keep the pace constant so
     // longer statuses take proportionally longer to loop.
     const duration = playing
@@ -92,6 +100,7 @@ export default function TickerText({ children, className = '', title, marquee = 
       >
         <span
           className="ticker-track"
+          onAnimationEnd={() => setRested(true)}
           style={
             playing
               ? { '--ticker-duration': `${duration}s`, '--ticker-gap': `${MARQUEE_GAP}px` }

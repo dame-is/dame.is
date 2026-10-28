@@ -1,31 +1,20 @@
 /* Interior of the guestbook sign sheet. BottomSheet owns positioning, the
    surface, and the expand animation; the padding + header here mirror the info
    sheet (InfoSheet.css) so every bottom-chrome sheet reads as one system. The
-   signed-in pen reuses the .guestbook-form styles from the /welcoming page
-   (Guestbook.css, imported by GuestbookSignForm); the signed-out sign-in uses
-   the .signin-* controls from SignInPanel. */
+   pen reuses the .guestbook-form styles from the /welcoming page
+   (Guestbook.css, imported by GuestbookSignForm) and the .signin-* controls
+   from SignInPanel. */
 .guestbook-sheet-panel {
   /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x,
      kept on :root for exactly this) so the sheet lines up with the nav dock,
      the breadcrumb, and the bottom-bar buttons at every breakpoint. Extra
      bottom inset so the sign button clears the chrome bar below it rather than
-     crowding its top edge. */
+     crowding its top edge. Content height, like the other sheets, so it sits
+     on the bar where the thumb is. */
   padding: var(--space-4) var(--chrome-pad-x) var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-/* On touch screens the sheet takes the whole gap between the bars, with its
-   content at the top: the signed-out handle field and the signed-in message
-   field then sit where the on-screen keyboard can't reach them, so nothing
-   has to move when it comes up (the nav dock's account view does the same;
-   ActionDock.css explains why). The height is BottomSheet's `fill` size. */
-@media (pointer: coarse) {
-  .guestbook-sheet-panel.bottom-sheet-panel-compact {
-    height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--sheet-bottom));
-    border-top: 0;
-  }
 }
 
 .guestbook-sheet-header {
@@ -36,15 +25,7 @@
   font-family: var(--sans);
   font-size: var(--text-xs);
   letter-spacing: 0.16em;
-  color: var(--ink-faint);
-}
-
-/* The signer's handle in the header ("… as @handle") — normal case (overriding
-   the small-caps eyebrow) and a touch darker so the identity reads clearly. */
-.guestbook-sheet-signer {
-  font-variant: normal;
-  letter-spacing: 0.02em;
-  color: var(--ink-soft);
+  color: var(--ink-muted);
 }
 
 .guestbook-sheet-close {
@@ -87,19 +68,6 @@
     position: absolute;
     inset: -8px;
   }
-}
-
-.guestbook-sheet-signin {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.guestbook-sheet-signin-text {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-  line-height: var(--leading);
 }
 
 /* A returning signer's session restoring as the sheet opens. */

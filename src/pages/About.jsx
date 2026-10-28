@@ -1,14 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowUpRight } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import { Skeleton } from '../components/Skeleton.jsx';
 import { useProfile } from '../hooks/useProfile.js';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
-import { resolvePds, getRecord } from '../lib/atproto.js';
+import { resolvePds, getRecord, listRecordsPage } from '../lib/atproto.js';
 import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { hasLeafletContent } from '../lib/lexicons.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
+import { pickDefaultResume } from '../lib/resumeHelpers.js';
+import { fetchGuestbookEntries } from '../lib/guestbook.js';
+import { relativeTime } from '../lib/time.js';
+import { pageDefault } from '../lib/pageRegistry.js';
+import { usePageContent } from '../hooks/usePageContent.js';
+import { useNavRoutes } from '../hooks/useNavRoutes.js';
+import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { safeHref } from '../lib/safeHref.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './About.css';
@@ -129,7 +139,16 @@ export default function About() {
               ) : (
                 <>
                   <h1 className="about-name">{displayName}</h1>
-                  <p className="about-handle">@{profile?.handle || 'dame.is'}</p>
+                  <p className="about-handle">
+                    <a
+                      href={`https://bsky.app/profile/${profile?.handle || 'dame.is'}`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      @{profile?.handle || 'dame.is'}
+                      <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden="true" />
+                    </a>
+                  </p>
                 </>
               ))}
             {tagline &&
@@ -167,7 +186,177 @@ export default function About() {
           dangerouslySetInnerHTML={{ __html: longHtml }}
         />
       )}
+
+      {/* Nothing here waits on is.dame.profile/self, so the page no longer
+          ends at the one-line bio when that record is missing. The record's
+          own links, once it has some, take over from Find Dame. */}
+      {links.length === 0 && <FindDame profile={profile} />}
+      <AlsoList />
     </PageShell>
+  );
+}
+
+/**
+ * Find Dame: the real routes in, as a two-column ledger. Every value comes
+ * from a record the site already reads: the Bluesky profile, the featured
+ * résumé (its email and title), and the guestbook's count.
+ */
+function FindDame({ profile }) {
+  const { openPanel } = useChromePanel();
+  const [resume, setResume] = useState(null);
+  const [book, setBook] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchSnapshot('resume')
+      .then((d) => {
+        if (!cancelled) setResume(pickDefaultResume(d?.resumes)?.value || null);
+      })
+      .catch(() => {});
+    fetchGuestbookEntries({ limit: 1 })
+      .then((page) => {
+        if (!cancelled && page) {
+          setBook({
+            total: page.publicTotal ?? page.total,
+            latest: page.entries?.[0]?.value?.createdAt || null,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handle = profile?.handle || 'dame.is';
+  const email = resume?.contact?.email;
+  const role = [resume?.headline, resume?.contact?.location].filter(Boolean).join(' · ');
+  return (
+    <section className="about-ledger" aria-labelledby="about-find-h">
+      <h2 id="about-find-h" className="about-ledger-h">
+        Find Dame
+      </h2>
+      <dl className="about-ledger-rows">
+        <div>
+          <dt>bluesky</dt>
+          <dd>
+            <a href={`https://bsky.app/profile/${handle}`} target="_blank" rel="noreferrer noopener">
+              @{handle}
+              <ArrowUpRight size={12} strokeWidth={1.75} aria-hidden="true" />
+            </a>
+            {profile?.followersCount ? (
+              <span className="about-ledger-note">
+                {profile.followersCount.toLocaleString('en-US')} followers
+              </span>
+            ) : null}
+          </dd>
+        </div>
+        {email && (
+          <div>
+            <dt>email</dt>
+            <dd>
+              <a href={`mailto:${email}`}>{email}</a>
+              <span className="about-ledger-note">the address on the résumé</span>
+            </dd>
+          </div>
+        )}
+        <div>
+          <dt>résumé</dt>
+          <dd>
+            <Link to="/available">available for hire&nbsp;&rarr;</Link>
+            {role && <span className="about-ledger-note">{role}</span>}
+          </dd>
+        </div>
+        <div>
+          <dt>guestbook</dt>
+          <dd>
+            <button type="button" className="about-ledger-action" onClick={() => openPanel('guestbook')}>
+              sign it&nbsp;&rarr;
+            </button>
+            {book?.total ? (
+              <span className="about-ledger-note">
+                {book.total} {book.total === 1 ? 'signature' : 'signatures'}
+                {book.latest ? `, the latest ${relativeTime(book.latest)}` : ''}
+              </span>
+            ) : null}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
+// The sections whose latest record is one cheap read: a single listRecords
+// row. The rest go without a folio rather than guess.
+const LATEST_FROM = {
+  '/logging': COLLECTIONS.now,
+  '/listening': COLLECTIONS.listen,
+  '/mothing': 'is.dame.mothing.observation',
+};
+const ROUTE_SLUG = { '/welcoming': 'guestbook', '/available': 'resume' };
+const NOT_ALSO = new Set(['/', '/themself', '/available', '/welcoming']);
+
+/**
+ * "Dame is also…": the menu's own sections (in is.dame.nav order), each with
+ * a gloss cut from that page's intro and, where it's cheap to know, how
+ * recently it last had a record.
+ */
+function AlsoList() {
+  const routes = useNavRoutes().filter((r) => !NOT_ALSO.has(r.to));
+  const [latest, setLatest] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const pds = await resolvePds(ME_DID);
+        const out = {};
+        await Promise.all(
+          Object.entries(LATEST_FROM).map(async ([path, collection]) => {
+            const page = await listRecordsPage(pds, { repo: ME_DID, collection, limit: 1 }).catch(() => null);
+            const v = page?.records?.[0]?.value;
+            const at = v?.createdAt || v?.playedTime || v?.observedAt || null;
+            if (at) out[path] = at;
+          }),
+        );
+        if (!cancelled) setLatest(out);
+      } catch {
+        /* no folios; the list still stands */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (!routes.length) return null;
+  return (
+    <section className="about-ledger about-also" aria-labelledby="about-also-h">
+      <h2 id="about-also-h" className="about-ledger-h">
+        Dame is also&hellip;
+        <span className="about-ledger-h-meta">latest</span>
+      </h2>
+      <ul className="about-also-rows">
+        {routes.map((r) => (
+          <AlsoRow key={r.to} route={r} latest={latest[r.to]} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function AlsoRow({ route, latest }) {
+  const slug = ROUTE_SLUG[route.to] || route.to.slice(1);
+  const { intro } = usePageContent(slug);
+  const text = intro || pageDefault(slug)?.intro || '';
+  // The first sentence, lower-cased to run on from "Dame is also… creating:".
+  const first = text.split(/(?<=[.!?])\s/)[0].replace(/[.!?]$/, '');
+  const gloss = first ? first[0].toLowerCase() + first.slice(1) : '';
+  return (
+    <li className="about-also-row">
+      <Link to={route.to} className="about-also-label">
+        {route.label}
+      </Link>
+      <span className="about-also-gloss">{gloss}</span>
+      <span className="about-also-latest">{latest ? relativeTime(latest) : ''}</span>
+    </li>
   );
 }
 
@@ -191,7 +380,7 @@ function PhotoGallery({ photos, layout }) {
   // different lines, which reads as a layout that didn't finish rather than as
   // a set. A single column has no neighbour to line up with, so there the
   // photo's own proportions are kept.
-  const uniform = layout !== 'one-up' && layout !== 'standalone';
+  const uniform = layout !== 'one-up' && layout !== 'standalone' && layout !== 'justified';
   const images = useMemo(
     () =>
       photos.map((p) => ({
@@ -213,7 +402,11 @@ function PhotoGallery({ photos, layout }) {
             // Index keys: the list is rendered straight from the record and
             // never reordered here, and two photos may legitimately share a
             // URL — which a URL key would collide on.
-            <figure className="about-photo" key={i}>
+            <figure
+              className="about-photo"
+              key={i}
+              style={ar?.width && ar?.height ? { '--ar': ar.width / ar.height } : undefined}
+            >
               <button
                 type="button"
                 className="about-photo-button"

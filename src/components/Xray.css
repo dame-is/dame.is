@@ -10,8 +10,12 @@
 
 :root {
   --xr-ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --xr-ink: var(--accent);
-  --xr-field: var(--highlight);
+  /* The x-ray ink is the accent pushed 15% toward the ink, so its mono
+     glosses clear AA (6.1:1 at 1pm, 7.9:1 at 9pm; plain accent glosses at
+     62% opacity measured 2.6:1). The field under a record tree is a lighter
+     tint than --highlight, so the tree's labels stay legible on it. */
+  --xr-ink: color-mix(in srgb, var(--accent) 85%, var(--ink));
+  --xr-field: color-mix(in srgb, var(--accent) 10%, transparent);
   --xr-frame: color-mix(in srgb, var(--accent) 52%, transparent);
   --xr-glow: color-mix(in srgb, var(--accent) 30%, transparent);
   --xr-dim: 0.08;         /* how far revealed content recedes behind its data */
@@ -30,81 +34,168 @@
 .bp-cid { font-family: var(--code); color: var(--ink-muted); }
 
 /* ----------------------------------------------------------------------
-   A · FEED (ledger) — a records manifest.
-   The row keeps its exact grid; a single-line data layer is absolutely
-   positioned over the same tracks and crossfades in, so columns stay
-   aligned and nothing can overflow the row.
+   A · FEED (ledger) — marginalia, not a manifest.
+   The row keeps its content, one step quieter, and its two label columns
+   take the protocol: the verb column becomes the collection and the time
+   column the record's address (rkey over a short CID). It used to collapse
+   every row to a bare at:// line, so a reader couldn't tell which post was
+   which. A hairline bracket in the left margin says "this is a record, and
+   it opens".
    ---------------------------------------------------------------------- */
 .feed-ledger .feed-item-ledger { position: relative; }
 
-.ledger-xray {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  /* Its own two tracks (address · hash) rather than the row's three, so the
-     content hash gets room to read instead of clipping in the narrow time
-     column. */
-  grid-template-columns: minmax(0, 1fr) max-content;
-  column-gap: var(--space-4);
-  align-items: baseline;
-  padding: var(--space-3) 0;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.28s var(--xr-ease);
-}
-.ledger-xray-uri {
-  grid-column: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--code);
-  font-size: calc(var(--text-xs) * 0.95);
-}
-.ledger-xray-cid {
-  grid-column: 2;
-  text-align: right;
-  font-family: var(--code);
-  font-size: var(--text-xs);
-  color: var(--ink-muted);
-  white-space: nowrap;
-}
-
-/* Mobile: the shared DID prefix eats the line and clips the identifying tail,
-   so drop it (lead with the collection) and hide the hash — the nsid + rkey
-   is what tells rows apart. */
-@media (max-width: 600px) {
-  .ledger-xray .bp-uri .did { display: none; }
-  .ledger-xray-cid { display: none; }
-}
-
-/* When inspect is on the row COLLAPSES to just its manifest line. Tall rows
-   (posts with embeds, quote reposts, listen batches) otherwise kept their full
-   height with the one-line address floating at the top over a big empty block —
-   and a focused row's panel then appeared far below the tap. So hide the
-   rendered content outright and drop the manifest into normal flow: the row is
-   one line, and the substrate panel sits directly beneath the tapped row. */
-:root[data-xray="on"] .feed-item-ledger > .ledger-verb,
-:root[data-xray="on"] .feed-item-ledger > .ledger-body,
-:root[data-xray="on"] .feed-item-ledger > .ledger-time,
-:root[data-xray="on"] .feed-item-ledger > .ledger-track-row {
+.ledger-xray-nsid,
+.ledger-xray-key {
   display: none;
 }
-:root[data-xray="on"] .feed-item-ledger .ledger-xray {
-  position: static;
-  grid-column: 1 / -1;
-  padding: 0;
-  opacity: 1;
-  pointer-events: auto;
-}
-:root[data-xray="on"] .feed-item-ledger .ledger-xray .ledger-xray-uri { cursor: pointer; }
-@media (hover: hover) {
-  .ledger-xray-uri:hover .nsid { text-decoration: underline; }
+
+:root[data-xray="on"] .feed-ledger {
+  --ledger-time-col: 5.5rem;
 }
 
-/* A focused ledger row drops its full substrate panel below, spanning the
-   row's whole grid rather than landing in a single column. */
+:root[data-xray="on"] .feed-item-ledger > .ledger-verb,
+:root[data-xray="on"] .feed-item-ledger > .ledger-time {
+  display: none;
+}
+
+/* Pinned to the content column (the second-to-last track in every ledger
+   grid) so the record tree can share its cell on a wide screen without
+   pushing the post into an implicit column. */
+:root[data-xray="on"] .feed-item-ledger > .ledger-body {
+  grid-row: 1;
+  grid-column: -3 / -2;
+}
+
+/* Unfocused rows drop one step to the muted ink (6:1 by day) rather than
+   vanishing or fading to an opacity that fails AA. The tapped row returns
+   to full ink. */
+:root[data-xray="on"] .feed-item-ledger:not(.is-xray-focus) > .ledger-body {
+  --ink: var(--ink-muted);
+  color: var(--ink-muted);
+}
+
+:root[data-xray="on"] .feed-item-ledger > .ledger-xray-nsid {
+  display: block;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  font-family: var(--code);
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--xr-ink);
+  overflow-wrap: anywhere;
+}
+
+.ledger-xray-name {
+  color: var(--ink);
+}
+
+:root[data-xray="on"] .feed-item-ledger > .ledger-xray-key {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  grid-column: -2 / -1;
+  grid-row: 1;
+  min-width: 0;
+  font-family: var(--code);
+  font-size: 0.66rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.ledger-xray-rkey {
+  color: var(--ink-soft);
+}
+
+.ledger-xray-cid {
+  color: var(--ink-muted);
+}
+
+/* A slug rkey (an essay's) can run to sixty characters: it wraps inside a
+   capped key column rather than squeezing the title. */
+:root[data-xray="on"] .feed-item-ledger > .ledger-xray-key { max-width: 16rem; }
+.ledger-xray-rkey { overflow-wrap: anywhere; }
+
+/* A flat ledger with no label column puts the collection over the key. */
+.ledger-xray-key-nsid {
+  display: none;
+  color: var(--xr-ink);
+}
+
+:root[data-xray="on"] .feed-ledger-flat:not(.feed-ledger-flat-kinded) .ledger-xray-key-nsid {
+  display: block;
+}
+
+:root[data-xray="on"] .feed-ledger-flat:not(.feed-ledger-flat-kinded) .feed-item-ledger > .ledger-xray-nsid {
+  display: none;
+}
+
+/* The bracket. */
+:root[data-xray="on"] .feed-item-ledger[data-atproto]::before {
+  content: '';
+  position: absolute;
+  left: -0.85rem;
+  top: var(--space-3);
+  bottom: var(--space-3);
+  width: 5px;
+  border: 1px solid var(--xr-frame);
+  border-right: 0;
+  pointer-events: none;
+}
+
+:root[data-xray="on"] .feed-item-ledger.is-xray-focus::before {
+  border-color: var(--xr-ink);
+}
+
+/* A focused row drops its full record tree below it on a phone, directly
+   under the caption that was tapped; with a margin to spare it opens in
+   the row's own right half, beside the post it describes, and the post
+   gives it room. */
 .feed-item-ledger > .xray-substrate { grid-column: 1 / -1; }
+
+/* Phones: no room for two label columns of mono, so the row gains one
+   caption line across its full width, "app.bsky.feed.post/3myu… · bafy…",
+   and keeps its verb and content below it. The time goes; the rkey is a
+   TID, so the caption still carries it. A tapped row's tree opens directly
+   under the caption, above the post. */
+@media (max-width: 600px) {
+  :root[data-xray="on"] .feed-item-ledger > .ledger-verb { display: block; grid-row: 2; }
+  :root[data-xray="on"] .feed-item-ledger > .ledger-xray-nsid { display: none; }
+  :root[data-xray="on"] .feed-item-ledger > .ledger-xray-key {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-start;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    margin-bottom: var(--space-1);
+    text-align: left;
+  }
+  :root[data-xray="on"] .feed-item-ledger > .ledger-xray-key .ledger-xray-key-nsid { display: inline; }
+  .ledger-xray-key-nsid::after { content: '/'; }
+  .ledger-xray-cid::before { content: '·'; margin: 0 0.4em; color: var(--ink-muted); }
+  :root[data-xray="on"] .feed-item-ledger > .ledger-body { grid-row: 2; grid-column: 2 / -1; }
+  :root[data-xray="on"] .feed-ledger-flat:not(.feed-ledger-flat-kinded) .feed-item-ledger > .ledger-body {
+    grid-column: 1 / -1;
+  }
+  :root[data-xray="on"] .feed-item-ledger > .xray-substrate { grid-row: 2; margin: 0 0 var(--space-3); }
+  :root[data-xray="on"] .feed-item-ledger.is-xray-focus > .ledger-verb,
+  :root[data-xray="on"] .feed-item-ledger.is-xray-focus > .ledger-body { grid-row: 3; }
+}
+
+@media (min-width: 1080px) {
+  .feed-item-ledger > .xray-substrate {
+    grid-column: -3 / -2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: start;
+    width: 21rem;
+    margin-top: 0;
+  }
+  :root[data-xray="on"] .feed-item-ledger.is-xray-focus > .ledger-body {
+    max-width: calc(100% - 22.5rem);
+  }
+}
 
 /* ----------------------------------------------------------------------
    B · CARDS — every card wears a calm substrate tag; focusing one opens
@@ -140,8 +231,9 @@
 
 /* Recede everything that isn't the focused record. Scoped to leaf record
    elements (never page containers) so a focused child never dims its own
-   surroundings into itself. */
-:root[data-xray-focus="on"] [data-atproto]:not(.is-xray-focus) {
+   surroundings into itself. Ledger rows and inline records are exempt: they
+   already sit at the muted ink, which reads, where this fade doesn't. */
+:root[data-xray-focus="on"] [data-atproto]:not(.is-xray-focus):not(.feed-item-ledger):not([data-xray-nsid]) {
   opacity: 0.24;
   filter: grayscale(0.85) blur(1.1px);
   transition: opacity 0.34s var(--xr-ease), filter 0.34s var(--xr-ease);
@@ -170,7 +262,7 @@
   font-size: 0.64rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--xr-ink);
   margin: 0;
 }
 
@@ -183,18 +275,42 @@
   padding-left: calc(var(--d, 0) * 1.3em);
 }
 .locus-lvl .lead { color: var(--xr-frame); margin-left: -1em; }
-.locus-lvl .k { color: var(--ink-faint); }
+/* Labels and hints use --ink-muted, not --ink-faint: on the x-ray field the
+   faint ink falls under 4.5:1 at some hours, and the muted one clears it
+   (5.4:1 at 1pm, 5.0:1 at 9pm). */
+.locus-lvl .k { color: var(--ink-muted); }
 /* pds host + handle read as words (serif, inherited); the identifier values
    below stay monospace so their exact characters read cleanly. */
 .locus-lvl .v { color: var(--ink-soft); word-break: break-all; }
 .locus-lvl .v.accent { color: var(--xr-ink); font-family: var(--code); }
-.locus-lvl .vdim { color: var(--ink-faint); font-family: var(--code); }
+.locus-lvl .vdim { color: var(--ink-muted); font-family: var(--code); }
 .locus-lvl.is-here { padding-top: 1px; padding-bottom: 1px; box-shadow: inset 2px 0 0 var(--accent); }
 .locus-lvl.is-here .v { color: var(--xr-ink); font-family: var(--code); }
-.locus-lvl .here-mark { color: var(--accent); }
-.locus-cid .kdim { color: var(--ink-faint); }
+.locus-lvl .here-mark { color: var(--xr-ink); }
+.locus-cid .kdim { color: var(--ink-muted); }
 .locus-cid .vdim { color: var(--ink-muted); }
-.locus-cid .hint { color: var(--ink-faint); font-style: italic; }
+.locus-lvl .hint { color: var(--ink-muted); font-style: italic; }
+
+/* A reference record's subject: the post it points at, on its own line
+   under the arrow, with that post's CID beside its address. */
+.locus-subject { margin-top: 2px; }
+.locus-subject-ref {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-basis: 100%;
+}
+.locus-subject-ref .vdim { word-break: normal; overflow-wrap: anywhere; }
+
+/* The whole address at the head of the tree, broken at its slashes. */
+.xray-substrate-uri {
+  margin: 0;
+  text-indent: 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 
 .xray-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-1); }
 .xray-actions a, .xray-actions button {
@@ -315,6 +431,16 @@
   :root[data-xray='on'] .blog-article,
   :root[data-xray='on'] .creating-work-page {
     --doc-overhang: 0px;
+    --doc-overhang-end: 0px;
+  }
+
+  /* An essay (.blog-book) has a margin column of its own, and gives it to
+     the block glosses: the record panel opens in the text column under the
+     title instead of floating past the article's edge. */
+  .blog-book > .doc-inspect-margin {
+    position: static;
+    width: auto;
+    margin: 0 0 var(--space-5);
   }
 }
 
@@ -359,7 +485,6 @@
     font-size: 0.6rem;
     letter-spacing: 0.03em;
     color: var(--xr-ink);
-    opacity: 0.62;
     white-space: nowrap;
     pointer-events: none;
   }
@@ -371,6 +496,79 @@
   :root[data-xray="on"] .leaflet-doc .leaflet-embed::after { content: "blocks.website"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-bsky-post::after { content: "blocks.bskyPost"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-list::after { content: "blocks.list"; }
+
+  /* On an essay the text hangs at the page's left edge, so there is no left
+     gutter to write in: the block tags move across into the margin beside
+     their blocks, where the essay's own notes are. */
+  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-paragraph::after,
+  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-heading::after,
+  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-image::after,
+  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-code::after,
+  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-website::after,
+  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-embed::after,
+  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-bsky-post::after,
+  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-list::after {
+    right: auto;
+    left: 100%;
+    margin-right: 0;
+    margin-left: var(--space-7);
+    text-indent: 0;
+  }
+
+  /* The manuscript: where the page curled a quote or set a dash, the margin
+     says so on one line beneath the paragraph's tag, and pointing at the
+     paragraph prints the record's text as written. One line at rest, so
+     neighbouring notes never pile into each other. */
+  :root[data-xray="on"] .blog-book .leaflet-xray-raw {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    position: absolute;
+    top: 1.35em;
+    left: 100%;
+    width: 15rem;
+    margin-left: var(--space-7);
+    text-indent: 0;
+    font-style: normal;
+    font-variant-caps: normal;
+    letter-spacing: 0;
+    pointer-events: none;
+  }
+  .leaflet-xray-raw-label,
+  .leaflet-xray-raw-text {
+    display: none;
+  }
+  :root[data-xray="on"] .blog-book .leaflet-paragraph:hover .leaflet-xray-raw {
+    z-index: 3;
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    margin-left: calc(var(--space-7) - var(--space-3));
+    background: var(--page);
+    outline: 1px solid var(--rule-soft);
+  }
+  :root[data-xray="on"] .blog-book .leaflet-paragraph:hover .leaflet-xray-raw-label {
+    display: block;
+    order: -1;
+  }
+  :root[data-xray="on"] .blog-book .leaflet-paragraph:hover .leaflet-xray-raw-text {
+    display: -webkit-box;
+    order: -1;
+  }
+  .leaflet-xray-raw-label,
+  .leaflet-xray-raw-note {
+    font-family: var(--sans);
+    font-size: var(--text-xs);
+    font-style: italic;
+    color: var(--ink-muted);
+  }
+  .leaflet-xray-raw-text {
+    font-family: var(--code);
+    font-size: 0.7rem;
+    line-height: 1.45;
+    color: var(--xr-ink);
+    -webkit-line-clamp: 8;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -391,14 +589,21 @@
   font-size: var(--text-xs);
   color: var(--ink-muted);
 }
-.xray-hud-mark { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.64rem; flex: none; }
+.xray-hud-mark { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--xr-ink); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.64rem; flex: none; }
 .xray-hud-mark svg { width: 13px; height: 13px; }
 .xray-hud .bp-uri { display: inline-block; min-width: 0; max-width: min(52ch, 66vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .xray-hud-uri-link { text-decoration: none; min-width: 0; }
 @media (hover: hover) {
   .xray-hud-uri-link:hover .nsid { text-decoration: underline; }
 }
-.xray-hud-aggregate { color: var(--ink-faint); }
+.xray-hud-uri { display: inline-flex; min-width: 0; }
+/* The count replaces "the protocol data": what this page is made of. */
+.xray-hud-aggregate { color: var(--ink-muted); min-width: 0; }
+.xray-hud-count { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+/* An inline record's tree (a bar signal, a hero phrase) opens here, above
+   the strip, since it has no row of its own to open under. */
+.xray-hud-tree { flex: 0 0 100%; max-height: min(22rem, 50dvh); overflow-y: auto; }
+.xray-hud-tree .xray-substrate { margin-top: 0; }
 .xray-hud-spacer { flex: 1 1 auto; }
 .xray-hud-inspect {
   flex: none;
@@ -427,7 +632,11 @@
   .xray-hud-inspect-label { display: none; }
   .xray-hud-inspect { padding: var(--space-1) var(--space-2); }
   .xray-hud-uri-link { flex: 1 1 auto; }
+  .xray-hud-uri { flex: 1 1 auto; }
   .xray-hud .bp-uri { max-width: 100%; }
+  .xray-hud-aggregate { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .xray-hud-hint-more { display: none; }
+  .xray-hud:has(> .xray-hud-tree) { flex-wrap: wrap; }
 }
 
 /* While the HUD is up (XrayLayer marks <html> with data-xray-hud and
@@ -455,7 +664,7 @@
    Reduced motion — keep the reveal, drop the travel.
    ---------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  .ledger-xray, .xray-tag, .rz-block, .rz-block-content, .rz-gutter,
+  .xray-tag, .rz-block, .rz-block-content, .rz-gutter,
   :root[data-xray-focus="on"] [data-atproto]:not(.is-xray-focus) {
     transition-duration: 0.14s !important;
   }
@@ -464,3 +673,92 @@
   :root[data-xray="on"] .doc-inspect-margin { animation-name: doc-inspect-fade; }
 }
 @keyframes doc-inspect-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ----------------------------------------------------------------------
+   Inline records: the chrome's live signals and the hero's phrases. Each
+   gets a dotted underline and its collection in mono; a signal that isn't a
+   record (a follower count, the day of life) says so in the serif italic.
+   One grammar: dotted underline = an inline record, bracket = a block
+   record, italic = not a record.
+   ---------------------------------------------------------------------- */
+:root[data-xray="on"] [data-xray-nsid] {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--xr-ink);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+:root[data-xray="on"] [data-xray-nsid]::after {
+  content: attr(data-xray-nsid);
+  /* An inline-block, so the record's dotted underline stops at the text. */
+  display: inline-block;
+  margin-left: 0.45em;
+  font-family: var(--code);
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  font-variant: normal;
+  color: var(--xr-ink);
+  white-space: nowrap;
+}
+
+:root[data-xray="on"] [data-xray-note]::after {
+  content: attr(data-xray-note);
+  display: inline-block;
+  margin-left: 0.45em;
+  font-family: var(--serif);
+  font-size: 0.75rem;
+  font-style: italic;
+  font-variant: normal;
+  letter-spacing: 0;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* The hero's phrases are inline-blocks of inline-block words (each word
+   animates on its own), so an underline set on the rotator never reaches
+   the text: it goes on the phrase (for the spaces) and on each word. The tag
+   rides inside the phrase after its last word, as an inline-block so the
+   underline stops short of it. */
+:root[data-xray="on"] .hero-rotator[data-xray-nsid] {
+  text-decoration: none;
+}
+:root[data-xray="on"] .hero-rotator[data-xray-nsid]::after {
+  content: none;
+}
+:root[data-xray="on"] .hero-rotator[data-xray-nsid] .hero-rotator-phrase,
+:root[data-xray="on"] .hero-rotator[data-xray-nsid] .hero-rotator-word {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--xr-ink);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 7px;
+  text-decoration-skip-ink: none;
+}
+:root[data-xray="on"] .hero-rotator-phrase[data-xray-tag]::after {
+  content: attr(data-xray-tag);
+  display: inline-block;
+  margin-left: 0.6em;
+  font-family: var(--code);
+  font-size: 0.7rem;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0;
+  line-height: 1;
+  color: var(--xr-ink);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* The vitals: one record behind five readings, so one dotted rule under the
+   group rather than five broken underlines, and the tag after it. */
+:root[data-xray="on"] .vitals-record[data-xray-nsid] {
+  text-decoration: none;
+}
+:root[data-xray="on"] .vitals-record[data-xray-nsid] > .vitals-readings {
+  padding-bottom: 2px;
+  border-bottom: 1px dotted var(--xr-ink);
+}
+:root[data-xray="on"] .vitals-record[data-xray-nsid]::after {
+  margin-left: 0;
+}

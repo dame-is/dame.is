@@ -49,30 +49,39 @@
 .record-aturi-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-4);
   align-items: center;
   margin-top: var(--space-4);
 }
 
+/* Quiet text actions, no boxes: one row, one style, for every record. */
 .record-aturi-actions a,
 .record-aturi-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
   font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  padding: 0.4em 0.85em;
-  border: 1px solid var(--rule);
+  font-size: var(--text-meta);
+  padding: 0.3em 0;
+  border: 0;
   border-radius: 0;
-  background: var(--page);
+  background: none;
   color: var(--ink-soft);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
   cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
 }
 
 .record-aturi-actions a:focus-visible,
 .record-aturi-actions button:focus-visible {
   color: var(--accent);
-  border-color: var(--accent-soft);
+  text-decoration-color: var(--accent-soft);
+}
+
+.record-aturi-actions button[aria-pressed='true'] {
+  color: var(--accent);
 }
 
 @media (hover: hover) {
@@ -111,4 +120,11 @@
   line-height: 1.5;
   white-space: pre;
   color: var(--ink-soft);
+}
+
+/* A repost's page cites the post it reshared: set on the blockquote rule,
+   under the plate's "dame reposted Poe" title. */
+.record-page .post-card-record[data-is-repost='true'] {
+  border-left: 2px solid var(--accent-soft);
+  padding-left: var(--space-4);
 }

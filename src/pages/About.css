@@ -125,6 +125,31 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* Justified rows, as a leaflet gallery's (LeafletDocument.css): every photo
+   keeps its shape and each row ends flush. */
+.about-gallery[data-layout="justified"] {
+  --row-h: 12rem;
+  display: flex;
+  flex-wrap: wrap;
+  grid-template-columns: none;
+}
+
+.about-gallery[data-layout="justified"]::after {
+  content: '';
+  flex-grow: 999;
+}
+
+.about-gallery[data-layout="justified"] .about-photo {
+  flex: var(--ar, 1.5) 1 calc(var(--ar, 1.5) * var(--row-h));
+  min-width: 0;
+}
+
+@media (max-width: 34rem) {
+  .about-gallery[data-layout="justified"] {
+    --row-h: 8rem;
+  }
+}
+
 /* Filmstrip: one row that scrolls sideways, each frame snapping into place. */
 .about-gallery[data-layout="filmstrip"] {
   display: flex;
@@ -221,3 +246,129 @@
 }
 
 /* The first-paragraph drop cap is defined once, globally, in typography.css. */
+
+.about-handle a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+}
+
+/* Find Dame and Dame is also…: two compact ruled ledgers under the card,
+   which stand without the is.dame.profile/self record. Label column in
+   small caps, value in the serif, a quiet note after it. */
+.about-ledger {
+  max-width: var(--measure);
+  margin-top: var(--space-6);
+}
+
+.about-ledger-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.about-ledger-h-meta {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-weight: 400;
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+.about-ledger-rows {
+  margin: 0;
+}
+
+.about-ledger-rows > div,
+.about-also-row {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  column-gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+}
+
+.about-ledger-rows dt {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+.about-ledger-rows dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25em var(--space-3);
+  margin: 0;
+}
+
+.about-ledger-rows dd a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+}
+
+.about-ledger-note {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.about-ledger-action {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.about-also-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.about-also-row {
+  grid-template-columns: 7rem minmax(0, 1fr) auto;
+}
+
+.about-also-label {
+  font-variant: all-small-caps;
+  letter-spacing: 0.06em;
+  font-size: var(--text-lg);
+}
+
+.about-also-gloss {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.about-also-latest {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .about-ledger-rows > div,
+  .about-also-row {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+  }
+  .about-also-latest {
+    grid-column: 2;
+  }
+}

@@ -37,8 +37,16 @@ export function skyHourKey(hour) {
   return KEYS[((hour % 24) + 24) % 24];
 }
 
+/** The hour as it's said and read in running text: "1 pm", "12 am". */
+export function skyHourLabel(hour) {
+  return skyHourKey(hour).replace(/(am|pm)$/, ' $1');
+}
+
 // Sampled top/bottom band averages per hour (0 = 12am … 23 = 11pm).
-const SKY_BANDS = [
+// Exported for the hour sheet, whose ribbon is drawn from the avatar's own
+// sky (deep sky at the top, horizon at the bottom), so noon reads as cyan
+// rather than as a white cell on a white sheet.
+export const SKY_BANDS = [
   { top: '#111111', bottom: '#101111' }, // 12am
   { top: '#121314', bottom: '#161616' }, // 1am
   { top: '#161b1e', bottom: '#171818' }, // 2am
@@ -264,7 +272,10 @@ function buildBaseVars(hour, { pageOverride = null, surfaceSep = 1 } = {}) {
     };
     vars = {
       '--sky-page': hsl(hue, s, l),
-      '--sky-page-edge': hsl(hue, s, l - 0.06 * sep),
+      // In-page surfaces (image mats, caption slabs, tiles) stay one quiet
+      // step off the page at every tuning: surfaceSep is the chrome's knob,
+      // and scaling this with it turned 1pm's mats the chrome's own cyan.
+      '--sky-page-edge': hsl(hue, s, l - 0.06),
       '--sky-surface-raised': hsl(hue, s, l - 0.08 * sep),
       '--sky-surface-deep': hsl(hue, s, l - 0.03 * sep),
       '--sky-ink': rgbToHex(ink),
@@ -318,7 +329,7 @@ function buildBaseVars(hour, { pageOverride = null, surfaceSep = 1 } = {}) {
     };
     vars = {
       '--sky-page': hsl(hue, s, l),
-      '--sky-page-edge': hsl(hue, s, Math.max(l - 0.02 * sep, 0.05)),
+      '--sky-page-edge': hsl(hue, s, Math.max(l - 0.02, 0.05)),
       '--sky-surface-raised': hsl(hue, s, Math.max(l - 0.045 * sep, 0.035)),
       '--sky-surface-deep': hsl(hue, s, Math.max(l - 0.075 * sep, 0.02)),
       '--sky-ink': rgbToHex(ink),
@@ -433,6 +444,159 @@ function applyOverride(baseVars, ctx, cfg) {
   return v;
 }
 
+/* ---------- the contrast floor ---------- */
+
+// contrastRatio (WCAG 2) is defined with the colour helpers above.
+
+// sRGB ⇄ OKLab, for the one surface the floor has to reproduce exactly:
+// theme.css's nesting scale, which CSS mixes `in oklab`.
+const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+const fromLinear = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
+
+function rgbToOklab(rgb) {
+  const [r, g, b] = rgb.map((v) => toLinear(v / 255));
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+
+function oklabToRgb([L, A, B]) {
+  const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3;
+  const m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3;
+  const s = (L - 0.0894841775 * A - 1.291485548 * B) ** 3;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ].map((c) => clamp(fromLinear(c), 0, 1) * 255);
+}
+
+/** `color-mix(in oklab, a pct%, b)` for two #rrggbb colours. */
+export function mixOklab(a, b, pct) {
+  const la = rgbToOklab(hexToRgb(a));
+  const lb = rgbToOklab(hexToRgb(b));
+  return rgbToHex(oklabToRgb(la.map((v, i) => v * pct + lb[i] * (1 - pct))));
+}
+
+/** `color-mix(in srgb, a pct%, b)` for two #rrggbb colours. */
+export function mixSrgb(a, b, pct) {
+  const ra = hexToRgb(a);
+  const rb = hexToRgb(b);
+  return rgbToHex(ra.map((v, i) => v * pct + rb[i] * (1 - pct)));
+}
+
+// CIE76 ΔE between two colours, through OKLab scaled to Lab's range. Only used
+// as a "these two inks must not read as one" check, so the cheap metric does.
+function deltaE(a, b) {
+  const la = rgbToOklab(hexToRgb(a));
+  const lb = rgbToOklab(hexToRgb(b));
+  return Math.hypot(...la.map((v, i) => (v - lb[i]) * 100));
+}
+
+// The floor every text ink is solved to (WCAG AA for body text).
+export const SKY_TEXT_FLOOR = 4.5;
+// Muted must sit this far above faint, so a floor can't invert the ramp: at
+// 7pm a plain floor would leave faint at 4.58 and muted at 4.53.
+const RAMP_STEP = 1.15;
+// How far apart faint and accent must stay (ΔE, OKLab × 100). At 7am the
+// hero's "dame is" lead and its accent clause measure 2.9 apart, close enough
+// that the three-tone sentence reads as two. 5 parts them while moving only
+// the handful of daytime accents that share faint's hue, and those by less
+// than one ratio point.
+const FAINT_ACCENT_MIN_DE = 5;
+// theme.css: --nest-step. Quote and link cards sit one or two steps off the
+// page; the nest inks are solved on the deeper of the two.
+export const NEST_STEP = 0.045;
+const NEST_SOLVE_LEVEL = 2;
+
+/**
+ * Step `hex`'s HSL lightness away from every ground in `grounds` (keeping hue
+ * and saturation) until it clears `target` against all of them. `darker`
+ * says which way "away" is: ink sits darker than its page by day, lighter by
+ * night. Never moves a colour that already clears, and never past `ink`'s own
+ * contrast: on a ground too dark for any dark ink (the untuned 7am chrome) a
+ * quiet tone stops level with the primary ink instead of going black.
+ */
+function floorInk(hex, grounds, target, darker, ink) {
+  const worst = (c) => Math.min(...grounds.map((g) => contrastRatio(c, g)));
+  if (ink) target = Math.min(target, worst(ink));
+  if (worst(hex) >= target) return hex;
+  const [h, s, l0] = rgbToHsl(hexToRgb(hex));
+  let out = hex;
+  for (let l = l0; l >= 0 && l <= 1; l += darker ? -0.005 : 0.005) {
+    out = hsl(h, s, l);
+    if (worst(out) >= target) return out;
+  }
+  return out;
+}
+
+/**
+ * The contrast floor: re-solve one hour's text inks against the grounds they
+ * actually sit on, after the sky is derived and any tuning is layered on.
+ *
+ * The derivation only ever stepped lightness by fixed offsets from the page,
+ * so whole stretches of the day (dawn, dusk, the pale noon pages) left the
+ * quiet inks under 4.5:1. This pass leaves every hue the frame or the owner
+ * chose and solves lightness alone, so a floored 6am faint still reads as a
+ * grey-rose and 7pm as a lilac — just legible ones.
+ *
+ * - faint and accent clear the floor on --page;
+ * - muted clears max(floor, 1.15 × faint) so the ramp keeps its order, and
+ *   soft never drops below muted;
+ * - the raised pair clears both chrome surfaces;
+ * - a nest pair is solved on the card surface quote and link embeds sit on;
+ * - accent keeps a minimum ΔE from faint.
+ *
+ * Mutates and returns `vars`.
+ */
+export function solveContrast(vars) {
+  const page = vars['--sky-page'];
+  const ink = vars['--sky-ink'];
+  const darker = luminance(ink) < luminance(page);
+  const raised = [vars['--sky-surface-raised'], vars['--sky-surface-deep']];
+  const nest = mixOklab(ink, page, NEST_SOLVE_LEVEL * NEST_STEP);
+  const F = SKY_TEXT_FLOOR;
+  const ratioOn = (c, grounds) => Math.min(...grounds.map((g) => contrastRatio(c, g)));
+
+  const faint = floorInk(vars['--sky-ink-faint'], [page], F, darker, ink);
+  vars['--sky-ink-faint'] = faint;
+  const muted = floorInk(vars['--sky-ink-muted'], [page], Math.max(F, RAMP_STEP * ratioOn(faint, [page])), darker, ink);
+  vars['--sky-ink-muted'] = muted;
+  vars['--sky-ink-soft'] = floorInk(vars['--sky-ink-soft'], [page], ratioOn(muted, [page]), darker, ink);
+
+  let accent = floorInk(vars['--sky-accent'], [page], F, darker, ink);
+  // Push accent further out (never back toward the page) until it parts
+  // from faint. Lightness only, like the floor.
+  if (deltaE(accent, faint) < FAINT_ACCENT_MIN_DE) {
+    const [h, s, l0] = rgbToHsl(hexToRgb(accent));
+    for (let l = l0; l >= 0 && l <= 1; l += darker ? -0.005 : 0.005) {
+      accent = hsl(h, s, l);
+      if (deltaE(accent, faint) >= FAINT_ACCENT_MIN_DE) break;
+    }
+  }
+  vars['--sky-accent'] = accent;
+
+  const faintR = floorInk(vars['--sky-ink-faint-raised'], raised, F, darker, ink);
+  vars['--sky-ink-faint-raised'] = faintR;
+  vars['--sky-ink-muted-raised'] = floorInk(
+    vars['--sky-ink-muted-raised'],
+    raised,
+    Math.max(F, RAMP_STEP * ratioOn(faintR, raised)),
+    darker,
+  );
+
+  const faintN = floorInk(faint, [nest], F, darker, ink);
+  vars['--sky-ink-faint-nest'] = faintN;
+  vars['--sky-ink-muted-nest'] = floorInk(muted, [nest], Math.max(F, RAMP_STEP * ratioOn(faintN, [nest])), darker, ink);
+  vars['--sky-accent-nest'] = floorInk(accent, [nest], F, darker, ink);
+  return vars;
+}
+
 // Module-level active tuning, installed once the is.dame.sky override
 // resolves (snapshot then live — see useSkyTuning). null = the built-in
 // hourly derivation, unchanged. Shaped { enabled, hours: {0..23: cfg} }.
@@ -462,7 +626,15 @@ export function paletteForHour(hour, tuning = activeTuning) {
     surfaceSep: cfg ? cfg.surfaceSep : 1,
   });
   const tuned = cfg ? applyOverride(vars, ctx, cfg) : { ...vars, ...GLOW_OFF };
-  const outVars = withContrastFloor(tuned, ctx.day);
+  // Two floors. solveContrast sets the page inks to the values the design
+  // audit solved for, adds the quote/link-card ("nest") inks and keeps the
+  // accent apart from faint ink; withContrastFloor then holds the inks on the
+  // sheets and the chrome too, keeps the ramp in order (which can lift the
+  // primary ink on an untuned dawn or dusk) and adds --sky-danger. The nest
+  // surface is mixed from the primary ink, so solveContrast runs once more to
+  // re-solve the card inks against wherever the ink ended up. Every step only
+  // lifts a colour that falls short, so later passes leave settled ones be.
+  const outVars = solveContrast(withContrastFloor(solveContrast(tuned), ctx.day));
   return {
     hour: h24,
     key: KEYS[h24],
@@ -547,6 +719,22 @@ function withContrastFloor(vars, day) {
       min,
       worstContrast(v['--sky-ink-faint'], onPage) * MUTED_OVER_FAINT,
     ),
+    day,
+  );
+  // Lifting muted can carry it past soft, and soft past the primary ink (the
+  // untuned dawn and dusk pages, where the primary ink itself sits near 5:1).
+  // Hold each at least level with the one below, so the ramp
+  // (ink >= soft >= muted > faint) never inverts.
+  v['--sky-ink-soft'] = liftToContrast(
+    v['--sky-ink-soft'],
+    onPage,
+    worstContrast(v['--sky-ink-muted'], onPage),
+    day,
+  );
+  v['--sky-ink'] = liftToContrast(
+    v['--sky-ink'],
+    onPage,
+    worstContrast(v['--sky-ink-soft'], onPage),
     day,
   );
   v['--sky-ink-faint-raised'] = liftToContrast(

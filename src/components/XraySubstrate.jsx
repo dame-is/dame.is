@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Fragment, useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { ME_DID, ME_HANDLE } from '../config.js';
 import { resolvePds, explorerPathFromAtUri } from '../lib/atproto.js';
 import { useXray } from '../hooks/useXray.jsx';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
-import { atUriParts, parseAtUri, shortenCid, shortenDid } from '../lib/xray.js';
+import { recordPathFromAtUri } from '../lib/recordRoutes.js';
+import { atUriParts, parseAtUri, shortenCid, shortenDid, subjectOfRecord } from '../lib/xray.js';
 
 /**
  * The one-line "there's a record under here" tag a card wears while x-ray is
@@ -81,18 +82,41 @@ export function AtUriMono({ atUri }) {
   );
 }
 
+/** The full at:// address, with a break opportunity after each "/". */
+function BrokenAtUri({ atUri }) {
+  const { did, collection, rkey } = parseAtUri(atUri);
+  if (!collection) return null;
+  const segs = [`at://${shortenDid(did)}/`, `${collection}/`, rkey];
+  return (
+    <p className="xray-substrate-uri bp-uri">
+      {segs.map((seg, i) => (
+        <Fragment key={i}>
+          <span className={i === 1 ? 'nsid' : i === 2 ? 'rkey' : 'did'}>{seg}</span>
+          {i < segs.length - 1 && <wbr />}
+        </Fragment>
+      ))}
+    </p>
+  );
+}
+
 /**
  * The substrate readout for a focused record. Rather than dumping the record's
  * values (you can open it for those), it answers the more evocative question:
  * where does this thing sit in the atmosphere? A you-are-here descent through
  * the repo — PDS → repo → collection → this record — plus jump-offs into the
- * explorer and the record's own page. Owns a lazy PDS resolve for our own
- * records so the top of the descent is real.
+ * explorer and the record's own page. A reference record (a repost, a like)
+ * also names its subject: the post it points at, with that post's own CID,
+ * so the two versions can't be mistaken for each other. Owns a lazy PDS
+ * resolve for our own records so the top of the descent is real.
  */
-export function XraySubstratePanel({ atUri, cid }) {
+export function XraySubstratePanel({ atUri, cid, value }) {
   const [pds, setPds] = useState(null);
+  const { pathname } = useLocation();
   const { did, collection, rkey } = parseAtUri(atUri);
   const isMe = did === ME_DID;
+  const subject = subjectOfRecord(value);
+  const subjectParts = subject ? parseAtUri(subject.uri) : null;
+  const recordPath = recordPathFromAtUri(atUri);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +141,7 @@ export function XraySubstratePanel({ atUri, cid }) {
   return (
     <div className="xray-substrate" role="group" aria-label="record location">
       <p className="xray-substrate-h">Atmosphere Record</p>
+      <BrokenAtUri atUri={atUri} />
       <div className="xray-locus">
         <span className="locus-lvl" style={{ '--d': 0 }}>
           <span className="k">pds</span>
@@ -146,10 +171,32 @@ export function XraySubstratePanel({ atUri, cid }) {
             <span className="hint">this exact version</span>
           </span>
         )}
+        {subject && subjectParts?.collection && (
+          <span className="locus-lvl locus-subject" style={{ '--d': 4 }}>
+            <span className="k">subject</span>
+            <span className="v">
+              →{' '}
+              {subject.handle ? (
+                `@${subject.handle}`
+              ) : (
+                <span className="vdim">{shortenDid(subjectParts.did)}</span>
+              )}
+            </span>
+            <span className="locus-subject-ref">
+              <span className="vdim">
+                {subjectParts.collection}/<wbr />
+                {subjectParts.rkey}
+              </span>
+              {subject.cid && <span className="vdim">{shortenCid(subject.cid)}</span>}
+              <span className="hint">the post it points at</span>
+            </span>
+          </span>
+        )}
       </div>
 
       <div className="xray-actions">
         {explorerPath && <Link to={explorerPath}>open in explorer</Link>}
+        {recordPath && recordPath !== pathname && <Link to={recordPath}>open the record page</Link>}
       </div>
     </div>
   );

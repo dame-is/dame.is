@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CornerDownRight } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import PostCard from '../components/PostCard.jsx';
-import StatusEntry from '../components/StatusEntry.jsx';
 import ListenRow from '../components/ListenRow.jsx';
 import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
@@ -14,6 +13,19 @@ import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions from '../components/AturiActions.jsx';
+import SequenceFoot from '../components/SequenceFoot.jsx';
+import VitalsChip from '../components/VitalsChip.jsx';
+import VerbIcon from '../components/VerbIcon.jsx';
+import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
+import {
+  colophon,
+  crumbStamp,
+  crumbTitle,
+  indexPathForVerb,
+  recordSentence,
+  sentenceText,
+  upFrom,
+} from '../lib/recordPlate.js';
 import { RecordSkeleton } from '../components/Skeleton.jsx';
 import {
   resolvePds,
@@ -25,15 +37,14 @@ import { createSubjectResolver } from '../lib/subjectResolver.js';
 import { isDraft } from '../lib/publications.js';
 import { ME_DID, ME_HANDLE } from '../config.js';
 import { flushBody } from '../lib/flushText.js';
-import { formatDateFull, formatTime, relativeDay, relativeTime } from '../lib/time.js';
-import { dayOfLife } from '../lib/dayOfLife.js';
+import { relativeTime } from '../lib/time.js';
 import {
   VERB_TO_COLLECTION,
   VERB_LABELS,
   recordPathFromAtUri,
   siblingCollections,
 } from '../lib/recordRoutes.js';
-import { nsidConfig, primaryNsid } from '../lib/verbRegistry.js';
+import { nsidConfig, primaryNsid, nsidFromAtUri } from '../lib/verbRegistry.js';
 import { musicLinksFor } from '../lib/musicLinks.js';
 import { playArtistLine, playTrackName } from '../lib/teal.js';
 import { albumIdentity, albumPath } from '../lib/albums.js';
@@ -43,7 +54,6 @@ import { isFirstSighting } from '../lib/firstSightings.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import PostEmbed from '../components/PostEmbed.jsx';
 import Lightbox from '../components/Lightbox.jsx';
-import MusicServiceLinks from '../components/MusicServiceLinks.jsx';
 import './Blogging.css';
 import './Record.css';
 import '../components/Feed.css';
@@ -249,6 +259,18 @@ export default function Record({ verb, nsid, source }) {
     };
   }, [verb, rkey, collection, threadMode, candidates, source, retryKey]);
 
+  // The plate's slots, worked out once the record is in hand.
+  const subjectName = useSubjectName(verb, item);
+  const neighbours = useRecordNeighbours({
+    verb,
+    // The record's own collection, read off its URI: for a repost that's
+    // app.bsky.feed.repost, where `collection` names the post it renders.
+    collection: item ? nsidFromAtUri(item.atUri) || resolvedCollection : null,
+    rkey,
+    createdAt: item?.createdAt || null,
+  });
+  const up = upFrom(indexPathForVerb(verb) ? `/${verb}/${rkey}` : `/${collection}/${rkey}`);
+
   if (!collection) {
     return (
       <PageShell title="Unknown record type" headTitle="Not found — dame.is">
@@ -265,7 +287,7 @@ export default function Record({ verb, nsid, source }) {
       <PageShell title="Record not found" headTitle="Not found — dame.is">
         <p>
           No record with rkey <code>{rkey}</code> in <LexiconList nsids={candidates} />.{' '}
-          <Link to={verbIndexHref(verb)}>Back to {verb}.</Link>
+          <Link to={up.to}>Up to {up.label}.</Link>
         </p>
       </PageShell>
     );
@@ -281,7 +303,7 @@ export default function Record({ verb, nsid, source }) {
           <button type="button" onClick={() => setRetryKey((k) => k + 1)}>
             Try again
           </button>{' '}
-          <Link to={verbIndexHref(verb)}>Back to {verb}.</Link>
+          <Link to={up.to}>Up to {up.label}.</Link>
         </p>
       </PageShell>
     );
@@ -290,15 +312,27 @@ export default function Record({ verb, nsid, source }) {
   const atUri = item?.atUri || `at://${ME_DID}/${resolvedCollection}/${rkey}`;
   const cid = item?.cid || null;
   const createdAt = item?.createdAt;
+  const sentence = item ? recordSentence(verb, item.payload || {}, { subject: subjectName }) : null;
+  const all = allInSection(verb);
 
   return (
     <PageShell
-      title={titleFor(verb, item)}
+      title={sentence ? <RecordTitle sentence={sentence} /> : null}
       atUri={atUri}
       cid={cid}
-      headTitle={headTitleFor(verb, item)}
+      headTitle={headTitleFor(verb, item, sentence)}
+      crumb={item ? crumbFor(verb, item) : null}
     >
       <article className="record-page">
+        {/* One line in Dame's clock: the verb's past tense, the day, the time
+            and the day of life. The relative age stays in the footer. */}
+        {item && createdAt && (
+          <p className="record-colophon">
+            <VerbIcon verb={verb} size={13} aria-hidden="true" />
+            {colophon(verb, createdAt)}
+          </p>
+        )}
+
         {threadMode && parents.length > 0 && (
           <ParentChain parents={parents.slice(0, 1)} />
         )}
@@ -319,9 +353,16 @@ export default function Record({ verb, nsid, source }) {
           </div>
         )}
 
-        {item && <RecordMeta createdAt={createdAt} />}
-
-        {item && <AturiActions atUri={atUri} />}
+        {item && (
+          <AturiActions atUri={atUri}>
+            {verb === 'listening' &&
+              musicLinksFor(item.payload).map((l) => (
+                <a key={l.service} href={l.url} target="_blank" rel="noreferrer noopener">
+                  {l.kind === 'direct' ? `Open in ${l.label}` : `Search on ${l.label}`}
+                </a>
+              ))}
+          </AturiActions>
+        )}
 
         {/* No replies section under a repost whose post is gone: there is no
             thread to read, and "No replies yet" would claim there is. */}
@@ -333,14 +374,117 @@ export default function Record({ verb, nsid, source }) {
           />
         )}
 
-        <p className="record-page-aturi gutter">
+        {item && neighbours.ready && (neighbours.earlier || neighbours.later || all) && (
+          <SequenceFoot
+            label={`Other ${all?.noun || 'records'}`}
+            earlier={neighbours.earlier}
+            later={neighbours.later}
+            earlierNone="None. This is the first."
+            laterNone={verb === 'logging' ? 'None yet. This is the current status.' : 'None yet.'}
+            all={all ? { to: all.to, label: `All ${all.noun} in ${verb}` } : null}
+          />
+        )}
+
+        {/* The record's address, as a quiet folio. It breaks only at its
+            slashes, never mid-token. Copying and exploring it are one tap
+            away in x-ray. */}
+        <p className="record-page-aturi">
           <AtUriLink uri={atUri}>
-            <code>{atUri}</code>
+            <FolioUri uri={atUri} />
           </AtUriLink>
         </p>
       </article>
     </PageShell>
   );
+}
+
+/** An at:// URI with a break opportunity after each slash. */
+function FolioUri({ uri }) {
+  const parts = String(uri || '').split('/');
+  return (
+    <code>
+      {parts.map((p, i) => (
+        <Fragment key={i}>
+          {p}
+          {i < parts.length - 1 && (
+            <>
+              /<wbr />
+            </>
+          )}
+        </Fragment>
+      ))}
+    </code>
+  );
+}
+
+/**
+ * The record's sentence as the H1, in the hero's three tones and on its
+ * ruled lines: a quiet lead, the ink verb when there is one, the thing
+ * itself in the accent ("dame is / playing tennis", "dame reposted Poe").
+ */
+function RecordTitle({ sentence }) {
+  if (!sentence.lead && !sentence.verb) return sentence.rest;
+  return (
+    <span className="record-title">
+      <span className="record-title-lead">{sentence.lead}</span>
+      {sentence.verb && <span className="record-title-verb"> {sentence.verb}</span>}
+      {sentence.rest && <span className="record-title-rest"> {sentence.rest}</span>}
+    </span>
+  );
+}
+
+/** The last crumb: a time for things addressed by when, a title otherwise. */
+function crumbFor(verb, item) {
+  if (verb === 'blogging' || verb === 'creating') return crumbTitle(item.payload?.title);
+  return item.createdAt ? crumbStamp(item.createdAt) : null;
+}
+
+// What a section's records are called, for "All status updates in logging".
+const SECTION_NOUNS = {
+  logging: 'status updates',
+  posting: 'posts',
+  reposting: 'reposts',
+  listening: 'plays',
+  liking: 'likes',
+  following: 'follows',
+  mothing: 'sightings',
+  observing: 'observations',
+  listing: 'lists',
+  feeding: 'feeds',
+  commenting: 'comments',
+  photographing: 'galleries',
+  crafting: 'pieces',
+};
+
+function allInSection(verb) {
+  const to = indexPathForVerb(verb);
+  return to ? { to, noun: SECTION_NOUNS[verb] || 'records' } : null;
+}
+
+/**
+ * Who a reference record points at. A repost already carries its subject's
+ * author; a like or a follow is looked up (one AppView call), and until that
+ * lands the title reads without a name.
+ */
+function useSubjectName(verb, item) {
+  const [name, setName] = useState(null);
+  const author = item?.payload?.author;
+  const direct = verb === 'reposting' && author ? author.displayName || (author.handle ? `@${author.handle}` : null) : null;
+  const subject = item?.payload?.subject;
+  const key = typeof subject === 'string' ? subject : subject?.uri || null;
+  useEffect(() => {
+    setName(null);
+    if (direct || !key) return undefined;
+    let cancelled = false;
+    subjectNames([item.payload]).then((nameOf) => {
+      if (!cancelled) setName(nameOf(item.payload));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [direct, key]);
+  return direct || name;
 }
 
 /* ------------------------------------------------------------------ */
@@ -417,26 +561,6 @@ async function hydrateRecordSubject(record, collectionConfig) {
   }
 }
 
-/**
- * Verbs with an index page of their own (the hand-written routes in App.jsx).
- * Every other verb exists only as a slice of the home timeline, so that's
- * where "back" goes — `/liking` would be a second not-found page.
- */
-const VERB_INDEX_PAGES = new Set([
-  'posting',
-  'logging',
-  'listening',
-  'blogging',
-  'creating',
-  'mothing',
-]);
-
-function verbIndexHref(verb) {
-  return VERB_INDEX_PAGES.has(verb)
-    ? `/${verb}`
-    : `/?verbs=${encodeURIComponent(verb)}`;
-}
-
 /** "`a`", "`a` or `b`", "`a`, `b` or `c`" — lexicons as prose. */
 function LexiconList({ nsids }) {
   return nsids.map((nsid, i) => (
@@ -457,13 +581,14 @@ function RecordBody({ verb, item }) {
     case 'reposting':
       return <PostCard {...item} variant="record" />;
     case 'logging':
-      return <StatusEntry {...item} />;
+      // The status is the page's H1, so the body is what it carries beyond
+      // its words: the body-state captured with it, when it has one.
+      return item.payload?.stateRef?.uri ? <VitalsChip stateRef={item.payload.stateRef} /> : null;
     case 'listening':
       return (
         <>
           <AlbumArt payload={item.payload} />
           <ListenRow {...item} />
-          <ListenServiceLinks payload={item.payload} />
         </>
       );
     case 'blogging':
@@ -623,15 +748,6 @@ function AlbumArt({ payload }) {
         images={[{ src: art.url, alt, thumb: art.url, width: 600, height: 600 }]}
       />
     </figure>
-  );
-}
-
-function ListenServiceLinks({ payload }) {
-  return (
-    <MusicServiceLinks
-      links={musicLinksFor(payload)}
-      label={`Listen to ${playTrackName(payload) || 'this song'} elsewhere`}
-    />
   );
 }
 
@@ -855,60 +971,17 @@ function condensePostView(view) {
   };
 }
 
-/**
- * The single-record publication stamp, rendered as one flowing phrase:
- *
- *   5 days ago at 10:18 PM on July 10, 2026 (Day 12,118)
- *
- * A single <span> deliberately — the `.blog-article-meta` container adds a
- * bullet before every span after the first, so splitting the atoms into
- * separate spans (as this once did) produced a doubled "•·" separator on top
- * of hardcoded middots. One span, connective words, no bullets.
- *
- * This is the phrasing the document pages used to share, before <DocumentMeta>
- * became a two-line table of columns. A record page has one fact worth stating
- * and no tag to put beside it, so it kept the sentence rather than becoming a
- * table of one column.
- */
-function RecordMeta({ createdAt }) {
-  if (!createdAt) return null;
-  const dayNum = dayOfLife(createdAt);
-  return (
-    <div className="blog-article-meta record-page-meta">
-      <span>
-        {relativeDay(createdAt)} at {formatTime(createdAt)} on {formatDateFull(createdAt)}
-        {dayNum ? ` (Day ${dayNum.toLocaleString()})` : ''}
-      </span>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Titles                                                              */
 /* ------------------------------------------------------------------ */
 
-/**
- * Visible h1 above the record. Only set for record types whose `title`
- * field is real metadata (blogs, works) — for short-form records we let
- * the body itself be the focal element rather than echoing it as a title.
- */
-function titleFor(verb, item) {
-  if (!item) return null;
-  switch (verb) {
-    case 'blogging':
-      return item.payload?.title || 'Untitled';
-    case 'creating':
-      return item.payload?.title || 'Untitled work';
-    default:
-      return null;
-  }
-}
 
 /**
  * Browser tab title — stays descriptive for every record type, including
  * short-form, by snapshotting the body text.
  */
-function headTitleFor(verb, item) {
+function headTitleFor(verb, item, sentence) {
   if (!item) return `${VERB_LABELS[verb] || verb} — dame.is`;
   switch (verb) {
     case 'blogging':
@@ -931,10 +1004,8 @@ function headTitleFor(verb, item) {
       const snippet = text ? truncate(text, 60) : 'a post';
       return `Reposted: ${handle ? `@${handle} — ` : ''}${snippet} — dame.is`;
     }
-    case 'logging': {
-      const text = (item.payload?.status || item.payload?.text || '').trim();
-      return `${text ? truncate(text, 80) : 'A status'} — dame.is`;
-    }
+    case 'logging':
+      return `${truncate(sentenceText(sentence), 80)} — dame.is`;
     case 'mothing':
     case 'observing': {
       // The name the card is headed with, so the tab reads "Somber Carpet
@@ -953,7 +1024,7 @@ function headTitleFor(verb, item) {
       return `${emoji ? `${emoji} ` : ''}${truncate(body, 80)} — dame.is`;
     }
     default:
-      return `${VERB_LABELS[verb] || verb} — dame.is`;
+      return `${sentence ? truncate(sentenceText(sentence), 80) : VERB_LABELS[verb] || verb} — dame.is`;
   }
 }
 
@@ -1015,7 +1086,9 @@ function repostToItem(repostRecord, subjectPost) {
   return {
     verb: 'reposting',
     atUri: repostRecord.uri,
-    cid: subjectPost.cid || repostRecord.cid || null,
+    // The page is the repost record, so its CID is the repost's; the post it
+    // points at keeps its own as subjectCid.
+    cid: repostRecord.cid || null,
     createdAt: repostedAt,
     payload: {
       text: subjectPost.record?.text || '',
@@ -1036,6 +1109,7 @@ function repostToItem(repostRecord, subjectPost) {
       embedRecord: subjectPost.record?.embed || null,
       indexedAt: subjectPost.indexedAt,
       subjectUri: subjectPost.uri,
+      subjectCid: subjectPost.cid || repostRecord.value?.subject?.cid || null,
       subjectRef: repostRecord.value?.subject || null,
       reason: {
         $type: 'app.bsky.feed.defs#reasonRepost',

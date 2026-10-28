@@ -16,33 +16,43 @@
   padding: 0;
 }
 
+/* Each block is a square cut on bare paper inside a hairline, are.na's own
+   idiom. No mat: --page-edge followed the chrome's tuned cyan by day, and a
+   contained image letterboxed against it. Cropped to fill; the lightbox
+   still shows the image whole. */
 .curating-block-button {
   display: flex;
   flex-direction: column;
   width: 100%;
   aspect-ratio: 1;
-  padding: var(--space-2);
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-3);
-  background: var(--page-edge);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
   cursor: zoom-in;
-  transition: transform 200ms ease, border-color 200ms ease;
+  outline: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  outline-offset: -1px;
+  transition: outline-color 200ms ease;
 }
 
 /* Pointer-only, as the site's hover tints are (see the note in
-   typography.css): on touch the lift sticks to whatever was tapped. */
+   typography.css): on touch a hover sticks to whatever was tapped. */
 @media (hover: hover) {
   .curating-block-button:hover {
-    border-color: var(--accent-soft);
-    transform: translateY(-2px);
+    outline-color: color-mix(in srgb, var(--ink) 35%, transparent);
   }
+}
+
+.curating-block-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .curating-block-button img {
   width: 100%;
   height: 100%;
   min-height: 0;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 /* Playable embed (a YouTube video) → the poster with a play mark centred on
@@ -86,9 +96,11 @@
   width: 100%;
   aspect-ratio: 1;
   padding: var(--space-3);
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-3);
-  background: var(--surface-raised);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  outline: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  outline-offset: -1px;
   overflow: hidden;
 }
 
@@ -115,4 +127,124 @@
 
 .curating-truncated {
   margin-top: var(--space-4);
+}
+
+/* /curating as contact-sheet rows: one per channel, title and folio on a
+   hairline, the description in italic, then six square cuts of what the
+   channel holds. */
+.curating-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.curating-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.curating-row-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.curating-row-title a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .curating-row-title a:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+  }
+}
+
+/* "158 blocks / updated October 26, 2026" at the right edge. */
+.curating-row-folio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+  margin: 0;
+  max-width: none;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: 1.35;
+  color: var(--ink-muted);
+  text-align: right;
+  text-indent: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.curating-row-desc {
+  margin: var(--space-2) 0 0;
+  font-style: italic;
+  color: var(--ink-soft);
+  text-indent: 0;
+}
+
+.curating-row-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  text-decoration: none;
+}
+
+.curating-strip-cell {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: var(--page);
+  outline: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  outline-offset: -1px;
+}
+
+/* A text block stays as the channel's own words. */
+.curating-strip-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  overflow: hidden;
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  line-height: 1.25;
+  color: var(--ink);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.curating-strip-text > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 560px) {
+  .curating-row-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+}
+
+/* A channel on a phone: a three-up contact sheet with 4px gutters, fifteen
+   or more images a screen instead of one. Wider screens keep the 11rem
+   track. */
+@media (max-width: 34rem) {
+  .curating-block-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
 }

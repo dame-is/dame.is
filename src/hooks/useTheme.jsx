@@ -12,7 +12,15 @@ import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 
+/* global __SKY_SEED__ */
+
 const ThemeContext = createContext(null);
+
+// The is.dame.sky/self snapshot baked into the bundle at build (see
+// vite.config.js), so main.jsx can paint the tuned hour before React mounts
+// and the mark's first render already knows whether it's shown. Null in dev
+// without a prefetch; the runtime fetch below covers that case.
+export const SKY_SEED = typeof __SKY_SEED__ !== 'undefined' ? __SKY_SEED__ : null;
 
 // The site runs a single, always-on theme: the hour-tracking "sky" mode,
 // whose palette is derived from the current sky-avatar frame (see
@@ -114,7 +122,7 @@ export function ThemeProvider({ children }) {
   // the mark survives a record written before the field existed), and
   // shadowed while the admin studio has the toggle under the cursor so the
   // owner sees the real chrome answer, not a description of it.
-  const [markVisible, setMarkVisible] = useState(true);
+  const [markVisible, setMarkVisible] = useState(() => skyMarkVisible(SKY_SEED));
   const [markPreview, setMarkPreview] = useState(null);
   const showSkyMark = markPreview ?? markVisible;
 

@@ -352,10 +352,16 @@ export default function SkyThemeStudio({ agent, did }) {
 
   const rows = useMemo(() => {
     if (!tunedVars) return [];
+    // Every ink here has already been through skyTheme.js's contrast floor,
+    // so the right-hand number and swatch are what ships, not what the
+    // sliders asked for. A warmth or contrast that would land under 4.5
+    // shows up as the floor's value.
     const defs = [
+      { name: 'faint ink · on page', a: '--sky-ink-faint', bg: '--sky-page', target: 4.5 },
       { name: 'muted ink · on page', a: '--sky-ink-muted', bg: '--sky-page', target: 4.5 },
-      { name: 'faint ink · on page', a: '--sky-ink-faint', bg: '--sky-page', target: 3.0 },
-      { name: 'muted · on chrome', a: '--sky-ink-muted-raised', bg: '--sky-surface-raised', target: 4.0 },
+      { name: 'accent · on page', a: '--sky-accent', bg: '--sky-page', target: 4.5 },
+      { name: 'faint · on chrome', a: '--sky-ink-faint-raised', bg: '--sky-surface-raised', target: 4.5 },
+      { name: 'muted · on chrome', a: '--sky-ink-muted-raised', bg: '--sky-surface-raised', target: 4.5 },
       { name: 'rule · on page', a: '--sky-rule', bg: '--sky-page', target: 3.0 },
     ];
     return defs.map((d) => ({
@@ -363,6 +369,7 @@ export default function SkyThemeStudio({ agent, did }) {
       target: d.target,
       now: contrast(baseVars[d.a], baseVars[d.bg]),
       tuned: contrast(tunedVars[d.a], tunedVars[d.bg]),
+      shipped: tunedVars[d.a],
     }));
   }, [tunedVars, baseVars]);
 
@@ -693,6 +700,9 @@ export default function SkyThemeStudio({ agent, did }) {
               beside the sliders that move them. */}
           {stacked ? null : (
             <div className="sky-readout">
+              <p className="sky-read-note">
+                Built-in → tuned, after the contrast floor. The swatch is the colour that ships.
+              </p>
               {rows.map((r) => (
                 <div key={r.name} className="sky-read-row">
                   <span className="sky-read-name">{r.name}</span>
@@ -701,6 +711,7 @@ export default function SkyThemeStudio({ agent, did }) {
                     <span className="sky-read-arrow">→</span>
                     <span className={`sky-chip ${grade(r.tuned, r.target)}`}>{r.tuned.toFixed(2)}</span>
                     <span className="sky-read-target">/ {r.target.toFixed(1)}</span>
+                    <span className="sky-read-swatch" style={{ background: r.shipped }} title={r.shipped} />
                   </span>
                 </div>
               ))}

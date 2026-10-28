@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { useXray } from '../hooks/useXray.jsx';
 import LedgerXrayLine from './LedgerXrayLine.jsx';
@@ -15,6 +16,9 @@ import { XraySubstratePanel } from './XraySubstrate.jsx';
  *   - kind       optional small-caps tag ahead of the title (e.g. a category)
  *   - secondary  optional muted suffix after the title (e.g. a scientific name)
  *   - time       optional right-column string (a relative time, a count, …)
+ *   - runCont    the row continues a run of the same `time` (a year): the
+ *                column draws a dotted leader instead of repeating it, and the
+ *                value stays for screen readers
  *   - external   render an external <a target=_blank> instead of a router Link
  *   - nsid       optional collection, stamped as data-nsid so the chrome strip
  *                can read the record type at the top of the scroll
@@ -27,6 +31,7 @@ export default function FlatLedger({ rows }) {
   // way the home feed ledger columns its gerund — so every title lines up.
   const kinded = rows.some((row) => row.kind);
   const xray = useXray();
+  const baseId = useId();
   return (
     <ol
       className={`feed-list feed-ledger feed-ledger-flat${kinded ? ' feed-ledger-flat-kinded' : ''} reveal-stagger`}
@@ -34,6 +39,7 @@ export default function FlatLedger({ rows }) {
       {rows.map((row, i) => {
         const inspectable = xray.active && !!row.atUri;
         const focused = inspectable && xray.focusUri === row.atUri;
+        const xrayId = `${baseId}-${i}`;
         return (
           <li
             key={row.key || i}
@@ -42,6 +48,7 @@ export default function FlatLedger({ rows }) {
             data-atproto={row.atUri ? '' : undefined}
             data-at-uri={row.atUri || undefined}
             data-cid={row.cid || undefined}
+            aria-describedby={inspectable ? `${xrayId}-nsid ${xrayId}-key` : undefined}
             onClickCapture={
               inspectable
                 ? (e) => {
@@ -70,14 +77,18 @@ export default function FlatLedger({ rows }) {
                 </RowLink>
               </p>
             </div>
-            {row.time ? (
+            {row.time && row.runCont ? (
+              <span className="ledger-time ledger-run">
+                <span className="visually-hidden">{row.time}</span>
+              </span>
+            ) : row.time ? (
               <RowLink row={row} className="ledger-time">
                 {row.time}
               </RowLink>
             ) : (
               <span className="ledger-time" />
             )}
-            {row.atUri && <LedgerXrayLine atUri={row.atUri} cid={row.cid} />}
+            {row.atUri && <LedgerXrayLine id={xrayId} atUri={row.atUri} cid={row.cid} />}
             {focused && <XraySubstratePanel atUri={row.atUri} cid={row.cid} />}
           </li>
         );

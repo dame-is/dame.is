@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useProfile } from '../hooks/useProfile.js';
 import TickerText from './TickerText.jsx';
+import { xrayNotARecord } from '../lib/xray.js';
 
 /**
  * Animated count-up for follower / following counts. Ports the spirit of
@@ -53,7 +54,7 @@ export default function ProfileStats() {
   }
   const peopleLabel = followers === 1 ? 'person' : 'people';
   return (
-    <span className="chrome-signal chrome-signal-stats">
+    <span className="chrome-signal chrome-signal-stats" {...xrayNotARecord('AppView count')}>
       <span className="chrome-signal-label">followed by</span>
       <TickerText className="chrome-signal-value" title={`followed by ${followers.toLocaleString()} ${peopleLabel} on Bluesky`}>
         <strong>{followers.toLocaleString()}</strong>

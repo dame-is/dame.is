@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import PageShell from '../components/PageShell.jsx';
 import { ProseSkeleton } from '../components/Skeleton.jsx';
+import NotFound from './NotFound.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -16,12 +17,14 @@ export default function Sharing() {
     () => renderMarkdown(body, bodyFormat),
     [body, bodyFormat],
   );
-  // The authoring hint is for the owner, signed in; a visitor just sees that
-  // there's nothing here yet. (It used to tell everyone to go and write a
-  // record — and claimed there wasn't one when the record existed with an
-  // empty body.)
   const { did } = useAtprotoSession();
   const isOwner = did === ME_DID;
+
+  // With nothing to share (no record, or one with no body yet), a visitor
+  // gets the not-found page with the site's contents, not the owner's note to
+  // themselves. The owner still sees the page and its hint, so it stays easy
+  // to fill. /ethos redirects here, so it reads the same.
+  if (!loading && !html && !isOwner) return <NotFound />;
 
   return (
     <PageShell
@@ -44,7 +47,8 @@ export default function Sharing() {
             <>
               No <code>is.dame.page/sharing</code> record yet — write one and refresh.
             </>
-          )}
+          )}{' '}
+          Only you can see this note.
         </p>
       ) : (
         <p className="feed-empty">Nothing here yet.</p>

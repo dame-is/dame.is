@@ -16,6 +16,7 @@
 // page is drawn as plain text, labelled as it always was.
 
 import { VERB_REGISTRY, nsidConfig, verbConfig } from './verbRegistry.js';
+import { GENERATED_INDEX_VERBS } from './recordPlate.js';
 
 /**
  * The paths App.jsx declares a page for, minus the `*` catch-all. Kept here
@@ -73,7 +74,13 @@ const RECORD_ROUTES = VERB_REGISTRY.flatMap((v) => [
  */
 const NOT_PAGES = ['/creating/:slug/participant'];
 
-const PATTERNS = [...DECLARED_ROUTES, ...RECORD_ROUTES].map(split);
+// App.jsx also generates an index at `/{verb}` for every verb without a page
+// of its own (reposting, liking, …: the home ledger filtered to that verb), so
+// those crumbs lead there rather than to the filtered home feed. Flushing has
+// none: vercel.json sends /flushing to flushes.app.
+const INDEX_ROUTES = GENERATED_INDEX_VERBS.map((verb) => `/${verb}`);
+
+const PATTERNS = [...DECLARED_ROUTES, ...RECORD_ROUTES, ...INDEX_ROUTES].map(split);
 
 function split(path) {
   return path.split('/').filter(Boolean);

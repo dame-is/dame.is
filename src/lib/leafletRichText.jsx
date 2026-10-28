@@ -1,6 +1,16 @@
 import { Fragment } from 'react';
 import { isLikelyBareHttpUrl, truncateUrlDisplay } from './feedUrlFormat.jsx';
 import { safeHref } from './safeHref.js';
+import { smartenText } from './smartPunctuation.js';
+
+// Facet features whose text must reach the page exactly as written: a curled
+// quote in code or a URL changes what the reader copies.
+const VERBATIM_FEATURES = new Set([
+  'pub.leaflet.richtext.facet#link',
+  'pub.leaflet.richtext.facet#code',
+  'pub.leaflet.richtext.facet#atMention',
+  'pub.leaflet.richtext.facet#didMention',
+]);
 
 /**
  * Render leaflet `plaintext` + `facets` to React. Mirrors the bsky
@@ -11,10 +21,23 @@ import { safeHref } from './safeHref.js';
  *
  * Facet indices are byte offsets into the UTF-8 encoding of `text`,
  * not JS string indices, so we walk the encoded buffer.
+ *
+ * `smart` typesets each plain segment (curly quotes, ellipsis, dashes) after
+ * the slicing, so the offsets are never disturbed, and skips link, code and
+ * mention segments. The author's own documents ask for it; other people's
+ * embedded posts don't, and keep their punctuation as posted.
  */
-export function renderLeafletText(text, facets) {
+export function renderLeafletText(text, facets, { smart = false } = {}) {
   const safeText = typeof text === 'string' ? text : '';
   if (!safeText) return null;
+  // The character before each segment on the page, so a quote that opens in
+  // one run and closes in the next still pairs.
+  let prev = '';
+  const typeset = (s, verbatim = false) => {
+    const out = smart && !verbatim ? smartenText(s, prev) : s;
+    if (s) prev = s[s.length - 1];
+    return out;
+  };
 
   const sortedFacets = Array.isArray(facets)
     ? facets
@@ -24,7 +47,7 @@ export function renderLeafletText(text, facets) {
     : [];
 
   if (sortedFacets.length === 0) {
-    return <Fragment>{withLineBreaks(safeText)}</Fragment>;
+    return <Fragment>{withLineBreaks(typeset(safeText))}</Fragment>;
   }
 
   const encoder = new TextEncoder();
@@ -45,12 +68,14 @@ export function renderLeafletText(text, facets) {
     if (start > cursor) {
       out.push(
         <Fragment key={`t-${key++}`}>
-          {withLineBreaks(slice(cursor, start))}
+          {withLineBreaks(typeset(slice(cursor, start)))}
         </Fragment>,
       );
     }
 
-    const segment = slice(start, end);
+    const raw = slice(start, end);
+    const verbatim = (facet.features || []).some((f) => VERBATIM_FEATURES.has(f?.$type));
+    const segment = typeset(raw, verbatim);
     out.push(
       <Fragment key={`f-${key++}`}>
         {wrapWithFeatures(facet.features, segment)}
@@ -62,7 +87,7 @@ export function renderLeafletText(text, facets) {
   if (cursor < bytes.length) {
     out.push(
       <Fragment key={`t-${key++}`}>
-        {withLineBreaks(slice(cursor, bytes.length))}
+        {withLineBreaks(typeset(slice(cursor, bytes.length)))}
       </Fragment>,
     );
   }
@@ -101,19 +126,39 @@ function wrapWithFeatures(features, text) {
   if (href) {
     const titleAttr =
       useTrunc && sourceText.length < trimmed.length ? trimmed : undefined;
+    // A link whose words don't say where it goes ("(source)", "shortcut
+    // link") carries a sidenote naming the host. Only an essay's margin shows
+    // it (Blogging.css); everywhere else it stays display: none.
+    const host = useTrunc ? null : hostOf(href);
     return (
-      <a
-        className="post-rich-link"
-        href={href}
-        target="_blank"
-        rel="noreferrer noopener"
-        title={titleAttr}
-      >
-        {node}
-      </a>
+      <>
+        <a
+          className="post-rich-link"
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          title={titleAttr}
+        >
+          {node}
+        </a>
+        {host && (
+          <span className="leaflet-sidenote" aria-hidden="true">
+            {host} &#x2197;
+          </span>
+        )}
+      </>
     );
   }
   return node;
+}
+
+function hostOf(href) {
+  try {
+    const u = new URL(href);
+    return /^https?:$/.test(u.protocol) ? u.hostname.replace(/^www\./, '') : null;
+  } catch {
+    return null;
+  }
 }
 
 const INLINE_FORMATS = {

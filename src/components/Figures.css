@@ -1,0 +1,64 @@
+/* Figures (Figures.jsx): numerals over small-caps labels in ruled cells. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule-soft);
+  font-family: var(--sans);
+}
+
+.figures-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-left: 1px solid var(--rule-soft);
+}
+
+.figures-cell:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.figures-value {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.figures-label {
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.figures-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+@media (max-width: 560px) {
+  .figures {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .figures-cell {
+    padding-left: var(--space-3);
+  }
+  .figures-cell-wide {
+    grid-column: 1 / -1;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .figures-value {
+    font-size: var(--text-xl);
+  }
+}

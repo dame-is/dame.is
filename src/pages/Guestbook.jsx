@@ -13,9 +13,12 @@ import {
   fetchGuestbookBook,
   deleteGuestbookEntry,
   setEntryHidden,
+  signGuestbook,
 } from '../lib/guestbook.js';
+import { clearDraft, readDraft, registerNumbers } from '../lib/guestbookRegister.js';
+import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
 import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
-import { ME_DID, GUESTBOOK_SUBJECT } from '../config.js';
+import { ME_DID, GUESTBOOK_SUBJECT, GUESTBOOK_ENTRY_NSID } from '../config.js';
 import './Guestbook.css';
 
 // Stable empty set so "nothing new arrived" keeps the same reference between
@@ -30,9 +33,10 @@ const ARRIVAL_HOLD_MS = 1400;
  * own PDS pointing back at the book on mine — the page just gathers the
  * backlinks (Constellation), hydrates them (Slingshot), and offers a pen.
  *
- * Signing happens in the shared bottom-chrome sign sheet (GuestbookSheet,
- * opened from here and from the home page), so this page shows a call to
- * action rather than an inline form.
+ * The page reads as a register: numbered lines, newest first, each a note
+ * with a small signature line under it. The call to action is the book's
+ * next blank line, which opens the shared bottom-chrome sign sheet
+ * (GuestbookSheet, also opened from the home page).
  */
 export default function Guestbook() {
   const { title, intro } = usePageContent('guestbook');
@@ -234,11 +238,22 @@ export default function Guestbook() {
     }
   }
 
-  // A signature just written from the sign sheet arrives via navigation state;
-  // drop it on top of the book at once so it shows ahead of the backlink index.
-  // It also joins the pending list, so a live read that lands before the index
-  // has caught up doesn't paint it back out. A ref of consumed URIs guards
-  // against a re-render replaying the same state and inserting it twice.
+  // Put a fresh signature on top of the book at once, ahead of the backlink
+  // index. It also joins the pending list, so a live read that lands before
+  // the index has caught up doesn't paint it back out.
+  const addSigned = useCallback((fresh) => {
+    seenUrisRef.current.add(fresh.uri);
+    pendingRef.current = [fresh, ...pendingRef.current];
+    setEntries((prev) => {
+      const list = prev || [];
+      return list.some((e) => e.uri === fresh.uri) ? list : [fresh, ...list];
+    });
+    setTotal((t) => (typeof t === 'number' ? t + 1 : t));
+  }, []);
+
+  // A signature just written from the sign sheet arrives via navigation state.
+  // A ref of consumed URIs guards against a re-render replaying the same state
+  // and inserting it twice.
   //
   // The state is then cleared from the history entry. The browser keeps
   // history state across a reload, and consumedRef doesn't survive one — so a
@@ -253,27 +268,43 @@ export default function Guestbook() {
     navigate({ pathname, search, hash }, { replace: true, state: null });
     if (consumedRef.current.has(fresh.uri)) return;
     consumedRef.current.add(fresh.uri);
-    seenUrisRef.current.add(fresh.uri);
-    pendingRef.current = [fresh, ...pendingRef.current];
-    setEntries((prev) => {
-      const list = prev || [];
-      return list.some((e) => e.uri === fresh.uri) ? list : [fresh, ...list];
-    });
-    setTotal((t) => (typeof t === 'number' ? t + 1 : t));
-  }, [location, navigate]);
+    addSigned(fresh);
+  }, [location, navigate, addSigned]);
 
-  // Returning from the guestbook-only sign-in flow (see signIn's intent),
-  // reopen the sheet once the session is live so the visitor can finish signing
-  // without a second tap. One-shot: the flag is cleared as it's read.
+  // Returning from the guestbook-only sign-in flow (see signIn's intent): the
+  // note written before the hop is waiting in sessionStorage, so write it now,
+  // with no second tap. The PDS's consent screen was the confirmation. If
+  // there's no note, or the write fails, the sheet reopens with the note
+  // still in it. One-shot: the flag is cleared as it's read.
+  const [returnSign, setReturnSign] = useState(null); // null | 'signing' | { error }
   useEffect(() => {
-    if (!did) return;
+    if (!did || !agent) return;
     let flagged = false;
     try {
       flagged = sessionStorage.getItem('dame.guestbook.autosign') === '1';
       if (flagged) sessionStorage.removeItem('dame.guestbook.autosign');
     } catch {}
-    if (flagged) openPanel('guestbook');
-  }, [did, openPanel]);
+    if (!flagged) return;
+    const draft = readDraft();
+    if (!draft?.text.trim()) {
+      openPanel('guestbook');
+      return;
+    }
+    setReturnSign('signing');
+    (async () => {
+      try {
+        const { uri, cid, value } = await signGuestbook(agent, draft);
+        clearDraft();
+        const profile = await getProfile(did).catch(() => null);
+        consumedRef.current.add(uri);
+        addSigned({ uri, cid, did, rkey: rkeyFromAtUri(uri), value, profile });
+        setReturnSign(null);
+      } catch (err) {
+        setReturnSign({ error: err?.message || String(err) });
+        openPanel('guestbook');
+      }
+    })();
+  }, [did, agent, openPanel, addSigned]);
 
   async function handleRemove(entry) {
     // The session's Agent loads a beat after the session itself.
@@ -311,6 +342,16 @@ export default function Guestbook() {
     typeof total === 'number'
       ? Math.max(0, total - hiddenCount - flaggedCount)
       : visible?.length ?? null;
+  const numbers = registerNumbers(visible, count);
+  const nextNumber = count != null ? count + 1 : null;
+
+  const sign = () => openPanel('guestbook');
+  const blankStatus =
+    returnSign === 'signing'
+      ? 'Writing your note to your PDS…'
+      : returnSign?.error
+        ? `Your note didn’t sign (${returnSign.error}). It’s still in the sheet.`
+        : null;
 
   return (
     <PageShell
@@ -320,29 +361,25 @@ export default function Guestbook() {
       headTitle="dame.is welcoming"
       selectable
     >
-      <div className="guestbook-cta">
-        <button
-          type="button"
-          className="home-hero-cta-btn"
-          onClick={() => openPanel('guestbook')}
-        >
-          <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
-          Sign guestbook
-        </button>
-      </div>
-
-      <section className="guestbook-entries">
-        <h2 className="guestbook-entries-heading small-caps">
-          {count != null
-            ? `${count.toLocaleString()} ${count === 1 ? 'signature' : 'signatures'}`
-            : 'Signatures'}
-          {moderating && hiddenCount > 0 && (
-            <span className="guestbook-hidden-count"> · {hiddenCount} hidden</span>
-          )}
-          {moderating && flaggedCount > 0 && (
-            <span className="guestbook-hidden-count"> · {flaggedCount} auto-hidden</span>
-          )}
-        </h2>
+      <section className="guestbook-entries" aria-labelledby="guestbook-entries-h">
+        <header className="guestbook-section-head">
+          <h2 id="guestbook-entries-h" className="guestbook-section-title">
+            Signatures
+          </h2>
+          <span className="guestbook-section-meta">
+            {count == null
+              ? ''
+              : count === 0
+                ? 'none yet'
+                : `${count.toLocaleString('en-US')}, newest first`}
+            {moderating && hiddenCount > 0 && (
+              <span className="guestbook-hidden-count"> · {hiddenCount} hidden</span>
+            )}
+            {moderating && flaggedCount > 0 && (
+              <span className="guestbook-hidden-count"> · {flaggedCount} auto-hidden</span>
+            )}
+          </span>
+        </header>
         {moderating && (
           <p className="guestbook-moderation-note">
             Edit mode: hiding tucks a signature out of public display by listing it on the
@@ -368,14 +405,25 @@ export default function Guestbook() {
             </button>
           </div>
         ) : !visible || visible.length === 0 ? (
-          <p className="feed-empty">No signatures yet. The first page is blank. Sign it?</p>
+          <>
+            {/* An empty book that speaks to the visitor. */}
+            <div className="empty-note guestbook-empty">
+              <p className="guestbook-empty-eyebrow">{GUESTBOOK_ENTRY_NSID} · no backlinks yet</p>
+              <p className="guestbook-empty-line">No signatures yet. The first page is blank.</p>
+            </div>
+            <ul className="guestbook-list">
+              <BlankLine number={1} first status={blankStatus} onSign={sign} />
+            </ul>
+          </>
         ) : (
           <>
             <ul className="guestbook-list reveal-stagger">
+              <BlankLine number={nextNumber} status={blankStatus} onSign={sign} />
               {visible.map((entry) => (
                 <GuestbookEntryRow
                   key={entry.uri}
                   entry={entry}
+                  number={numbers.get(entry.uri) ?? null}
                   mine={entry.did === did}
                   onRemove={handleRemove}
                   moderating={moderating}
@@ -426,6 +474,33 @@ export default function Guestbook() {
         .
       </p>
     </PageShell>
+  );
+}
+
+/**
+ * The book's next blank line: the call to action, numbered where the next
+ * signature will go, with the page's one filled button at its end. It opens
+ * the same sign sheet as the home page's button, with the cursor in the note.
+ * While a note written before a sign-in hop is being saved, it says so.
+ */
+function BlankLine({ number, first = false, status = null, onSign }) {
+  return (
+    <li className="guestbook-entry guestbook-entry-blank">
+      <span className="guestbook-entry-number">{number ?? ''}</span>
+      <div className="guestbook-entry-body guestbook-blank-body">
+        <p className="guestbook-blank-text" role={status ? 'status' : undefined}>
+          {status || (first ? 'The first line is yours.' : 'The next line is yours.')}
+        </p>
+        <button
+          type="button"
+          className="home-hero-cta-btn home-hero-cta-primary guestbook-blank-sign"
+          onClick={onSign}
+        >
+          <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
+          Sign the guestbook
+        </button>
+      </div>
+    </li>
   );
 }
 

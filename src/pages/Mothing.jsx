@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
-import { MothTile, MothStat } from '../components/MothTile.jsx';
+import { MothTile } from '../components/MothTile.jsx';
+import Figures from '../components/Figures.jsx';
 import { MothingSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useFeedWindow } from '../hooks/useFeedWindow.js';
 import { usePageContent } from '../hooks/usePageContent.js';
-import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
+import { useSectionView } from '../hooks/useFeedLayout.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import FirstSightingChip from '../components/FirstSightingChip.jsx';
@@ -16,11 +17,16 @@ import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../l
 import { firstSightingIds } from '../lib/firstSightings.js';
 import {
   formatNightDate,
+  formatNightDay,
   formatObservedTime,
   mothLightboxImages,
   mothName,
   nightPath,
+  nightSpanCompact,
   nightSummaryParts,
+  photographed,
+  seasonsOf,
+  weekdayOf,
 } from '../lib/mothing.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { ME_DID, INATURALIST_USER, INATURALIST_URL, MOTHING_OBSERVATION_NSID } from '../config.js';
@@ -34,24 +40,105 @@ const NO_FIRSTS = new Set();
 const nightRows = (session) => session.observations.length;
 
 /**
- * A session's header, and the way through to the night's own page — the whole
- * night as a gallery, with a card that previews what was at the light (see
- * MothingNight.jsx). The title is the link because the title IS the night:
- * its date is the address.
+ * One night as a ruled entry in the almanac: a folio (No. 29, Oct 16,
+ * Friday), a filmstrip of the first photographs, the counts, the time at the
+ * light, any first sightings, and an explicit "see the night →" that shows
+ * at rest, so a touch screen, which never hovers, still sees the way in.
+ * The folio and the strip lead to the same page.
  */
-function SessionHeader({ session }) {
+function NightEntry({ session, firstCount }) {
+  const href = nightPath(session.date);
+  const shots = photographed(session);
+  const strip = shots.slice(0, 8);
+  const moreWide = session.observationCount - strip.length;
+  const moreNarrow = session.observationCount - Math.min(strip.length, 4);
+  const span = nightSpanCompact(session);
   return (
-    <header className="mothing-session-head">
-      <div className="mothing-session-headrow">
-        <span className="small-caps mothing-session-num">Session #{session.number}</span>
-        <h2 className="mothing-session-title">
-          <Link className="mothing-night-link" to={nightPath(session.date)}>
-            Night of {formatNightDate(session.date)}
+    <li className="night-entry">
+      <Link to={href} className="night-folio">
+        <span className="night-folio-num">No. {session.number}</span>
+        <span className="night-folio-date">{formatNightDay(session.date)}</span>
+        <span className="night-folio-day">{weekdayOf(session.date)}</span>
+      </Link>
+      <div className="night-body">
+        {strip.length > 0 && (
+          <Link to={href} className="night-strip" tabIndex={-1} aria-hidden="true">
+            {strip.map((o) => (
+              <img
+                key={o.id}
+                src={photoUrl(o.photos[0], 'square')}
+                srcSet={`${photoUrl(o.photos[0], 'square')} 1x, ${photoUrl(o.photos[0], 'small')} 2x`}
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            ))}
+            {moreWide > 0 && <span className="night-more night-more-wide">+{moreWide} more</span>}
+            {moreNarrow > 0 && <span className="night-more night-more-narrow">+{moreNarrow} more</span>}
           </Link>
-        </h2>
+        )}
+        <p className="night-counts">
+          <span>{nightSummaryParts(session, { span: false }).join(' · ')}</span>
+          {span && <span className="night-span">{span}</span>}
+          {firstCount > 0 && <FirstSightingChip count={firstCount} size="small" />}
+        </p>
+        <Link to={href} className="night-see">
+          see the night&nbsp;&rarr;
+        </Link>
       </div>
-      <span className="gutter mothing-session-stats">{nightSummaryParts(session).join(' · ')}</span>
-    </header>
+    </li>
+  );
+}
+
+/**
+ * The six species seen most often, as plates: a square photograph (the
+ * latest sighting of that species, picked by rule), the name, and the count.
+ * A tap opens the photo in the page's lightbox. A species with no common
+ * name is set in italic, as a binomial or genus is.
+ */
+function MostSeen({ top, observations, onOpen }) {
+  const plates = useMemo(() => {
+    const newest = new Map();
+    for (const o of observations) {
+      const id = o.taxon?.id;
+      if (id == null || !o.photos?.[0]) continue;
+      const key = `${o.observedDate || ''} ${o.observedTime || ''}`;
+      const cur = newest.get(id);
+      if (!cur || key > cur.key) newest.set(id, { key, obs: o });
+    }
+    return top.slice(0, 6).map((s) => ({ s, obs: newest.get(s.taxonId)?.obs || null }));
+  }, [top, observations]);
+  return (
+    <section className="mothing-seen" aria-labelledby="mothing-seen-h">
+      <h2 id="mothing-seen-h" className="mothing-section-h">
+        Most seen
+      </h2>
+      <ul className="mothing-seen-plates">
+        {plates.map(({ s, obs }) => (
+          <li key={s.taxonId}>
+            <button
+              type="button"
+              className="mothing-seen-plate"
+              onClick={() => obs && onOpen(obs)}
+              disabled={!obs}
+              aria-label={`View photo: ${s.commonName || s.name}, seen ${s.count} times`}
+            >
+              {obs ? (
+                <img src={photoUrl(obs.photos[0], 'medium')} alt="" loading="lazy" decoding="async" />
+              ) : (
+                <span className="mothing-seen-empty" aria-hidden="true" />
+              )}
+              <span className="mothing-seen-caption">
+                <span className={`mothing-seen-name${s.commonName ? '' : ' is-binomial'}`}>
+                  {s.commonName || s.name}
+                </span>
+                <span className="mothing-seen-count">&times;{s.count}</span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -124,8 +211,10 @@ function MothLedgerRow({ obs, onOpen, first = false }) {
 
 export default function Mothing() {
   const { title, intro } = usePageContent('mothing');
-  const { layout } = useFeedLayout();
-  const ledger = layout === 'ledger';
+  // The almanac is the page; the ledger of every observation is the index a
+  // reader chooses, for searching by name.
+  const [view, setView] = useSectionView('mothing', 'plates');
+  const ledger = view === 'index';
 
   const { items, status } = useLiveFeed({
     name: 'mothing',
@@ -166,11 +255,12 @@ export default function Mothing() {
 
   const { sessions, orphans } = useMemo(() => buildSessions(observations), [observations]);
 
-  // Drawn a window at a time, as the other feed pages are: the whole archive
-  // was every tile at once — five hundred images and four thousand nodes for
-  // a reader who mostly looks at the last few nights. The lightbox still walks
-  // every photograph, drawn or not. The daytime list comes last, once every
-  // night is showing.
+  // The ledger view is drawn a window at a time, as the other feed pages are:
+  // the whole archive was every row at once, for a reader who mostly looks at
+  // the last few nights. (The almanac needs no window: a night is one line,
+  // and only the current season starts open.) The lightbox still walks every
+  // photograph, drawn or not. The daytime list comes last, once every night
+  // is showing.
   const feedWindow = useFeedWindow(sessions, undefined, { weigh: nightRows });
   const shownSessions = feedWindow.visible;
   const shownOrphans = feedWindow.hasMore ? EMPTY_OBSERVATIONS : orphans;
@@ -202,6 +292,15 @@ export default function Mothing() {
   const openLightbox = (obs) => setLightbox(lightboxIndexById.get(obs.id) ?? -1);
   const lightboxImages = useMemo(() => mothLightboxImages(photoObs), [photoObs]);
 
+  const seasons = useMemo(() => seasonsOf(sessions), [sessions]);
+  const firstCountByDate = useMemo(() => {
+    const map = new Map();
+    for (const s of sessions) map.set(s.date, s.observations.filter((o) => firstIds.has(o.id)).length);
+    return map;
+  }, [sessions, firstIds]);
+  const atLight = observations.length - orphans.length;
+  const earliestNight = sessions.length ? sessions[sessions.length - 1].date : null;
+
   return (
     <PageShell
       title={title}
@@ -210,28 +309,36 @@ export default function Mothing() {
       headTitle="dame.is mothing"
     >
       {stats && (
-        <section className="mothing-stats" aria-label="Mothing stats">
-          <MothStat value={stats.sessionCount ?? sessions.length} label="sessions" />
-          <MothStat value={stats.observationCount} label="observations" />
-          <MothStat value={stats.speciesCount} label="species" />
-        </section>
+        <Figures
+          label="Mothing in figures"
+          items={[
+            {
+              key: 'nights',
+              value: stats.sessionCount ?? sessions.length,
+              label: 'nights',
+              note: earliestNight ? `since ${formatNightDate(earliestNight)}` : null,
+            },
+            {
+              key: 'moths',
+              value: stats.observationCount,
+              label: 'moths',
+              note: orphans.length ? `${atLight} at the light, ${orphans.length} by day or untimed` : null,
+            },
+            {
+              key: 'species',
+              value: stats.speciesCount,
+              label: 'species',
+              note:
+                stats.distinctTaxaCount > stats.speciesCount
+                  ? `${stats.distinctTaxaCount} taxa, counting genera`
+                  : null,
+            },
+          ]}
+        />
       )}
 
-      {stats?.topSpecies?.length > 0 && (
-        <p className="mothing-toplist">
-          <span className="small-caps mothing-toplist-lead">Most seen</span>{' '}
-          {stats.topSpecies.slice(0, 6).map((s, i) => (
-            <span key={s.taxonId || i} className="mothing-toplist-item">
-              {s.commonName || s.name}
-              <span className="mothing-toplist-count"> {s.count}</span>
-              {i < Math.min(6, stats.topSpecies.length) - 1 ? (
-                <span className="mothing-toplist-sep">{'\u00a0· '}</span>
-              ) : (
-                ''
-              )}
-            </span>
-          ))}
-        </p>
+      {!ledger && stats?.topSpecies?.length > 0 && (
+        <MostSeen top={stats.topSpecies} observations={observations} onOpen={openLightbox} />
       )}
 
       {loading && observations.length === 0 ? (
@@ -291,48 +398,59 @@ export default function Mothing() {
           <FeedMore {...feedWindow} />
         </div>
       ) : (
-        <div className="mothing-sessions">
-          {shownSessions.map((session) => (
-            <section key={session.date} className="mothing-session">
-              <SessionHeader session={session} />
-              <ul className="mothing-grid reveal-stagger">
-                {session.observations.map((obs) => (
-                  <MothTile
-                    key={obs.id}
-                    obs={obs}
-                    onOpen={openLightbox}
-                    first={firstIds.has(obs.id)}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
-
-          {shownOrphans.length > 0 && (
-            <section className="mothing-session">
-              <header className="mothing-session-head">
-                <div className="mothing-session-headrow">
-                  <span className="small-caps mothing-session-num">Outside sessions</span>
-                  <h2 className="mothing-session-title">Daytime &amp; untimed</h2>
-                </div>
-                <span className="gutter mothing-session-stats">
-                  {orphans.length} observation{orphans.length === 1 ? '' : 's'}
+        // The almanac: nights grouped by season, newest first, only the
+        // current season open. A <details> fold, so find-in-page still opens
+        // an older season to find a name.
+        <div className="mothing-almanac">
+          {seasons.map((season, i) => (
+            <details key={season.key} className="mothing-season" open={i === 0}>
+              <summary className="mothing-season-head">
+                <span className="mothing-season-label">{season.label}</span>
+                <span className="mothing-season-range">{season.range}</span>
+                <span className="mothing-season-tally">
+                  {season.sessions.length} {season.sessions.length === 1 ? 'night' : 'nights'} · {season.moths}{' '}
+                  {season.moths === 1 ? 'moth' : 'moths'}
+                  <span className="mothing-season-species"> · {season.species} species</span>
                 </span>
-              </header>
-              <ul className="mothing-grid reveal-stagger">
-                {shownOrphans.map((obs) => (
-                  <MothTile
-                    key={obs.id}
-                    obs={obs}
-                    onOpen={openLightbox}
-                    first={firstIds.has(obs.id)}
-                  />
+              </summary>
+              <ol className="night-entries">
+                {season.sessions.map((s) => (
+                  <NightEntry key={s.date} session={s} firstCount={firstCountByDate.get(s.date) || 0} />
+                ))}
+              </ol>
+            </details>
+          ))}
+          {orphans.length > 0 && (
+            <details className="mothing-season">
+              <summary className="mothing-season-head">
+                <span className="mothing-season-label">Daytime &amp; untimed</span>
+                <span className="mothing-season-range">outside any night</span>
+                <span className="mothing-season-tally">
+                  {orphans.length} {orphans.length === 1 ? 'moth' : 'moths'}
+                </span>
+              </summary>
+              <ul className="mothing-grid">
+                {orphans.map((obs) => (
+                  <MothTile key={obs.id} obs={obs} onOpen={openLightbox} first={firstIds.has(obs.id)} />
                 ))}
               </ul>
-            </section>
+            </details>
           )}
-          <FeedMore {...feedWindow} />
         </div>
+      )}
+
+      {observations.length > 0 && (
+        <p className="mothing-switch">
+          {ledger ? (
+            <button type="button" onClick={() => setView('plates')}>
+              &larr; The almanac of nights
+            </button>
+          ) : (
+            <button type="button" onClick={() => setView('index')}>
+              Every observation in one ledger &rarr;
+            </button>
+          )}
+        </p>
       )}
 
       <p className="mothing-source gutter">

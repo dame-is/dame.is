@@ -82,7 +82,7 @@ export const PAGE_REGISTRY = {
     slug: 'guestbook',
     label: 'Welcoming',
     title: 'Welcoming',
-    intro: 'Sign in with any atproto account and leave a note that you were here. Every signature lives on the signer’s own PDS and reaches this page as a backlink.',
+    intro: 'Leave a note that you were here, and sign it with any atproto account. Every signature lives on the signer’s own PDS and reaches this page as a backlink.',
     collection: null,
   },
   resume: {
@@ -98,7 +98,9 @@ export const PAGE_REGISTRY = {
     title: 'About this site',
     // The "What is this site?" primer shown in the bottom-bar info sheet.
     // Authored as markdown so it can migrate onto the PDS and be edited there.
-    body: `**dame.is** is a personal website built on top of the *AT Protocol*. It's where Dame writes, posts, plays music, ships projects, and keeps a running log of what they're up to. The data behind every record on this page is portable, open, and not stuck on this website.
+    body: `Dame is a product engineer and designer who builds social software. This is their website: essays under [blogging](/blogging), past work under [creating](/creating), moths under [mothing](/mothing), a running status log under [logging](/logging), and a guestbook under [welcoming](/welcoming). The [résumé](/available) is the quickest summary.
+
+**dame.is** is built on top of the *AT Protocol*, so the data behind every record on this page is portable, open, and not stuck on this website.
 
 ### What is atproto?
 

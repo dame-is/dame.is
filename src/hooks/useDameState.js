@@ -91,5 +91,5 @@ export function useDameState() {
     };
   }, []);
 
-  return { vitals: normalizeVitals(record?.value), status };
+  return { vitals: normalizeVitals(record?.value), uri: record?.uri || null, status };
 }

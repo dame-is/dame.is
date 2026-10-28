@@ -50,6 +50,23 @@ function readNavSeed() {
   }
 }
 
+// The raw is.dame.sky/self record, baked in so the mark's first render already
+// knows whether the owner has hidden it (useTheme's SKY_SEED). The tuning
+// itself reaches the bundle through `virtual:sky-tuning` (skyBootPaint below).
+// Null with no snapshot or an empty record, and the app falls back to the
+// runtime fetch.
+function readSkySeed() {
+  try {
+    const path = fileURLToPath(new URL('./public/data/sky.json', import.meta.url));
+    const snap = JSON.parse(readFileSync(path, 'utf8'));
+    return snap?.value ? snap : null;
+  } catch {
+    return null;
+  }
+}
+
+const SKY_SEED = readSkySeed();
+
 // Emit dist/version.json (matching the baked-in build id) so the running app
 // can poll it and detect when a newer build has been deployed. Written in
 // closeBundle — after Vite copies public/ into the output — so nothing
@@ -126,5 +143,6 @@ export default defineConfig({
     __COMMIT_SHA__: JSON.stringify(BUILD.commit),
     __BUILD_TIME__: JSON.stringify(BUILD.builtAt),
     __NAV_SEED__: JSON.stringify(readNavSeed()),
+    __SKY_SEED__: JSON.stringify(SKY_SEED),
   },
 });

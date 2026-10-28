@@ -202,9 +202,10 @@ export function repostToFullPostItem(item, record) {
       },
     };
   }
+  // The row is the repost record, so it keeps the repost's own CID; the
+  // post it points at carries its CID as subjectCid (x-ray shows both).
   return {
     ...item,
-    cid: view.cid || item.cid,
     payload: {
       text: view.record?.text || '',
       facets: view.record?.facets || null,
@@ -224,6 +225,7 @@ export function repostToFullPostItem(item, record) {
       embedRecord: view.record?.embed || null,
       indexedAt: view.indexedAt,
       subjectUri: view.uri,
+      subjectCid: view.cid || ref?.cid || null,
       subjectRef: ref,
       reason: {
         $type: 'app.bsky.feed.defs#reasonRepost',

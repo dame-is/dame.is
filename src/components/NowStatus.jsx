@@ -4,6 +4,7 @@ import { useNowStatus } from '../hooks/useNowStatus.js';
 import { relativeTime } from '../lib/time.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import TickerText from './TickerText.jsx';
+import { xrayRecordAttrs } from '../lib/xray.js';
 
 function compactRelative(value) {
   // "just now" stays as-is; everything else keeps the "ago" suffix so
@@ -31,7 +32,7 @@ export default memo(function NowStatus() {
     </>
   );
   return (
-    <span className="chrome-signal chrome-signal-status">
+    <span className="chrome-signal chrome-signal-status" {...xrayRecordAttrs(record?.uri)}>
       <TickerText className="chrome-signal-value" title={tooltip || undefined} marquee>
         {href ? (
           <Link to={href} className="chrome-signal-link">{inner}</Link>

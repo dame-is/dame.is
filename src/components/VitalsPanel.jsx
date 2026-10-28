@@ -10,6 +10,7 @@ import { relativeTime } from '../lib/time.js';
 import { vitalsFreshness } from '../lib/vitals.js';
 import DayOfLifeTicker from './DayOfLifeTicker.jsx';
 import './VitalsPanel.css';
+import { xrayRecordAttrs } from '../lib/xray.js';
 
 const ACTIVITY_ICON = {
   stationary: Armchair,
@@ -30,7 +31,7 @@ function batteryIcon(level, charging) {
 // Memoised: it takes no props, and the top chrome around it re-renders as the
 // page scrolls.
 export default memo(function VitalsPanel() {
-  const { vitals } = useDameState();
+  const { vitals, uri } = useDameState();
   const reduce = useReducedMotion();
 
   // The newest is.dame.state record is whatever the phone last posted, which
@@ -82,53 +83,60 @@ export default memo(function VitalsPanel() {
           : "Current state from Dame's phone"
       }
     >
-      {vitals.heartRate != null && (
-        <span className="vital vital-heart" aria-label={`Heart rate ${vitals.heartRate} beats per minute`}>
-          <Heartbeat bpm={vitals.heartRate} animate={!reduce && !stale} />
-          <span className="vital-value">{vitals.heartRate}</span>
-          <span className="vital-unit">bpm</span>
-        </span>
-      )}
+      {/* One is.dame.state record sits behind all five readings, so x-ray's
+          underline spans them (the inner span) and its tag follows (the
+          outer span's ::after); the day of life beside them isn't part of it. */}
+      <span className="vitals-record" {...xrayRecordAttrs(uri)}>
+        <span className="vitals-readings">
+          {vitals.heartRate != null && (
+            <span className="vital vital-heart" aria-label={`Heart rate ${vitals.heartRate} beats per minute`}>
+              <Heartbeat bpm={vitals.heartRate} animate={!reduce && !stale} />
+              <span className="vital-value">{vitals.heartRate}</span>
+              <span className="vital-unit">bpm</span>
+            </span>
+          )}
 
-      {vitals.caloriesBurned != null && (
-        <span className="vital vital-cal" aria-label={`${vitals.caloriesBurned} calories burned today`}>
-          <Flame className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-value">{vitals.caloriesBurned}</span>
-          <span className="vital-unit">cal</span>
-        </span>
-      )}
+          {vitals.caloriesBurned != null && (
+            <span className="vital vital-cal" aria-label={`${vitals.caloriesBurned} calories burned today`}>
+              <Flame className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span className="vital-value">{vitals.caloriesBurned}</span>
+              <span className="vital-unit">cal</span>
+            </span>
+          )}
 
-      {vitals.soundLevel != null && (
-        <span className="vital vital-sound" aria-label={`Ambient sound ${vitals.soundLevel} decibels`}>
-          <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-value">{vitals.soundLevel}</span>
-          <span className="vital-unit">dB</span>
-        </span>
-      )}
+          {vitals.soundLevel != null && (
+            <span className="vital vital-sound" aria-label={`Ambient sound ${vitals.soundLevel} decibels`}>
+              <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span className="vital-value">{vitals.soundLevel}</span>
+              <span className="vital-unit">dB</span>
+            </span>
+          )}
 
-      {BatteryIcon && (
-        <span
-          className={`vital vital-battery ${vitals.charging ? 'is-charging' : ''} ${
-            vitals.batteryLevel <= 15 && !vitals.charging ? 'is-low' : ''
-          }`}
-          aria-label={`Battery ${vitals.batteryLevel} percent${vitals.charging ? ', charging' : ''}`}
-        >
-          <BatteryIcon className="vital-glyph" size={16} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-value">{vitals.batteryLevel}%</span>
-        </span>
-      )}
+          {BatteryIcon && (
+            <span
+              className={`vital vital-battery ${vitals.charging ? 'is-charging' : ''} ${
+                vitals.batteryLevel <= 15 && !vitals.charging ? 'is-low' : ''
+              }`}
+              aria-label={`Battery ${vitals.batteryLevel} percent${vitals.charging ? ', charging' : ''}`}
+            >
+              <BatteryIcon className="vital-glyph" size={16} strokeWidth={1.75} aria-hidden="true" />
+              <span className="vital-value">{vitals.batteryLevel}%</span>
+            </span>
+          )}
 
-      {/* Activity sits last — it's a word rather than a number, so it reads
-          cleanly at the end of the numeric run. */}
-      {vitals.activity && (
-        <span
-          className="vital vital-activity"
-          aria-label={`${stale ? 'Was' : 'Currently'} ${activityLabel(vitals.activity)}`}
-        >
-          <ActivityIcon className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-word">{activityLabel(vitals.activity)}</span>
+          {/* Activity sits last — it's a word rather than a number, so it reads
+              cleanly at the end of the numeric run. */}
+          {vitals.activity && (
+            <span
+              className="vital vital-activity"
+              aria-label={`${stale ? 'Was' : 'Currently'} ${activityLabel(vitals.activity)}`}
+            >
+              <ActivityIcon className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span className="vital-word">{activityLabel(vitals.activity)}</span>
+            </span>
+          )}
         </span>
-      )}
+      </span>
 
       {/* When the phone said all this — the same quiet age the status line
           wears. */}

@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
+import { xrayRecordAttrs } from '../lib/xray.js';
 import { compareIsoDesc } from '../lib/time.js';
 
 /**
@@ -72,6 +73,10 @@ const wordVariants = {
   exit: { opacity: 0, y: 18, transition: { duration: 0.3, ease: EASE } },
 };
 
+/**
+ * The rotating "dame is …" sentence. It pauses on hover and focus, while the
+ * tab is hidden, and while it's scrolled out of view (nobody is reading it).
+ */
 export default function HeroSentence({ shuffleRef = null } = {}) {
   const reduce = useReducedMotion();
 
@@ -94,7 +99,7 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   // Oldest first: listRecords hands them over newest-first, which reversed
   // the in-file order the seed wrote them in (and with it the rotation, and
   // the pinned reduced-motion opener).
-  const { poolA, poolB } = useMemo(() => {
+  const { poolA, poolB, uriOf } = useMemo(() => {
     const recs = heroRecords || [];
     const enabled = recs
       .filter(
@@ -106,9 +111,13 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
       .sort((a, b) => -compareIsoDesc(a.value.createdAt, b.value.createdAt));
     const roles = enabled.filter((r) => r.value.part === 'role').map((r) => r.value.text);
     const clauses = enabled.filter((r) => r.value.part === 'clause').map((r) => r.value.text);
+    // Each phrase's record, so x-ray can name the one on screen (the in-file
+    // fallbacks have none, and say nothing).
+    const uris = new Map(enabled.map((r) => [`${r.value.part}:${r.value.text}`, r.uri]));
     return {
       poolA: roles.length ? roles : VARIANTS_A,
       poolB: clauses.length ? clauses : VARIANTS_B,
+      uriOf: (part, text) => uris.get(`${part}:${text}`) || null,
     };
   }, [heroRecords]);
 
@@ -163,32 +172,37 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   const [minHeight, setMinHeight] = useState(null);
   const wrapRef = useRef(null);
   const measureRef = useRef(null);
+  const [offscreen, setOffscreen] = useState(false);
+  const stopped = reduce || paused || offscreen;
+
+  // Rest while the sentence is off-screen: nobody is reading it.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([entry]) => setOffscreen(!entry.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // Part-A timer: schedule the next swap whenever index, pause, or
   // reduced-motion state changes. Random interval per round so two
   // adjacent swaps never feel metronomic.
   useEffect(() => {
-    if (reduce || paused) return;
+    if (stopped) return;
     const ms = 4000 + Math.random() * 4000;
-    const id = setTimeout(
-      () => setIndexA((i) => (i + 1) % poolA.length),
-      ms,
-    );
+    const id = setTimeout(() => setIndexA((i) => (i + 1) % poolA.length), ms);
     return () => clearTimeout(id);
-  }, [indexA, paused, reduce, poolA.length]);
+  }, [indexA, stopped, poolA.length]);
 
   // Part-B timer: same logic, but a small phase offset (4500 base
   // instead of 4000) so A and B drift independently rather than
   // locking into a shared rhythm.
   useEffect(() => {
-    if (reduce || paused) return;
+    if (stopped) return;
     const ms = 4500 + Math.random() * 4000;
-    const id = setTimeout(
-      () => setIndexB((i) => (i + 1) % poolB.length),
-      ms,
-    );
+    const id = setTimeout(() => setIndexB((i) => (i + 1) % poolB.length), ms);
     return () => clearTimeout(id);
-  }, [indexB, paused, reduce, poolB.length]);
+  }, [indexB, stopped, poolB.length]);
 
   // Pause when the tab is hidden — otherwise the timer fires
   // unattended and the user comes back to an arbitrary mid-cycle pair.
@@ -257,8 +271,20 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
       onBlurCapture={() => setPaused(false)}
     >
       <span className="hero-sentence-lead">dame is</span>{' '}
-      <Rotator index={indexA} pool={poolA} reduce={reduce} className="hero-rotator-a" />{' '}
-      <Rotator index={indexB} pool={poolB} reduce={reduce} className="hero-rotator-b" />
+      <Rotator
+        index={indexA}
+        pool={poolA}
+        reduce={reduce}
+        className="hero-rotator-a"
+        uri={uriOf('role', poolA[indexA])}
+      />{' '}
+      <Rotator
+        index={indexB}
+        pool={poolB}
+        reduce={reduce}
+        className="hero-rotator-b"
+        uri={uriOf('clause', poolB[indexB])}
+      />
 
       {/* Each measure entry mirrors the live nested structure (lead +
           two inline-block rotators) so wrapping at the rotator
@@ -310,7 +336,7 @@ function pickDifferent(current, length) {
   return next;
 }
 
-function Rotator({ index, pool, reduce, className = '' }) {
+function Rotator({ index, pool, reduce, className = '', uri = null }) {
   // Split the active phrase into words once per index change. Real
   // space text nodes between word spans preserve the wrap-anywhere
   // behavior the measure layer already counts on. Guard the lookup: the
@@ -323,11 +349,14 @@ function Rotator({ index, pool, reduce, className = '' }) {
   // reduced motion the swap is instant: popLayout would otherwise hold the
   // old phrase over the new one while it faded.
   return (
-    <span className={`hero-rotator ${className}`}>
+    <span className={`hero-rotator ${className}`} {...xrayRecordAttrs(uri)}>
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
           key={phrase}
           className="hero-rotator-phrase"
+          // X-ray's collection tag rides inside the phrase, after its last
+          // word, so it sits at the end of the phrase's last line.
+          data-xray-tag={xrayRecordAttrs(uri)['data-xray-nsid']}
           variants={reduce ? undefined : phraseVariants}
           initial={reduce ? false : 'hidden'}
           animate={reduce ? undefined : 'visible'}

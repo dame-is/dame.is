@@ -12,27 +12,28 @@ import BottomSheet from './BottomSheet.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { getProfile } from '../lib/atproto.js';
-import { signInErrorMessage } from '../lib/oauthClient.js';
 import './GuestbookSheet.css';
 
-// Lazy: the pen is for signed-in signers only, and it carries the guestbook
-// library and the profanity matcher, which were a sizeable share of every
-// visitor's entry chunk. Its stylesheet (pages/Guestbook.css) is already in
-// the entry through lib/pageStyles.js, so only the JavaScript moves.
+// Lazy: the pen carries the guestbook library and the profanity matcher,
+// which were a sizeable share of every visitor's entry chunk, and only a
+// visitor who opens the sheet needs them. Its stylesheet (pages/Guestbook.css)
+// is already in the entry through lib/pageStyles.js, so only the JavaScript
+// moves.
 const loadSignForm = () => import('./GuestbookSignForm.jsx');
 const GuestbookSignForm = lazy(loadSignForm);
 
 /**
  * The guestbook sign sheet — the bottom-chrome surface behind every "Sign the
- * guestbook" call to action (the home page aside, the /welcoming page CTA). It
- * expands up out of the bottom bar like the search / filter / info panels, and
- * is coordinated through the same `useChromePanel` slot so it never stacks on
- * another panel or the nav dock.
+ * guestbook" call to action (the home page's button, the register's blank
+ * line on /welcoming). It expands up out of the bottom bar like the search /
+ * filter / info panels, and is coordinated through the same `useChromePanel`
+ * slot so it never stacks on another panel or the nav dock.
  *
- *   - Signed in  → the pen (GuestbookSignForm).
- *   - Signed out → a one-record sign-in: visitors grant write access to just
- *     the is.dame.guestbook.entry collection (see scopeForAccount), and are
- *     returned to /welcoming with this sheet reopened.
+ * It opens on the note, signed in or not (GuestbookSignForm). A visitor who
+ * isn't signed in signs with their handle at the end: a one-record sign-in
+ * that grants write access to just the is.dame.guestbook.entry collection
+ * (see scopeForAccount), returns them to /welcoming, and writes the note they
+ * left before the hop.
  *
  * On a successful signature it closes and routes to /welcoming, handing the
  * fresh entry along so it appears immediately — ahead of the backlink index.
@@ -50,12 +51,11 @@ export default function GuestbookSheet() {
     if (open) restore();
   }, [open, restore]);
 
-  // Fetch the pen while the session restores, so the two waits overlap and the
-  // form is usually there by the time the session is. A signed-out visitor
-  // never needs it, so they don't download it.
+  // Fetch the pen as the sheet opens (and while any session restores), so the
+  // waits overlap and the form is usually there by the time the sheet is.
   useEffect(() => {
-    if (open && (session || loading)) loadSignForm().catch(() => {});
-  }, [open, session, loading]);
+    if (open) loadSignForm().catch(() => {});
+  }, [open]);
 
   // The signer's profile, for the form's "signing as" line and to render their
   // fresh signature optimistically before Constellation indexes the backlink.
@@ -74,8 +74,8 @@ export default function GuestbookSheet() {
     };
   }, [did]);
 
-  // The signer's handle for the header ("Sign guestbook as @handle"), falling
-  // back to a shortened DID. Empty when signed out.
+  // The signer's handle for the form's "Signing as" line, falling back to a
+  // shortened DID. Empty when signed out.
   const signerHandle = useMemo(() => {
     if (profile?.handle && profile.handle !== 'handle.invalid') return `@${profile.handle}`;
     if (!did) return '';
@@ -92,17 +92,12 @@ export default function GuestbookSheet() {
     <BottomSheet
       open={open}
       onClose={closePanel}
-      label="Sign guestbook"
+      label="Sign the guestbook"
       id="chrome-guestbook-sheet"
       className="guestbook-sheet-panel"
     >
       <div className="guestbook-sheet-header">
-        <span className="small-caps">
-          Sign guestbook{session && signerHandle ? ' as ' : ''}
-          {session && signerHandle && (
-            <span className="guestbook-sheet-signer">{signerHandle}</span>
-          )}
-        </span>
+        <span className="small-caps">Sign the guestbook</span>
         <button
           type="button"
           className="guestbook-sheet-close"
@@ -117,73 +112,22 @@ export default function GuestbookSheet() {
         // `loading` also covers a live session whose Agent is still loading;
         // the pen can't write without it.
         <p className="guestbook-sheet-restoring">Restoring your session…</p>
-      ) : session ? (
+      ) : (
         <Suspense
           fallback={
             <p className="guestbook-sheet-restoring">Loading the form…</p>
           }
         >
-          <GuestbookSignForm agent={agent} did={did} onSigned={handleSigned} />
+          <GuestbookSignForm
+            agent={agent}
+            did={did}
+            signedIn={Boolean(session)}
+            signerHandle={signerHandle}
+            signIn={signIn}
+            onSigned={handleSigned}
+          />
         </Suspense>
-      ) : (
-        <GuestbookSignIn signIn={signIn} />
       )}
     </BottomSheet>
-  );
-}
-
-/**
- * Signed-out state: a compact, purpose-built sign-in. Unlike the account
- * panel's general sign-in, it asks only for guestbook write access and returns
- * the visitor to /welcoming — reopening this sheet — once they're back.
- */
-function GuestbookSignIn({ signIn }) {
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (!input.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await signIn(input.trim(), { returnTo: '/welcoming', intent: 'guestbook-sign' });
-      // Redirected away; if we somehow keep running, drop the busy state.
-    } catch (err) {
-      console.warn('[guestbook] sign-in failed to start:', err);
-      setBusy(false);
-      setError(signInErrorMessage(err));
-    }
-  }
-
-  return (
-    <form className="guestbook-sheet-signin" onSubmit={handleSubmit}>
-      <p className="guestbook-sheet-signin-text">
-        Sign in with your Atmosphere or Bluesky account to leave a note in my guestbook. The
-        record is saved to your PDS and displays on my site via backlinks.
-      </p>
-      {/* The same guards as the account panel's field (see SignInPanel): iOS
-          otherwise capitalizes and autocorrects a handle as if it were prose. */}
-      <input
-        className="signin-input"
-        type="text"
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="none"
-        inputMode="url"
-        enterKeyHint="go"
-        spellCheck={false}
-        placeholder="handle, DID, or PDS URL"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        disabled={busy}
-        aria-label="Your handle, DID, or PDS URL"
-      />
-      <button type="submit" className="signin-button" disabled={busy || !input.trim()}>
-        {busy ? 'Redirecting…' : 'Sign in to sign'}
-      </button>
-      {error && <p className="signin-error">{error}</p>}
-    </form>
   );
 }

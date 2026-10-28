@@ -217,6 +217,7 @@ export const LEXICONS = {
         // module is imported by the node-environment tests (see surfaces.js), so
         // it must not pull in a JSX component to read the list.
         options: [
+          { value: 'justified', label: 'Justified rows — each photo whole, rows ending flush' },
           { value: 'one-up', label: '1 across — a single tight column' },
           { value: 'two-up', label: '2 across (default)' },
           { value: 'three-up', label: '3 across' },

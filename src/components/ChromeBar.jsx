@@ -73,7 +73,7 @@ function settledBottom(node) {
 }
 
 export default function ChromeBar() {
-  const { expanded, toggle } = useChromeBar();
+  const { expanded, toggle, crumb: pageCrumb } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const reduce = useReducedMotion();
   const primaryRef = useRef(null);
@@ -157,7 +157,13 @@ export default function ChromeBar() {
   // date header of the section currently scrolled under the chrome, so it
   // reveals on the home page too once you're past the first day header.
   // It folds back up on the way to the top.
-  const crumbs = buildCrumbs(location.pathname);
+  // A crumb links only where a page answers (breadcrumbs.js), and the last
+  // one is the page's own human label when it gives one through PageShell's
+  // `crumb` ("Oct 26 · 5:36 pm" rather than a record's rkey).
+  const crumbs = withPageLabel(
+    buildCrumbs(location.pathname),
+    pageCrumb?.path === location.pathname ? pageCrumb.label : null,
+  );
   const scrolledDown = useScrolledDown();
   // The path whose page is actually on screen, which for the length of the
   // route transition's exit fade is still the one being left. The sweeps
@@ -570,7 +576,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   const { near: nearBottom, short: pageTooShort } = useNearPageBottom();
   const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
-  const { skyHourKey, advanceSkyHour } = useTheme();
+  const { skyHourKey, advanceSkyHour, skyOverridden } = useTheme();
   const { serifOnly, toggle: toggleFont } = useFont();
   // The edit-mode toggle only exists for the site owner. It sits beside the
   // Info button and flips the site into a selectable "edit mode" (see
@@ -793,10 +799,11 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                 <button
                   type="button"
                   className={`chrome-nav chrome-sky-hour ${skyPanelOpen ? 'is-open' : ''}`}
+                  data-held={skyOverridden && !inSkyStudio ? '' : undefined}
                   onClick={inSkyStudio ? advanceSkyHour : () => togglePanel('sky')}
                   aria-expanded={inSkyStudio ? undefined : skyPanelOpen}
                   aria-controls={inSkyStudio ? undefined : 'chrome-sky-sheet'}
-                  aria-label={`Time of day — showing ${skyHourKey}`}
+                  aria-label={`Time of day — ${skyOverridden ? 'held at' : 'showing'} ${skyHourKey}`}
                   title={`Time of day — tap to ${inSkyStudio ? 'advance the sky one hour' : 'pick an hour'} (showing ${skyHourKey})`}
                 >
                   {skyHourKey}
@@ -1193,6 +1200,12 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
     </motion.div>
   );
 });
+
+/** The trail with its last crumb relabelled, when the page names itself. */
+function withPageLabel(crumbs, label) {
+  if (!label || crumbs.length === 0) return crumbs;
+  return [...crumbs.slice(0, -1), { ...crumbs[crumbs.length - 1], label }];
+}
 
 // The URL params a page's filter sheet writes (Home, Posting, Creating): any of
 // them present means the list on screen is filtered.

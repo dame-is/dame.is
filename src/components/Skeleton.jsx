@@ -108,7 +108,31 @@ export function SkeletonShell({ children, className = '', label = 'Loading' }) {
  * Each row's body has a couple of staggered text lines plus a tiny
  * timestamp on the right.
  */
-export function FeedSkeleton({ rows = 6, label = 'Loading feed' }) {
+export function FeedSkeleton({ rows = 6, label = 'Loading feed', ledger = false }) {
+  if (ledger) {
+    // The home ledger's own three columns (verb | body | time) on its
+    // hairline rows, so the first rows to land replace bars where they
+    // stand instead of pushing a status line down.
+    return (
+      <SkeletonShell label={label}>
+        <div className="skeleton-ledger-head">
+          <Skeleton className="skeleton-ledger-day" />
+        </div>
+        <ul className="skeleton-ledger">
+          {Array.from({ length: rows }, (_, i) => (
+            <li key={i} className="skeleton-ledger-row">
+              <Skeleton className="skeleton-ledger-verb" />
+              <div className="skeleton-feed-body">
+                <Skeleton className="skeleton-feed-text" style={{ width: `${70 + ((i * 7) % 26)}%` }} />
+                {i % 3 === 1 && <Skeleton block style={{ width: `${38 + ((i * 13) % 32)}%`, height: '0.85em' }} />}
+              </div>
+              <Skeleton className="skeleton-ledger-time" />
+            </li>
+          ))}
+        </ul>
+      </SkeletonShell>
+    );
+  }
   return (
     <SkeletonShell label={label}>
       <ul className="skeleton-feed">

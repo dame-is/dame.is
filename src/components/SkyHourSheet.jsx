@@ -1,32 +1,88 @@
-import { memo, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
-import { paletteForHour, skyHourKey } from '../lib/skyTheme.js';
+import { SKY_BANDS, easternHour, skyHourLabel } from '../lib/skyTheme.js';
 import './SkyHourSheet.css';
 
+const TICKS = [
+  [0, '12a'],
+  [6, '6a'],
+  [12, '12p'],
+  [18, '6p'],
+];
+
 /**
- * The sky-hour picker — a 24-cell arc that expands up out of the bottom
+ * The sky-hour picker — a 24-hour ribbon that expands up out of the bottom
  * chrome bar's hour chip, letting any visitor sample the site's palette at
- * any hour of the day. Tapping a cell freezes the sky on that hour; "Live"
- * clears the override and returns to the real Eastern clock. Same BottomSheet
- * mechanism as search / filter / info, so it coordinates with the other
- * panels (one at a time) and folds the nav dock away.
+ * any hour of the day. Choosing an hour holds the sky there; "Return to
+ * live" clears the hold and goes back to the real Eastern clock. Same
+ * BottomSheet mechanism as search / filter / info, so it coordinates with
+ * the other panels (one at a time) and folds the nav dock away.
+ *
+ * The ribbon is one slider, not 24 tabs: a 44px press-and-drag target with
+ * an ink thumb that names its hour, so a thumb can sweep the day instead of
+ * hunting 10px cells. It is painted from SKY_BANDS, the avatar's own sky,
+ * which is not quite the page you get (noon is cyan in the strip and near
+ * white on screen), but it is the only way every hour keeps a visible edge.
  *
  * Distinct from the admin SkyThemeStudio's own hour bar: that one carries
  * the prev/next row + "X/24 tuned" meta and drives a live tuning preview;
- * this one is just the arc, for non-admin exploration.
+ * this one is for non-admin exploration.
  *
- * Memoised, and the arc is its own component, because the bottom bar that
- * renders this re-renders as the page scrolls, and the arc works out all 24
- * palettes each time it renders. The sheet only renders its children while
- * it's open, so closed, none of that runs.
+ * Memoised, because the bottom bar that renders this re-renders as the page
+ * scrolls. The sheet only renders its children while it's open, so closed,
+ * none of the ribbon's work runs.
  */
 function SkyHourSheet() {
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'sky';
   const { skyHour, setSkyHour, skyOverridden } = useTheme();
+  const ribbonRef = useRef(null);
+  const dragging = useRef(false);
+  const liveHour = easternHour();
+
+  const hourAt = useCallback((clientX) => {
+    const r = ribbonRef.current?.getBoundingClientRect();
+    if (!r || !r.width) return null;
+    return Math.min(23, Math.max(0, Math.floor(((clientX - r.left) / r.width) * 24)));
+  }, []);
+
+  const pick = useCallback(
+    (h) => {
+      if (h == null || h === skyHour) return;
+      setSkyHour(h);
+    },
+    [skyHour, setSkyHour],
+  );
+
+  const onPointerDown = (e) => {
+    if (e.button !== 0) return;
+    dragging.current = true;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    e.currentTarget.focus({ preventScroll: true });
+    pick(hourAt(e.clientX));
+  };
+  const onPointerMove = (e) => {
+    if (dragging.current) pick(hourAt(e.clientX));
+  };
+  const onPointerUp = () => {
+    dragging.current = false;
+  };
+
+  const onKeyDown = (e) => {
+    const step = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -6, PageUp: 6 }[e.key];
+    if (step != null) {
+      e.preventDefault();
+      setSkyHour((skyHour + step + 24) % 24);
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      setSkyHour(e.key === 'Home' ? 0 : 23);
+    }
+  };
+
+  const pct = (h) => `${((h + 0.5) / 24) * 100}%`;
 
   return (
     <BottomSheet
@@ -37,20 +93,22 @@ function SkyHourSheet() {
       size="compact"
       className="sky-hour-sheet-panel"
     >
-      <div className="sky-hour-sheet-header">
-        <span className="small-caps">Time of day</span>
+      <div className={`sky-hour-sheet-header ${skyOverridden ? 'is-held' : 'is-live'}`}>
         {skyOverridden ? (
-          <button
-            type="button"
-            className="sky-hour-sheet-live"
-            onClick={() => setSkyHour(null)}
-            aria-label="Return to live clock"
-            title="Return to live clock"
-          >
-            Live
-          </button>
+          <>
+            <span className="sky-hour-sheet-state">Held at {skyHourLabel(skyHour)}</span>
+            <button type="button" className="sky-hour-sheet-live" onClick={() => setSkyHour(null)}>
+              Return to live
+            </button>
+          </>
         ) : (
-          <span className="sky-hour-sheet-live-label">Live</span>
+          <>
+            <span className="small-caps">Time of day</span>
+            <span className="sky-hour-sheet-state">
+              <span className="sky-hour-sheet-live-dot" aria-hidden="true" />
+              Live · {skyHourLabel(skyHour)}
+            </span>
+          </>
         )}
       </div>
       <div className="sky-hour-sheet-arc-row">
@@ -61,9 +119,48 @@ function SkyHourSheet() {
           aria-label="Previous hour"
           title="Previous hour"
         >
-          <ArrowLeft size={14} aria-hidden="true" strokeWidth={1.75} />
+          <ArrowLeft size={16} aria-hidden="true" strokeWidth={1.75} />
         </button>
-        <SkyHourArc hour={skyHour} onPick={setSkyHour} />
+        <div className="sky-hour-sheet-track">
+          <div
+            ref={ribbonRef}
+            className="sky-hour-sheet-arc"
+            role="slider"
+            tabIndex={0}
+            aria-label="Hour of the sky"
+            aria-valuemin={0}
+            aria-valuemax={23}
+            aria-valuenow={skyHour}
+            aria-valuetext={`${skyHourLabel(skyHour)}${skyOverridden ? ', held' : ', live'}`}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onKeyDown={onKeyDown}
+          >
+            {SKY_BANDS.map(({ top, bottom }, h) => (
+              <span
+                key={h}
+                className="sky-hour-sheet-cell"
+                style={{ background: `linear-gradient(to bottom, ${top}, ${bottom})` }}
+                aria-hidden="true"
+              />
+            ))}
+            <span className="sky-hour-sheet-thumb" style={{ left: pct(skyHour) }} aria-hidden="true">
+              <span className="sky-hour-sheet-thumb-tag">{skyHourLabel(skyHour)}</span>
+            </span>
+          </div>
+          <div className="sky-hour-sheet-scale" aria-hidden="true">
+            {TICKS.map(([h, label]) => (
+              <span key={h} className="sky-hour-sheet-tick" style={{ left: pct(h) }}>
+                {label}
+              </span>
+            ))}
+            <span className="sky-hour-sheet-now" style={{ left: pct(liveHour) }}>
+              now
+            </span>
+          </div>
+        </div>
         <button
           type="button"
           className="sky-hour-sheet-step sky-hour-sheet-step-next"
@@ -71,7 +168,7 @@ function SkyHourSheet() {
           aria-label="Next hour"
           title="Next hour"
         >
-          <ArrowRight size={14} aria-hidden="true" strokeWidth={1.75} />
+          <ArrowRight size={16} aria-hidden="true" strokeWidth={1.75} />
         </button>
       </div>
     </BottomSheet>
@@ -79,98 +176,3 @@ function SkyHourSheet() {
 }
 
 export default memo(SkyHourSheet);
-
-// Arrow keys step the arc the way they step any radio group; Home and End
-// jump to midnight and 11pm.
-const KEY_STEPS = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 };
-
-/**
- * The 24 cells, as a radio group: one Tab stop (the selected hour), arrow
- * keys to move. They were 24 `role="tab"` buttons controlling no tab panel,
- * which a screen reader announced as tabs, and which took 24 presses of Tab
- * to get past.
- *
- * On a phone each cell is a few pixels wide, too narrow to aim a finger at,
- * so a drag along the strip scrubs through the hours under it.
- */
-function SkyHourArc({ hour, onPick }) {
-  const cellsRef = useRef([]);
-  const scrubRef = useRef(null);
-
-  function hourAt(arc, clientX) {
-    const r = arc.getBoundingClientRect();
-    if (r.width <= 0) return hour;
-    return Math.min(
-      23,
-      Math.max(0, Math.floor(((clientX - r.left) / r.width) * 24)),
-    );
-  }
-
-  function pick(h) {
-    if (h !== hour) onPick(h);
-  }
-
-  function onKeyDown(e) {
-    let next = null;
-    if (e.key in KEY_STEPS) next = (hour + KEY_STEPS[e.key] + 24) % 24;
-    else if (e.key === 'Home') next = 0;
-    else if (e.key === 'End') next = 23;
-    if (next == null) return;
-    e.preventDefault();
-    onPick(next);
-    cellsRef.current[next]?.focus();
-  }
-
-  function onPointerDown(e) {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    scrubRef.current = e.pointerId;
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    pick(hourAt(e.currentTarget, e.clientX));
-  }
-
-  function onPointerMove(e) {
-    if (scrubRef.current !== e.pointerId) return;
-    pick(hourAt(e.currentTarget, e.clientX));
-  }
-
-  function endScrub(e) {
-    if (scrubRef.current === e.pointerId) scrubRef.current = null;
-  }
-
-  return (
-    <div
-      className="sky-hour-sheet-arc"
-      role="radiogroup"
-      aria-label="Hour"
-      onKeyDown={onKeyDown}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endScrub}
-      onPointerCancel={endScrub}
-    >
-      {Array.from({ length: 24 }, (_, h) => {
-        const pv = paletteForHour(h).vars['--sky-page'];
-        const selected = h === hour;
-        return (
-          <button
-            key={h}
-            ref={(el) => {
-              cellsRef.current[h] = el;
-            }}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            tabIndex={selected ? 0 : -1}
-            aria-label={skyHourKey(h)}
-            className={`sky-hour-sheet-cell ${selected ? 'is-sel' : ''}`}
-            style={{ background: pv }}
-            title={skyHourKey(h)}
-            // Pointer presses already picked the hour on pointerdown; this is
-            // the keyboard's Space and Enter.
-            onClick={() => pick(h)}
-          />
-        );
-      })}
-    </div>
-  );
-}

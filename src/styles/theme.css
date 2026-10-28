@@ -81,6 +81,13 @@
   --mono-scale: 1;
 
   --measure: 65ch;
+  /* Long-form's reading measure, in em of the body rather than ch of the
+     zero: Crimson's zero is wide, so 65ch ran essays at about 85 characters
+     a line. 28em at the 20px essay size (--text-prose) is a median of 66.
+     Written in rem so it means the same width wherever it's read. UI text
+     keeps --measure. */
+  --text-prose: 1.25rem;
+  --measure-prose: calc(var(--text-prose) * 28);
   --leading: 1.6;
   --leading-tight: 1.3;
 
@@ -101,6 +108,9 @@
   --chrome-h: 56px;
 
   --text-xs: 0.75rem;
+  /* The one metadata size: ledger verbs and times, day stats, the chrome's
+     sub-row labels. Nothing in that voice drops below it on a phone. */
+  --text-meta: 0.8125rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-lg: 1.125rem;
@@ -233,6 +243,27 @@
    re-themes a subtree by setting those on an element other than :root. */
 :root {
   --nest-step: 4.5%;
+}
+
+/* The filled control: Resume under the hero, the guestbook's sign button.
+   Mixed toward the hour's own ink rather than black, so it deepens a light
+   page's accent and lifts a dark page's: at 7pm mixing toward #000 had
+   darkened the fill toward its dark --page label (3.31:1), where 15% of the
+   ink gives 4.89:1. Resolved on <html>, against the root palette. */
+:root {
+  --accent-fill: color-mix(in srgb, var(--accent) 85%, var(--ink));
+  --accent-fill-edge: color-mix(in srgb, var(--accent) 72%, var(--ink));
+  --accent-fill-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+}
+
+/* Quote and link cards sit one or two nest steps off the page, where a page
+   floor drops back to about 4.1:1. skyTheme.js solves a pair for that
+   surface, as it does for the chrome's raised surfaces below. */
+[data-theme='sky'] .post-embed-quote,
+[data-theme='sky'] .post-embed-link-card {
+  --ink-faint: var(--sky-ink-faint-nest, var(--sky-ink-faint));
+  --ink-muted: var(--sky-ink-muted-nest, var(--sky-ink-muted));
+  --accent: var(--sky-accent-nest, var(--sky-accent));
 }
 
 /* Sky-theme glow / shine application. A tuning override (is.dame.sky) lights

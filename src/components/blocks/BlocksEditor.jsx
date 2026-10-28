@@ -25,6 +25,7 @@ import {
   GALLERY_LAYOUTS,
   IMAGE_BLOCK_TYPE,
   LeafletBlock,
+  TEXT_LAYOUTS,
   galleryLayoutOf,
   galleryRuns,
 } from '../LeafletDocument.jsx';
@@ -853,12 +854,12 @@ function GalleryBand({ run, onChangeLayout }) {
 }
 
 /**
- * Per-block layout controls under the active block's editor: indent (text
- * paragraphs only), gallery layout (image blocks), plus extra space above /
- * below any block, so an author can shape spacing without inserting empty
- * spacer blocks. Values are stored on the block (`indent`, `gallery`,
- * `spaceTop`, `spaceBottom`) and read by the renderer (see LeafletDocument's
- * blockLayoutStyle and galleryRuns). Absent = the default: stacked paragraphs
+ * Per-block layout controls under the active block's editor: indent and
+ * paragraph role (text paragraphs only), gallery layout (image blocks), plus
+ * extra space above / below any block, so an author can shape spacing without
+ * inserting empty spacer blocks. Values are stored on the block (`indent`,
+ * `layout`, `gallery`, `spaceTop`, `spaceBottom`) and read by the renderer
+ * (see LeafletDocument's TextBlock, blockLayoutStyle and galleryRuns). Absent = the default: stacked paragraphs
  * auto-indent, adjacent images group into an auto grid, and there's no extra
  * space.
  */
@@ -888,6 +889,23 @@ function BlockLayoutControls({ block, onChange, galleryRun = null, onChangeGalle
             <option value="auto">Auto</option>
             <option value="on">Indented</option>
             <option value="off">Flush</option>
+          </select>
+        </label>
+      )}
+      {isText && (
+        <label className="block-layout-field">
+          <span className="small-caps">Role</span>
+          <select
+            className="block-layout-select"
+            value={block.layout || ''}
+            onChange={(e) => setField('layout', e.target.value || undefined)}
+          >
+            <option value="">Paragraph</option>
+            {TEXT_LAYOUTS.map((l) => (
+              <option key={l.value} value={l.value} title={l.hint}>
+                {l.label}
+              </option>
+            ))}
           </select>
         </label>
       )}

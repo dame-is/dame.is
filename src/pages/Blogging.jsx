@@ -12,6 +12,7 @@ import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, formatDateFull, compareIsoDesc } from '../lib/time.js';
 import { showOnBlog, isDraft } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
+import { smartenText } from '../lib/smartPunctuation.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 import './Blogging.css';
@@ -143,8 +144,9 @@ function normalizeStandard(record) {
     kind: 'standard',
     uri: record.uri,
     id: rkey,
-    title: v.title || rkey || 'Untitled',
-    summary: v.description || '',
+    // Typeset for display, as the essay page sets its own title.
+    title: smartenText(v.title || rkey || 'Untitled'),
+    summary: smartenText(v.description || ''),
     createdAt: v.publishedAt || v.createdAt || '',
     href: `/blogging/${rkey}`,
   };

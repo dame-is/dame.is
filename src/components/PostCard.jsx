@@ -1,7 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Repeat2 } from 'lucide-react';
-import { relativeTime } from '../lib/time.js';
 import { rkeyFromAtUri, explorerPathFromAtUri } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
@@ -152,15 +150,9 @@ function PostCardBody({
       data-is-reply={reply ? 'true' : undefined}
       data-is-repost={isRepost ? 'true' : undefined}
     >
-      {/*
-        The "↻ reposted" tag is only useful on the standalone record page —
-        in the timeline / per-record list views, the left-rail verb column
-        already says "reposting", and inside a parent card the badge would
-        be misleading (the parent isn't being reposted by us).
-      */}
-      {isRepost && variant === 'record' && (
-        <RepostBadge reason={payload?.reason} variant={variant} />
-      )}
+      {/* No "↻ reposted" kicker: in the timeline the verb column says it, and
+          on a repost's own page the plate's colophon does ("reposted
+          Tuesday, October 27, 2026 · 5:12 pm"). */}
       {showReplyBadge && <ReplyBadge reply={reply} recordHref={recordHref} />}
       {showOriginalAuthor && variant !== 'parent' && (
         <OriginalAuthorHeader
@@ -231,28 +223,6 @@ function PostCardBody({
  * a curious reader actually wants to land. The parent's at:// uri is kept on
  * the element as a data-attribute for debugging / future use.
  */
-/**
- * Top-line "↻ Dame reposted" tag for repost cards. Mirrors the visual
- * weight of <ReplyBadge /> so the two stack cleanly when a post is both a
- * repost (from Dame's POV) and a reply (within the original conversation).
- *
- * On the record page the verb badge in the page meta already says
- * "reposting", so we render a slightly more descriptive form there
- * ("↻ Dame reposted") instead of just "↻ reposted".
- */
-function RepostBadge({ reason, variant }) {
-  const ts = reason?.indexedAt;
-  return (
-    <div className="post-card-repost gutter small-caps">
-      <Repeat2 size={13} aria-hidden="true" className="post-card-repost-icon" />
-      <span>
-        {variant === 'record' ? 'Dame reposted' : 'reposted'}
-        {ts && variant === 'record' ? ` ${relativeTime(ts)}` : ''}
-      </span>
-    </div>
-  );
-}
-
 /**
  * Author header for posts that *aren't* Dame's own (today: reposts). Links
  * out to the author's bsky.app profile since we don't host their records.

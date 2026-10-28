@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
+import SequenceFoot from '../components/SequenceFoot.jsx';
+import { smartenText } from '../lib/smartPunctuation.js';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
@@ -50,7 +52,7 @@ function findWork(records, slug) {
 export default function CreatingWork() {
   const { slug } = useParams();
 
-  const { items: record, status } = useLiveFeed({
+  const { items: resolved, status } = useLiveFeed({
     strategy: 'snapshot-first',
     fetchSnapshotOverride: loadSnapshotWorks,
     fetchLive: async () => {
@@ -68,9 +70,37 @@ export default function CreatingWork() {
       transformRecords(legacy, COLLECTIONS.creating, pds, ME_DID);
       return [...stdDocs.filter((r) => showOnCreating(r?.value)), ...legacy];
     },
-    mapItems: (records) => findWork(records, slug),
+    mapItems: (records) => {
+      const found = findWork(records, slug);
+      return found ? { record: found } : null;
+    },
     deps: [slug],
   });
+  const record = resolved?.record || null;
+
+  // The portfolio newest first, as /creating lists it, for the foot's earlier
+  // and later works. From the snapshot rather than the read above: once the
+  // snapshot knows this work, the live read confirms just that one record, so
+  // it can't supply the rest.
+  const [works, setWorks] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    loadSnapshotWorks()
+      .then((list) => {
+        if (cancelled || !Array.isArray(list)) return;
+        setWorks(
+          list
+            .filter((r) => r?.value && !isDraft(r.value))
+            .sort((a, b) =>
+              String(b.value?.createdAt || '').localeCompare(String(a.value?.createdAt || '')),
+            ),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Legacy fallback: only for records that haven't been migrated yet (no
   // `content`) but still have a markdown `body`. New records render
@@ -175,7 +205,36 @@ export default function CreatingWork() {
             )}
           </>
         )}
+        <WorkFoot record={record} works={works} />
       </article>
     </PageShell>
+  );
+}
+
+/** Earlier and later works by date, and the way up to the whole portfolio. */
+function WorkFoot({ record, works }) {
+  const i = works.findIndex((r) => r?.uri === record?.uri);
+  if (i < 0 || works.length < 2) return null;
+  const entry = (r) =>
+    r
+      ? {
+          to: `/creating/${workSlug(r.value) || rkeyFromAtUri(r.uri)}`,
+          title: smartenText(r.value?.title || rkeyFromAtUri(r.uri)),
+          meta: [workCategory(r.value), r.value?.createdAt ? new Date(r.value.createdAt).getFullYear() : null]
+            .filter(Boolean)
+            .join(' · '),
+        }
+      : null;
+  return (
+    <SequenceFoot
+      label="Other works"
+      earlierLabel="Earlier work"
+      laterLabel="Later work"
+      earlier={entry(works[i + 1])}
+      later={entry(works[i - 1])}
+      earlierNone="None. This is the earliest."
+      laterNone="None. This is the latest."
+      all={{ to: '/creating', label: `All ${works.length} works in creating` }}
+    />
   );
 }

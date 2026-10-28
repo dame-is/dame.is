@@ -128,6 +128,9 @@
 
 .chrome-bar-secondary > .chrome-signals {
   width: 100%;
+  /* The atmosphere row speaks at the metadata size, so its small-caps
+     labels land at 12.35px rather than 11.4. */
+  font-size: var(--text-meta);
   /* Same vertical padding as the tertiary strip's crumbs (--space-2) so
      this row and the timestamp/NSID strip stand the same height when each
      is a single row. */
@@ -592,8 +595,10 @@
   }
 }
 
+/* The open chip's label is ink: accent on its own accent tint was 3.88:1
+   at 1pm. The accent stays in the hairline and the wash. */
 .chrome-nav.is-open {
-  color: var(--accent);
+  color: var(--ink);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 20%, var(--page));
 }
@@ -612,6 +617,13 @@
   /* Hour keys are lowercase in data ("4pm"); the chip reads as a label,
      so render it in caps: 4PM, 11AM. */
   text-transform: uppercase;
+}
+
+/* A held sky (picked in the hour sheet) keeps saying so after the sheet
+   closes: the chip's hairline goes dashed until the clock is live again. */
+.chrome-nav.chrome-sky-hour[data-held] {
+  border-style: dashed;
+  border-color: var(--ink-muted);
 }
 
 /* ------------------------------------------------------------------ */
@@ -699,9 +711,9 @@
    accent-tinted primary so it reads as the main action among the
    bottom-bar controls. */
 .chrome-nav.chrome-nav-bottom {
-  /* Fill is the accent nudged toward black so the --page glyph clears AA
-     (≥4.5:1) — plain --accent lands at only ~4.0:1 on the light theme. */
-  background: color-mix(in srgb, var(--accent) 90%, #000);
+  /* The filled control (theme.css --accent-fill), so the --page glyph
+     clears AA at every hour. */
+  background: var(--accent-fill);
   /* Contrasting hairline (matching every other bottom-bar button) instead
      of a border the colour of the accent fill. */
   border-color: var(--rule);
@@ -709,28 +721,28 @@
 }
 
 .chrome-nav.chrome-nav-bottom:focus-visible {
-  /* Hover DARKENS rather than lightening to --accent-soft (which dropped the
-     glyph below AA), so the --page glyph stays ≥4.5:1 in every theme. */
-  background: color-mix(in srgb, var(--accent) 85%, #000);
+  /* Hover moves further from the page rather than toward --accent-soft
+     (which dropped the glyph below AA). */
+  background: var(--accent-fill-hover);
   border-color: var(--rule);
   color: var(--page);
 }
 
 @media (hover: hover) {
   .chrome-nav.chrome-nav-bottom:hover {
-    background: color-mix(in srgb, var(--accent) 85%, #000);
+    background: var(--accent-fill-hover);
     border-color: var(--rule);
     color: var(--page);
   }
 }
 
-/* Open, it goes deeper still — for the same reason hover does. It used to fill
-   with --accent-soft, which put the --page glyph at under 3:1 for most of the
-   day under the sky theme: the compass, now the menu's close, faded out while
-   the menu was up. */
+/* Open, it stays dark: it used to fill with --accent-soft, which put the
+   --page glyph at 2:1 for most of the day under the sky theme, so the
+   compass, by then the menu's close, faded out while the menu was up. The
+   ink hairline is what says "open" instead. */
 .chrome-nav.chrome-nav-bottom.is-open {
-  background: color-mix(in srgb, var(--accent) 72%, #000);
-  border-color: var(--rule);
+  background: var(--accent-fill-hover);
+  border-color: var(--ink);
   color: var(--page);
 }
 
@@ -934,7 +946,7 @@
      translating it by exactly -50% lands the second copy where the first
      started — a jump-free wrap. Duration is set per-instance from the text
      width so every status scrolls at the same pace. */
-  animation: ticker-scroll var(--ticker-duration, 8s) linear infinite;
+  animation: ticker-scroll var(--ticker-duration, 8s) linear 1.5s 1;
 }
 
 /* Pause, so it can be read — hover with a pointer, or keyboard focus within

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Check, CornerDownRight } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
@@ -151,6 +151,8 @@ function FeedItem({
   // Ledger-only: whether a collapsed run — a listening session or a night of
   // moths — is showing its full list (see handleRowClick / FeedLedgerRow).
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
+  // Ids for the ledger row's x-ray cells, which describe the row in x-ray.
+  const xrayId = useId();
   // The slide-in's delay while it plays; null once it's done (or if it never
   // started). Dropping the class afterwards matters: a list reorder moves the
   // row's DOM node, and a moved node would restart a CSS animation it still
@@ -352,6 +354,7 @@ function FeedItem({
       }
       role={selectable ? 'button' : undefined}
       aria-pressed={selectable ? selected : undefined}
+      aria-describedby={ledger && xrayActive ? `${xrayId}-nsid ${xrayId}-key` : undefined}
     >
       {selectable && (
         <span
@@ -364,6 +367,7 @@ function FeedItem({
       {ledger && (
         <FeedLedgerRow
           item={item}
+          xrayId={xrayId}
           href={href}
           expanded={ledgerExpanded}
           onToggle={ledgerBatch ? () => setLedgerExpanded((v) => !v) : null}

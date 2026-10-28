@@ -62,6 +62,7 @@ import {
   fetchAllBlocks,
   arenaAccessToken,
   pickCoverThumb,
+  channelStrip,
   arenaText,
 } from '../src/lib/arena.js';
 import {
@@ -993,6 +994,9 @@ async function main() {
       description: g.value.description || arenaText(snap.meta?.description) || '',
       blockCount: snap.blocks.length,
       cover: pickCoverThumb(snap.blocks, g.value.coverBlockId),
+      // The first six blocks, so /curating can show what each channel holds
+      // before its name is read.
+      strip: channelStrip(snap.blocks),
       order: g.value.order ?? 0,
       // Carried, not applied: the blocks stay in are.na's position order in the
       // snapshot and the page orders them at render (see CuratingChannel.jsx),

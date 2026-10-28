@@ -30,31 +30,40 @@
 
 .signin-button {
   align-self: flex-start;
-  padding: var(--space-2) var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: var(--space-2) var(--space-4);
   font-family: var(--sans);
   font-size: var(--text-sm);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  /* The site's one filled control (theme.css --accent-fill), the same as the
+     home page's Resume button: the accent pushed toward the hour's ink, so
+     the --page label clears AA at every hour. It used to be a near-black
+     slab, the only one on the site. */
   color: var(--page);
-  background: var(--ink);
-  border: 1px solid var(--ink);
+  background: var(--accent-fill);
+  border: 1px solid var(--accent-fill-edge);
   border-radius: var(--radius-2);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
-/* The accent nudged toward black, like the site's other filled buttons (the
-   home hero's primary explains the mix): plain --accent left the --page label
-   short of AA on the lighter sky hours. */
+/* Hover goes a step further from the page, never back toward --accent-soft,
+   so the --page label's contrast only rises. */
 @media (hover: hover) {
   .signin-button:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--accent) 90%, #000);
-    border-color: color-mix(in srgb, var(--accent) 90%, #000);
+    background: var(--accent-fill-hover);
   }
 }
 
+/* Disabled reads as a line not yet drawn: a dashed hairline with muted text,
+   not the fill at half opacity, which looked broken. */
 .signin-button:disabled {
-  opacity: 0.5;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px dashed var(--rule);
   cursor: not-allowed;
 }
 

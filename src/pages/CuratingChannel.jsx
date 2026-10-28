@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Play } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
+import { formatDateFull } from '../lib/time.js';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
@@ -268,9 +269,21 @@ export default function CuratingChannel() {
               // A player sizes to its own aspect, not the preview image's
               // (YouTube's is a letterboxed 4:3 frame around a 16:9 video).
               const size = embedSrc ? b.embed || {} : b;
+              // The caption says where the image came from. An are.na title
+              // that's only a filename ("0_0-1-.jpeg") says nothing, so the
+              // channel stands in for it.
+              const named = b.title && !/\.(jpe?g|png|gif|webp|avif)$/i.test(b.title) ? b.title : null;
               return {
                 src: b.large,
                 alt: b.alt,
+                caption: named || gallery?.title || undefined,
+                credit: [
+                  'are.na',
+                  b.connectedAt ? `connected ${formatDateFull(b.connectedAt)}` : null,
+                  size.width && size.height ? `${size.width}×${size.height}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · '),
                 width: size.width || undefined,
                 height: size.height || undefined,
                 thumb: b.thumb?.src || undefined,

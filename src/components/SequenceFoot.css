@@ -1,0 +1,87 @@
+/* The earlier / later strip at the foot of a page in a sequence (essays,
+   records, moth nights). Two cells between hairlines, the later one set right,
+   and the way up to the whole run centred beneath. */
+.sequence-foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: var(--space-5);
+  row-gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule-soft);
+  font-family: var(--sans);
+}
+
+.sequence-foot-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.sequence-foot-later {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.sequence-foot-label {
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--ink-muted);
+}
+
+.sequence-foot-title {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  line-height: 1.3;
+  color: var(--ink);
+  text-decoration: none;
+  text-wrap: balance;
+}
+
+@media (hover: hover) {
+  .sequence-foot-title:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+  }
+}
+
+.sequence-foot-meta {
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sequence-foot-none {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.sequence-foot-all {
+  grid-column: 1 / -1;
+  justify-self: center;
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-decoration-color: var(--accent-soft);
+}
+
+@media (max-width: 560px) {
+  .sequence-foot {
+    grid-template-columns: 1fr;
+  }
+  .sequence-foot-later {
+    order: -1;
+    text-align: left;
+    align-items: flex-start;
+  }
+  .sequence-foot-all {
+    justify-self: start;
+  }
+}

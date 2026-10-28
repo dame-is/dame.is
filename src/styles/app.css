@@ -139,6 +139,9 @@ html {
   color: var(--ink-soft);
   max-width: var(--measure);
   margin-bottom: 0;
+  /* An intro is a standfirst, not the second paragraph of a passage, even
+     when it follows another <p>. */
+  text-indent: 0;
 }
 
 /* The intro is a lead, not the first paragraph of a passage, so the paragraph
@@ -284,34 +287,26 @@ html {
 }
 
 .home-hero-cta-primary {
-  /* Fill is the accent nudged ~10% toward black so the --page label clears
-     AA (≥4.5:1) as small text — plain --accent lands at only ~4.0:1 on the
-     light theme. color-mix keeps it theme-aware. */
-  background: color-mix(in srgb, var(--accent) 90%, #000);
-  /* Border is a slightly darker shade of the fill itself (not a contrasting
-     tan hairline) so it reads as a soft edge on the same colour rather than
-     an outline in a different hue. Mixing toward black keeps it theme-aware. */
-  border-color: color-mix(in srgb, var(--accent) 80%, #000);
+  /* The filled control (theme.css --accent-fill): the accent pushed toward
+     the hour's ink, so the --page label clears AA at every hour. The border
+     is a further step of the same mix, a soft edge on the same colour. */
+  background: var(--accent-fill);
+  border-color: var(--accent-fill-edge);
   color: var(--page);
 }
 
 .home-hero-cta-primary:hover,
 .home-hero-cta-primary:focus-visible {
-  /* Hover DARKENS the fill rather than lightening to --accent-soft: on the
-     light theme the soft mint dropped the --page label to ~2.4:1, whereas
-     darkening deepens the label's contrast (stays ≥4.5:1 in both themes). */
-  background: color-mix(in srgb, var(--accent) 85%, #000);
-  border-color: color-mix(in srgb, var(--accent) 72%, #000);
+  /* Hover moves further from the page, never toward --accent-soft, so the
+     label's contrast only rises. */
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-edge);
   color: var(--page);
 }
 
-/* Icon-only utility buttons on the hero CTA row — shuffle the hero sentence,
-   and open the guestbook sign sheet. Square footprint, no label text, same
-   border treatment as the secondary text CTAs. */
-.home-hero-shuffle,
+/* The guestbook button opens the sign sheet rather than going somewhere,
+   but reads as one more labelled destination in the row. */
 .home-hero-guestbook-btn {
-  padding: 0.6em;
-  aspect-ratio: 1;
   cursor: pointer;
 }
 
@@ -383,4 +378,97 @@ html {
   .page-title {
     font-size: var(--text-3xl);
   }
+}
+
+/* An empty state that speaks to the visitor: the book idiom "This page
+   intentionally left blank", or a page's own line about why there's nothing
+   here, set between hairlines. Never indented: it isn't a paragraph of
+   prose, so the `p + p` rule mustn't reach it. Shared by the not-found page,
+   the guestbook's empty book and anything else with nothing to show yet. */
+.empty-note {
+  max-width: var(--measure);
+  margin: var(--space-4) 0;
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule-soft);
+  text-indent: 0;
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+/* The not-found page: the asked-for address in mono, then the contents. */
+.notfound-path {
+  font-family: var(--code);
+  font-size: 0.85em;
+  background: none;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+
+.notfound-contents {
+  max-width: var(--measure);
+}
+
+.notfound-contents-h {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+/* A collection's "plates · index" switch (SectionViewSwitch), set right,
+   pulled up beside the page intro it belongs to. The chosen view is ink with
+   an accent rule under it; the other is a quiet link. */
+.section-view-switch {
+  display: flex;
+  align-self: flex-end;
+  align-items: baseline;
+  gap: 0.45em;
+  margin-top: calc(-1 * var(--space-4));
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+.section-view-switch button {
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  font: inherit;
+  font-variant: inherit;
+  letter-spacing: inherit;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.section-view-switch button[aria-pressed='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+@media (hover: hover) {
+  .section-view-switch button:hover {
+    color: var(--accent);
+  }
+}
+
+/* Text for screen readers only (a repeated year the index draws as a
+   leader, say). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

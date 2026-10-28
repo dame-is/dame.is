@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
-import MasonryGrid from '../components/MasonryGrid.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
+import SectionViewSwitch from '../components/SectionViewSwitch.jsx';
 import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilters.jsx';
 import { CreatingGridSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
-import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
+import { useSectionView } from '../hooks/useFeedLayout.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { relativeTime, compareIsoDesc } from '../lib/time.js';
+import { compareIsoDesc } from '../lib/time.js';
+import { smartenText } from '../lib/smartPunctuation.js';
 import { coverThumb, swapToOriginal } from '../lib/creatingHelpers.js';
 import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
@@ -22,31 +23,50 @@ import './Creating.css';
 
 const STANDARD_DOC = 'site.standard.document';
 
-function WorkCard({ record }) {
+/** A work's year, the portfolio's folio. Ages ("1y ago") went stale and
+ *  rounded the same record two ways on two pages. */
+function yearOf(v) {
+  const y = v?.createdAt ? new Date(v.createdAt).getFullYear() : null;
+  return Number.isFinite(y) ? y : null;
+}
+
+/**
+ * One work as a plate: the cover cropped to 4:3 on bare paper inside a
+ * neutral keyline, then "software · 2026" and the title. A work with no
+ * cover gets a title page instead of an empty box: an inset rule, the kind
+ * top left, the title centred, the year bottom right.
+ */
+function WorkPlate({ record }) {
   const v = record.value || {};
   // Blog-homed docs cross-posted here may lack a `path`; fall back to the
   // rkey so the link still resolves at /creating/:slug.
   const slug = workSlug(v) || rkeyFromAtUri(record.uri);
   const thumb = coverThumb(v);
   const category = workCategory(v);
+  const year = yearOf(v);
+  const title = smartenText(v.title || slug);
   return (
-    <li className="creating-grid-cell" data-nsid={nsidFromAtUri(record.uri) || undefined}>
-      <Link to={`/creating/${slug}`} className="creating-grid-link">
+    <li className="creating-plate" data-nsid={nsidFromAtUri(record.uri) || undefined}>
+      <Link to={`/creating/${slug}`} className="creating-plate-link">
         {thumb ? (
           <img
+            className="creating-plate-cover"
             src={thumb.url}
             alt={thumb.alt || ''}
             loading="lazy"
             onError={(e) => swapToOriginal(e, thumb.original)}
           />
         ) : (
-          <div className="creating-grid-placeholder" aria-hidden="true">&#x2767;</div>
+          <div className="creating-plate-title-page" aria-hidden="true">
+            <span className="creating-plate-tp-kind">{category}</span>
+            <span className="creating-plate-tp-title">{title}</span>
+            <span className="creating-plate-tp-year">{year}</span>
+          </div>
         )}
-        <div className="creating-grid-meta">
-          {category && <span className="small-caps creating-grid-kind">{category}</span>}
-          <h3 className="creating-grid-title">{v.title || slug}</h3>
-          {v.createdAt && <span className="gutter">{relativeTime(v.createdAt)}</span>}
-        </div>
+        <span className="creating-plate-caption">
+          <span className="creating-plate-kind">{[category, year].filter(Boolean).join(' · ')}</span>
+          <span className="creating-plate-title">{title}</span>
+        </span>
       </Link>
     </li>
   );
@@ -103,8 +123,8 @@ export default function Creating() {
     },
   });
 
-  const { layout } = useFeedLayout();
-  const ledger = layout === 'ledger';
+  const [view, setView] = useSectionView('creating', 'plates');
+  const ledger = view === 'index';
   const loading = status === 'loading';
   const safeWorks = useMemo(() => works || [], [works]);
   const kinds = useMemo(
@@ -159,6 +179,7 @@ export default function Creating() {
       atUri={`at://${ME_DID}/is.dame.page/creating`}
       headTitle="dame.is creating"
     >
+      <SectionViewSwitch view={view} onChange={setView} label="View the portfolio as" />
       <CreatingFilters kinds={kinds} counts={counts} />
       {showSkeleton ? (
         ledger ? (
@@ -171,16 +192,22 @@ export default function Creating() {
           {q ? 'No works match that search.' : 'No works yet.'}
         </p>
       ) : ledger ? (
+        // The index: the ledger with the year as its folio, printed once
+        // per run with a dotted leader down to the run's last work, so the
+        // column reads 2026 to 2011 like a book's index.
         <FlatLedger
           rows={filtered.map((r, i) => {
             const v = r.value || {};
             const slug = workSlug(v) || rkeyFromAtUri(r.uri);
+            const year = yearOf(v);
+            const prev = i > 0 ? yearOf(filtered[i - 1].value) : null;
             return {
               key: r.uri || i,
               href: `/creating/${slug}`,
-              title: v.title || slug,
+              title: smartenText(v.title || slug),
               kind: workCategory(v),
-              time: v.createdAt ? relativeTime(v.createdAt) : null,
+              time: year ? String(year) : null,
+              runCont: year != null && year === prev,
               nsid: nsidFromAtUri(r.uri),
               atUri: r.uri || null,
               cid: r.cid || null,
@@ -188,10 +215,13 @@ export default function Creating() {
           })}
         />
       ) : (
-        <MasonryGrid
-          items={filtered}
-          renderItem={(r, i) => <WorkCard key={r.uri || i} record={r} />}
-        />
+        // Plates in reading order, row by row, newest first (the round-robin
+        // masonry read top-to-bottom per column instead).
+        <ul className="creating-plates reveal-stagger">
+          {filtered.map((r, i) => (
+            <WorkPlate key={r.uri || i} record={r} />
+          ))}
+        </ul>
       )}
     </PageShell>
   );

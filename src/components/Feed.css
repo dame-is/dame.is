@@ -1013,6 +1013,37 @@ div.feed-empty > .feed-load-more-btn {
    real stats (see DayActivityMeta in Home.jsx). On a cold load — before
    any day group exists — the same copy stands alone in the feed region.
    Both stay in the quiet meta voice so the signal takes minimal space. */
+/* A generated verb index's filter line (/reposting, /liking, …): what's
+   showing, and the way back to everything. */
+.verb-index-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.verb-index-filter-verb,
+.verb-index-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.verb-index-filter-verb {
+  color: var(--ink);
+}
+
+.verb-index-filter-clear {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+}
+
 .feed-activity-standalone {
   font-family: var(--sans);
   font-size: var(--text-xs);
@@ -1906,7 +1937,7 @@ a.reference-card-profile:focus-visible {
 /* Day stats sit at the same scale as the rows' gerund/time labels. */
 .feed-ledger .day-header-meta {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
+  font-size: var(--text-meta);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-align: right;
@@ -1948,7 +1979,7 @@ a.reference-card-profile:focus-visible {
 
 .ledger-verb {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * var(--mono-scale));
+  font-size: var(--text-meta);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-decoration: none;
@@ -1966,7 +1997,7 @@ a.ledger-verb:focus-visible {
 
 .ledger-time {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
+  font-size: var(--text-meta);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   /* formatTime yields "9:41 AM"; the ledger reads lowercase. */
@@ -2292,6 +2323,23 @@ a.ledger-verb:focus-visible {
   text-decoration: none;
 }
 
+/* The index's run leader: a year printed once, then a dotted rule down the
+   column through the rest of its run (FlatLedger `runCont`). */
+.ledger-time.ledger-run {
+  position: relative;
+  align-self: stretch;
+  min-height: 1em;
+}
+
+.ledger-time.ledger-run::before {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--space-3));
+  bottom: calc(-1 * var(--space-3));
+  right: 0.9em;
+  border-right: 1px dotted var(--ink-muted);
+}
+
 .feed-ledger-flat .ledger-body a:hover,
 .feed-ledger-flat .ledger-body a:focus-visible,
 a.ledger-time:hover,
@@ -2510,23 +2558,13 @@ a.ledger-time:focus-visible {
 }
 
 @media (max-width: 600px) {
-  /* Narrower label columns give the content column the extra width;
-     the label type steps down further so even the longest gerund
-     ("photographing") still fits its column on one line. The step is
-     sized for IBM Plex Mono, the widest face --mono can be; it still
-     carries --mono-scale like every other --mono size, which serif mode
-     sets above 1 because Crimson runs small — without it the labels came
-     out at 9.6px there, with room to spare in the column. */
+  /* Narrower label columns give the content column the extra width. The
+     labels keep the one --text-meta size: they used to step down to 9.6px
+     here to fit, which is under any reading floor. */
   .feed-ledger {
     --ledger-verb-col: 5rem;
     --ledger-time-col: 3.5rem;
     --ledger-col-gap: var(--space-2);
-  }
-
-  .feed-ledger .ledger-verb,
-  .feed-ledger .ledger-time,
-  .feed-ledger .day-header-meta {
-    font-size: calc(var(--text-xs) * 0.8 * var(--mono-scale));
   }
 
   .feed-ledger .day-header {

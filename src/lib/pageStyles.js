@@ -19,7 +19,6 @@
 // recomputes it from the source and fails, printing the list, when a page
 // gains or loses a stylesheet.
 
-import '../components/Skeleton.css';
 import '../components/ScrollFrame.css';
 import '../components/RatioedHandle.css';
 import '../components/blocks/RatioedBlock.css';
@@ -32,6 +31,7 @@ import '../pages/Albums.css';
 import '../pages/Blogging.css';
 import '../components/WaypointsSheet.css';
 import '../components/Comments.css';
+import '../components/SequenceFoot.css';
 import '../pages/Creating.css';
 import '../components/RatioedStats.css';
 import '../components/RatioedChip.css';
@@ -45,6 +45,8 @@ import '../pages/RatioedParticipant.css';
 import '../pages/RatioedParticipants.css';
 import '../pages/Curating.css';
 import '../pages/Resume.css';
+import '../components/ActionDock.css';
+import '../components/Figures.css';
 import '../pages/Mothing.css';
 import '../pages/Guestbook.css';
 import '../pages/Record.css';

@@ -26,11 +26,13 @@ describe('isDeclaredRoute', () => {
     expect(isDeclaredRoute('/listening/albums')).toBe(true);
     expect(isDeclaredRoute('/app.bsky.feed.like/3kabc')).toBe(true);
     expect(isDeclaredRoute('/reposting/3kabc')).toBe(true);
+    // The generated verb indexes (App.jsx, GENERATED_INDEX_VERBS).
+    expect(isDeclaredRoute('/reposting')).toBe(true);
+    expect(isDeclaredRoute('/liking')).toBe(true);
   });
 
   it('rejects prefixes no page answers', () => {
     expect(isDeclaredRoute('/app.bsky.feed.like')).toBe(false);
-    expect(isDeclaredRoute('/reposting')).toBe(false);
     expect(isDeclaredRoute('/flushing')).toBe(false);
     expect(isDeclaredRoute('/creating/ratioed/participant')).toBe(false);
   });
@@ -49,12 +51,12 @@ describe('buildCrumbs', () => {
     expect(crumbs.at(-1).to).toBe(null);
   });
 
-  it('sends a lexicon with no index of its own to the home feed filtered to its verb', () => {
-    expect(links('/app.bsky.feed.like/3kabc')).toEqual([
-      '/?verbs=liking',
-      null,
-    ]);
-    expect(links('/reposting/3kabc')).toEqual(['/?verbs=reposting', null]);
+  it("sends a lexicon to its verb's generated index", () => {
+    expect(links('/app.bsky.feed.like/3kabc')).toEqual(['/liking', null]);
+    expect(links('/reposting/3kabc')).toEqual(['/reposting', null]);
+  });
+
+  it('sends a verb with no page at all to the home feed filtered to it', () => {
     expect(links('/flushing/3kabc')).toEqual(['/?verbs=flushing', null]);
   });
 
@@ -120,9 +122,7 @@ describe('buildCrumbs', () => {
 describe('parentPathFor', () => {
   it('is the nearest linked crumb above the page', () => {
     expect(parentPathFor(buildCrumbs('/blogging/a-post'))).toBe('/blogging');
-    expect(parentPathFor(buildCrumbs('/app.bsky.feed.like/x'))).toBe(
-      '/?verbs=liking',
-    );
+    expect(parentPathFor(buildCrumbs('/app.bsky.feed.like/x'))).toBe('/liking');
     expect(
       parentPathFor(
         buildCrumbs('/creating/ratioed/participant/alice.bsky.social'),

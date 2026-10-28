@@ -4,6 +4,7 @@ import { useNowPlaying } from '../hooks/useNowPlaying.js';
 import { relativeTime } from '../lib/time.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import TickerText from './TickerText.jsx';
+import { xrayRecordAttrs } from '../lib/xray.js';
 
 // Memoised: it takes no props, and the top chrome around it re-renders as the
 // page scrolls.
@@ -36,7 +37,7 @@ export default memo(function NowPlaying() {
     </>
   );
   return (
-    <span className="chrome-signal chrome-signal-now-playing">
+    <span className="chrome-signal chrome-signal-now-playing" {...xrayRecordAttrs(play.atUri)}>
       <span className="chrome-signal-label">listening to</span>
       <TickerText className="chrome-signal-value" title={tooltip}>
         {href ? (

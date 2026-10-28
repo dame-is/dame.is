@@ -24,7 +24,14 @@ function withTimeout(init, ms = REQUEST_TIMEOUT_MS) {
   const timeout = AbortSignal.timeout(ms);
   if (!base.signal) return { ...base, signal: timeout };
   if (typeof AbortSignal.any !== 'function') return base;
-  return { ...base, signal: AbortSignal.any([base.signal, timeout]) };
+  const signal = AbortSignal.any([base.signal, timeout]);
+  // The combined signal holds its sources weakly, and Node 20 lets a pending
+  // `AbortSignal.timeout` be collected when nothing else refers to it: after
+  // a GC the timeout never fired, and the request hung as if it had none.
+  // Hanging it off the signal the request keeps keeps it alive as long as
+  // the request is.
+  signal.timeoutSignal = timeout;
+  return { ...base, signal };
 }
 
 /**
