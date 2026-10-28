@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { pageDefault } from '../lib/pageRegistry.js';
 import { blankRecordFor } from '../lib/lexicons.js';
 import { COLLECTIONS } from '../config.js';
+import { getRecordIfExists, isSwapConflict } from '../lib/recordWrites.js';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { Skeleton } from './Skeleton.jsx';
 
@@ -58,23 +59,34 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
   const [checking, setChecking] = useState(initialExists === undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // A status check that failed for any reason but "no such record". The card
+  // then says it does not know, rather than calling the page local.
+  const [checkError, setCheckError] = useState(null);
+  const [checkNonce, setCheckNonce] = useState(0);
 
   // Self-fetch status when the caller didn't supply it (embedded usage).
   useEffect(() => {
     if (initialExists !== undefined) {
       setExists(initialExists);
       setChecking(false);
+      setCheckError(null);
       return undefined;
     }
     let cancelled = false;
     setChecking(true);
-    agent.com.atproto.repo
-      .getRecord({ repo: did, collection: COLLECTIONS.page, rkey: slug })
-      .then(() => {
-        if (!cancelled) setExists(true);
+    setCheckError(null);
+    getRecordIfExists(agent, {
+      repo: did,
+      collection: COLLECTIONS.page,
+      rkey: slug,
+    })
+      .then((res) => {
+        if (!cancelled) setExists(Boolean(res));
       })
-      .catch(() => {
-        if (!cancelled) setExists(false);
+      .catch((err) => {
+        if (cancelled) return;
+        setExists(undefined);
+        setCheckError(err?.message || String(err));
       })
       .finally(() => {
         if (!cancelled) setChecking(false);
@@ -82,7 +94,8 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
     return () => {
       cancelled = true;
     };
-  }, [agent, did, slug, initialExists]);
+  }, [agent, did, slug, initialExists, checkNonce]);
+  const unknown = !checking && Boolean(checkError);
 
   /* --- focus survives the card rebuilding itself -------------------------- */
 
@@ -114,11 +127,23 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
         collection: COLLECTIONS.page,
         rkey: slug,
         record,
+        // Only if there is no record yet. "Migrate" is offered whenever the
+        // status check above came back with anything but a record — a network
+        // error included — and a plain put would then replace the real, edited
+        // page with the hardcoded defaults.
+        swapRecord: null,
       });
       wantFocus.current = true;
       setExists(true);
     } catch (err) {
-      setError(err?.message || String(err));
+      if (isSwapConflict(err)) {
+        setExists(true);
+        setError(
+          `is.dame.page/${slug} is already on your PDS, so it was left as it is.`,
+        );
+      } else {
+        setError(err?.message || String(err));
+      }
     } finally {
       setBusy(false);
     }
@@ -153,11 +178,17 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
         <span className="admin-page-panel-label">{def.label} — page content</span>
         <span
           className={`admin-badge ${
-            checking ? '' : exists ? 'admin-badge-pds' : 'admin-badge-local'
+            checking || unknown
+              ? ''
+              : exists
+                ? 'admin-badge-pds'
+                : 'admin-badge-local'
           }`}
         >
           {checking ? (
             <Skeleton width="1.75rem" height="0.7rem" />
+          ) : unknown ? (
+            'Unknown'
           ) : exists ? (
             'PDS'
           ) : (
@@ -168,6 +199,11 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
       <p className="admin-page-panel-desc">
         {checking ? (
           <Skeleton width="70%" height="0.85em" />
+        ) : unknown ? (
+          <span className="reveal">
+            Couldn’t check for <code>is.dame.page/{slug}</code> on your PDS —{' '}
+            {checkError}
+          </span>
         ) : exists ? (
           <span className="reveal">
             Title &amp; intro are served from <code>is.dame.page/{slug}</code> on your PDS.
@@ -179,7 +215,25 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
         )}
       </p>
       <div className="admin-page-panel-actions">
-        {exists ? (
+        {unknown ? (
+          <button
+            ref={primaryRef}
+            type="button"
+            className="admin-gate-button admin-gate-button-tight"
+            onClick={() => {
+              // This button is replaced while the check runs; hand focus to
+              // whatever stands in its place once it is settled. The check is
+              // marked as running here, in the click's own commit, so the
+              // focus is not spent on this button before it goes.
+              wantFocus.current = true;
+              setChecking(true);
+              setCheckError(null);
+              setCheckNonce((n) => n + 1);
+            }}
+          >
+            Check again
+          </button>
+        ) : exists ? (
           <>
             <Link
               ref={primaryRef}

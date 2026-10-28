@@ -164,16 +164,22 @@
   cursor: text;
 }
 
+/* The washes in this file are mixed from `--ink` rather than read from the
+   `--surface-2` / `--surface-3` they used to name. Those two tokens were never
+   defined anywhere, so the black-alpha fallbacks always applied — and black at
+   3% is nothing at all on a night palette, which left the editor with no hover,
+   no active block and no inline-code tint for half the day. Ink at the same
+   strength tints a light page darker and a dark page lighter, at every hour. */
 .blocks-editor-item.is-preview:hover,
 .blocks-editor-item.is-preview:focus-within {
-  background: var(--surface-2, rgba(0, 0, 0, 0.03));
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
 }
 
 /* An editing block reads as a firmer, solid box. */
 .blocks-editor-item.is-active {
   border-style: solid;
   border-color: var(--rule, rgba(0, 0, 0, 0.2));
-  background: var(--surface-2, rgba(0, 0, 0, 0.015));
+  background: color-mix(in srgb, var(--ink) 1.5%, transparent);
   margin: 0.35rem 0;
 }
 
@@ -292,7 +298,7 @@
 }
 
 .blocks-editor-add-btn:hover {
-  background: var(--surface-3, rgba(0, 0, 0, 0.05));
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 
 .blocks-editor-unknown {
@@ -336,7 +342,7 @@
 }
 
 .rich-text-toolbar-btn:hover:not(:disabled) {
-  background: var(--surface-3, rgba(0, 0, 0, 0.06));
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
 .rich-text-toolbar-btn:disabled {
@@ -388,7 +394,7 @@
 .rich-text-editable .rt-code {
   font-family: var(--mono, monospace);
   font-size: 0.9em;
-  background: var(--surface-3, rgba(0, 0, 0, 0.06));
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
   padding: 0 0.15em;
 }
 .rich-text-editable .rt-highlight {
@@ -691,11 +697,13 @@
  * problem and is above the stacked breakpoint, while a desktop window dragged
  * narrow has a mouse and does not.
  *
- * Scoped to `.wb`, the admin shell's root, for the standing reason: `EditSheet`
- * renders `RecordEditor` — and therefore this editor — app-wide through a portal
- * to <body>, outside the shell, and the quick-edit sheet's rendering has to stay
- * byte-identical. The same defect is live there and closing it is a separate
- * decision about the public site.
+ * Scoped to `.wb`, the admin shell's root, AND `.edit-sheet-panel`, the
+ * quick-edit sheet, which renders `RecordEditor` — and therefore this editor —
+ * through a portal to <body>, outside the shell. The sheet used to be left out
+ * on the grounds that it is a public surface whose rendering must not move. It
+ * is not one: it mounts only for the signed-in owner in edit mode, so no
+ * visitor ever draws it, and the owner editing a post body from a phone is
+ * exactly who the defect above locked out of deleting and inserting blocks.
  *
  * Reordering is NOT restored. The design gates it to a desktop deliberately
  * (§6): drag-reorder on a scrolling touch surface is a project of its own, and a
@@ -705,7 +713,9 @@
  */
 @media (hover: none) {
   .wb .blocks-editor-delete,
-  .wb .blocks-editor-insert-btn {
+  .wb .blocks-editor-insert-btn,
+  .edit-sheet-panel .blocks-editor-delete,
+  .edit-sheet-panel .blocks-editor-insert-btn {
     opacity: 1;
   }
 
@@ -714,7 +724,8 @@
      boxes would overlap the block above and below and steal their taps — and
      the block bodies are text editors, where a stolen tap is a caret that will
      not go where it was put. */
-  .wb .blocks-editor-insert-btn {
+  .wb .blocks-editor-insert-btn,
+  .edit-sheet-panel .blocks-editor-insert-btn {
     width: var(--wb-hit, 2.75rem);
     height: var(--wb-hit, 2.75rem);
   }
@@ -726,24 +737,32 @@
      `-100%` moves it wholly above the boundary and the 44px gap is exactly the
      room that needs. The pair costs 32px per block boundary, which a form can
      afford and an unreachable insert control cannot. */
-  .wb .blocks-editor-list {
+  .wb .blocks-editor-list,
+  .edit-sheet-panel .blocks-editor-list {
     gap: var(--wb-hit, 2.75rem);
+    /* The same room above the FIRST block, whose "+" has no gap to sit in: it
+       rose over the touch note above the list and covered the middle of it. */
+    padding-top: var(--wb-hit, 2.75rem);
   }
 
-  .wb .blocks-editor-insert {
+  .wb .blocks-editor-insert,
+  .edit-sheet-panel .blocks-editor-insert {
     transform: translateY(-100%);
   }
 
-  .wb .blocks-editor-delete {
+  .wb .blocks-editor-delete,
+  .edit-sheet-panel .blocks-editor-delete {
     width: var(--wb-hit, 2.75rem);
   }
 
-  .wb .blocks-editor-add-btn {
+  .wb .blocks-editor-add-btn,
+  .edit-sheet-panel .blocks-editor-add-btn {
     min-height: var(--wb-hit, 2.75rem);
     padding-inline: var(--space-3);
   }
 
-  .wb .blocks-editor-handle {
+  .wb .blocks-editor-handle,
+  .edit-sheet-panel .blocks-editor-handle {
     display: none;
   }
 }
@@ -752,24 +771,23 @@
    from the sky's own hue and computes within a step of `--accent` for most of
    the day — so hovering "delete this block" looked like hovering a link.
    `--danger` holds a fixed vermilion and lets only its lightness follow the
-   hour. `.wb`-scoped for the same portal reason as the block above. */
-.wb .blocks-editor-delete:hover {
+   hour. Scoped to the two owner surfaces, like the block above. */
+.wb .blocks-editor-delete:hover,
+.edit-sheet-panel .blocks-editor-delete:hover {
   color: var(--danger);
 }
 
 /* The gate's own sentence. Hidden wherever the handles are actually there, so
-   it can never contradict what is on screen — and hidden in the quick-edit
-   sheet at every width, because the sheet portals outside `.wb` and the
-   standing constraint is that its rendering does not move. The sentence would
-   be TRUE there (the handles are `opacity: 0` on a hoverless device wherever
-   they are drawn), but a new line of copy is still a change to a public
-   surface, and closing that half is a separate decision. */
+   it can never contradict what is on screen — and shown in the quick-edit
+   sheet on the same terms as the workbench, since the handles are hidden there
+   by the same rule above. */
 .blocks-editor-touch-note {
   display: none;
 }
 
 @media (hover: none) {
-  .wb .blocks-editor-touch-note {
+  .wb .blocks-editor-touch-note,
+  .edit-sheet-panel .blocks-editor-touch-note {
     display: block;
     margin: 0;
     font-family: var(--sans);

@@ -189,6 +189,7 @@ function useAnalyticsArchive(agent, did) {
   const [data, setData] = useState({
     loaded: false,
     persistent: true,
+    blocked: false,
     posts: [],
     followers: [],
     blocks: [],
@@ -227,6 +228,10 @@ function useAnalyticsArchive(agent, did) {
     setData((prev) => ({
       loaded: true,
       persistent: store.persistent,
+      // Session-only because another tab holds the database at an older
+      // version, rather than because this browser refuses IndexedDB — which is
+      // fixable, so the studio says how.
+      blocked: store.blocked === true,
       posts,
       followers,
       blocks,
@@ -593,7 +598,18 @@ const PHASE_LABEL = {
 };
 
 function SyncStrip({ archive }) {
-  const { sync, syncError, meta, posts, followers, blocks, persistent, runSync, cancelSync } = archive;
+  const {
+    sync,
+    syncError,
+    meta,
+    posts,
+    followers,
+    blocks,
+    persistent,
+    blocked,
+    runSync,
+    cancelSync,
+  } = archive;
   const currentBlockReach = blockReach(blocks).people.length;
 
   if (sync) {
@@ -626,7 +642,10 @@ function SyncStrip({ archive }) {
         {currentBlockReach.toLocaleString('en-US')} block {currentBlockReach === 1 ? 'person' : 'people'}
         {pm.syncedAt ? ` · synced ${relativeTime(pm.syncedAt)}` : ''}
         {!pm.complete && ' · archive incomplete'}
-        {!persistent && ' · this browser holds the archive for this session only'}
+        {!persistent &&
+          (blocked
+            ? ' · another dame.is tab is holding the archive open, so this sync lasts the session only — close it and reload to keep it'
+            : ' · this browser holds the archive for this session only')}
       </span>
       {syncError && <span className="an-strip-error">{syncError}</span>}
       <span className="an-strip-actions">
@@ -666,7 +685,9 @@ function FirstRun({ archive }) {
         Everything lands in this browser’s IndexedDB; after the first build, syncs only top up
         what’s new.
         {!archive.persistent &&
-          ' This browser is blocking IndexedDB, so the archive will only last the session.'}
+          (archive.blocked
+            ? ' Another dame.is tab is holding the archive open, so a build here would only last the session. Close that tab, then reload this one to keep it.'
+            : ' This browser is blocking IndexedDB, so the archive will only last the session.')}
       </p>
       <button type="button" className="admin-gate-button" onClick={() => archive.runSync('full')} disabled={Boolean(archive.sync)}>
         Build the archive

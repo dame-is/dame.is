@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ImagePlus } from 'lucide-react';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import { move, replaceAt, removeAt, RowControls } from './listFields.jsx';
+import { blobCid } from '../lib/recordWrites.js';
 
 /**
  * Editor for `is.dame.profile.photos` — the portrait gallery on /themself.
@@ -34,13 +35,29 @@ export default function PhotoGalleryField({ value, onChange, agent }) {
     };
   }, []);
 
-  const update = (i, patch) => onChange(replaceAt(list, i, { ...list[i], ...patch }));
+  // The list as of the LAST render, for the writes that land after an upload.
+  // `list` inside `addFiles` / `replaceImage` is the one from the render that
+  // started the upload, and the owner goes on typing alt text and captions for
+  // the several seconds it takes — so building the result from that captured
+  // copy wrote every one of those keystrokes back out. Written through on each
+  // change as well, so two writes in one tick build on each other.
+  const listRef = useRef(list);
+  listRef.current = list;
+  const emit = (next) => {
+    listRef.current = next;
+    onChange(next);
+  };
+
+  const update = (i, patch) => {
+    const current = listRef.current;
+    emit(replaceAt(current, i, { ...current[i], ...patch }));
+  };
 
   /**
    * Upload one or more files and append a row per success. The whole batch is
-   * appended in a single `onChange` — appending inside the loop would race,
-   * because each call closes over the `list` that was current when the drop
-   * started and the later writes would clobber the earlier ones.
+   * appended in a single `onChange`, to the list as it stands when the batch
+   * finishes — not the one the drop started from, which every edit made during
+   * the upload has since replaced.
    */
   async function addFiles(files) {
     const images = Array.from(files || []).filter((f) => f?.type?.startsWith('image/'));
@@ -62,7 +79,7 @@ export default function PhotoGalleryField({ value, onChange, agent }) {
         failures.push(`${file.name}: ${err?.message || err}`);
       }
     }
-    if (added.length) onChange([...list, ...added]);
+    if (added.length) emit([...listRef.current, ...added]);
     setBusy(false);
     setStatus(failures.length ? `Upload failed — ${failures.join('; ')}` : null);
   }
@@ -70,13 +87,29 @@ export default function PhotoGalleryField({ value, onChange, agent }) {
   /** Swap the bytes behind an existing row, keeping its alt text and caption. */
   async function replaceImage(i, file) {
     if (!file || !file.type.startsWith('image/')) return;
+    // The row is followed by the photo it held, not by its index: a row moved or
+    // removed while the bytes upload would otherwise have the new picture land
+    // on whichever photo slid into its place. By identity first, and by CID when
+    // the record has been re-cloned underneath (the editor's display-URL pass
+    // copies the whole value), since a CID survives the copy.
+    const target = list[i]?.image;
+    const targetCid = blobCid(target);
+    const rowNow = () => {
+      const rows = listRef.current;
+      const same = rows.findIndex((photo) => photo?.image === target);
+      if (same >= 0 || !targetCid) return same;
+      return rows.findIndex((photo) => blobCid(photo?.image) === targetCid);
+    };
     setBusy(true);
     setStatus('Uploading…');
     try {
       const { blob, aspectRatio } = await uploadImageFile(agent, file);
       const cid = blobCid(blob);
       if (cid) localUrls.current.set(cid, URL.createObjectURL(file));
-      update(i, { image: blob, aspectRatio: aspectRatio || undefined });
+      const at = rowNow();
+      if (at >= 0) {
+        update(at, { image: blob, aspectRatio: aspectRatio || undefined });
+      }
       setStatus(null);
     } catch (err) {
       setStatus(`Upload failed: ${err?.message || err}`);
@@ -97,8 +130,8 @@ export default function PhotoGalleryField({ value, onChange, agent }) {
             <RowControls
               index={i}
               length={list.length}
-              onMove={(from, to) => onChange(move(list, from, to))}
-              onRemove={(idx) => onChange(removeAt(list, idx))}
+              onMove={(from, to) => emit(move(list, from, to))}
+              onRemove={(idx) => emit(removeAt(list, idx))}
               removeLabel="Remove photo"
             />
           </div>
@@ -223,8 +256,4 @@ function PhotoThumb({ photo, localUrls, onPick }) {
       />
     </div>
   );
-}
-
-function blobCid(blob) {
-  return blob?.ref?.$link || blob?.cid || null;
 }

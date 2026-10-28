@@ -63,6 +63,7 @@ import { VARIANTS_A, VARIANTS_B } from '../../components/HeroSentence.jsx';
 import { COLLECTIONS } from '../../config.js';
 import { lexiconFor } from '../../lib/lexicons.js';
 import { visibilityModelFor } from '../../lib/recordVisibility.js';
+import { isSwapConflict } from '../../lib/recordWrites.js';
 import { relativeTime } from '../../lib/time.js';
 import { latestInstant, rowLabel, stampAutoTimestamps } from '../recordFields.js';
 import { rowHrefFor } from '../surfaces.js';
@@ -517,6 +518,52 @@ export default function RecordListPane({ surface, agent, did }) {
     [agent, did, collection],
   );
 
+  /**
+   * Re-read every page the owner has loaded, not just the first. A refresh that
+   * fetched page one REPLACED the rows with it, so saving record 250 on a list
+   * paged out to 300 cut the list back to 100 — the open row vanished from it,
+   * the scroll jumped, and "Load more" had to be pressed again after every save.
+   * Pages are fetched until they cover as many rows as were on screen (or the
+   * collection ends) and swapped in once, as a whole.
+   */
+  const recordsRef = useRef(records);
+  recordsRef.current = records;
+  const reloadLoaded = useCallback(async () => {
+    if (!collection) return;
+    const want = Math.max(recordsRef.current.length, 1);
+    const run = (runRef.current += 1);
+    setLoading(true);
+    setError(null);
+    try {
+      let rows = [];
+      let after;
+      let more = true;
+      while (more && rows.length < want) {
+        const res = await agent.com.atproto.repo.listRecords({
+          repo: did,
+          collection,
+          limit: PAGE_LIMIT,
+          cursor: after || undefined,
+        });
+        if (runRef.current !== run) return;
+        const next = res?.data || res;
+        const batch = next?.records || [];
+        rows = rows.concat(batch);
+        after = next?.cursor;
+        // The same end-of-collection test as `loadPage`, for the same reason.
+        more = batch.length >= PAGE_LIMIT && !!after;
+      }
+      setRecords(rows);
+      setCursor(after);
+      setDone(!more);
+    } catch (err) {
+      if (runRef.current !== run) return;
+      setError(err?.message || String(err));
+    } finally {
+      if (runRef.current === run) setLoading(false);
+    }
+  }, [agent, did, collection]);
+
   // A different collection: the rows on screen belong to the old one, so they go
   // immediately rather than lingering through the request.
   useEffect(() => {
@@ -541,10 +588,11 @@ export default function RecordListPane({ surface, agent, did }) {
   );
 
   // A data revision from anywhere else — a save or a delete in the detail pane,
-  // the manual refresh, the hero seeder. Refetch the first page WITHOUT clearing,
-  // so the column keeps its scroll position and does not flash a skeleton over a
-  // list that is about to look almost identical. `seenRev` is what keeps this
-  // from firing a second, redundant fetch on mount.
+  // the manual refresh, the hero seeder. Refetch WITHOUT clearing, and as far
+  // down as the list had been paged (`reloadLoaded`), so the column keeps its
+  // rows and its scroll position and does not flash a skeleton over a list that
+  // is about to look almost identical. `seenRev` is what keeps this from firing
+  // a second, redundant fetch on mount.
   const seenRev = useRef(dataRev);
   useEffect(() => {
     if (seenRev.current === dataRev) return;
@@ -553,10 +601,8 @@ export default function RecordListPane({ surface, agent, did }) {
       selfWrote.current = false;
       return;
     }
-    setCursor(undefined);
-    setDone(false);
-    loadPage(undefined);
-  }, [dataRev, loadPage]);
+    reloadLoaded();
+  }, [dataRev, reloadLoaded]);
 
   /* --- filtering, sorting ------------------------------------------ */
 
@@ -705,26 +751,49 @@ export default function RecordListPane({ surface, agent, did }) {
       if (targets.length === 0) return;
       setBusy(true);
       setError(null);
-      const updated = new Map(); // rkey -> new value
+      const updated = new Map(); // rkey -> { value, cid }
+      let current = null;
       try {
         for (const rec of targets) {
+          current = rec;
           const r = rkeyFromUri(rec.uri);
           // JSON round-trip first so any BlobRef instances (e.g. a document's
           // coverImage) collapse to their plain wire form before we re-put them.
           const plain = JSON.parse(JSON.stringify(rec.value ?? {}));
           const next = stampAutoTimestamps(lex, visModel.setHidden(plain, hidden));
-          // eslint-disable-next-line no-await-in-loop
-          await agent.com.atproto.repo.putRecord({ repo: did, collection, rkey: r, record: next });
-          updated.set(r, next);
+          // The whole value goes back, so it is swapped against the version
+          // this list read: a record edited since (in the detail pane on another
+          // device, say) would otherwise have that edit silently reverted by a
+          // hide.
+          const res = await agent.com.atproto.repo.putRecord({
+            repo: did,
+            collection,
+            rkey: r,
+            record: next,
+            ...(rec.cid ? { swapRecord: rec.cid } : {}),
+          });
+          updated.set(r, { value: next, cid: (res?.data || res)?.cid });
         }
       } catch (err) {
-        setError(err?.message || String(err));
+        const name =
+          rowLabel(current?.value, collection, lex) ||
+          rkeyFromUri(current?.uri);
+        setError(
+          isSwapConflict(err)
+            ? `“${name}” changed since this list loaded, so it was left as it is — refresh the list and try again.`
+            : err?.message || String(err),
+        );
       } finally {
         if (updated.size) {
           setRecords((prev) =>
             prev.map((rec) => {
               const r = rkeyFromUri(rec.uri);
-              return updated.has(r) ? { ...rec, value: updated.get(r) } : rec;
+              const write = updated.get(r);
+              // The new CID too, or the next bulk write on this row would be
+              // swapped against the version this one replaced.
+              return write
+                ? { ...rec, value: write.value, cid: write.cid }
+                : rec;
             }),
           );
           // Hiding is what the Front Desk's Drafts and "Hidden elsewhere" tiles
@@ -762,7 +831,6 @@ export default function RecordListPane({ surface, agent, did }) {
     const deleted = new Set();
     try {
       for (const key of rkeys) {
-        // eslint-disable-next-line no-await-in-loop
         await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey: key });
         deleted.add(key);
       }

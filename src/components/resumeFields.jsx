@@ -8,6 +8,7 @@ import {
   nextVariantId,
   resolveHighlightRef,
   collectHighlightUsage,
+  splitTags,
 } from '../lib/resumeHelpers.js';
 import { showOnCreating, workSlug } from '../lib/publications.js';
 import { move, replaceAt, removeAt, RowControls } from './listFields.jsx';
@@ -26,12 +27,11 @@ const STANDARD_DOC = 'site.standard.document';
  * shape these editors don't cover.
  */
 
-function parseTags(text) {
-  return text
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+// Tags split on commas outside parentheses: "browser extensions (Chrome,
+// Firefox)" is one skill. A plain comma split saved it as two, "browser
+// extensions (Chrome" and "Firefox)", which the résumé page then has to mend
+// back together (mendSkillItems) every time it draws them.
+const parseTags = splitTags;
 
 /**
  * Comma-separated tags input that keeps the caret where the user put it.

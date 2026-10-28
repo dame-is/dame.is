@@ -10,6 +10,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import { useActionDock } from './useActionDock.jsx';
 import { useChromePanel } from './useChromePanel.jsx';
+import { navigationTarget } from '../lib/leaveGuard.js';
 
 const EditModeContext = createContext(null);
 
@@ -60,34 +61,74 @@ export function EditModeProvider({ children }) {
   // record they act on is — so nothing publishes a page editor any more and
   // the state is gone. The sheet is the only remaining producer.
   const [sheetEditor, setSheetEditor] = useState(null);
+  // Whether the open sheet holds unsaved edits, reported by its editor. A REF,
+  // not state, for the reason RecordEditor keeps dirtiness off `onStatus`: it
+  // changes per keystroke, and as state it would republish this context — and
+  // re-render every feed row under the sheet — on every character.
+  const sheetDirtyRef = useRef(false);
+  const setSheetDirty = useCallback((dirty) => {
+    sheetDirtyRef.current = !!dirty;
+  }, []);
   const location = useLocation();
-  const { open: dockOpen } = useActionDock();
-  const { panel } = useChromePanel();
+  const { open: dockOpen, closeDock } = useActionDock();
+  const { panel, closePanel } = useChromePanel();
 
   const clearSelection = useCallback(() => {
     setSelected((prev) => (prev.size === 0 ? prev : new Map()));
   }, []);
 
-  const closeEditSheet = useCallback(() => setEditSheet(null), []);
+  /**
+   * Ask before a close would throw away the open sheet's edits. TRUE when it is
+   * safe to close. The quick-edit sheet closes on Esc, on a tap of its backdrop,
+   * from its own ✕, from the bar's Close and from the chrome's pencil — every
+   * one of them a single stray press, and each used to drop a half-written post
+   * body without a word.
+   */
+  const confirmSheetDiscard = useCallback(() => {
+    if (!sheetDirtyRef.current) return true;
+    if (!window.confirm('Discard your unsaved changes to this record?')) {
+      return false;
+    }
+    sheetDirtyRef.current = false;
+    return true;
+  }, []);
+
+  // Asks first (see above). `discardEditSheet` is the unconditional close, for
+  // the callers with nothing left to protect: a delete that just succeeded, and
+  // a competing sheet that has already taken the slot.
+  const discardEditSheet = useCallback(() => {
+    sheetDirtyRef.current = false;
+    setEditSheet(null);
+  }, []);
+  const closeEditSheet = useCallback(() => {
+    if (confirmSheetDiscard()) discardEditSheet();
+  }, [confirmSheetDiscard, discardEditSheet]);
   const openEditSheet = useCallback((atUri) => {
-    if (atUri) setEditSheet({ atUri });
+    if (!atUri) return;
+    sheetDirtyRef.current = false;
+    setEditSheet({ atUri });
   }, []);
 
   const enter = useCallback(() => setActive(true), []);
+  // Leaving edit mode takes the sheet with it, so it asks first too: the
+  // chrome's ✕ beside the pencil, and x-ray's button and `i` shortcut, all
+  // leave through here. TRUE when it left.
   const exit = useCallback(() => {
+    if (!confirmSheetDiscard()) return false;
     setActive(false);
     clearSelection();
-    setEditSheet(null);
-  }, [clearSelection]);
+    discardEditSheet();
+    return true;
+  }, [clearSelection, confirmSheetDiscard, discardEditSheet]);
+  // Read rather than decided inside a `setActive` updater: leaving edit mode
+  // may now have to ASK first, and an updater has to be pure — StrictMode runs
+  // it twice, which would put the question up twice.
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const toggle = useCallback(() => {
-    setActive((prev) => {
-      if (prev) {
-        clearSelection();
-        setEditSheet(null);
-      }
-      return !prev;
-    });
-  }, [clearSelection]);
+    if (activeRef.current) exit();
+    else setActive(true);
+  }, [exit]);
 
   // PageShell calls this with its backing record (or null). We stamp the
   // current pathname so consumers can confirm the record actually belongs to
@@ -115,8 +156,8 @@ export function EditModeProvider({ children }) {
     clearSelection();
     // A quick-edit sheet is tied to the record it opened for; close it when
     // the route changes so it never hangs over an unrelated page.
-    setEditSheet(null);
-  }, [location.pathname, clearSelection]);
+    discardEditSheet();
+  }, [location.pathname, clearSelection, discardEditSheet]);
 
   // The nav dock and the transient chrome panels (search / filter / info) are
   // the site's other bottom-chrome sheets — the surfaces that expand out of
@@ -126,9 +167,48 @@ export function EditModeProvider({ children }) {
   // clears the selection, and drops any open quick-edit sheet. (The quick-edit
   // sheet is itself part of edit mode and rides above the bar, so opening it
   // isn't counted here — only the competing sheets are.)
+  //
+  // Unless the sheet holds unsaved edits and the owner says to keep them: then
+  // it is the competing sheet that folds away. The menu button sits in the same
+  // chrome as the sheet's Save, and a tap on it used to drop a half-written post
+  // body without a word.
   useEffect(() => {
-    if (dockOpen || panel) exit();
-  }, [dockOpen, panel, exit]);
+    if (!dockOpen && !panel) return;
+    if (exit()) return;
+    closeDock();
+    closePanel();
+  }, [dockOpen, panel, exit, closeDock, closePanel]);
+
+  // The same question for the two ways out that never pass through
+  // `closeEditSheet`. A link to another page — the wordmark, Home, a
+  // breadcrumb — changes the route, and the route-change reset above closes
+  // the sheet; so the click is asked about in the capture phase, before the
+  // router sees it, and stopped if the owner keeps the edits. And a reload or a
+  // closed tab gets the browser's own prompt.
+  useEffect(() => {
+    if (!editSheet) return undefined;
+    const onClickCapture = (event) => {
+      if (!sheetDirtyRef.current) return;
+      const here = window.location;
+      const url = navigationTarget(event, here);
+      if (!url || url.pathname === here.pathname) return;
+      if (confirmSheetDiscard()) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const onBeforeUnload = (event) => {
+      if (!sheetDirtyRef.current) return undefined;
+      event.preventDefault();
+      event.returnValue = '';
+      return '';
+    };
+    document.addEventListener('click', onClickCapture, true);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      document.removeEventListener('click', onClickCapture, true);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [editSheet, confirmSheetDiscard]);
 
   const toggleSelect = useCallback((item) => {
     const uri = item?.atUri;
@@ -195,6 +275,9 @@ export function EditModeProvider({ children }) {
       editSheet,
       openEditSheet,
       closeEditSheet,
+      discardEditSheet,
+      confirmSheetDiscard,
+      setSheetDirty,
       sheetEditor,
       setSheetEditor,
     }),
@@ -218,6 +301,9 @@ export function EditModeProvider({ children }) {
       editSheet,
       openEditSheet,
       closeEditSheet,
+      discardEditSheet,
+      confirmSheetDiscard,
+      setSheetDirty,
       sheetEditor,
       setSheetEditor,
     ],

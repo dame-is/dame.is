@@ -629,30 +629,19 @@ select.admin-input {
 }
 
 .category-field-chip:hover {
-  background: var(--surface-3, rgba(0, 0, 0, 0.05));
+  /* Mixed from ink: `--surface-3` was never defined, and its black fallback
+     vanished on the night palettes (see blocks.css). */
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 
 .category-field-chip.is-active {
   background: var(--ink);
-  color: var(--paper);
-  border-color: var(--ink);
-}
-
-/* `--paper` above is defined NOWHERE and has no fallback, so that declaration is
-   invalid-at-computed-value-time and the property falls back to `inherit` — an
-   active chip renders --ink text on an --ink background, i.e. illegible. The
-   correct value is `--page`.
-
-   It is fixed HERE, scoped to the admin shell, rather than in the rule above,
-   because this stylesheet is not admin-only: RecordEditor imports it, EditSheet
-   renders RecordEditor app-wide, and Exploring.css @imports the whole file into
-   the public /exploring route. The owner's constraint is that the public site
-   does not change, so the global rule stays byte-identical to what it has always
-   been and only the copy rendered inside `.wb` is repaired. Same test as every
-   other undefined-variable fix in this rebuild: if the selector can render
-   outside `.wb`, scope the fix. */
-.wb .category-field-chip.is-active {
+  /* This read `var(--paper)`, a token defined nowhere and with no fallback, so
+     the label fell back to inheriting --ink: ink on an ink fill. It was once
+     repaired only inside `.wb`, but RecordEditor also renders in the quick-edit
+     sheet on any public page (EditSheet), where the chip stayed illegible. */
   color: var(--page);
+  border-color: var(--ink);
 }
 
 /* Section heading + note above a group of records or fields. The `.admin-collection-group`
