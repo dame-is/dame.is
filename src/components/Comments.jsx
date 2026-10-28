@@ -32,6 +32,11 @@ export default function Comments({
   emptyMessage = 'No replies yet.',
 }) {
   if (!atUri) return null;
+  // A thread with nothing in it takes one line ("Replies · none yet · reply
+  // on Bluesky") instead of a heading over an empty block.
+  const empty =
+    status === 'ready' && !(replies || []).some(isRenderableReply) && !metrics?.replyCount;
+  if (empty) return <EmptyComments atUri={atUri} />;
   return (
     <section className="comments-section">
       <h3 className="comments-heading">
@@ -88,6 +93,26 @@ function EngagementBar({ metrics, atUri }) {
         </button>
       )}
     </div>
+  );
+}
+
+function EmptyComments({ atUri }) {
+  const { openWaypoints } = useWaypointsModal();
+  const canReply = typeof atUri === 'string' && atUri.startsWith('at://');
+  return (
+    <p className="comments-empty-line">
+      <span className="small-caps">Replies</span>
+      <span aria-hidden="true">·</span>
+      <span>none yet</span>
+      {canReply && (
+        <>
+          <span aria-hidden="true">·</span>
+          <button type="button" className="engagement-link" onClick={() => openWaypoints(atUri)}>
+            reply on Bluesky
+          </button>
+        </>
+      )}
+    </p>
   );
 }
 

@@ -331,6 +331,16 @@
   color: var(--accent);
 }
 
+/* A segment with no page behind it (flushing, a participant's parent) is
+   named but not linked, in the separators' quieter ink. */
+.chrome-crumb-plain {
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .chrome-crumb-current {
   color: var(--ink);
   font-weight: 600;

@@ -5,6 +5,8 @@ import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
+import SequenceFoot from '../components/SequenceFoot.jsx';
+import { smartenText } from '../lib/smartPunctuation.js';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
@@ -20,7 +22,7 @@ const STANDARD_DOC = 'site.standard.document';
 export default function CreatingWork() {
   const { slug } = useParams();
 
-  const { items: record, status } = useLiveFeed({
+  const { items: resolved, status } = useLiveFeed({
     strategy: 'snapshot-first',
     fetchSnapshotOverride: async () => {
       const [creations, blogs] = await Promise.all([
@@ -45,15 +47,22 @@ export default function CreatingWork() {
       // Drafts are hidden from public surfaces; a drafted work must not
       // resolve by direct URL either (the live fetch would otherwise find it).
       const visible = snap.filter((r) => r?.value && !isDraft(r.value));
-      return (
+      const found =
         visible.find((r) => workSlug(r.value) === slug) ||
         // Fall back to the rkey so URI-derived links resolve too.
         visible.find((r) => rkeyFromAtUri(r?.uri) === slug) ||
-        null
-      );
+        null;
+      // The portfolio newest first, as /creating lists it, for the foot's
+      // earlier / later works.
+      const works = visible
+        .slice()
+        .sort((a, b) => String(b.value?.createdAt || '').localeCompare(String(a.value?.createdAt || '')));
+      return found ? { record: found, works } : null;
     },
     deps: [slug],
   });
+  const record = resolved?.record || null;
+  const works = resolved?.works || [];
 
   // Legacy fallback: only for records that haven't been migrated yet (no
   // `content`) but still have a markdown `body`. New records render
@@ -158,7 +167,36 @@ export default function CreatingWork() {
             )}
           </>
         )}
+        <WorkFoot record={record} works={works} />
       </article>
     </PageShell>
+  );
+}
+
+/** Earlier and later works by date, and the way up to the whole portfolio. */
+function WorkFoot({ record, works }) {
+  const i = works.findIndex((r) => r?.uri === record?.uri);
+  if (i < 0 || works.length < 2) return null;
+  const entry = (r) =>
+    r
+      ? {
+          to: `/creating/${workSlug(r.value) || rkeyFromAtUri(r.uri)}`,
+          title: smartenText(r.value?.title || rkeyFromAtUri(r.uri)),
+          meta: [workCategory(r.value), r.value?.createdAt ? new Date(r.value.createdAt).getFullYear() : null]
+            .filter(Boolean)
+            .join(' · '),
+        }
+      : null;
+  return (
+    <SequenceFoot
+      label="Other works"
+      earlierLabel="Earlier work"
+      laterLabel="Later work"
+      earlier={entry(works[i + 1])}
+      later={entry(works[i - 1])}
+      earlierNone="None. This is the earliest."
+      laterNone="None. This is the latest."
+      all={{ to: '/creating', label: `All ${works.length} works in creating` }}
+    />
   );
 }

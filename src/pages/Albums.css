@@ -3,12 +3,6 @@
    (components/ListeningStats.css) and the moth galleries (Mothing.css): tan
    rules, mossy accent, square corners (the theme pins --radius-* to 0). */
 
-/* Up one level, the way a night page points back at /mothing. */
-.album-crumb {
-  font-size: var(--text-sm);
-  margin: 0 0 calc(var(--space-3) - var(--space-5));
-}
-
 /* ---- Shelf totals ------------------------------------------------- */
 
 .album-stats {

@@ -25,6 +25,7 @@ import Guestbook from './pages/Guestbook.jsx';
 import Record from './pages/Record.jsx';
 import NotFound from './pages/NotFound.jsx';
 import { VERB_REGISTRY } from './lib/verbRegistry.js';
+import { GENERATED_INDEX_VERBS } from './lib/recordPlate.js';
 import { isNightSlug } from './lib/mothing.js';
 
 // Lazy: the ATProto OAuth + Agent bundle is heavy and only used by the owner.
@@ -88,6 +89,13 @@ function MothingLeaf() {
  */
 function generatedRecordRoutes() {
   const out = [];
+  // Verbs with no page of their own get one at `/{verb}`: the home ledger
+  // filtered to that verb, under "dame is reposting". Their record pages'
+  // crumbs and "up" lead here (lib/recordPlate.js), where they used to lead
+  // to the not-found page.
+  for (const verb of GENERATED_INDEX_VERBS) {
+    out.push(<Route key={`i:${verb}`} path={`/${verb}`} element={<Home key={verb} verb={verb} />} />);
+  }
   for (const v of VERB_REGISTRY) {
     if (!BESPOKE_VERB_ROUTES.has(v.verb)) {
       out.push(

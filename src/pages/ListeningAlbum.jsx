@@ -69,11 +69,8 @@ export default function ListeningAlbum() {
     [album, art.art],
   );
 
-  const backToAlbums = (
-    <p className="album-crumb">
-      <Link to="/listening/albums">&larr; Albums</Link>
-    </p>
-  );
+  // The pinned running head is the way up (/ listening / albums / …).
+  const backToAlbums = null;
 
   if (status === 'loading') {
     return (

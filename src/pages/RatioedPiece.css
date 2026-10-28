@@ -18,16 +18,6 @@
 .ratioed-k-quote { color: var(--ratioed-quote); }
 .ratioed-k-like { color: var(--ratioed-seal); }
 
-/* Sits above the title as a direct child of `.page`, which is a flex column
-   with a --space-5 gap. A breadcrumb belongs to the title it introduces rather
-   than floating a full step above it, so the calc cancels that inherited gap
-   and re-adds a smaller one — the same reasoning, and the same shape, as the
-   document-meta band's top margin on the other side of the title. */
-.ratioed-piece-crumb {
-  font-size: var(--text-sm);
-  margin: 0 0 calc(var(--space-3) - var(--space-5));
-}
-
 /* The band's own margin-bottom is 0, which is right on the two document pages
    that carry it: both are gapped flex columns, so the gap is the separation.
    This article is a plain block, so it re-adds the space itself — the same

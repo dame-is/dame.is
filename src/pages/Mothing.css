@@ -288,14 +288,6 @@
   }
 }
 
-/* The way back up to every night. `.page` is a gapped flex column, so the
-   crumb cancels that gap to sit with the title it introduces (the same thing
-   a Ratioed piece's crumb does, for the same reason). */
-.mothing-night-crumb {
-  font-size: var(--text-sm);
-  margin: 0 0 calc(var(--space-3) - var(--space-5));
-}
-
 /* Either side of this night, by date — the pagination a single night wants,
    since the index is a long scroll and the nights are what you leaf through. */
 .mothing-night-nav {

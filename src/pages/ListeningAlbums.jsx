@@ -76,11 +76,8 @@ export default function ListeningAlbums() {
   const shelf = useMemo(() => [...filtered].sort(sort), [filtered, sort]);
   const totals = useMemo(() => summarize(albums), [albums]);
 
-  const backToListening = (
-    <p className="album-crumb">
-      <Link to="/listening">&larr; Listening</Link>
-    </p>
-  );
+  // The pinned running head is the way up (/ listening / albums).
+  const backToListening = null;
 
   return (
     <PageShell

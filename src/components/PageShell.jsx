@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import AtUriHead from './AtUriHead.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
+import { useChromeBar } from '../hooks/useChromeBar.jsx';
 
 /**
  * Shared page container — optional title + intro (each only renders when
@@ -11,6 +13,9 @@ import { useEditMode } from '../hooks/useEditMode.jsx';
  * moderation. Those keep the pencil's "tap items to select" flow; every other
  * page has nothing to select, so the pencil opens its record editor directly
  * (see ChromeBar). Defaults to false — set it on new feed-style pages.
+ *
+ * `crumb` names this page in the chrome's running head, in place of its last
+ * URL segment: a record page passes "Oct 26 · 5:36 pm", an essay its title.
  */
 export default function PageShell({
   title,
@@ -20,6 +25,7 @@ export default function PageShell({
   cid,
   children,
   headTitle,
+  crumb = null,
   selectable = false,
 }) {
   // Publish the route's backing record to edit mode so the owner's quick-edit
@@ -31,6 +37,13 @@ export default function PageShell({
   useEffect(() => {
     registerSelectionPage(selectable);
   }, [selectable, registerSelectionPage]);
+  const { pathname } = useLocation();
+  const { setCrumb } = useChromeBar();
+  useEffect(() => {
+    if (!crumb) return undefined;
+    setCrumb({ path: pathname, label: crumb });
+    return () => setCrumb((cur) => (cur?.path === pathname ? null : cur));
+  }, [crumb, pathname, setCrumb]);
 
   return (
     <article className="page">

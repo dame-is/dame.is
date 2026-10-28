@@ -293,11 +293,6 @@ export default function RatioedParticipants() {
     <PageShell
       title="Participants"
       headTitle="Ratioed participants — dame.is"
-      above={
-        <p className="ratioed-piece-crumb">
-          <Link to={`/creating/${slug}`}>← Ratioed</Link>
-        </p>
-      }
     >
       <article className="ratioed-piece ratioed-board-page reveal" style={scale}>
         <p className="ratioed-piece-lede">

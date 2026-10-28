@@ -467,11 +467,6 @@ export default function RatioedPiece() {
         atUri={atUri}
         cid={null}
         headTitle={`Ratioed take ${take} is live — dame.is`}
-        above={
-          <p className="ratioed-piece-crumb">
-            <Link to={`/creating/${slug}`}>← Ratioed</Link>
-          </p>
-        }
       >
         <article className="ratioed-piece reveal" style={scale}>
           <InspectMargin atUri={atUri} cid={null} />
@@ -531,15 +526,6 @@ export default function RatioedPiece() {
       atUri={atUri}
       cid={null}
       headTitle={`Ratioed take ${take} — dame.is`}
-      /* The way back up sits above the title, where a breadcrumb belongs: a
-         reader who wants the parent wants it before reading, not after. It
-         used to be the first line of the body, which also made the lede a
-         second paragraph and got it indented by the article prose rule. */
-      above={
-        <p className="ratioed-piece-crumb">
-          <Link to={`/creating/${slug}`}>← Ratioed</Link>
-        </p>
-      }
     >
       <article className="ratioed-piece reveal" style={scale}>
         <InspectMargin atUri={atUri} cid={null} />

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ChevronLeft } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
@@ -8,6 +7,7 @@ import { useNavRoutes } from '../hooks/useNavRoutes.js';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import SignInPanel from './SignInPanel.jsx';
+import RouteList from './RouteList.jsx';
 import './ActionDock.css';
 
 export default function ActionDock() {
@@ -112,20 +112,7 @@ export default function ActionDock() {
             >
               <div className="dock-section">
                 <div className="dock-heading">Dame is&hellip;</div>
-                <nav className="dock-routes">
-                  {shownRoutes.map((r) => (
-                    <NavLink
-                      key={r.to}
-                      to={r.to}
-                      end={r.to === '/'}
-                      className={({ isActive }) => `dock-route ${isActive ? 'is-active' : ''}`}
-                      onClick={closeDock}
-                    >
-                      <span className="dock-route-label">{r.label}</span>
-                      <span className="dock-route-path">{r.to}</span>
-                    </NavLink>
-                  ))}
-                </nav>
+                <RouteList routes={shownRoutes} onNavigate={closeDock} />
               </div>
             </motion.div>
           )}

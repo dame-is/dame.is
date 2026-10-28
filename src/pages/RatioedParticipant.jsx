@@ -304,11 +304,6 @@ export default function RatioedParticipant() {
     <PageShell
       title={`@${handle}`}
       headTitle={`@${handle} in Ratioed — dame.is`}
-      above={
-        <p className="ratioed-piece-crumb">
-          <Link to={`/creating/${slug}`}>← Ratioed</Link>
-        </p>
-      }
     >
       <article className="ratioed-piece ratioed-participant reveal" style={scale}>
         {/* No InspectMargin: this page is a cut through the records rather

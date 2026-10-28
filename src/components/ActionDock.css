@@ -186,7 +186,7 @@
 .dock-route-path {
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 .dock-tool {

@@ -329,3 +329,42 @@
     font-size: var(--text-3xl);
   }
 }
+
+/* An empty state that speaks to the visitor: the book idiom "This page
+   intentionally left blank", or a page's own line about why there's nothing
+   here, set between hairlines. Never indented: it isn't a paragraph of
+   prose, so the `p + p` rule mustn't reach it. Shared by the not-found page,
+   the guestbook's empty book and anything else with nothing to show yet. */
+.empty-note {
+  max-width: var(--measure);
+  margin: var(--space-4) 0;
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule-soft);
+  text-indent: 0;
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+/* The not-found page: the asked-for address in mono, then the contents. */
+.notfound-path {
+  font-family: var(--code);
+  font-size: 0.85em;
+  background: none;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+
+.notfound-contents {
+  max-width: var(--measure);
+}
+
+.notfound-contents-h {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-muted);
+}

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpLeft, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
@@ -39,6 +39,7 @@ import GuestbookSheet from './GuestbookSheet.jsx';
 import DebugSheet from './DebugSheet.jsx';
 import SkyHourSheet from './SkyHourSheet.jsx';
 import Footer from './Footer.jsx';
+import { resolveCrumbs, upFrom } from '../lib/recordPlate.js';
 import './ChromeBar.css';
 
 // The home handle is a router <Link>; wrap it so it can participate in the
@@ -65,7 +66,7 @@ function settledBottom(node) {
 }
 
 export default function ChromeBar() {
-  const { expanded, toggle } = useChromeBar();
+  const { expanded, toggle, crumb: pageCrumb } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const reduce = useReducedMotion();
   const primaryRef = useRef(null);
@@ -144,7 +145,13 @@ export default function ChromeBar() {
   // date header of the section currently scrolled under the chrome, so it
   // reveals on the home page too once you're past the first day header.
   // It folds back up on the way to the top.
-  const crumbs = buildCrumbs(location.pathname);
+  // Each parent resolves through the verb registry (a section with no page
+  // of its own is plain text, never a link to the 404), and the last crumb
+  // is the page's own human label when it gives one.
+  const crumbs = resolveCrumbs(
+    location.pathname,
+    pageCrumb?.path === location.pathname ? pageCrumb.label : null,
+  );
   const scrolledDown = useScrolledDown();
   const dayLabel = useCurrentDayLabel();
   // Individual (detail) pages — anything two or more segments deep, e.g.
@@ -454,7 +461,7 @@ export default function ChromeBar() {
                   {crumbs.map((c, i) => {
                     const last = i === crumbs.length - 1;
                     return (
-                      <li key={c.to} className="chrome-crumb">
+                      <li key={`${i}:${c.label}`} className="chrome-crumb">
                         {i > 0 && (
                           <span className="chrome-crumb-sep" aria-hidden="true">
                             /
@@ -464,10 +471,12 @@ export default function ChromeBar() {
                           <span className="chrome-crumb-current" aria-current="page">
                             {c.label}
                           </span>
-                        ) : (
+                        ) : c.to ? (
                           <Link to={c.to} className="chrome-crumb-link">
                             {c.label}
                           </Link>
+                        ) : (
+                          <span className="chrome-crumb-plain">{c.label}</span>
                         )}
                       </li>
                     );
@@ -615,20 +624,16 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     };
   }, []);
 
-  // Every page except home gets a back handle in the bottom bar. It walks
-  // back through history (mirroring the browser's back button) so you can
-  // return to wherever you came from — including home → /blogging → back →
-  // home, not just deep sub-pages like /creating/:slug. On a fresh or
-  // deep-linked load with no in-app history, it falls back to the breadcrumb
-  // parent: the section index for a sub-page, else home.
-  const crumbs = buildCrumbs(location.pathname);
-  const parentPath = crumbs.length >= 2 ? crumbs[crumbs.length - 2].to : '/';
+  // Every page except home gets an "up" handle in the bottom bar: one level
+  // up the same trail the running head draws (a record to its section, a
+  // section to home). It used to walk back through history, which sent a
+  // visitor who arrived from a Bluesky link straight back off the site, and on
+  // a fresh tab fell back to whatever the path's parent segment was, a 404
+  // for ten of the verbs. History stays with the browser's own Back.
+  const up = upFrom(location.pathname);
 
   function goBack() {
-    // Prefer real history so the back button mirrors the browser's, but fall
-    // back to the breadcrumb parent when this was a fresh/deep-linked load.
-    if (window.history.length > 1) navigate(-1);
-    else navigate(parentPath);
+    navigate(up.to);
   }
 
   function scrollToTop() {
@@ -949,10 +954,11 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
               type="button"
               className="chrome-nav chrome-back-btn"
               onClick={goBack}
-              aria-label="Go back"
+              aria-label={`Up to ${up.label}`}
+              title={`Up to ${up.label}`}
               {...controlFade}
             >
-              <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+              <ArrowUpLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
             </motion.button>
           )}
         </AnimatePresence>
@@ -1091,24 +1097,6 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   );
 }
 
-/** Split a pathname into breadcrumb crumbs, each `{ label, to }` where
- *  `to` is the cumulative path up to and including that segment. The home
- *  root (`/`) is rendered separately as the leading slash, so this returns
- *  an empty array on the home page. Segments are URL-decoded for display. */
-function buildCrumbs(pathname) {
-  const parts = pathname.split('/').filter(Boolean);
-  const crumbs = [];
-  let acc = '';
-  for (const p of parts) {
-    acc += `/${p}`;
-    let label = p;
-    try {
-      label = decodeURIComponent(p);
-    } catch {}
-    crumbs.push({ label, to: acc });
-  }
-  return crumbs;
-}
 
 /** True once the window is scrolled past `threshold` px from the top.
  *  Drives the tertiary breadcrumb: it slides down as you leave the top of

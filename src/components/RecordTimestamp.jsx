@@ -49,9 +49,9 @@ function RouteRecordTimestamp() {
     value?.createdAt || value?.publishedAt || value?.playedTime || record?.indexedAt;
   const updatedAt = value?.updatedAt || createdAt;
 
-  if (!createdAt) {
-    return <span className="record-timestamp small-caps">written &mdash; · updated &mdash;</span>;
-  }
+  // No record behind the page (the 404, a page whose record doesn't exist
+  // yet): say nothing rather than "written — · updated —".
+  if (!createdAt) return null;
 
   const written = relativeTime(createdAt);
   const updated = relativeTime(updatedAt);

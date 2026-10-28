@@ -926,6 +926,37 @@ a.post-card-author-link:focus-visible {
    real stats (see DayActivityMeta in Home.jsx). On a cold load — before
    any day group exists — the same copy stands alone in the feed region.
    Both stay in the quiet meta voice so the signal takes minimal space. */
+/* A generated verb index's filter line (/reposting, /liking, …): what's
+   showing, and the way back to everything. */
+.verb-index-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.verb-index-filter-verb,
+.verb-index-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.verb-index-filter-verb {
+  color: var(--ink);
+}
+
+.verb-index-filter-clear {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+}
+
 /* Live entries newer than what's on screen wait behind this note at the
    head of the feed, a running-head line in the day header's small caps,
    rather than pushing the rows down under the reader. */

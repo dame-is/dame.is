@@ -97,11 +97,9 @@ export default function MothingNight() {
     return map;
   }, [session]);
 
-  const backToIndex = (
-    <p className="mothing-night-crumb">
-      <Link to="/mothing">&larr; Mothing</Link>
-    </p>
-  );
+  // The pinned running head (/ mothing / Oct 16) is the way up; the page no
+  // longer repeats it as an eyebrow over the title.
+  const backToIndex = null;
 
   if (status === 'loading') {
     return (
