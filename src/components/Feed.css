@@ -20,9 +20,63 @@
   min-width: 0;
 }
 
-.feed-day-group .feed-list > .feed-item:last-child {
+/* The second selector covers lists that still wrap each row in an <li> of
+   their own (the row is then the wrapper's only child). */
+.feed-day-group .feed-list > .feed-item:last-child,
+.feed-day-group .feed-list > li:last-child > .feed-item {
   padding-bottom: 0;
   border-bottom: none;
+}
+
+/* A record that just landed slides in once (see FeedItem's `arriving`).
+   The delay cascades a burst of arrivals top-down. */
+@keyframes feed-item-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+}
+
+.feed-item-arriving {
+  animation: feed-item-arrive 0.45s cubic-bezier(0.22, 0.61, 0.36, 1)
+    var(--arrival-delay, 0s) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-item-arriving {
+    animation: none;
+  }
+}
+
+/* Where a verb's copy in the home feed runs out — its capped fetch reached
+   no further back (see insertHorizonMarkers). A quiet aside, not a row. */
+.feed-horizon {
+  list-style: none;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-style: italic;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  padding: var(--space-1) 0;
+}
+
+.feed-horizon a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.15em;
+}
+
+.feed-horizon a:focus-visible {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+@media (hover: hover) {
+  .feed-horizon a:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+  }
 }
 
 /* Owner edit mode: rows read as tappable selection targets. A quiet ring
@@ -659,26 +713,36 @@ a.post-card-author-link:focus-visible {
   margin: var(--space-4) 0 0;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
+/* The same button as the record page's AturiActions row, which sits directly
+   below these on /listening/:rkey (Record.css): one size and one hover for
+   every outlined action on a record page. */
 .listen-service a {
   display: inline-block;
-  padding: 0.4rem 0.85rem;
+  padding: 0.4em 0.85em;
   border: 1px solid var(--rule);
-  border-radius: var(--radius-2, 8px);
+  border-radius: 0;
+  background: var(--page);
   font-family: var(--sans);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
   color: var(--ink-soft);
   text-decoration: none;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.listen-service a:hover,
 .listen-service a:focus-visible {
-  color: var(--ink);
+  color: var(--accent);
   border-color: var(--accent-soft);
-  background: var(--surface-soft, transparent);
+}
+
+@media (hover: hover) {
+  .listen-service a:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+  }
 }
 
 /* CreatingCard */
@@ -913,11 +977,34 @@ a.post-card-author-link:focus-visible {
   white-space: nowrap;
 }
 
+/* Mostly a bare <p>, so it has to opt out of the prose rules for paragraphs
+   (the reading measure, and the indent after another paragraph): it centres
+   across the feed column, not inside a 65ch box pinned to its left edge. */
 .feed-empty {
   color: var(--ink-muted);
   font-style: italic;
   padding: var(--space-7) 0;
   text-align: center;
+  max-width: none;
+  text-indent: 0;
+}
+
+/* Home's form: the line, then the one action that undoes the empty state. */
+div.feed-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+div.feed-empty > p {
+  margin: 0;
+  max-width: none;
+  text-indent: 0;
+}
+
+div.feed-empty > .feed-load-more-btn {
+  font-style: normal;
 }
 
 /* Live-refresh indicator. Rather than a separate banner above the feed,
@@ -937,6 +1024,12 @@ a.post-card-author-link:focus-visible {
 .feed-activity-fetching {
   color: var(--ink-muted);
   animation: feed-activity-pulse 1.6s ease-in-out infinite;
+}
+
+/* A refresh that reached nothing: steady, not pulsing — nothing is in
+   progress, the next tick simply tries again. */
+.feed-activity-stale {
+  color: var(--ink-muted);
 }
 
 .feed-activity-standalone {
@@ -1836,18 +1929,20 @@ a.reference-card-profile:focus-visible {
 
 /* Self-thread continuations carry no verb label; instead the rule
    separating them from the post they continue goes dashed — i.e. the
-   PREVIOUS row's bottom border. Rows sit inside Home's motion.li
-   wrappers, so the sibling hop happens on those.
+   PREVIOUS row's bottom border. The rows are the list items themselves
+   (FeedItem renders the <li>), so the sibling hop is between rows.
 
-   The `:not(.feed-day-group)` is load-bearing: the feed's outer <ol> and
-   each day's inner <ul> BOTH carry .feed-list, so a bare `.feed-list > li`
-   also matches the day-group <li>s. When a later (older) day happened to
-   contain a continuation anywhere in it, that :has() matched the current
-   day-group and dashed every row inside it — the "stray dashed borders on
-   unrelated rows" bug. Threads never span days (they're pulled onto their
-   newest member's day), so the sibling hop only ever means anything
-   between row wrappers within one day; scope it there. */
-.feed-ledger .feed-list > li:not(.feed-day-group):has(+ li .feed-item-thread-continuation) .feed-item-ledger {
+   It names the row classes on both sides rather than a bare `li`: the
+   feed's outer <ol> and each day's inner <ul> BOTH carry .feed-list, so a
+   bare `.feed-list > li` also matches the day-group <li>s. When a later
+   (older) day happened to contain a continuation anywhere in it, that
+   :has() matched the current day-group and dashed every row inside it —
+   the "stray dashed borders on unrelated rows" bug. Threads never span
+   days (they're pulled onto their newest member's day), so the hop only
+   ever means anything between rows within one day. */
+.feed-ledger
+  .feed-list
+  > .feed-item-ledger:has(+ .feed-item-thread-continuation) {
   border-bottom-style: dashed;
 }
 
@@ -1916,6 +2011,14 @@ a.ledger-verb:focus-visible {
 .ledger-body a:hover,
 .ledger-body a:focus-visible {
   text-decoration: underline;
+}
+
+/* …except a quoted post's timestamp, which keeps the faint voice it has in
+   the card layout. The accent rule above outranks the embed's own `inherit`
+   (same specificity, later in the bundle), and made the time the loudest
+   thing in the quote. */
+.ledger-body .post-embed-quote-time a {
+  color: inherit;
 }
 
 .ledger-accent,
@@ -2409,7 +2512,11 @@ a.ledger-time:focus-visible {
 @media (max-width: 600px) {
   /* Narrower label columns give the content column the extra width;
      the label type steps down further so even the longest gerund
-     ("photographing") still fits its column on one line. */
+     ("photographing") still fits its column on one line. The step is
+     sized for IBM Plex Mono, the widest face --mono can be; it still
+     carries --mono-scale like every other --mono size, which serif mode
+     sets above 1 because Crimson runs small — without it the labels came
+     out at 9.6px there, with room to spare in the column. */
   .feed-ledger {
     --ledger-verb-col: 5rem;
     --ledger-time-col: 3.5rem;
@@ -2419,7 +2526,7 @@ a.ledger-time:focus-visible {
   .feed-ledger .ledger-verb,
   .feed-ledger .ledger-time,
   .feed-ledger .day-header-meta {
-    font-size: calc(var(--text-xs) * 0.8);
+    font-size: calc(var(--text-xs) * 0.8 * var(--mono-scale));
   }
 
   .feed-ledger .day-header {

@@ -6,6 +6,7 @@ import {
   verbConfig,
   nsidConfig,
   recordHrefFor,
+  verbsWithEverySourceIn,
 } from './verbRegistry.js';
 
 describe('DEFAULT_HOME_VERBS', () => {
@@ -57,6 +58,40 @@ describe('the flushing verb', () => {
     const atUri = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/im.flushing.right.now/3msijht7apx2d';
     expect(recordHrefFor('flushing', { atUri, rkey: '3msijht7apx2d' })).toBe(
       '/flushing/3msijht7apx2d',
+    );
+  });
+});
+
+describe('verbsWithEverySourceIn', () => {
+  it('names a verb only when every one of its collections is listed', () => {
+    const failed = [
+      'app.bsky.feed.like',
+      'social.grain.favorite',
+      'sh.tangled.feed.star',
+      'net.anisota.feed.like',
+      'app.bsky.graph.follow',
+    ];
+    expect(verbsWithEverySourceIn(['liking', 'following'], failed)).toEqual([
+      'liking',
+    ]);
+  });
+
+  it('counts the author feed as the posting verb’s Bluesky source', () => {
+    expect(verbsWithEverySourceIn(['posting'], ['app.bsky.feed.post'])).toEqual(
+      [],
+    );
+    expect(
+      verbsWithEverySourceIn(
+        ['posting'],
+        ['app.bsky.feed.post', 'net.anisota.feed.post'],
+      ),
+    ).toEqual(['posting']);
+  });
+
+  it('answers nothing for nothing failed, or for verbs it does not know', () => {
+    expect(verbsWithEverySourceIn(['logging'], [])).toEqual([]);
+    expect(verbsWithEverySourceIn(['replying', 'nonsense'], ['x.y.z'])).toEqual(
+      [],
     );
   });
 });

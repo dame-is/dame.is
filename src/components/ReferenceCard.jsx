@@ -7,6 +7,7 @@ import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID } from '../config.js';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 
 /**
  * Renders the unified-feed entry for any reference-style record (likes,
@@ -26,9 +27,21 @@ import { explorerPathFromAtUri } from '../lib/atproto.js';
  * The `subject` is populated by `src/lib/subjectResolver.js` (used by
  * both the build-time prefetch and the browser's live home-feed refresh).
  * When it's missing, we render a graceful "<verb> a deleted X" line.
+ *
+ * `defaultExpanded` opens the preview on first render — for a record page,
+ * where the card is the whole subject of the page rather than one row of a
+ * feed, and the one-line form leaves the reader a click short of it.
  */
-export default function ReferenceCard({ payload, atUri, createdAt, source, subject, verb }) {
-  const [expanded, setExpanded] = useState(false);
+export default function ReferenceCard({
+  payload,
+  atUri,
+  createdAt,
+  source,
+  subject,
+  verb,
+  defaultExpanded = false,
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const ts = createdAt || payload?.createdAt;
   const expandable = canExpand(subject);
   return (
@@ -100,7 +113,7 @@ function CompactSubject({ subject, source }) {
     case 'bsky.profile':
       return <CompactBskyProfile view={subject.view} />;
     case 'atproto':
-      return <CompactAtproto record={subject.record} ref={subject.ref} source={source} />;
+      return <CompactAtproto record={subject.record} source={source} />;
     default:
       return <p className="reference-card-compact">an unknown record</p>;
   }
@@ -149,7 +162,7 @@ function AuthorChip({ author }) {
       {author?.avatar && (
         <img
           className="reference-card-author-avatar"
-          src={author.avatar}
+          src={avatarThumb(author.avatar)}
           alt=""
           width={20}
           height={20}
@@ -177,7 +190,7 @@ function CompactBskyProfile({ view }) {
       {avatar && (
         <img
           className="reference-card-profile-avatar"
-          src={avatar}
+          src={avatarThumb(avatar)}
           alt=""
           width={36}
           height={36}
@@ -208,7 +221,7 @@ function CompactBskyProfile({ view }) {
   );
 }
 
-function CompactAtproto({ record, ref, source }) {
+function CompactAtproto({ record, source }) {
   if (!record?.value) {
     const fallback = source ? `a ${source} record` : 'a record';
     return <p className="reference-card-compact">{fallback}</p>;
@@ -301,7 +314,7 @@ function SubjectPreview({ subject, source }) {
     case 'bsky.profile':
       return <BskyProfilePreview view={subject.view} />;
     case 'atproto':
-      return <AtprotoRecordPreview record={subject.record} ref={subject.ref} source={source} />;
+      return <AtprotoRecordPreview record={subject.record} source={source} />;
     default:
       return null;
   }
@@ -338,7 +351,7 @@ function BskyPostPreview({ view }) {
       {text && (
         <p className="reference-card-subject-text">{renderPostText(text, facets)}</p>
       )}
-      {embed && <PostEmbed embed={embed} did={author.did} />}
+      {embed && <PostEmbed embed={embed} did={author.did} postUri={view.uri} />}
     </article>
   );
 }
