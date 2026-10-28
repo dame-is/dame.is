@@ -1,0 +1,5 @@
+/* <Time tabular>: a column of times, set in figures of one width so the colons
+   line up down the column instead of wandering with each 1 and 7. */
+.time-tabular {
+  font-variant-numeric: tabular-nums;
+}

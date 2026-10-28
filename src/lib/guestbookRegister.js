@@ -2,7 +2,7 @@
 // draft that survives the OAuth hop. Pure helpers (plus guarded
 // sessionStorage calls), so the page, the sign sheet and the tests agree.
 
-import { DAME_ZONE } from './recordPlate.js';
+import { formatDateShort } from './time.js';
 
 /** Where the sign sheet keeps a note while the signer is away at their PDS. */
 export const DRAFT_KEY = 'dame.guestbook.draft';
@@ -32,14 +32,7 @@ export function registerNumbers(entries, count) {
 
 /** "Sep 1, 2026" in Dame's clock, or '' for a missing or bad date. */
 export function registerDate(iso) {
-  const d = new Date(iso || '');
-  if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: DAME_ZONE,
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(d);
+  return formatDateShort(iso);
 }
 
 function storage() {

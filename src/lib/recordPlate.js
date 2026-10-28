@@ -4,11 +4,12 @@
 // indexes all agree, and so it can be tested without a browser.
 
 import { VERB_REGISTRY, nsidConfig, verbConfig } from './verbRegistry.js';
-import { BIRTHDATE } from '../config.js';
 import { playArtistLine, playTrackName } from './teal.js';
+import { dateKey, formatDateWeekday, formatMonthDay, formatTime, formatWeekday, isDayOnly } from './time.js';
+import { dayOfLife } from './dayOfLife.js';
 
-/** Dame's clock. Record colophons are set in it, as the sky is. */
-export const DAME_ZONE = 'America/New_York';
+/** Dame's clock. Record colophons are set in it, as everything else is. */
+export { DAME_ZONE } from './time.js';
 
 /** Verbs whose index page is written by hand. */
 const HAND_INDEXES = new Set(['posting', 'logging', 'listening', 'blogging', 'creating', 'curating', 'mothing']);
@@ -125,45 +126,30 @@ export function upFrom(pathname) {
 
 /* ---------- Dame's clock ---------- */
 
-function parts(iso, opts) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat('en-US', { timeZone: DAME_ZONE, ...opts })
-    .formatToParts(d)
-    .reduce((o, p) => ((o[p.type] = p.value), o), {});
-}
+// The plate reads time through lib/time.js and lib/dayOfLife.js like the rest
+// of the site. These names are what the record page and its neighbours were
+// written against; they're kept as the plate's own vocabulary.
 
 /** "5:36 pm" in Dame's clock. */
-export function clockTime(iso) {
-  const p = parts(iso, { hour: 'numeric', minute: '2-digit', hour12: true });
-  return p ? `${p.hour}:${p.minute} ${String(p.dayPeriod).toLowerCase()}` : '';
-}
+export const clockTime = (iso) => formatTime(iso);
 
 /** "Monday, October 26, 2026" in Dame's clock. */
-export function longDate(iso) {
-  const p = parts(iso, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  return p ? `${p.weekday}, ${p.month} ${p.day}, ${p.year}` : '';
-}
+export const longDate = (iso) => formatDateWeekday(iso);
 
 /**
- * Day of life for the calendar day `iso` falls on in Dame's clock: whole
- * calendar days since the birthday, counted 1 on the day itself. Counted on
- * calendar dates rather than instants, so it doesn't run a day high west of
- * Greenwich the way a birthdate parsed as UTC midnight does (the audit's
- * GAP-02; src/lib/dayOfLife.js still has that bug).
+ * Day of life for the calendar day `iso` falls on in Dame's clock: the same
+ * count as the chrome's "on day N", the ledger's day headers and the share
+ * cards' folio. Null for a date that won't parse.
  */
 export function easternDayOfLife(iso) {
-  const p = parts(iso, { year: 'numeric', month: 'numeric', day: 'numeric' });
-  if (!p) return null;
-  const [by, bm, bd] = String(BIRTHDATE).slice(0, 10).split('-').map(Number);
-  const days = (Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day)) - Date.UTC(by, bm - 1, bd)) / 86_400_000;
-  return Math.round(days) + 1;
+  const n = dayOfLife(iso);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** "Oct 26 · 5:36 pm": the last crumb for a record addressed by time. */
 export function crumbStamp(iso) {
-  const p = parts(iso, { month: 'short', day: 'numeric' });
-  return p ? `${p.month} ${p.day} · ${clockTime(iso)}` : null;
+  const day = formatMonthDay(iso);
+  return day ? `${day} · ${clockTime(iso)}` : null;
 }
 
 /** A title cut for a crumb, about 28 characters, at a word. */
@@ -177,13 +163,16 @@ export function crumbTitle(title, n = 28) {
 
 /**
  * The colophon: one small-caps line in Dame's time.
- * "logged Monday, October 26, 2026 · 5:36 pm · day 12,226"
+ * "logged Monday, October 26, 2026 · 5:36 pm · day 12,226". A record dated
+ * to a day (a back-filled work's UTC midnight) gets no clock: read as an
+ * instant, that's 7 pm the evening before.
  */
 export function colophon(verb, iso) {
   if (!iso) return '';
   const past = verbConfig(verb)?.pastTense || verb;
   const n = easternDayOfLife(iso);
-  return [`${past} ${longDate(iso)}`, clockTime(iso), n ? `day ${n.toLocaleString('en-US')}` : null]
+  const time = isDayOnly(iso) ? null : clockTime(iso);
+  return [`${past} ${longDate(iso)}`, time, n ? `day ${n.toLocaleString('en-US')}` : null]
     .filter(Boolean)
     .join(' · ');
 }
@@ -204,10 +193,8 @@ export function gapBetween(a, b) {
 
 /** "Sunday 9:28 pm", or just "9:28 pm" when it's the same day as `ref`. */
 export function neighbourWhen(iso, ref) {
-  const day = (x) => longDate(x).split(',').slice(0, 2).join(',');
-  const same = ref && day(iso) === day(ref);
-  const weekday = longDate(iso).split(',')[0];
-  return same ? clockTime(iso) : `${weekday} ${clockTime(iso)}`;
+  const same = ref && dateKey(iso) === dateKey(ref);
+  return same ? clockTime(iso) : `${formatWeekday(iso)} ${clockTime(iso)}`;
 }
 
 /* ---------- the record's own sentence ---------- */

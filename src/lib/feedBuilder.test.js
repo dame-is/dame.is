@@ -200,8 +200,9 @@ describe('transformRecords', () => {
 });
 
 describe('localizeObservationInstants (viewer in New York)', () => {
-  // Observation records pin the observer's wall clock to Z. The snapshot is
-  // built in UTC, where that's a no-op; a viewer's browser has to redo it.
+  // Observation records pin the observer's wall clock to Z. The rebuild reads
+  // it on Dame's clock, so it comes out the same in the build and in every
+  // reader's browser; this block runs in New York, the one below elsewhere.
   const realTz = process.env.TZ;
   beforeAll(() => {
     process.env.TZ = 'America/New_York';
@@ -227,6 +228,22 @@ describe('localizeObservationInstants (viewer in New York)', () => {
     expect([local.getDate(), local.getHours()]).toEqual([17, 1]);
     // 01:00 New York is 05:00Z, now newer than the 03:00Z post.
     expect(out.map((i) => i.atUri)).toEqual(['moth', 'post']);
+  });
+
+  it('gives the same instant to a reader in Los Angeles or Tokyo', () => {
+    for (const zone of ['America/Los_Angeles', 'Asia/Tokyo', 'UTC']) {
+      process.env.TZ = zone;
+      const [moth] = localizeObservationInstants([
+        {
+          verb: 'mothing',
+          createdAt: '2026-10-16T22:39:00Z',
+          payload: { observedDate: '2026-10-16', observedTime: '22:39' },
+        },
+      ]);
+      // 10:39 pm in New York, whoever is reading.
+      expect(moth.createdAt).toBe('2026-10-17T02:39:00.000Z');
+    }
+    process.env.TZ = 'America/New_York';
   });
 
   it("measures a capped observation source's horizon on that same clock", async () => {
