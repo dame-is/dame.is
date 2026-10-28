@@ -27,6 +27,11 @@
      anywhere a document isn't — the admin's block preview, a phone — which
      leaves every rule that reads it a no-op there. */
   --fig-pull: var(--doc-overhang, 0px);
+  /* An essay hung from the left edge (.blog-book) has room on one side only,
+     and says so through the -start / -end pair; everywhere else both sides
+     take the symmetric pull. */
+  --fig-pull-start: var(--doc-overhang-start, var(--fig-pull));
+  --fig-pull-end: var(--doc-overhang-end, var(--fig-pull));
   font-variant-numeric: tabular-nums;
 }
 
@@ -35,6 +40,8 @@
    finishes — this block keeps the measure the rest of the essay reads at. */
 .ratioed.ratioed-hidden {
   --fig-pull: 0px;
+  --fig-pull-start: 0px;
+  --fig-pull-end: 0px;
 }
 
 /* The chart widens; the <figure> around it does not. Two reasons, and both of
@@ -50,7 +57,8 @@
    widened, is short by nothing, so the whole thing would collapse to zero and
    silently do nothing at all. */
 .ratioed > :not(figcaption) {
-  margin-inline: calc(-1 * var(--fig-pull));
+  margin-inline-start: calc(-1 * var(--fig-pull-start));
+  margin-inline-end: calc(-1 * var(--fig-pull-end));
 }
 
 /* A block that has nothing to draw yet is one sentence of prose, so it stays in

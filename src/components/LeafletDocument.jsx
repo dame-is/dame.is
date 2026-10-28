@@ -1,5 +1,6 @@
 import { cloneElement, createContext, Fragment, useContext, useEffect, useMemo, useState } from 'react';
 import { renderLeafletText } from '../lib/leafletRichText.jsx';
+import { countStraightMarks } from '../lib/smartPunctuation.js';
 import { getPostThread } from '../lib/atproto.js';
 import PostEmbed from './PostEmbed.jsx';
 import Lightbox from './Lightbox.jsx';
@@ -83,12 +84,16 @@ export default function LeafletDocument({ doc }) {
   }
 
   const ctx = { openImage: (src) => setLightbox(indexBySrc.get(src) ?? -1) };
+  // The opening paragraph takes the drop cap. Found here, on the record,
+  // rather than by a :first-child selector: a document can open on an empty
+  // spacer block or a heading, and the cap belongs to the first words.
+  const firstIndex = firstTextIndex(pages[0]);
 
   return (
     <LeafletLightboxContext.Provider value={ctx}>
       <div className="leaflet-doc">
         {pages.map((page, pi) => (
-          <LeafletPage key={pi} page={page} />
+          <LeafletPage key={pi} page={page} firstIndex={pi === 0 ? firstIndex : -1} />
         ))}
       </div>
       {images.length > 0 && (
@@ -175,7 +180,17 @@ export function galleryRuns(blocks) {
   return runs;
 }
 
-function LeafletPage({ page }) {
+function firstTextIndex(page) {
+  const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
+  for (let i = 0; i < blocks.length; i += 1) {
+    const block = blocks[i]?.block;
+    if (block?.$type === 'pub.leaflet.blocks.header') return -1;
+    if (block?.$type === 'pub.leaflet.blocks.text' && (block.plaintext || '').trim()) return i;
+  }
+  return -1;
+}
+
+function LeafletPage({ page, firstIndex = -1 }) {
   const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
   const out = [];
   const runStarts = new Map();
@@ -202,7 +217,7 @@ function LeafletPage({ page }) {
       i = run.end + 1;
       continue;
     }
-    out.push(<LeafletBlock key={`b-${i}`} block={blocks[i]?.block} />);
+    out.push(<LeafletBlock key={`b-${i}`} block={blocks[i]?.block} first={i === firstIndex} />);
     i += 1;
   }
   return <Fragment>{out}</Fragment>;
@@ -219,6 +234,19 @@ const BLOCK_SPACE_SCALE = {
   lg: 'var(--space-8)',
 };
 
+// The author's paragraph roles (dame.is rendering extension, set in the admin
+// blocks editor beside indent and spacing). Never guessed from the text: an
+// italic paragraph is not necessarily a quotation.
+//   inset  — a quotation, set on the blockquote rule with its text on the indent
+//   stack  — a run of short specimen lines, unindented and close together
+//   credit — a photo credit, at caption size directly under its figure
+export const TEXT_LAYOUTS = [
+  { value: 'inset', label: 'Quotation', hint: 'Inset on a rule, like a blockquote' },
+  { value: 'stack', label: 'Stacked line', hint: 'Short lines that read as a list of examples' },
+  { value: 'credit', label: 'Credit', hint: 'Caption-size, tucked under the figure above' },
+];
+const TEXT_LAYOUT_VALUES = new Set(TEXT_LAYOUTS.map((l) => l.value));
+
 function blockLayoutStyle(block) {
   const style = {};
   if (BLOCK_SPACE_SCALE[block.spaceTop]) style.marginTop = BLOCK_SPACE_SCALE[block.spaceTop];
@@ -231,7 +259,7 @@ function blockLayoutStyle(block) {
   return Object.keys(style).length ? style : null;
 }
 
-export function LeafletBlock({ block }) {
+export function LeafletBlock({ block, first = false }) {
   if (!block) return null;
   // Layout hints ride as an inline style on the block's own root element so
   // they win over the stylesheet's adjacency rules (e.g. the `margin-bottom: 0`
@@ -240,7 +268,7 @@ export function LeafletBlock({ block }) {
   const style = blockLayoutStyle(block);
   switch (block.$type) {
     case 'pub.leaflet.blocks.text':
-      return <TextBlock block={block} style={style} />;
+      return <TextBlock block={block} style={style} first={first} />;
     case 'pub.leaflet.blocks.header':
       return <HeaderBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.image':
@@ -270,16 +298,62 @@ export function LeafletBlock({ block }) {
   }
 }
 
-function TextBlock({ block, style }) {
-  const text = block.plaintext || '';
+const utf8 = new TextEncoder();
+
+/**
+ * Drop the line breaks a block opens or closes on, shifting the facets to
+ * match. A credit written as "\nimage source: …" rendered a blank line first
+ * and sat 75px under the caption it belongs to. Facet offsets are UTF-8 byte
+ * positions, so the shift is counted in bytes; a newline is one byte.
+ */
+export function trimBlockText(text, facets) {
+  const lead = text.length - text.replace(/^\n+/, '').length;
+  const trimmed = text.replace(/^\n+/, '').replace(/\n+$/, '');
+  if (trimmed === text) return { text, facets };
+  const end = utf8.encode(trimmed).length;
+  const shifted = Array.isArray(facets)
+    ? facets
+        .map((f) => {
+          const s = f?.index?.byteStart;
+          const e = f?.index?.byteEnd;
+          if (s == null || e == null) return f;
+          const byteStart = Math.max(0, s - lead);
+          const byteEnd = Math.min(end, e - lead);
+          return byteEnd > byteStart ? { ...f, index: { ...f.index, byteStart, byteEnd } } : null;
+        })
+        .filter(Boolean)
+    : facets;
+  return { text: trimmed, facets: shifted };
+}
+
+function TextBlock({ block, style, first = false }) {
+  const raw = block.plaintext || '';
   // Empty text blocks function as paragraph breaks. Render an empty
   // spacer paragraph rather than nothing so the rhythm is preserved.
-  if (!text.trim()) {
+  if (!raw.trim()) {
     return <p className="leaflet-spacer" aria-hidden="true" style={style || undefined} />;
   }
+  const { text, facets } = trimBlockText(raw, block.facets);
+  const layout = TEXT_LAYOUT_VALUES.has(block.layout) ? block.layout : null;
+  const classes = ['leaflet-paragraph'];
+  if (first) classes.push('first-paragraph');
+  if (layout) classes.push(`leaflet-${layout}`);
+  const marks = countStraightMarks(text);
   return (
-    <p className="leaflet-paragraph" style={style || undefined}>
-      {renderLeafletText(text, block.facets)}
+    <p className={classes.join(' ')} style={style || undefined}>
+      {renderLeafletText(text, facets, { smart: true })}
+      {/* The manuscript, for x-ray: the record's own text beside the typeset
+          paragraph, so curling a quote on the page never hides what was
+          written. Hidden until inspect is on. */}
+      {marks > 0 && (
+        <span className="leaflet-xray-raw" aria-hidden="true">
+          <span className="leaflet-xray-raw-label">record text, as written</span>
+          <span className="leaflet-xray-raw-text">{text}</span>
+          <span className="leaflet-xray-raw-note">
+            {marks} typewriter {marks === 1 ? 'mark' : 'marks'}, typeset on the page only
+          </span>
+        </span>
+      )}
     </p>
   );
 }
@@ -290,7 +364,7 @@ function HeaderBlock({ block, style }) {
   const text = block.plaintext || '';
   return (
     <Tag className={`leaflet-heading leaflet-heading-${level}`} style={style || undefined}>
-      {renderLeafletText(text, block.facets)}
+      {renderLeafletText(text, block.facets, { smart: true })}
     </Tag>
   );
 }
@@ -455,7 +529,7 @@ function ListItem({ item, ordered }) {
   const children = Array.isArray(item?.children) ? item.children : [];
   return (
     <li>
-      {renderLeafletText(text, facets)}
+      {renderLeafletText(text, facets, { smart: true })}
       {children.length > 0 && (
         <ListBlock block={{ children }} ordered={ordered} />
       )}
@@ -595,8 +669,10 @@ function bskyAppUrlFromAtUri(atUri, handle) {
   return `https://bsky.app/profile/${who}/post/${m[2]}`;
 }
 
+// The page owns the h1 (its title), so a document's level-1 heading reads as
+// h2 and the ladder below it is unchanged.
 function clampLevel(level) {
   const n = Number(level);
   if (!Number.isFinite(n)) return 2;
-  return Math.min(6, Math.max(1, Math.round(n)));
+  return Math.min(6, Math.max(2, Math.round(n)));
 }

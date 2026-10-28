@@ -23,7 +23,7 @@ h4 { font-size: var(--text-lg);  margin-bottom: var(--space-3); }
    form hint is a <p> too. Neither is changed here, and the reason is the same
    for both: the public site's reading pages are built on them, and the admin is
    the only place they misfire.
-     • `--measure` is 68ch, and `ch` resolves against the element's OWN
+     • `--measure` is 65ch, and `ch` resolves against the element's OWN
        font-size — so 68ch of a 12px caption is 408px where 68ch of 16px body
        text is 544px. Right for prose (the measure IS the type size's measure),
        wrong for a hint annotating a 1189px control.
@@ -143,7 +143,9 @@ blockquote {
 
 /* Drop cap — the shared treatment behind every first-paragraph initial
    letter (blog posts, the resume summary, the about page). Centralized here
-   so all three surfaces stay in lockstep.
+   so all three surfaces stay in lockstep. Essays render through
+   LeafletDocument (.leaflet-doc), which marks its opening paragraph
+   .first-paragraph; the .blog-prose selectors are the markdown pages'.
 
    `initial-letter` is the metric-correct tool for this: it sizes AND sinks
    the letter to an exact number of line boxes — cap-height flush with the
@@ -154,8 +156,11 @@ blockquote {
 .dropcap::first-letter,
 .blog-prose > p:first-of-type::first-letter,
 .blog-prose .first-paragraph::first-letter,
+.leaflet-doc > .first-paragraph::first-letter,
 .about-longform > p:first-of-type::first-letter {
   font-family: var(--serif);
+  font-variant-caps: normal;
+  letter-spacing: 0;
   font-weight: 600;
   color: var(--accent);
   -webkit-initial-letter: 3;
@@ -192,6 +197,7 @@ blockquote {
   .dropcap::first-letter,
   .blog-prose > p:first-of-type::first-letter,
   .blog-prose .first-paragraph::first-letter,
+  .leaflet-doc > .first-paragraph::first-letter,
   .about-longform > p:first-of-type::first-letter {
     float: left;
     font-size: 5.85em;
@@ -202,6 +208,14 @@ blockquote {
     margin-right: 0;
     padding-right: 0.04em;
   }
+}
+
+/* An essay's opening line runs on from its initial in letterspaced small
+   caps, the book convention for where the text begins. The web subset of
+   Crimson Pro has no smcp, so these are synthesised and read a little light. */
+.leaflet-doc > .first-paragraph::first-line {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.04em;
 }
 
 .hairline {

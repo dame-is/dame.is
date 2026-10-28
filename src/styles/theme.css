@@ -81,6 +81,13 @@
   --mono-scale: 1;
 
   --measure: 65ch;
+  /* Long-form's reading measure, in em of the body rather than ch of the
+     zero: Crimson's zero is wide, so 65ch ran essays at about 85 characters
+     a line. 28em at the 20px essay size (--text-prose) is a median of 66.
+     Written in rem so it means the same width wherever it's read. UI text
+     keeps --measure. */
+  --text-prose: 1.25rem;
+  --measure-prose: calc(var(--text-prose) * 28);
   --leading: 1.6;
   --leading-tight: 1.3;
 

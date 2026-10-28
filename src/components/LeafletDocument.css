@@ -1,20 +1,75 @@
+/* The essay setting: 20/31 in a 28em measure (--measure-prose), about 66
+   characters a line, stepping to 18px on a phone. */
 .leaflet-doc {
   font-family: var(--serif);
-  font-size: 1.05rem;
-  line-height: 1.6;
+  font-size: var(--text-prose);
+  line-height: 1.55;
   color: var(--ink);
   /* Long unbreakable tokens (bare URLs, AT URIs, NSIDs) must wrap instead of
      pushing the column wide and forcing a horizontal scroll. */
   overflow-wrap: break-word;
 }
 
+@media (max-width: 700px) {
+  :root {
+    --text-prose: 1.125rem;
+  }
+}
+
+/* One paragraph signal: the indent. No paragraph carries space below it, so
+   a break is never marked twice (it used to be space plus indent on the first
+   break of a run and indent alone after). Space appears only around insets,
+   figures and headings, and the paragraph after one of those starts flush. */
 .leaflet-paragraph {
-  margin: 0 0 var(--space-4);
+  margin: 0;
+  max-width: none;
+  text-wrap: pretty;
 }
 
 .leaflet-paragraph + .leaflet-paragraph {
   text-indent: 1.5em;
-  margin-bottom: 0;
+}
+
+/* A quotation, set by the author: inset on the blockquote rule, its text on
+   the paragraph indent, with space around it. */
+.leaflet-paragraph.leaflet-inset {
+  margin: var(--space-4) 0;
+  padding-left: calc(1.5em - 2px);
+  border-left: 2px solid var(--accent-soft);
+  color: var(--ink-soft);
+  font-style: italic;
+  text-indent: 0;
+}
+
+/* Short specimen lines ("Dame is watching a movie"): inset, unindented and
+   4px apart, so they read as a stack of examples, not stray paragraphs. */
+.leaflet-paragraph.leaflet-stack {
+  margin: 4px 0 0;
+  padding-left: 1.5em;
+  text-indent: 0;
+}
+
+.leaflet-paragraph:not(.leaflet-stack) + .leaflet-stack {
+  margin-top: var(--space-4);
+}
+
+.leaflet-stack + .leaflet-paragraph:not(.leaflet-stack) {
+  margin-top: var(--space-4);
+}
+
+/* A credit sits directly under its figure, at caption size. */
+.leaflet-paragraph.leaflet-credit {
+  margin: calc(-1 * var(--space-4)) 0 var(--space-5);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.leaflet-inset + .leaflet-paragraph,
+.leaflet-stack + .leaflet-paragraph,
+.leaflet-credit + .leaflet-paragraph {
+  text-indent: 0;
 }
 
 /* Empty text blocks act as paragraph breaks: reset the indent that
@@ -28,18 +83,43 @@
   text-indent: 0;
 }
 
+/* The heading ladder: levels told apart by style as well as size, each with
+   about twice as much space above as below. The page title is the h1, so a
+   document's headings start at h2. (h4 to h6 used to fall back to body size
+   through an undefined --text-md, so the guide's 46 of them read as bold
+   sentences.) */
 .leaflet-heading {
   font-family: var(--serif);
   margin: var(--space-6) 0 var(--space-3);
   line-height: 1.2;
+  text-wrap: balance;
 }
 
-.leaflet-heading-1 { font-size: var(--text-2xl); }
-.leaflet-heading-2 { font-size: var(--text-xl); }
-.leaflet-heading-3 { font-size: var(--text-lg); }
-.leaflet-heading-4,
+.leaflet-heading-2 {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule-soft);
+}
+.leaflet-heading-3 {
+  font-size: var(--text-xl);
+  font-style: italic;
+  font-weight: 500;
+}
+.leaflet-heading-4 {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--accent);
+  margin: var(--space-5) 0 var(--space-2);
+}
 .leaflet-heading-5,
-.leaflet-heading-6 { font-size: var(--text-md); }
+.leaflet-heading-6 {
+  font-size: 1em;
+  font-style: italic;
+  font-weight: 500;
+  margin: var(--space-5) 0 var(--space-2);
+}
 
 .leaflet-image {
   margin: var(--space-5) 0;
@@ -84,8 +164,23 @@
 .leaflet-image-caption {
   margin-top: var(--space-2);
   font-family: var(--sans);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
+  font-style: italic;
+  line-height: 1.4;
   color: var(--ink-muted);
+}
+
+/* Link sidenotes (leafletRichText): hidden by default, shown only in an
+   essay's margin (Blogging.css .blog-book). */
+.leaflet-sidenote {
+  display: none;
+}
+
+/* The x-ray manuscript note (LeafletDocument TextBlock): the record's own
+   text, shown beside the typeset paragraph only while inspecting. See
+   Xray.css for its placement. */
+.leaflet-xray-raw {
+  display: none;
 }
 
 .leaflet-code {
