@@ -8,6 +8,7 @@ import { TEAL_PLAY_NSIDS } from '../lib/teal.js';
 import { showOnCreating, workSlug } from '../lib/publications.js';
 import { isNightSlug } from '../lib/mothing.js';
 import { isAlbumPath } from '../lib/albums.js';
+import { rereadWork } from '../lib/workRecord.js';
 
 const STANDARD_DOC = 'site.standard.document';
 
@@ -26,21 +27,20 @@ export function useAtUri(override) {
   const [info, setInfo] = useState(() => withInitialStatus(deriveFromRoute(location.pathname, override)));
 
   useEffect(() => {
-    setInfo(withInitialStatus(deriveFromRoute(location.pathname, override)));
+    const next = withInitialStatus(deriveFromRoute(location.pathname, override));
+    setInfo((prev) => keepLoadedRecord(prev, next));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, override?.atUri, override?.cid]);
 
   useEffect(() => {
     let cancelled = false;
-    async function loadPds() {
-      try {
-        const endpoint = await resolvePds(ME_DID);
+    ownPds()
+      .then((endpoint) => {
         if (!cancelled) setPds(endpoint);
-      } catch {
+      })
+      .catch(() => {
         // ignore
-      }
-    }
-    loadPds();
+      });
     return () => {
       cancelled = true;
     };
@@ -58,9 +58,14 @@ export function useAtUri(override) {
 
     setInfo((prev) => (prev.recordStatus === 'loading' ? prev : { ...prev, recordStatus: 'loading' }));
 
+    // `fresh` is set when this run was sent by a bumped `refresh` (the page
+    // told us about a newer version of the record than the one held), so the
+    // live read skips the shared cache.
+    const freshRead = Boolean(info.fresh);
+
     async function load() {
       let found = false;
-      const seedRecord = await loadFromSnapshots(info);
+      const seedRecord = await sharedLookup('snapshot', info, () => loadFromSnapshots(info));
       if (!cancelled && seedRecord) {
         found = true;
         setInfo((prev) => ({
@@ -74,16 +79,18 @@ export function useAtUri(override) {
           recordStatus: 'ready',
         }));
       }
-      // Wait for the PDS endpoint before falling back to "missing" — if we
-      // haven't resolved it yet there's still hope a live fetch will succeed.
-      if (!pds) {
-        if (!cancelled && !found) {
-          // Hold in 'loading' until pds is known; effect re-runs once it is.
-        }
-        return;
-      }
-      try {
-        const fresh = await fetchRecordFromPds(pds, info);
+      // Awaited here rather than held as a dependency: keying this effect on
+      // the endpoint ran the whole lookup twice per record, once before the
+      // PDS was known (snapshot only) and again after.
+      const endpoint = await ownPds().catch(() => null);
+      if (cancelled) return;
+      if (endpoint) {
+        const fresh = await sharedLookup(
+          'pds',
+          info,
+          () => fetchRecordFromPds(endpoint, info, seedRecord),
+          { fresh: freshRead },
+        );
         if (!cancelled && fresh) {
           found = true;
           setInfo((prev) => ({
@@ -94,8 +101,6 @@ export function useAtUri(override) {
             recordStatus: 'ready',
           }));
         }
-      } catch {
-        // keep snapshot
       }
       if (!cancelled && !found) {
         setInfo((prev) => (prev.record ? prev : { ...prev, recordStatus: 'missing' }));
@@ -105,16 +110,125 @@ export function useAtUri(override) {
     return () => {
       cancelled = true;
     };
+    // Keyed on what was asked for (`query`), not on `atUri`: a slug-routed
+    // page only learns its URI from the record this loader finds, and keying on
+    // the URI it had just filled in sent the whole lookup round a second time.
+    // The route too, because a new route starts from a blank record even when
+    // it asks for the same one as the last (two paths to one record).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info?.atUri, info?.rkey, info?.slug, info?.lexicon, pds]);
+  }, [info?.query, info?.route, info?.refresh]);
 
   return { ...info, pds };
+}
+
+/**
+ * The next derivation for a route, keeping the record already loaded for it
+ * when the new one still names that record.
+ *
+ * A record page registers its record with PageShell more than once — from the
+ * URL as it mounts, then again with the cid once its own fetch lands — and every
+ * registration re-derives here. Starting from scratch each time dropped a record
+ * this hook had already loaded, and because the identity (so the loader's deps)
+ * hadn't moved, nothing fetched it again: the footer settled on "written — ·
+ * updated —" under a record that was right there on the page.
+ *
+ * A cid the held record doesn't carry means it has changed since it loaded (an
+ * edit), so `refresh` sends the loader round once more, with the old version on
+ * screen until the new one lands, and `fresh` has that one run read past the
+ * shared cache. A different record starts clean: the footer's hook lives as
+ * long as the app, and an edit on one page is no reason to skip the cache on
+ * every page after it.
+ *
+ * A derivation that asks for exactly what the last one did, on the same route,
+ * keeps whatever the loader has found or is still finding: the loader only
+ * runs again when the ask (or the route) moves, so starting it over at
+ * 'loading' would leave it there for good.
+ */
+function keepLoadedRecord(prev, next) {
+  const held = prev?.record;
+  const refresh = prev?.refresh || 0;
+  const sameRecord =
+    Boolean(held) &&
+    !next.record &&
+    prev.route === next.route &&
+    Boolean(next.atUri) &&
+    (next.atUri === prev.atUri || next.atUri === held.uri);
+  if (!sameRecord) {
+    const sameAsk =
+      Boolean(prev) &&
+      !next.record &&
+      prev.route === next.route &&
+      prev.query === next.query;
+    if (sameAsk) {
+      return next.cid && next.cid !== prev.cid
+        ? { ...prev, cid: next.cid }
+        : prev;
+    }
+    return { ...next, refresh, fresh: false };
+  }
+  const changed = Boolean(next.cid && held.cid && next.cid !== held.cid);
+  if (!changed) return { ...prev, cid: next.cid || prev.cid };
+  return { ...prev, cid: next.cid, refresh: refresh + 1, fresh: true };
+}
+
+// One PLC lookup for every consumer of this hook, rather than one each.
+let pdsPromise = null;
+function ownPds() {
+  if (!pdsPromise) {
+    pdsPromise = resolvePds(ME_DID).catch((err) => {
+      pdsPromise = null;
+      throw err;
+    });
+  }
+  return pdsPromise;
+}
+
+// Every consumer of this hook on a page — the <head> hints, the footer's
+// timestamp, the x-ray layer — asks after the same record, and each used to run
+// its own snapshot parse and its own PDS read for it (posts.json is 3 MB, parsed
+// twice over for a footer). One lookup per record now serves them all: an
+// in-flight answer is shared, and a settled one is reused for long enough to
+// cover a page's consumers mounting a beat apart, but not so long that coming
+// back to a page later hides an edit made in between.
+const LOOKUP_TTL_MS = 15_000;
+const lookups = new Map();
+
+function sharedLookup(kind, info, run, { fresh = false } = {}) {
+  // Keyed on the record, not on how it was asked for: the footer's route-derived
+  // lookup and a page's registered one name the same at:// URI.
+  const key = `${kind}|${info.atUri || [info.lexicon, info.rkey, info.slug].map((p) => p || '').join('|')}`;
+  const now = Date.now();
+  const held = lookups.get(key);
+  // A fresh read still shares one in flight: the head hints and the footer
+  // both hear of the same new cid, and one request answers them both.
+  if (held && (held.pending || (!fresh && now - held.at < LOOKUP_TTL_MS))) return held.promise;
+  for (const [k, entry] of lookups) {
+    if (!entry.pending && now - entry.at >= LOOKUP_TTL_MS) lookups.delete(k);
+  }
+  const entry = { pending: true, at: 0, promise: null };
+  entry.promise = Promise.resolve()
+    .then(run)
+    .catch(() => null);
+  entry.promise.then(() => {
+    entry.pending = false;
+    entry.at = Date.now();
+  });
+  lookups.set(key, entry);
+  return entry.promise;
 }
 
 function withInitialStatus(info) {
   if (!info) return info;
   const canResolve = info.atUri || info.rkey || info.slug;
-  return { ...info, recordStatus: canResolve ? 'loading' : 'none' };
+  return {
+    ...info,
+    // What the route (or a page's registration) named, fixed for the life of
+    // this derivation; the loader only ever fills in the rest.
+    query: [info.atUri, info.lexicon, info.rkey, info.slug]
+      .map((p) => p || '')
+      .join('|'),
+    recordStatus: canResolve ? 'loading' : 'none',
+  };
 }
 
 function deriveFromRoute(pathname, override) {
@@ -140,7 +254,10 @@ function deriveFromRoute(pathname, override) {
   const blogMatch = matchPath('/blogging/:slug', pathname);
   if (blogMatch) {
     return {
-      atUri: null, // resolved by slug below
+      // The blog's `:slug` is the document's rkey (BlogPost resolves it as
+      // one), so its URI is known before anything loads — and matches the one
+      // the page registers once it has the record.
+      atUri: `at://${ME_DID}/${COLLECTIONS.blogging}/${blogMatch.params.slug}`,
       cid: null,
       lexicon: COLLECTIONS.blogging,
       slug: blogMatch.params.slug,
@@ -185,9 +302,12 @@ function deriveFromRoute(pathname, override) {
     if (!m) continue;
     const collection = VERB_TO_COLLECTION[segment] || segment;
     const rkey = m.params.rkey;
-    // Posts may live under another author's DID; we leave the URI unset for
-    // now and let the page render its own AT URI hint after lookup.
-    const repoDid = collection === 'app.bsky.feed.post' ? null : ME_DID;
+    // A post under /posting is Dame's own (Record.jsx reads it from Dame's
+    // repo), so it can be addressed straight away. A /reposting key, if it is
+    // ever read as a post, names the post that was reposted, which may live
+    // under another author's DID — that URI stays unset until the page
+    // registers the record it found.
+    const repoDid = collection === 'app.bsky.feed.post' && segment === 'reposting' ? null : ME_DID;
     return {
       atUri: repoDid ? `at://${repoDid}/${collection}/${rkey}` : null,
       cid: null,
@@ -210,10 +330,16 @@ function deriveFromRoute(pathname, override) {
     };
   }
   if (pathname === '/themself') {
+    // Asked for by rkey, and named only once found. is.dame.profile/self is a
+    // record the owner writes when they get to it; until then claiming its URI
+    // advertised a link to nothing (and offered an editor for a record that
+    // isn't there). The loader fills `atUri` in from the record it finds, as
+    // middleware.js does for crawlers.
     return {
-      atUri: `at://${ME_DID}/${COLLECTIONS.profile}/self`,
+      atUri: null,
       cid: null,
       lexicon: COLLECTIONS.profile,
+      rkey: 'self',
       record: null,
       route: pathname,
     };
@@ -261,13 +387,9 @@ async function loadFromSnapshots(info) {
       : null;
     return mirrorLeafletTimestamps(found);
   }
-  if (info.lexicon === COLLECTIONS.leaflet && (info.rkey || info.slug)) {
-    const wanted = info.rkey || info.slug;
-    const leaflets = await fetchSnapshot('leaflets');
-    return Array.isArray(leaflets)
-      ? leaflets.find((r) => endsWithRkey(r?.uri, wanted)) || null
-      : null;
-  }
+  // No snapshot branch for pub.leaflet.document: prefetch writes no file of
+  // them, so asking for one was a certain 404 ahead of every leaflet's live
+  // read. fetchRecordFromPds finds them by rkey.
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
     // Creative works are site.standard.document records (in `blogs`, matched
     // by path — or rkey for a blog-homed doc cross-posted here without one)
@@ -291,17 +413,17 @@ async function loadFromSnapshots(info) {
     if (!snapshotName) return null;
     const snap = await fetchSnapshot(snapshotName);
     if (!Array.isArray(snap)) return null;
-    if (info.lexicon === 'app.bsky.feed.post') {
-      const row = snap.find((r) => endsWithRkey(r?.post?.uri, info.rkey));
-      return row?.post ? { uri: row.post.uri, cid: row.post.cid, value: row.post.record } : null;
-    }
     return snap.find((r) => endsWithRkey(r?.uri, info.rkey)) || null;
   }
   return null;
 }
 
+// No `app.bsky.feed.post` here on purpose. posts.json is the biggest snapshot
+// the site ships (3 MB, most of it reply context), and a post page only ever
+// wanted one record's timestamps out of it — which Dame's own PDS hands back in
+// a single small getRecord (see fetchRecordFromPds). It also only ever held the
+// newest few hundred posts, so an older post's footer came up empty anyway.
 const SNAPSHOT_FOR_COLLECTION = {
-  'app.bsky.feed.post': 'posts',
   [COLLECTIONS.now]: 'now',
   [COLLECTIONS.blogging]: 'blogs',
   [COLLECTIONS.creating]: 'creations',
@@ -320,16 +442,20 @@ function endsWithRkey(uri, rkey) {
  * Leaflet documents only carry `publishedAt` natively. Mirror it onto
  * `createdAt` / `updatedAt` so the footer's <RecordTimestamp /> and
  * other shared helpers can stay agnostic of the lexicon.
+ *
+ * On a copy: a snapshot record is one parsed object shared with every other
+ * reader of that file (see fetchSnapshot), so it isn't this hook's to write to.
  */
 function mirrorLeafletTimestamps(record) {
   if (!record?.value) return record;
   const v = record.value;
-  if (!v.createdAt && v.publishedAt) v.createdAt = v.publishedAt;
-  if (!v.updatedAt) v.updatedAt = v.createdAt;
-  return record;
+  const createdAt = v.createdAt || v.publishedAt;
+  const updatedAt = v.updatedAt || createdAt;
+  if (createdAt === v.createdAt && updatedAt === v.updatedAt) return record;
+  return { ...record, value: { ...v, createdAt, updatedAt } };
 }
 
-async function fetchRecordFromPds(pds, info) {
+async function fetchRecordFromPds(pds, info, seed) {
   if (info.lexicon === COLLECTIONS.page) {
     const rkey = info.atUri && rkeyFromAtUri(info.atUri);
     if (!rkey) return null;
@@ -339,8 +465,12 @@ async function fetchRecordFromPds(pds, info) {
     return getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.profile, rkey: 'self' }).catch(() => null);
   }
   if (info.lexicon === COLLECTIONS.blogging && info.slug) {
-    const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 }).catch(() => []);
-    return mirrorLeafletTimestamps(recs.find((r) => endsWithRkey(r?.uri, info.slug)) || null);
+    // `/blogging/:id` is addressed by rkey (as the snapshot lookup above
+    // assumes), so one getRecord answers it — no need to list every document.
+    const rec = await getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, rkey: info.slug }).catch(
+      () => null,
+    );
+    return mirrorLeafletTimestamps(rec?.value ? rec : null);
   }
   if (info.lexicon === COLLECTIONS.leaflet) {
     const wanted = info.rkey || info.slug;
@@ -349,6 +479,11 @@ async function fetchRecordFromPds(pds, info) {
     return mirrorLeafletTimestamps(rec);
   }
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
+    // The snapshot already said which record this slug names, so re-read just
+    // that one (see lib/workRecord.js); the listing is for a work it didn't
+    // know.
+    const known = await rereadWork(pds, seed, info.slug);
+    if (known) return known;
     const std = await listRecords(pds, { repo: ME_DID, collection: STANDARD_DOC, max: 200 }).catch(() => []);
     const byStd =
       std.find(
@@ -360,12 +495,18 @@ async function fetchRecordFromPds(pds, info) {
     const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }).catch(() => []);
     return recs.find((r) => workSlug(r?.value) === info.slug) || null;
   }
-  // Generic by-rkey live fetch for our own PDS-backed collections. Skip
-  // app.bsky.feed.post — those records may live under another author's repo.
-  // A `/{verb}/{rkey}` route only guessed at the lexicon, so try the verb's
+  // A post is read from Dame's repo only when the URI says it lives there —
+  // a post addressed by rkey alone may be someone else's.
+  if (info.lexicon === 'app.bsky.feed.post') {
+    const own = String(info.atUri || '').startsWith(`at://${ME_DID}/`);
+    if (!own || !info.rkey) return null;
+    return getRecord(pds, { repo: ME_DID, collection: info.lexicon, rkey: info.rkey }).catch(() => null);
+  }
+  // Generic by-rkey live fetch for our own PDS-backed collections. A
+  // `/{verb}/{rkey}` route only guessed at the lexicon, so try the verb's
   // siblings before giving up: on `/listening/{rkey}` the guess is teal.fm's
   // production lexicon and the play may well still be an alpha one.
-  if (info.rkey && info.lexicon && info.lexicon !== 'app.bsky.feed.post') {
+  if (info.rkey && info.lexicon) {
     for (const collection of siblingCollections(info.lexicon)) {
       const rec = await getRecord(pds, { repo: ME_DID, collection, rkey: info.rkey }).catch(() => null);
       if (rec?.value) return rec;
@@ -373,3 +514,4 @@ async function fetchRecordFromPds(pds, info) {
   }
   return null;
 }
+

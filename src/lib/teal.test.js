@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import {
   TEAL_PLAY_NSIDS,
   TEAL_STATUS_NSIDS,
   dedupePlaysByRkey,
+  fetchTealStatus,
+  listTealPlays,
   playArtistLine,
   playArtistNames,
   playOriginUrl,
@@ -229,5 +231,137 @@ describe('dedupeVerbAggregate', () => {
   it('leaves verbs without an rkey collision rule alone', () => {
     const items = [{ verb: 'logging', atUri: uri('is.dame.now', 'a'), payload: {} }];
     expect(dedupeVerbAggregate('logging', items)).toBe(items);
+  });
+});
+
+describe('listTealPlays', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * A stub PDS: `collections` maps an NSID to its records (newest first), or
+   * to a number to answer every listing of it with that HTTP status.
+   */
+  function stubPds(collections) {
+    const calls = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const params = new URL(url).searchParams;
+        const collection = params.get('collection');
+        calls.push({ collection, limit: Number(params.get('limit')) });
+        const held = collections[collection];
+        if (typeof held === 'number') {
+          return { ok: false, status: held, statusText: 'nope', text: async () => '' };
+        }
+        const records = (held || []).slice(0, Number(params.get('limit')) || 100);
+        return { ok: true, status: 200, json: async () => ({ records }) };
+      }),
+    );
+    return calls;
+  }
+
+  it('fails the read when a namespace fails, rather than reading it as no plays', async () => {
+    // A failed page used to come back as an empty namespace, which every page
+    // then took for a real, empty history.
+    stubPds({ [PROD]: [prodPlay('3a')], [ALPHA]: 500 });
+    await expect(listTealPlays('https://pds.test/a', { repo: DID, max: 10 })).rejects.toThrow();
+  });
+
+  it('still reads an empty namespace as empty', async () => {
+    // What the PDS answers for a collection it has never seen: a 200, no records.
+    stubPds({ [PROD]: [prodPlay('3a')], [ALPHA]: [] });
+    const plays = await listTealPlays('https://pds.test/b', { repo: DID, max: 10 });
+    expect(plays.map((p) => p.uri)).toEqual([uri(PROD, '3a')]);
+  });
+
+  it('reuses a namespace whose newest record has not moved', async () => {
+    const alpha = [alphaPlay('3z'), alphaPlay('3y', { playedTime: '2026-08-10T00:00:00Z' })];
+    let calls = stubPds({ [PROD]: [prodPlay('3a')], [ALPHA]: alpha });
+    const first = await listTealPlays('https://pds.test/c', { repo: DID, max: 10, reuse: true });
+    expect(first).toHaveLength(3);
+
+    calls = stubPds({ [PROD]: [prodPlay('3b'), prodPlay('3a')], [ALPHA]: alpha });
+    const second = await listTealPlays('https://pds.test/c', { repo: DID, max: 10, reuse: true });
+    // Production moved, so it was listed again; alpha didn't, so one probe did.
+    expect(calls.filter((c) => c.collection === ALPHA)).toEqual([{ collection: ALPHA, limit: 1 }]);
+    expect(second.map((p) => p.uri)).toEqual([
+      uri(PROD, '3b'),
+      uri(PROD, '3a'),
+      uri(ALPHA, '3z'),
+      uri(ALPHA, '3y'),
+    ]);
+  });
+
+  it('never holds a read unless asked to', async () => {
+    stubPds({ [PROD]: [prodPlay('3a')], [ALPHA]: [] });
+    await listTealPlays('https://pds.test/d', { repo: DID, max: 10 });
+    const calls = stubPds({ [PROD]: [prodPlay('3a')], [ALPHA]: [] });
+    await listTealPlays('https://pds.test/d', { repo: DID, max: 10, reuse: true });
+    expect(calls.every((c) => c.limit === 10)).toBe(true);
+  });
+});
+
+describe('fetchTealStatus', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const statusRecord = (nsid, time) => ({
+    uri: uri(nsid, 'self'),
+    value: { time, item: { trackName: `played at ${time}` } },
+  });
+
+  /** `answers` maps a status NSID to its record, or to an HTTP status. */
+  function stubStatus(answers) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const held = answers[new URL(url).searchParams.get('collection')];
+        if (typeof held === 'number') {
+          const body = held === 400 ? '{"error":"RecordNotFound"}' : '';
+          return {
+            ok: false,
+            status: held,
+            statusText: 'nope',
+            text: async () => body,
+          };
+        }
+        return { ok: true, status: 200, json: async () => held };
+      }),
+    );
+  }
+
+  const [PROD_STATUS, ALPHA_STATUS] = TEAL_STATUS_NSIDS;
+
+  it('takes the newest status across both namespaces', async () => {
+    stubStatus({
+      [PROD_STATUS]: statusRecord(PROD_STATUS, '2026-08-13T00:30:00Z'),
+      [ALPHA_STATUS]: statusRecord(ALPHA_STATUS, '2026-08-12T00:30:00Z'),
+    });
+    const found = await fetchTealStatus('https://pds.test/s1', { repo: DID });
+    expect(found.uri).toBe(uri(PROD_STATUS, 'self'));
+  });
+
+  it('reads a namespace without the record as absent', async () => {
+    stubStatus({
+      [PROD_STATUS]: statusRecord(PROD_STATUS, '2026-08-13T00:30:00Z'),
+      [ALPHA_STATUS]: 400,
+    });
+    expect(
+      (await fetchTealStatus('https://pds.test/s2', { repo: DID })).uri,
+    ).toBe(uri(PROD_STATUS, 'self'));
+    stubStatus({ [PROD_STATUS]: 400, [ALPHA_STATUS]: 404 });
+    expect(
+      await fetchTealStatus('https://pds.test/s3', { repo: DID }),
+    ).toBeNull();
+  });
+
+  it('fails the read when a namespace could not be asked, rather than reading it as nothing playing', async () => {
+    stubStatus({ [PROD_STATUS]: 503, [ALPHA_STATUS]: 400 });
+    await expect(
+      fetchTealStatus('https://pds.test/s4', { repo: DID }),
+    ).rejects.toThrow();
   });
 });

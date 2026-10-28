@@ -211,6 +211,15 @@
   gap: 0.3em;
 }
 
+/* Near an edge the tip hangs inward from its point (StateStats.jsx picks). */
+.state-chart-tip.is-start {
+  transform: translate(-12px, calc(-100% - 10px));
+}
+
+.state-chart-tip.is-end {
+  transform: translate(calc(-100% + 12px), calc(-100% - 10px));
+}
+
 .state-chart-tip strong {
   font-family: var(--serif);
   font-size: var(--text-sm);

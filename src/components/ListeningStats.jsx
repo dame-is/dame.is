@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
-import { albumIdentity, albumPath } from '../lib/albums.js';
+import { albumIdentity, albumIdentityResolver, albumPath } from '../lib/albums.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
 import './ListeningStats.css';
@@ -33,13 +33,12 @@ export default function ListeningStats({ items }) {
     <section className="listen-stats" aria-label="Listening statistics">
       <div className="listen-stats-head">
         <h2 className="listen-stats-title">Recent listening</h2>
-        <div className="listen-stats-toggle" role="tablist" aria-label="Time window">
+        <div className="listen-stats-toggle" role="group" aria-label="Time window">
           {WINDOWS.map((w) => (
             <button
               key={w.days}
               type="button"
-              role="tab"
-              aria-selected={days === w.days}
+              aria-pressed={days === w.days}
               className={`listen-stats-tab ${days === w.days ? 'is-active' : ''}`}
               onClick={() => setDays(w.days)}
             >
@@ -206,6 +205,9 @@ function computeStats(items, days) {
   const albums = new Map();
   let totalPlays = 0;
   let totalSeconds = 0;
+  // Settled over every play loaded, not just the window, so a row here lands
+  // on the same album (and the same address) the shelf files those plays under.
+  const resolveAlbum = albumIdentityResolver((items || []).map((it) => albumIdentity(it?.payload)));
 
   for (const it of items || []) {
     const p = it?.payload;
@@ -244,10 +246,11 @@ function computeStats(items, days) {
     }
 
     // Album / release — title + primary artist (same-named albums by
-    // different artists stay distinct). The key is `albumIdentity`'s, so a row
-    // here and the album's own page under /listening/albums group the same
-    // plays and the link between them can't point at a different record.
-    const album = albumIdentity(p);
+    // different artists stay distinct). The key is `albumIdentity`'s, merged
+    // the way buildAlbums merges it, so a row here and the album's own page
+    // under /listening/albums group the same plays and the link between them
+    // can't point at a different record.
+    const album = resolveAlbum(albumIdentity(p));
     if (album) {
       bump(albums, album.key, () => ({
         primary: album.title,

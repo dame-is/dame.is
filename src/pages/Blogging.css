@@ -395,8 +395,13 @@
   }
 }
 
-/* Single-record page (Record.jsx) */
+/* Single-record page (Record.jsx). `width: 100%` for the reason .blog-article
+   carries it: as a child of the flex-column .page, the auto margins defeat
+   stretch, and without a width the article shrink-wrapped to its widest line —
+   485px on a status, 588px on a post, and wider than a phone on a raw-JSON
+   record. */
 .record-page {
+  width: 100%;
   max-width: var(--measure);
   margin: 0 auto;
 }
@@ -407,7 +412,10 @@
   color: var(--ink-faint);
 }
 
+/* `max-width: none` because the global `p` cap is 65ch of this smaller type,
+   about 485px: the dotted rule then stopped short of the record above it. */
 .record-page-aturi {
+  max-width: none;
   margin-top: var(--space-7);
   padding-top: var(--space-4);
   border-top: 1px dotted var(--rule);

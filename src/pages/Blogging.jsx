@@ -49,7 +49,7 @@ export default function Blogging() {
   const { layout } = useFeedLayout();
   const ledger = layout === 'ledger';
   const loading = status === 'loading';
-  const safeEntries = entries || [];
+  const safeEntries = useMemo(() => entries || [], [entries]);
   const filtered = useMemo(
     () =>
       safeEntries.filter((e) =>
@@ -67,6 +67,15 @@ export default function Blogging() {
     >
       {loading ? (
         <BloggingTocSkeleton rows={5} />
+      ) : status === 'error' ? (
+        // Neither the snapshot nor the PDS answered. That is not an empty blog,
+        // and saying "No blog posts yet." told readers it was.
+        <p className="feed-empty">
+          Couldn&rsquo;t load the blog right now.{' '}
+          <button type="button" onClick={() => window.location.reload()}>
+            Refresh
+          </button>
+        </p>
       ) : filtered.length === 0 ? (
         <p className="feed-empty">
           {q ? 'No blog posts match that search.' : 'No blog posts yet.'}

@@ -139,7 +139,8 @@
   border-radius: 0;
   border: 1px solid var(--rule);
   object-fit: cover;
-  background: var(--surface-soft, transparent);
+  /* The skeleton's ground (Skeleton.css) while the image loads. */
+  background: var(--rule-soft);
   flex: 0 0 auto;
 }
 

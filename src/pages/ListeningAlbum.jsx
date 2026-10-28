@@ -16,7 +16,7 @@ import { resolvePds } from '../lib/atproto.js';
 import { albumLinksFor } from '../lib/musicLinks.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { listTealPlays } from '../lib/teal.js';
-import { formatDateLong, relativeDayShort } from '../lib/time.js';
+import { relativeDayShort } from '../lib/time.js';
 import { ME_DID } from '../config.js';
 import './Albums.css';
 
@@ -42,7 +42,7 @@ export default function ListeningAlbum() {
     deps: [slug],
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      return listTealPlays(pds, { repo: ME_DID, max: PLAY_MAX });
+      return listTealPlays(pds, { repo: ME_DID, max: PLAY_MAX, reuse: true });
     },
     // A snapshot miss returns null, which holds the skeleton: the album may
     // simply be newer than the last build, and flashing "no album here" before
@@ -69,15 +69,9 @@ export default function ListeningAlbum() {
     [album, art.art],
   );
 
-  const backToAlbums = (
-    <p className="album-crumb">
-      <Link to="/listening/albums">&larr; Albums</Link>
-    </p>
-  );
-
   if (status === 'loading') {
     return (
-      <PageShell above={backToAlbums} headTitle="Album — dame.is">
+      <PageShell headTitle="Album — dame.is">
         <CreatingWorkSkeleton />
       </PageShell>
     );
@@ -87,7 +81,6 @@ export default function ListeningAlbum() {
     const unreachable = status === 'error';
     return (
       <PageShell
-        above={backToAlbums}
         title={unreachable ? 'Album unavailable' : 'No album here'}
         headTitle="Not found — dame.is"
       >
@@ -110,7 +103,6 @@ export default function ListeningAlbum() {
 
   return (
     <PageShell
-      above={backToAlbums}
       title={album.title}
       headTitle={`${album.title} — dame.is`}
     >
@@ -129,7 +121,9 @@ export default function ListeningAlbum() {
             <Fact label="plays" value={album.plays.toLocaleString()} />
             <Fact label="tracks played" value={album.tracks.toLocaleString()} />
             {listened && <Fact label="listening" value={listened} />}
-            {album.firstPlayed && <Fact label="first" value={formatDateLong(album.firstPlayed)} />}
+            {/* No "first" fact: the album is built from a window of the newest
+                plays, so the oldest one in it is where the window starts, not
+                when this record first came round. */}
             {album.lastPlayed && <Fact label="last" value={relativeDayShort(album.lastPlayed)} />}
           </dl>
 

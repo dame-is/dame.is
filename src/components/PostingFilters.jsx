@@ -3,19 +3,26 @@ import { FileText, Image, Link, Quote, Reply, X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import { useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
-import { matchesQuery } from './FeedSearch.jsx';
+import {
+  NONE_SENTINEL,
+  POSTING_TYPES,
+  postTypesParam,
+  resolveActivePostingTypes,
+} from '../lib/postingFilter.js';
 import './FeedFilters.css';
 
-const NONE_SENTINEL = '__none__';
-
-const POSTING_TYPES = ['reply', 'image', 'link', 'quote', 'text'];
-// Default: hide replies, show everything else. Mirrors the home feed's
-// reply-hiding default.
-const POSTING_TYPES_DEFAULT = ['image', 'link', 'quote', 'text'];
+// The filter's rules live in lib/postingFilter.js; re-exported for the page.
+export {
+  filterPostingItems,
+  postingCategories,
+  postingCounts,
+  resolveActivePostingTypes,
+} from '../lib/postingFilter.js';
 
 const TYPE_LABELS = {
   reply: 'replies',
-  image: 'images',
+  // `image` covers videos too (see postingCategories), hence "media".
+  image: 'media',
   link: 'links',
   quote: 'quotes',
   text: 'text only',
@@ -55,7 +62,7 @@ export default function PostingFilters({ counts }) {
   function setTypes(types) {
     setParams((prev) => {
       const out = new URLSearchParams(prev);
-      out.set('postTypes', Array.from(types).join(','));
+      out.set('postTypes', postTypesParam(types));
       return out;
     }, { replace: true });
   }
@@ -160,55 +167,4 @@ export default function PostingFilters({ counts }) {
       </div>
     </BottomSheet>
   );
-}
-
-/**
- * Categorize a posting item into the set of sub-types it satisfies.
- * Returns `null` for non-posting items (they're not filterable here).
- * A post can match multiple types (a reply with an image is both
- * `reply` and `image`); the filter shows the post if ANY of its
- * categories is enabled.
- */
-export function postingCategories(item) {
-  if (item?.verb !== 'posting') return null;
-  const payload = item.payload || {};
-  const embed = payload.embed || payload.embedRecord || null;
-  const type = embed?.$type || '';
-  const cats = new Set();
-  if (payload.reply?.parent?.uri) cats.add('reply');
-  if (type.startsWith('app.bsky.embed.images') || type.startsWith('app.bsky.embed.recordWithMedia')) {
-    cats.add('image');
-  }
-  if (type.startsWith('app.bsky.embed.external')) cats.add('link');
-  if (type.startsWith('app.bsky.embed.record')) cats.add('quote');
-  if (cats.size === 0) cats.add('text');
-  return cats;
-}
-
-export function resolveActivePostingTypes(params) {
-  if (!params.has('postTypes')) return new Set(POSTING_TYPES_DEFAULT);
-  const value = params.get('postTypes') || '';
-  if (value === NONE_SENTINEL) return new Set();
-  const raw = value.split(',').filter(Boolean);
-  if (raw.length === 0) return new Set(POSTING_TYPES);
-  return new Set(raw);
-}
-
-export function filterPostingItems(items, params) {
-  const active = resolveActivePostingTypes(params);
-  const q = (params.get('q') || '').trim().toLowerCase();
-  return items.filter((item) => {
-    const cats = postingCategories(item);
-    if (!cats) return false;
-    let pass = false;
-    for (const c of cats) {
-      if (active.has(c)) {
-        pass = true;
-        break;
-      }
-    }
-    if (!pass) return false;
-    if (!q) return true;
-    return matchesQuery(item.payload?.text, q);
-  });
 }

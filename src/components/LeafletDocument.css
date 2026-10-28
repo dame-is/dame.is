@@ -37,9 +37,22 @@
 .leaflet-heading-1 { font-size: var(--text-2xl); }
 .leaflet-heading-2 { font-size: var(--text-xl); }
 .leaflet-heading-3 { font-size: var(--text-lg); }
-.leaflet-heading-4,
+/* Past h3 the type scale has no size left that reads as a heading beside the
+   1.05rem body, so the lower levels change voice instead: small capitals,
+   spaced. (They pointed at a --text-md the theme never defined, which fell
+   back to body size and left them reading as bold paragraphs.) */
+.leaflet-heading-4 {
+  font-size: var(--text-lg);
+  font-variant: small-caps;
+  letter-spacing: 0.03em;
+}
 .leaflet-heading-5,
-.leaflet-heading-6 { font-size: var(--text-md); }
+.leaflet-heading-6 {
+  font-size: var(--text-base);
+  font-variant: all-small-caps;
+  letter-spacing: 0.07em;
+  color: var(--ink-soft);
+}
 
 .leaflet-image {
   margin: var(--space-5) 0;
@@ -185,7 +198,7 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 
 .leaflet-website-title {
   font-family: var(--serif);
-  font-size: var(--text-md);
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--ink);
 }
@@ -224,7 +237,6 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   color: var(--ink);
 }
 
-.leaflet-bsky-post-loading,
 .leaflet-bsky-post-missing {
   color: var(--ink-faint);
   font-style: italic;
