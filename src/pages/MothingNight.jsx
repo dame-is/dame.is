@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
-import { MothTile, MothStat } from '../components/MothTile.jsx';
+import { MothTile } from '../components/MothTile.jsx';
+import Figures from '../components/Figures.jsx';
+import SequenceFoot from '../components/SequenceFoot.jsx';
 import { MothingSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchMothData, fetchMothSignature } from '../lib/inaturalist.js';
@@ -10,10 +12,13 @@ import { firstSightingIds } from '../lib/firstSightings.js';
 import {
   findNight,
   formatNightDate,
+  formatNightDay,
   mothLightboxImages,
   nightBeyondReach,
+  nightLength,
   nightPath,
-  nightSpan,
+  nightSpanCompact,
+  weekdayOf,
 } from '../lib/mothing.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { INATURALIST_USER, INATURALIST_URL } from '../config.js';
@@ -132,21 +137,46 @@ export default function MothingNight() {
     );
   }
 
-  const span = nightSpan(session);
-  const { newer, older } = night;
+  const span = nightSpanCompact(session);
+  const { newer, older, total } = night;
+  const firsts = session.observations.filter((o) => firstIds.has(o.id)).length;
+  // Species seen more than once tonight, for the species figure's note.
+  const tally = new Map();
+  for (const o of session.observations) {
+    const id = o.taxon?.id;
+    if (id != null) tally.set(id, (tally.get(id) || 0) + 1);
+  }
+  const repeats = [...tally.values()].filter((n) => n > 1);
+  const repeatNote = repeats.length
+    ? `${repeats.length} of them seen ${repeats.every((n) => n === 2) ? 'twice' : 'more than once'}`
+    : null;
 
   return (
     <PageShell
       above={backToIndex}
       title={`Night of ${formatNightDate(session.date)}`}
       headTitle={`Night of ${formatNightDate(session.date)} — dame.is`}
+      crumb={formatNightDay(session.date)}
     >
-      <section className="mothing-stats" aria-label="Night summary">
-        <MothStat value={`#${session.number}`} label="session" />
-        <MothStat value={session.observationCount} label="moths" />
-        <MothStat value={session.speciesCount} label="species" />
-        <MothStat value={span} label="time" />
-      </section>
+      <Figures
+        label="This night in figures"
+        items={[
+          {
+            key: 'night',
+            value: `No. ${session.number}`,
+            label: 'night',
+            note: total ? `of ${total}${session.number === total ? ', the latest' : ''}` : null,
+          },
+          {
+            key: 'moths',
+            value: session.observationCount,
+            label: 'moths',
+            note: firsts ? `${firsts} first ${firsts === 1 ? 'sighting' : 'sightings'}` : null,
+          },
+          { key: 'species', value: session.speciesCount, label: 'species', note: repeatNote },
+          { key: 'light', value: span, label: 'at the light', note: nightLength(session) || null, wide: true },
+        ]}
+      />
 
       <ul className="mothing-grid reveal-stagger">
         {session.observations.map((obs) => (
@@ -159,22 +189,24 @@ export default function MothingNight() {
         ))}
       </ul>
 
-      {(older || newer) && (
-        <nav className="mothing-night-nav" aria-label="Other nights">
-          {older && (
-            <Link className="mothing-night-nav-prev" to={nightPath(older.date)}>
-              <span className="small-caps mothing-night-nav-label">Earlier night</span>
-              <span className="mothing-night-nav-date">&larr; {formatNightDate(older.date)}</span>
-            </Link>
-          )}
-          {newer && (
-            <Link className="mothing-night-nav-next" to={nightPath(newer.date)}>
-              <span className="small-caps mothing-night-nav-label">Later night</span>
-              <span className="mothing-night-nav-date">{formatNightDate(newer.date)} &rarr;</span>
-            </Link>
-          )}
-        </nav>
-      )}
+      <SequenceFoot
+        label="Other nights"
+        earlierLabel="Earlier night"
+        laterLabel="Later night"
+        earlier={
+          older
+            ? { to: nightPath(older.date), title: formatNightDate(older.date), meta: `${weekdayOf(older.date)} · No. ${older.number}` }
+            : null
+        }
+        later={
+          newer
+            ? { to: nightPath(newer.date), title: formatNightDate(newer.date), meta: `${weekdayOf(newer.date)} · No. ${newer.number}` }
+            : null
+        }
+        earlierNone="None. This was the first night."
+        laterNone="None yet. This is the latest night."
+        all={{ to: '/mothing', label: `All ${total} nights` }}
+      />
 
       <p className="mothing-source gutter">
         Mirrored from{' '}

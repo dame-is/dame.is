@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
+  dateRange,
   findNight,
   formatNightDate,
+  formatNightDay,
+  nightLength,
+  nightSpanCompact,
+  seasonOf,
+  seasonsOf,
+  weekdayOf,
   formatObservedTime,
   isNightSlug,
   mothLightboxImages,
@@ -230,5 +237,48 @@ describe('mothLightboxImages', () => {
   it('carries no source or reverse-search controls — those are curating\'s', () => {
     expect(images[0].sourceUrl).toBeUndefined();
     expect(images[0].searchUrl).toBeUndefined();
+  });
+});
+
+describe('the almanac helpers', () => {
+  it('puts an evening in its meteorological season', () => {
+    expect(seasonOf('2026-10-16')).toEqual({ key: '2026-3', label: 'Autumn 2026' });
+    expect(seasonOf('2025-07-03').label).toBe('Summer 2025');
+    expect(seasonOf('2026-04-17').label).toBe('Spring 2026');
+    // December opens the next year's winter, named for both years.
+    expect(seasonOf('2025-12-20')).toEqual({ key: '2026-0', label: 'Winter 2025–26' });
+    expect(seasonOf('2026-02-02').label).toBe('Winter 2025–26');
+  });
+
+  it('names the weekday by calendar arithmetic', () => {
+    expect(weekdayOf('2026-10-16')).toBe('Friday');
+    expect(weekdayOf('2026-09-13')).toBe('Sunday');
+  });
+
+  it('writes the meridiem once when both ends share it', () => {
+    expect(nightSpanCompact({ firstTime: '20:34', lastTime: '22:39' })).toBe('8:34–10:39 pm');
+    expect(nightSpanCompact({ firstTime: '22:17', lastTime: '00:03' })).toBe('10:17 pm – 12:03 am');
+    expect(nightSpanCompact({ firstTime: '21:00', lastTime: null })).toBe('9:00 pm');
+  });
+
+  it('measures the time at the light, across midnight too', () => {
+    expect(nightLength({ firstTime: '20:34', lastTime: '22:39' })).toBe('2 h 5 min');
+    expect(nightLength({ firstTime: '23:30', lastTime: '00:30' })).toBe('1 h');
+  });
+
+  it('sets a date range without the year', () => {
+    expect(dateRange(['2026-10-16', '2026-09-13'])).toBe('Sep 13 – Oct 16');
+    expect(formatNightDay('2026-10-16')).toBe('Oct 16');
+  });
+
+  it('groups nights by season, newest first, with a species tally', () => {
+    const sp = (id) => ({ taxon: { id, rank: 'species' } });
+    const seasons = seasonsOf([
+      { date: '2026-10-16', observationCount: 2, observations: [sp(1), sp(2)] },
+      { date: '2026-09-13', observationCount: 2, observations: [sp(2), sp(3)] },
+      { date: '2026-07-01', observationCount: 1, observations: [sp(9)] },
+    ]);
+    expect(seasons.map((s) => s.label)).toEqual(['Autumn 2026', 'Summer 2026']);
+    expect(seasons[0]).toMatchObject({ moths: 4, species: 3, range: 'Sep 13 – Oct 16' });
   });
 });

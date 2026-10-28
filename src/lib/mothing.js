@@ -67,7 +67,12 @@ export function findNight(observations, date) {
   const { sessions } = buildSessions(observations);
   const i = sessions.findIndex((s) => s.date === date);
   if (i < 0) return null;
-  return { session: sessions[i], newer: sessions[i - 1] || null, older: sessions[i + 1] || null };
+  return {
+    session: sessions[i],
+    newer: sessions[i - 1] || null,
+    older: sessions[i + 1] || null,
+    total: sessions.length,
+  };
 }
 
 /**
@@ -163,3 +168,125 @@ export function nightCardCopy(session) {
     : `${summary}.`;
   return { title, summary, description, names };
 }
+
+/* ---------- the almanac (/mothing grouped by season) ---------- */
+
+const MONTH_NAMES_LONG = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** "Oct 16" from 'YYYY-MM-DD', no year. */
+export function formatNightDay(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
+  return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}` : '';
+}
+
+/** The weekday of a 'YYYY-MM-DD' evening, by calendar arithmetic (no zone). */
+export function weekdayOf(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
+  if (!m) return '';
+  return WEEKDAYS[new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay()];
+}
+
+/**
+ * The meteorological season an evening falls in, by string math like
+ * formatNightDate: spring is March to May, summer June to August, autumn
+ * September to November, winter December to February (named for both years,
+ * "Winter 2025–26"). A Northern Hemisphere choice, which is where the light
+ * is. `key` sorts newest-last as a string.
+ */
+export function seasonOf(d) {
+  const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(String(d || ''));
+  if (!m) return null;
+  let year = Number(m[1]);
+  const month = Number(m[2]);
+  if (month === 12) year += 1; // December opens the next year's winter
+  const [name, order] =
+    month >= 3 && month <= 5
+      ? ['Spring', 1]
+      : month >= 6 && month <= 8
+        ? ['Summer', 2]
+        : month >= 9 && month <= 11
+          ? ['Autumn', 3]
+          : ['Winter', 0];
+  const label = name === 'Winter' ? `Winter ${year - 1}–${String(year).slice(2)}` : `${name} ${year}`;
+  return { key: `${year}-${order}`, label };
+}
+
+function toAmPm(hhmm) {
+  const m = /^(\d{2}):(\d{2})$/.exec(String(hhmm || ''));
+  if (!m) return null;
+  const h = Number(m[1]);
+  return { clock: `${h % 12 || 12}:${m[2]}`, meridiem: h >= 12 ? 'pm' : 'am', minutes: h * 60 + Number(m[2]) };
+}
+
+/**
+ * A night's time at the light with the meridiem written once when both ends
+ * share it: "8:34–10:39 pm", else "10:17 pm – 12:03 am".
+ */
+export function nightSpanCompact(session) {
+  const a = toAmPm(session?.firstTime);
+  if (!a) return '';
+  const b = toAmPm(session?.lastTime);
+  if (!b || (a.clock === b.clock && a.meridiem === b.meridiem)) return `${a.clock} ${a.meridiem}`;
+  return a.meridiem === b.meridiem
+    ? `${a.clock}–${b.clock} ${b.meridiem}`
+    : `${a.clock} ${a.meridiem} – ${b.clock} ${b.meridiem}`;
+}
+
+/** How long the light was up: "2 h 5 min", across midnight too. */
+export function nightLength(session) {
+  const a = toAmPm(session?.firstTime);
+  const b = toAmPm(session?.lastTime);
+  if (!a || !b) return '';
+  let mins = b.minutes - a.minutes;
+  if (mins < 0) mins += 24 * 60;
+  if (mins <= 0) return '';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return [h ? `${h} h` : null, m ? `${m} min` : null].filter(Boolean).join(' ');
+}
+
+/** "Sep 13 – Oct 16", or one day alone. */
+export function dateRange(dates) {
+  const sorted = (dates || []).filter(Boolean).slice().sort();
+  if (!sorted.length) return '';
+  const a = formatNightDay(sorted[0]);
+  const b = formatNightDay(sorted[sorted.length - 1]);
+  return a === b ? a : `${a} – ${b}`;
+}
+
+/**
+ * Sessions (newest first, as buildSessions returns them) grouped into
+ * seasons, newest season first, each with its tally:
+ * `{ key, label, range, sessions, moths, species }`. Species counts distinct
+ * species-rank taxa across the season's nights.
+ */
+export function seasonsOf(sessions) {
+  const map = new Map();
+  for (const s of sessions || []) {
+    const season = seasonOf(s.date);
+    if (!season) continue;
+    if (!map.has(season.key)) map.set(season.key, { ...season, sessions: [] });
+    map.get(season.key).sessions.push(s);
+  }
+  return Array.from(map.values())
+    .sort((a, b) => (a.key < b.key ? 1 : -1))
+    .map((g) => {
+      const species = new Set();
+      let moths = 0;
+      for (const s of g.sessions) {
+        moths += s.observationCount || 0;
+        for (const o of s.observations || []) {
+          const r = o.taxon?.rank;
+          if (o.taxon?.id != null && (r === 'species' || r === 'subspecies')) species.add(o.taxon.id);
+        }
+      }
+      return { ...g, range: dateRange(g.sessions.map((s) => s.date)), moths, species: species.size };
+    });
+}
+
+/** Month names, for anyone setting a long date from these strings. */
+export { MONTH_NAMES_LONG };
