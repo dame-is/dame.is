@@ -125,6 +125,13 @@
   margin-top: var(--space-7);
 }
 
+/* /logging's ledger is a diary: its days run on without a heading or a gap,
+   each opened by a full-strength rule and a running date in the margin
+   (FeedLedgerRow's DiaryDate). */
+.feed-diary .feed-day-group + .feed-day-group {
+  margin-top: 0;
+}
+
 /* Verb badge — icon + gerund (or "replying to @handle", "continuing")
    above the card body, matching how reply hints already render. Sits at
    the row's start at every viewport width so the eye always finds the
@@ -1921,9 +1928,10 @@ a.reference-card-profile:focus-visible {
    it. */
 .feed-ledger .day-section-header {
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-1) var(--space-4);
   margin-bottom: 0;
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--rule);
@@ -1934,9 +1942,10 @@ a.reference-card-profile:focus-visible {
   font-size: var(--text-lg);
 }
 
-/* Day stats sit at the same scale as the rows' gerund/time labels. */
+/* What the day holds sits at the rows' label size, right-aligned, with the
+   day-of-life folio closing the line. */
 .feed-ledger .day-header-meta {
-  font-family: var(--mono);
+  justify-content: flex-end;
   font-size: var(--text-meta);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
@@ -1958,23 +1967,173 @@ a.reference-card-profile:focus-visible {
   border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
 }
 
-/* Self-thread continuations carry no verb label; instead the rule
-   separating them from the post they continue goes dashed — i.e. the
-   PREVIOUS row's bottom border. The rows are the list items themselves
-   (FeedItem renders the <li>), so the sibling hop is between rows.
+/* A row says it's a link. On hover (pointer devices only, see the note in
+   typography.css) or while one of its links has keyboard focus, a 2px accent
+   bar marks it in the left margin like a reader's pencil, and its gerund and
+   time underline. No wash, no shadow; a tap still opens the row. X-ray draws
+   its own bracket there (::before, Xray.css), so this is the ::after. */
+.feed-ledger .feed-item-ledger {
+  position: relative;
+}
 
-   It names the row classes on both sides rather than a bare `li`: the
-   feed's outer <ol> and each day's inner <ul> BOTH carry .feed-list, so a
-   bare `.feed-list > li` also matches the day-group <li>s. When a later
-   (older) day happened to contain a continuation anywhere in it, that
-   :has() matched the current day-group and dashed every row inside it —
-   the "stray dashed borders on unrelated rows" bug. Threads never span
-   days (they're pulled onto their newest member's day), so the hop only
-   ever means anything between rows within one day. */
+.feed-ledger .feed-item-ledger::after {
+  content: '';
+  position: absolute;
+  left: -0.875rem;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.feed-ledger .feed-item-ledger:has(:focus-visible)::after {
+  opacity: 1;
+}
+
+:root[data-xray='on'] .feed-ledger .feed-item-ledger::after {
+  display: none;
+}
+
+.feed-item-ledger:has(> .ledger-verb:focus-visible) > .ledger-verb,
+.feed-item-ledger:has(> .ledger-time:focus-visible) > .ledger-time,
+.feed-item-ledger > .ledger-verb > a:focus-visible,
+.feed-item-ledger > .ledger-time > a:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .feed-ledger .feed-item-ledger:hover::after {
+    opacity: 1;
+  }
+
+  .feed-item-ledger:hover > a.ledger-verb,
+  .feed-item-ledger:hover > .ledger-verb > a,
+  .feed-item-ledger:hover > a.ledger-time,
+  .feed-item-ledger:hover > .ledger-time > a {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--accent-soft);
+  }
+}
+
+/* A self-thread is one entry (FeedLedgerRow): its posts stay rows of their
+   own, split by dashed rules rather than solid ones, and a 1px accent bracket
+   down the gutter joins them, with a tick at each post. The bracket runs from
+   the first post's first line to the last one's. It names the row classes on
+   both sides of the sibling hop rather than a bare `li`: the feed's outer
+   <ol> and each day's <ul> both carry .feed-list, and a bare hop once matched
+   the day groups themselves and dashed every row in a day. */
 .feed-ledger
   .feed-list
-  > .feed-item-ledger:has(+ .feed-item-thread-continuation) {
+  > .feed-item-ledger:has(+ .feed-item-thread:not(.feed-item-thread-first)) {
   border-bottom-style: dashed;
+}
+
+:root:not([data-xray='on']) .feed-ledger .feed-item-ledger.feed-item-thread::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--ledger-verb-col) + var(--ledger-col-gap) / 2);
+  top: 0;
+  bottom: -1px;
+  border-left: 1px solid var(--accent);
+  pointer-events: none;
+}
+
+:root:not([data-xray='on']) .feed-ledger .feed-item-ledger.feed-item-thread-first::before {
+  top: calc(var(--space-3) + 0.65em);
+}
+
+:root:not([data-xray='on']) .feed-ledger .feed-item-ledger.feed-item-thread-last::before {
+  bottom: auto;
+  height: calc(var(--space-3) + 0.65em);
+}
+
+.feed-ledger .feed-item-thread > .ledger-body {
+  position: relative;
+}
+
+:root:not([data-xray='on']) .feed-ledger .feed-item-thread > .ledger-body::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--ledger-col-gap) / -2);
+  top: 0.65em;
+  width: calc(var(--ledger-col-gap) / 2 - 2px);
+  border-top: 1px solid var(--accent);
+  pointer-events: none;
+}
+
+/* The first post's margin: its gerund, then "thread · 3" under it. */
+.ledger-verb-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ledger-verb-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ledger-thread-n {
+  white-space: nowrap;
+}
+
+/* A later post's own time, set right against the bracket like a verse
+   number. A post from another day than the thread's carries its date on a
+   line above. */
+.ledger-tick {
+  text-align: right;
+}
+
+.ledger-tick-at {
+  color: inherit;
+  text-decoration: none;
+  text-transform: lowercase;
+}
+
+.ledger-tick-date {
+  display: block;
+}
+
+/* The thread's folio: its newest time, and where it began beneath. A flex
+   column aligned to the end, so a "from 12:53" wider than the time column
+   spills left into the gutter rather than off the page. */
+.ledger-folio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.ledger-folio-at,
+.ledger-from {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ledger-from {
+  font-style: italic;
+}
+
+.ledger-from > time {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  column-gap: 0.3em;
+}
+
+.ledger-from > time > span {
+  white-space: nowrap;
+}
+
+/* A thread that began on another day says so on lines of its own. */
+.ledger-from.is-cross-day > time {
+  flex-wrap: wrap;
 }
 
 .ledger-verb {
@@ -1991,10 +2150,13 @@ a.reference-card-profile:focus-visible {
 }
 
 a.ledger-verb:hover,
-a.ledger-verb:focus-visible {
+a.ledger-verb:focus-visible,
+.ledger-verb a:hover,
+.ledger-verb a:focus-visible {
   color: var(--accent);
 }
 
+/* The time is the row's permalink, like a page number. */
 .ledger-time {
   font-family: var(--mono);
   font-size: var(--text-meta);
@@ -2004,11 +2166,40 @@ a.ledger-verb:focus-visible {
   text-transform: lowercase;
   text-align: right;
   white-space: nowrap;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+a.ledger-time:focus-visible,
+.ledger-time a:focus-visible,
+.ledger-tick a:focus-visible,
+a.ledger-verb:focus-visible,
+.ledger-verb a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ledger-time a:hover {
+  color: var(--accent);
 }
 
 .ledger-body {
   min-width: 0;
   max-width: var(--measure);
+}
+
+/* The prose rule that indents a second paragraph doesn't belong in a row:
+   a session's "+ 15 more" and a blog row's summary are lines of their own. */
+.ledger-body p {
+  text-indent: 0;
+}
+
+/* A status runs into the name the site is named for: "dame.is playing
+   tennis", the name in small caps. */
+.ledger-me {
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
 }
 
 .ledger-text {
@@ -2044,10 +2235,10 @@ a.ledger-verb:focus-visible {
   text-decoration: underline;
 }
 
-/* …except a quoted post's timestamp, which keeps the faint voice it has in
-   the card layout. The accent rule above outranks the embed's own `inherit`
-   (same specificity, later in the bundle), and made the time the loudest
-   thing in the quote. */
+/* …except an erasure poem's source post's timestamp, which keeps the faint
+   voice it has in the card layout. The accent rule above outranks the
+   embed's own `inherit` (same specificity, later in the bundle), and made
+   the time the loudest thing in the quote. */
 .ledger-body .post-embed-quote-time a {
   color: inherit;
 }
@@ -2258,6 +2449,11 @@ a.ledger-verb:focus-visible {
   margin-left: 0.35em;
 }
 
+.ledger-listen-more {
+  margin: 1px 0 0;
+  line-height: var(--leading-tight);
+}
+
 /* Expanded tracks: one compact sub-row per play, spanning the summary +
    time columns (the verb column stays empty on the left). A thin dashed
    rule tops each one so the songs read as a tight ruled list rather than a
@@ -2403,10 +2599,11 @@ a.ledger-time:focus-visible {
    inside one ledger cell, so restore a small gap between the two — the
    block's top margin (above) is owned by .ledger-embed, which would
    otherwise leave the pair touching. */
-.ledger-embed .post-embed-images + .post-embed-quote,
-.ledger-embed .post-embed-video + .post-embed-quote,
-.ledger-embed .post-embed-link-card + .post-embed-quote {
-  margin-top: var(--space-3);
+.ledger-embed .post-embed-images + .ledger-cite,
+.ledger-embed .post-embed-video + .ledger-cite,
+.ledger-embed .post-embed-video-out + .ledger-cite,
+.ledger-embed .ledger-ref + .ledger-cite {
+  margin-top: var(--space-2);
 }
 
 .ledger-embed .post-embed-images {
@@ -2438,31 +2635,297 @@ a.ledger-time:focus-visible {
   max-height: 10rem;
 }
 
-/* Link card: one tight strip — small thumb, host + one-line title,
-   description dropped. */
-.ledger-embed .post-embed-link-card {
-  grid-template-columns: minmax(0, 3.75rem) 1fr;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  max-width: 26rem;
-}
-
-.ledger-embed .post-embed-link-card-thumb img {
-  max-height: 3.75rem;
-}
-
-.ledger-embed .post-embed-link-card-title {
+/* Other people's posts are citations, not cards (LedgerCite): a 1px rule
+   down the left, no box or tint, the author's line first, then two lines of
+   their words in the soft ink. A repost is one, and so is a quote inside one
+   of Dame's posts. */
+.ledger-cite {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--accent-soft);
   font-size: var(--text-sm);
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  text-indent: 0;
+  max-width: 36rem;
 }
 
-.ledger-embed .post-embed-link-card-desc {
+.ledger-text + .ledger-embed .ledger-cite:first-child {
+  margin-top: var(--space-1);
+}
+
+/* Name, handle, and the post's own day ("· Oct 26"), muted and absolute:
+   the row's time column stays the only clock. */
+.ledger-cite-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.4em;
+  margin: 0;
+  font-size: var(--text-meta);
+  line-height: 1.3;
+  color: var(--ink-faint);
+}
+
+.ledger-cite-name {
+  font-size: 0.9375rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+
+.ledger-body .ledger-cite-name {
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.ledger-cite-handle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ledger-cite-date {
+  white-space: nowrap;
+}
+
+.ledger-cite-body {
+  margin-top: 2px;
+}
+
+/* A picture rides beside the words as one small square. */
+.ledger-cite-body.has-thumb {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.ledger-cite-body.has-thumb .ledger-cite-says {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ledger-cite-thumb {
+  position: relative;
+  flex: none;
+  display: block;
+  width: 3.75rem;
+  height: 3.75rem;
+  padding: 0;
+  border: 1px solid var(--rule-soft);
+  background: var(--rule-soft);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+a.ledger-cite-thumb {
+  cursor: pointer;
+}
+
+.ledger-cite-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ledger-cite-thumb:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ledger-cite-thumb-count {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 0 0.3em;
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--ink);
+  background: var(--page);
+}
+
+/* A flex row only so the words below are a flex item, whose height (capped
+   at two lines) the float inside can take a percentage of. */
+.ledger-cite-says {
+  display: flex;
+}
+
+/* The words: the site's blockquote, re-set at citation weight. Two lines,
+   and "+ more" opens the rest in place. */
+.ledger-cite-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: calc(2 * 1.45em);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* "+ more" on the end of the second line: a zero-width float as tall as the
+   two lines less one pushes the control, floated right and cleared below it,
+   down onto the last line, and the words wrap short of it there. */
+.ledger-cite-text::before {
+  content: '';
+  float: right;
+  height: 100%;
+  margin-bottom: -1.45em;
+}
+
+.ledger-cite-more {
+  padding: 0 0 0 0.25em;
+  border: 0;
+  font: inherit;
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--accent);
+  background: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ledger-cite-text > .ledger-cite-more {
+  float: right;
+  clear: both;
+}
+
+/* Closed, a paragraph break is a new line rather than its half-line spacer,
+   so the two lines stay two whole lines and the clamp never cuts one in
+   half. Open, the spacer comes back. */
+.ledger-cite-says:not(.is-open) .post-para-break {
+  display: inline;
+  height: auto;
+}
+
+.ledger-cite-says:not(.is-open) .post-para-break::before {
+  content: '\A';
+  white-space: pre;
+}
+
+.ledger-cite-says.is-open {
+  display: block;
+}
+
+.ledger-cite-says.is-open .ledger-cite-text {
+  max-height: none;
+}
+
+.ledger-cite-says.is-open .ledger-cite-text::before {
   display: none;
 }
 
-/* Quote box: a two-line teaser with a small author chip; nested media
-   inside the quote drops out entirely. */
+.ledger-cite-says.is-open .ledger-cite-more {
+  padding: 0;
+}
+
+.ledger-cite-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .ledger-cite-more:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* A quote inside the quote indents again and turns italic. Never a box. */
+.ledger-cite-nested {
+  margin-top: var(--space-2);
+  margin-left: 1em;
+  max-width: none;
+}
+
+.ledger-cite-nested .ledger-cite-text {
+  font-style: italic;
+}
+
+.ledger-cite-missing {
+  font-style: italic;
+  color: var(--ink-faint);
+}
+
+/* A link as one reference line: the host in small caps, then the title.
+   (The shared compact LinkCard takes this over.) */
+.ledger-ref {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.55em;
+  width: fit-content;
+  min-width: 0;
+  max-width: min(36rem, 100%);
+  margin-top: var(--space-1);
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+}
+
+.ledger-cite .ledger-ref {
+  font-size: inherit;
+}
+
+/* A long host ("discourse.atmosphere.community") and the title share a line
+   while they fit; past that the title takes a line of its own rather than
+   being clipped to nothing. */
+.ledger-ref-host {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.ledger-ref-title {
+  flex: 1 1 10em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.ledger-cite .ledger-ref-title {
+  color: var(--ink-soft);
+}
+
+.ledger-body .ledger-ref,
+.ledger-body .ledger-ref:hover {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ledger-body > .ledger-embed:first-child > .ledger-ref:first-child {
+  margin-top: 0;
+}
+
+.ledger-ref:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  a.ledger-ref:hover .ledger-ref-title {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+  }
+}
+
+/* An erasure poem's source post (the one quote the ledger still draws as a
+   box, since its struck words are the piece): a small author chip, and no
+   nested media. */
 .ledger-embed .post-embed-quote {
   gap: var(--space-1);
   padding: var(--space-2);
@@ -2496,39 +2959,6 @@ a.ledger-time:focus-visible {
 .ledger-embed .post-embed-quote .post-embed-link-card,
 .ledger-embed .post-embed-quote .post-embed-quote {
   display: none;
-}
-
-/* Reposts render as a quote-style box (FeedLedgerRow's RepostQuote).
-   The reposted post IS the row's content, so — unlike a quote nested
-   inside a normal post — its text stays unclamped and its own media
-   renders, height-capped by the rules above. The media/quote re-enables
-   below are scoped to the reposted post's *direct* children (`>` from
-   .ledger-repost) so they lift only its own embeds, never anything one
-   level deeper. */
-.ledger-repost .post-embed-quote-text {
-  display: block;
-  overflow: visible;
-}
-
-.ledger-repost > .post-embed-quote > .post-embed-images {
-  display: grid;
-}
-
-.ledger-repost > .post-embed-quote > .post-embed-video {
-  display: block;
-}
-
-.ledger-repost > .post-embed-quote > .post-embed-link-card {
-  display: grid;
-}
-
-/* A repost of a quote-post: show the quoted post as a compact card so
-   the repost keeps the subject it was quoting (this was dropped before).
-   Its author + full text ride along; its own media stays dropped (the
-   rules above only lift the reposted post's direct embeds), keeping the
-   nested card from ballooning the row — the record page has the rest. */
-.ledger-repost > .post-embed-quote > .post-embed-quote {
-  display: flex;
 }
 
 /* Erasure poems render as the quoted post they blacked out (FeedLedgerRow),
@@ -2571,6 +3001,12 @@ a.ledger-time:focus-visible {
     font-size: var(--text-base);
   }
 
+  /* No room to spill a "from 1:27" left of a 56px column here, so the
+     folio wraps under its time instead. */
+  .ledger-from > time {
+    flex-wrap: wrap;
+  }
+
   /* Side by side, a collapsed run leaves the species line about twenty
      characters — not even one moth's name. Stacking the strip above it gives
      the names the whole content column AND fits every specimen, so the row
@@ -2579,5 +3015,137 @@ a.ledger-time:focus-visible {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
+  }
+}
+
+/* /listening: the margin holds the session's cover, not the word
+   "listening" again, so it narrows to the cover's width. */
+.feed-ledger-covers {
+  --ledger-verb-col: 2.25rem;
+}
+
+.feed-ledger-covers .feed-item-ledger {
+  align-items: start;
+}
+
+.feed-ledger-covers .feed-item-ledger > .ledger-time {
+  padding-top: 0.2rem;
+}
+
+.ledger-cover .album-cover {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+/* /logging: the first status of each day opens it with a full-strength rule
+   and carries the date and day of life in the margin; the rest of the day
+   leaves the margin empty. */
+.feed-diary .feed-item-ledger.feed-item-day-start {
+  border-top: 1px solid var(--rule);
+}
+
+/* A day's last status keeps its padding (a feed's last row in a day gives
+   it up, since a heading follows there); the next day's rule replaces its
+   hairline. */
+.feed-diary .feed-day-group .feed-list > .feed-item-ledger:last-child {
+  padding-bottom: var(--space-3);
+  border-bottom: 0;
+}
+
+.feed-diary .feed-day-group:first-child .feed-item-day-start {
+  border-top-color: transparent;
+}
+
+/* The running date keeps the day header's classes (the chrome's strip reads
+   the day in view from them) but none of its layout. */
+.feed-ledger .ledger-diary-date {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.feed-ledger .ledger-diary-date .day-header {
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-tight);
+  color: var(--ink-soft);
+}
+
+.ledger-diary-dol {
+  font-family: var(--serif);
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  line-height: var(--leading-tight);
+  color: var(--ink-faint);
+}
+
+/* The ledger's end (Home's LedgerColophon): a fleuron between hairlines, one
+   sentence saying how far back the ledger is whole, and the pages whose own
+   history goes further. Printed, not a button: there's no more to load. */
+.ledger-colophon {
+  margin-top: var(--space-7);
+  text-align: center;
+}
+
+.ledger-colophon p {
+  max-width: none;
+  margin: 0;
+  text-indent: 0;
+}
+
+.ledger-colophon-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  font-size: var(--text-2xl);
+  line-height: 1;
+  color: var(--accent);
+}
+
+.ledger-colophon-mark::before,
+.ledger-colophon-mark::after {
+  content: '';
+  flex: 1 1 0;
+  border-top: 1px solid var(--rule);
+}
+
+.ledger-colophon p.ledger-colophon-line {
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+  font-style: italic;
+  line-height: var(--leading-tight);
+  color: var(--ink);
+}
+
+.ledger-colophon p.ledger-colophon-earlier {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  color: var(--ink-soft);
+}
+
+.ledger-colophon-earlier a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.ledger-colophon-earlier a:focus-visible {
+  color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .ledger-colophon-earlier a:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
   }
 }

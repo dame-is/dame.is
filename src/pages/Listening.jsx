@@ -137,7 +137,9 @@ export default function Listening() {
           {q ? 'No songs match that search.' : 'No plays yet.'}
         </p>
       ) : (
-        <div className={ledger ? 'feed-ledger' : undefined}>
+        // The ledger's margin holds each session's cover here, not the word
+        // "listening" on every row.
+        <div className={ledger ? 'feed-ledger feed-ledger-covers' : undefined}>
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
@@ -191,12 +193,13 @@ export default function Listening() {
 }
 
 /**
- * Per-day summary for the listening ledger's day header — replaces the
- * generic "day of life" count with what was actually played that day:
- * songs, minutes, and unique artists. `sessions` are the collapsed
- * listening batches shown under the header; each carries its underlying
- * `plays`, so the numbers stay in step with the (possibly search-filtered)
- * rows below. Durations are stored in seconds.
+ * Per-day summary for the listening ledger's day header: what was actually
+ * played that day, in songs, minutes and unique artists, ahead of the
+ * day-of-life folio. `sessions` are the collapsed listening batches shown
+ * under the header; each carries its underlying `plays`, so the numbers stay
+ * in step with the (possibly search-filtered) rows below. Durations are
+ * stored in seconds. The artist count gives way on a phone, where the line
+ * has to share its width with the date.
  */
 function listeningDayMeta(sessions) {
   let songs = 0;
@@ -214,7 +217,12 @@ function listeningDayMeta(sessions) {
   }
   const minutes = Math.round(seconds / 60);
   const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
-  return `${plural(songs, 'song')}, ${minutes.toLocaleString()} min, ${plural(artists.size, 'artist')}`;
+  return (
+    <>
+      {plural(songs, 'song')} · {minutes.toLocaleString()} min
+      <span className="day-header-wide"> · {plural(artists.size, 'artist')}</span>
+    </>
+  );
 }
 
 // Ghost plays (see src/lib/ghostPlays.js) are dropped here, ahead of both the

@@ -18,17 +18,28 @@ describe('dayHeaderLabels (viewer in New York)', () => {
   const evening = '2026-10-27T01:30:00Z';
   const now = new Date('2026-10-27T15:00:00Z');
 
-  it('names the local day in both the label and its long form', () => {
-    expect(dayHeaderLabels(evening, 'default', now)).toEqual({
-      label: 'Yesterday, October 26, 2026',
-      full: 'Yesterday, October 26, 2026',
+  it('names the local day, with its date in full beside it', () => {
+    expect(dayHeaderLabels(evening, now)).toEqual({
+      name: 'Yesterday',
+      date: 'Monday, October 26',
+      short: 'Yesterday',
+    });
+    expect(dayHeaderLabels(now, now)).toMatchObject({
+      name: 'Today',
+      date: 'Tuesday, October 27',
     });
   });
 
-  it("keeps the long local form behind the ledger's short label", () => {
-    expect(dayHeaderLabels(evening, 'ledger', now)).toEqual({
-      label: 'Yesterday',
-      full: 'Yesterday, October 26, 2026',
+  it('names an older day by its weekday, and a past year by its year', () => {
+    expect(dayHeaderLabels('2026-10-25T16:00:00Z', now)).toEqual({
+      name: 'Sunday',
+      date: 'October 25',
+      short: 'Oct 25',
+    });
+    expect(dayHeaderLabels('2025-03-02T16:00:00Z', now)).toEqual({
+      name: 'Sunday',
+      date: 'March 2, 2025',
+      short: 'Mar 2, 2025',
     });
   });
 });

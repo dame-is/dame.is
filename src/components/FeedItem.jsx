@@ -131,6 +131,11 @@ function hrefFor(item) {
  * so this component never has to reconcile ledger rows with the
  * selection UI.
  *
+ * `showVerb={false}` is a single-kind page: the cards drop their verb badge
+ * and the ledger its repeated gerund. `dayStart`, on such a page's ledger, is
+ * the day this row opens (it carries the running date in its margin; see
+ * FeedLedgerRow's DiaryDate).
+ *
  * The component renders the list item itself, so a list hands it straight
  * to a <ul>. `arriving` (with `arrivalDelay`, in seconds) plays the slide-in
  * for a record that just landed; it's read once, on mount, so the row plays
@@ -140,6 +145,7 @@ function hrefFor(item) {
 function FeedItem({
   item,
   showVerb = true,
+  dayStart = null,
   layout = 'cards',
   onOpenLightbox = null,
   arriving = false,
@@ -316,6 +322,7 @@ function FeedItem({
     ledgerBatch ? 'feed-item-ledger-expandable' : '',
     canLightbox ? 'feed-item-ledger-lightbox' : '',
     item._thread ? 'feed-item-thread' : '',
+    ledger && dayStart && !showVerb ? 'feed-item-day-start' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
     threadContinuation ? 'feed-item-thread-continuation' : '',
@@ -369,6 +376,8 @@ function FeedItem({
           item={item}
           xrayId={xrayId}
           href={href}
+          showVerb={showVerb}
+          dayStart={dayStart}
           expanded={ledgerExpanded}
           onToggle={ledgerBatch ? () => setLedgerExpanded((v) => !v) : null}
           onOpenLightbox={onOpenLightbox}

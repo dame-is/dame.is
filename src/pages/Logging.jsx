@@ -137,13 +137,16 @@ export default function Logging() {
           {q ? 'No status records match that search.' : 'No status records yet.'}
         </p>
       ) : (
-        <div className={ledger ? 'feed-ledger' : undefined}>
+        // The ledger here is a diary: no heading per day (a one-status day
+        // spent two thirds of its height on one), but a running date in the
+        // margin of each day's first status, and a full rule above it.
+        <div className={ledger ? 'feed-ledger feed-diary' : undefined}>
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
+                {!ledger && <DayOfLifeHeader date={group.date} />}
                 <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
-                  {group.items.map((item) => {
+                  {group.items.map((item, i) => {
                     // FeedItem is the list item itself, and memoized, as on the
                     // home feed: no wrapping <li> (a list item inside a list
                     // item), and no layout animation measuring every row's box
@@ -161,6 +164,8 @@ export default function Logging() {
                       <FeedItem
                         key={uri}
                         item={item}
+                        showVerb={!ledger}
+                        dayStart={ledger && i === 0 ? group.date : null}
                         layout={ledger ? 'ledger' : 'cards'}
                         arriving={isNew}
                         arrivalDelay={step * 0.06}

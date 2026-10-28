@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
-import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
+import DayOfLifeHeader, { DayCounts } from '../components/DayOfLifeHeader.jsx';
 import PostingFilters, { filterPostingItems, postingCounts } from '../components/PostingFilters.jsx';
 import FeedMore from '../components/FeedMore.jsx';
 import QueryNote from '../components/QueryNote.jsx';
@@ -84,7 +84,13 @@ export default function Posting() {
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
+                {/* The day's counts, unlinked: this page is already where
+                    "posted" goes. */}
+                <DayOfLifeHeader
+                  date={group.date}
+                  variant={ledger ? 'ledger' : 'default'}
+                  meta={<DayCounts items={group.items} link={false} />}
+                />
                 <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
                   {group.items.map((item) => (
                     <FeedItem
