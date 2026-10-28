@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
@@ -21,6 +21,17 @@ export default function ActionDock() {
   // DebugSheet — reached from the inspect HUD.)
   const { open, view, setView, closeDock } = useActionDock();
   const routes = useNavRoutes();
+  // An open sheet keeps the route list it opened with. The live is.dame.nav
+  // read can land while it's open and reorder or drop rows, and a row that
+  // moves under a finger costs the tap: WebKit only clicks when the link under
+  // the finger as it lifts is the one it landed on, so the tap does nothing (or
+  // opens the neighbour) and has to be repeated. The next open shows whatever
+  // changed. Set during render, so the list is pinned on the render that opens
+  // the sheet rather than one commit later.
+  const [openRoutes, setOpenRoutes] = useState(open ? routes : null);
+  if (open && !openRoutes) setOpenRoutes(routes);
+  else if (!open && openRoutes) setOpenRoutes(null);
+  const shownRoutes = openRoutes ?? routes;
   const reduce = useReducedMotion();
   const panelRef = useRef(null);
   // Keep a touch-drag on the open sheet from scrolling the concealed page
@@ -98,7 +109,7 @@ export default function ActionDock() {
               <div className="dock-section">
                 <div className="dock-heading">Dame is&hellip;</div>
                 <nav className="dock-routes">
-                  {routes.map((r) => (
+                  {shownRoutes.map((r) => (
                     <NavLink
                       key={r.to}
                       to={r.to}
