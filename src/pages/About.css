@@ -120,6 +120,31 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* Justified rows, as a leaflet gallery's (LeafletDocument.css): every photo
+   keeps its shape and each row ends flush. */
+.about-gallery[data-layout="justified"] {
+  --row-h: 12rem;
+  display: flex;
+  flex-wrap: wrap;
+  grid-template-columns: none;
+}
+
+.about-gallery[data-layout="justified"]::after {
+  content: '';
+  flex-grow: 999;
+}
+
+.about-gallery[data-layout="justified"] .about-photo {
+  flex: var(--ar, 1.5) 1 calc(var(--ar, 1.5) * var(--row-h));
+  min-width: 0;
+}
+
+@media (max-width: 34rem) {
+  .about-gallery[data-layout="justified"] {
+    --row-h: 8rem;
+  }
+}
+
 /* Filmstrip: one row that scrolls sideways, each frame snapping into place. */
 .about-gallery[data-layout="filmstrip"] {
   display: flex;

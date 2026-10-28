@@ -343,7 +343,7 @@ function PhotoGallery({ photos, layout }) {
   // different lines, which reads as a layout that didn't finish rather than as
   // a set. A single column has no neighbour to line up with, so there the
   // photo's own proportions are kept.
-  const uniform = layout !== 'one-up' && layout !== 'standalone';
+  const uniform = layout !== 'one-up' && layout !== 'standalone' && layout !== 'justified';
   const images = useMemo(
     () =>
       photos.map((p) => ({
@@ -365,7 +365,11 @@ function PhotoGallery({ photos, layout }) {
             // Index keys: the list is rendered straight from the record and
             // never reordered here, and two photos may legitimately share a
             // URL — which a URL key would collide on.
-            <figure className="about-photo" key={i}>
+            <figure
+              className="about-photo"
+              key={i}
+              style={ar?.width && ar?.height ? { '--ar': ar.width / ar.height } : undefined}
+            >
               <button
                 type="button"
                 className="about-photo-button"
