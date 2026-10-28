@@ -10,15 +10,16 @@ import './GuestbookSheet.css';
 
 /**
  * The guestbook sign sheet — the bottom-chrome surface behind every "Sign the
- * guestbook" call to action (the home page aside, the /welcoming page CTA). It
- * expands up out of the bottom bar like the search / filter / info panels, and
- * is coordinated through the same `useChromePanel` slot so it never stacks on
- * another panel or the nav dock.
+ * guestbook" call to action (the home page's button, the register's blank
+ * line on /welcoming). It expands up out of the bottom bar like the search /
+ * filter / info panels, and is coordinated through the same `useChromePanel`
+ * slot so it never stacks on another panel or the nav dock.
  *
- *   - Signed in  → the pen (GuestbookSignForm).
- *   - Signed out → a one-record sign-in: visitors grant write access to just
- *     the is.dame.guestbook.entry collection (see scopeForAccount), and are
- *     returned to /welcoming with this sheet reopened.
+ * It opens on the note, signed in or not (GuestbookSignForm). A visitor who
+ * isn't signed in signs with their handle at the end: a one-record sign-in
+ * that grants write access to just the is.dame.guestbook.entry collection
+ * (see scopeForAccount), returns them to /welcoming, and writes the note they
+ * left before the hop.
  *
  * On a successful signature it closes and routes to /welcoming, handing the
  * fresh entry along so it appears immediately — ahead of the backlink index.
@@ -46,8 +47,8 @@ export default function GuestbookSheet() {
     };
   }, [did]);
 
-  // The signer's handle for the header ("Sign guestbook as @handle"), falling
-  // back to a shortened DID. Empty when signed out.
+  // The signer's handle for the form's "Signing as" line, falling back to a
+  // shortened DID. Empty when signed out.
   const signerHandle = useMemo(() => {
     if (profile?.handle && profile.handle !== 'handle.invalid') return `@${profile.handle}`;
     if (!did) return '';
@@ -64,17 +65,12 @@ export default function GuestbookSheet() {
     <BottomSheet
       open={open}
       onClose={closePanel}
-      label="Sign guestbook"
+      label="Sign the guestbook"
       id="chrome-guestbook-sheet"
       className="guestbook-sheet-panel"
     >
       <div className="guestbook-sheet-header">
-        <span className="small-caps">
-          Sign guestbook{session && signerHandle ? ' as ' : ''}
-          {session && signerHandle && (
-            <span className="guestbook-sheet-signer">{signerHandle}</span>
-          )}
-        </span>
+        <span className="small-caps">Sign the guestbook</span>
         <button
           type="button"
           className="guestbook-sheet-close"
@@ -85,60 +81,15 @@ export default function GuestbookSheet() {
         </button>
       </div>
 
-      {session ? (
-        <GuestbookSignForm agent={agent} did={did} onSigned={handleSigned} />
-      ) : (
-        <GuestbookSignIn signIn={signIn} />
-      )}
-    </BottomSheet>
-  );
-}
-
-/**
- * Signed-out state: a compact, purpose-built sign-in. Unlike the account
- * panel's general sign-in, it asks only for guestbook write access and returns
- * the visitor to /welcoming — reopening this sheet — once they're back.
- */
-function GuestbookSignIn({ signIn }) {
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (!input.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await signIn(input.trim(), { returnTo: '/welcoming', intent: 'guestbook-sign' });
-      // Redirected away; if we somehow keep running, drop the busy state.
-    } catch (err) {
-      setBusy(false);
-      setError(err?.message || String(err));
-    }
-  }
-
-  return (
-    <form className="guestbook-sheet-signin" onSubmit={handleSubmit}>
-      <p className="guestbook-sheet-signin-text">
-        Sign in with your Atmosphere or Bluesky account to leave a note in my guestbook. The
-        record is saved to your PDS and displays on my site via backlinks.
-      </p>
-      <input
-        className="signin-input"
-        type="text"
-        autoComplete="off"
-        spellCheck={false}
-        placeholder="handle, DID, or PDS URL"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        disabled={busy}
-        aria-label="Your handle, DID, or PDS URL"
+      <GuestbookSignForm
+        agent={agent}
+        did={did}
+        profile={profile}
+        signedIn={Boolean(session)}
+        signerHandle={signerHandle}
+        signIn={signIn}
+        onSigned={handleSigned}
       />
-      <button type="submit" className="signin-button" disabled={busy || !input.trim()}>
-        {busy ? 'Redirecting…' : 'Sign in to sign'}
-      </button>
-      {error && <p className="signin-error">{error}</p>}
-    </form>
+    </BottomSheet>
   );
 }

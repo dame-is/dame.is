@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { MapPinned } from 'lucide-react';
 import {
   signGuestbook,
@@ -6,7 +6,11 @@ import {
   graphemeLength,
   ENTRY_TEXT_MAX_GRAPHEMES,
 } from '../lib/guestbook.js';
-import { rkeyFromAtUri } from '../lib/atproto.js';
+import { clearDraft, profileLookupKey, readDraft, saveDraft } from '../lib/guestbookRegister.js';
+import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
+import { GUESTBOOK_ENTRY_NSID } from '../config.js';
+import { useGuestbookCount } from '../hooks/useGuestbookCount.js';
+import GuestbookEntryRow from './GuestbookEntryRow.jsx';
 // The signature form's styles live with the /welcoming page; importing the
 // stylesheet here (a global, side-effect import) means the form is styled
 // wherever it renders — the guestbook page or the bottom-chrome sign sheet
@@ -14,25 +18,82 @@ import { rkeyFromAtUri } from '../lib/atproto.js';
 import '../pages/Guestbook.css';
 
 /**
- * The pen: a note plus an optional "signing from". Shared by every surface that
- * lets a visitor sign — currently the bottom-chrome GuestbookSheet. (Older
- * entries may carry a one-glyph `mark` from the retired picker; rows still
- * render them.)
+ * The public profile behind a typed handle, for the proof: looked up on the
+ * AppView once typing pauses, and only for something shaped like a handle or
+ * a DID. Null until then, or when nothing comes back.
+ */
+function useTypedProfile(input) {
+  const key = profileLookupKey(input);
+  const [found, setFound] = useState(null);
+  useEffect(() => {
+    if (!key) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      getProfile(key)
+        .then((p) => {
+          if (!cancelled) setFound(p ? { key, profile: p } : null);
+        })
+        .catch(() => {
+          if (!cancelled) setFound(null);
+        });
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [key]);
+  if (!key) return null;
+  return found?.key === key ? found.profile : { handle: key.startsWith('did:') ? null : key };
+}
+
+/**
+ * The pen. Writing comes first: the note, its count against the 300-character
+ * limit, and a place folded behind "Add a place". Under it, a proof of the
+ * line you'll leave, set exactly as the register will set it. Then you sign,
+ * once:
+ *
+ *   - Signed out → one handle field and "Sign with atproto". The note is kept
+ *     in sessionStorage across the hop to the signer's PDS, and /welcoming
+ *     writes it on the way back, so there's no second tap and no retyping.
+ *   - Signed in  → "Signing as @handle" and "Sign the guestbook".
  *
  * On a successful write it calls `onSigned` with the fresh entry shape
- * (`{ uri, did, rkey, value }`) so the caller can show it optimistically.
+ * (`{ uri, cid, did, rkey, value }`) so the caller can show it at once.
+ * (Older entries may carry a one-glyph `mark` from the retired picker; rows
+ * still render them.)
  */
-export default function GuestbookSignForm({ agent, did, onSigned }) {
-  const [text, setText] = useState('');
-  const [location, setLocation] = useState('');
+export default function GuestbookSignForm({ agent, did, profile, signedIn, signerHandle, signIn, onSigned }) {
+  const ids = useId();
+  // A note saved before a sign-in hop that didn't finish comes back here.
+  const saved = useMemo(() => readDraft(), []);
+  const [text, setText] = useState(saved?.text || '');
+  const [location, setLocation] = useState(saved?.location || '');
+  const [placeOpen, setPlaceOpen] = useState(Boolean(saved?.location));
+  const [handleInput, setHandleInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [signedAt, setSignedAt] = useState(null);
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState(null);
+  const noteRef = useRef(null);
+  const count = useGuestbookCount();
+  const typedProfile = useTypedProfile(signedIn ? '' : handleInput);
 
-  const remaining = ENTRY_TEXT_MAX_GRAPHEMES - graphemeLength(text);
-  const canSign = !busy && Boolean(text.trim());
+  // The cursor starts in the note: the sheet opens to write in.
+  useEffect(() => {
+    noteRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  const length = graphemeLength(text);
+  const over = length > ENTRY_TEXT_MAX_GRAPHEMES;
+  const hasNote = Boolean(text.trim()) && !over;
+  const canSign = !busy && hasNote && (signedIn ? Boolean(agent) : Boolean(handleInput.trim()));
+
+  const proof = {
+    uri: null,
+    did,
+    value: { text: text.trim(), location: placeOpen ? location.trim() : '' },
+    profile: signedIn ? profile : typedProfile,
+  };
 
   async function detectRegion() {
     if (locating) return;
@@ -52,12 +113,28 @@ export default function GuestbookSignForm({ agent, did, onSigned }) {
     if (!canSign) return;
     setBusy(true);
     setError(null);
+    const place = placeOpen ? location : '';
+
+    if (!signedIn) {
+      // Off to the signer's PDS. The note waits in sessionStorage; /welcoming
+      // signs with it on the way back.
+      saveDraft({ text, location: place });
+      try {
+        await signIn(handleInput.trim(), { returnTo: '/welcoming', intent: 'guestbook-sign' });
+        // Redirected away; if we somehow keep running, drop the busy state.
+      } catch (err) {
+        setBusy(false);
+        setError(err?.message || String(err));
+      }
+      return;
+    }
+
     try {
-      const { uri, cid, value } = await signGuestbook(agent, { text, location });
+      const { uri, cid, value } = await signGuestbook(agent, { text, location: place });
+      clearDraft();
       onSigned({ uri, cid, did, rkey: rkeyFromAtUri(uri), value });
       setText('');
       setLocation('');
-      setSignedAt(new Date());
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -65,60 +142,138 @@ export default function GuestbookSignForm({ agent, did, onSigned }) {
     }
   }
 
+  // On a phone the handle field sits low in the sheet, where the keyboard
+  // lands; bring it up into view once the keyboard has opened.
+  function revealOnFocus(event) {
+    const el = event.currentTarget;
+    setTimeout(() => el.scrollIntoView?.({ block: 'center', behavior: 'smooth' }), 300);
+  }
+
   return (
     <form className="guestbook-form" onSubmit={handleSubmit}>
-      <textarea
-        className="guestbook-textarea"
-        rows={3}
-        placeholder="Leave a note…"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        disabled={busy}
-      />
-      {remaining < 40 && (
-        <span className={`guestbook-remaining gutter${remaining < 0 ? ' guestbook-over' : ''}`}>
-          {remaining}
-        </span>
-      )}
-
-      <div className="guestbook-location-field">
-        <label className="small-caps guestbook-location-label" htmlFor="guestbook-location">
-          Signing from
+      <div className="guestbook-note-field">
+        <label className="visually-hidden" htmlFor={`${ids}-note`}>
+          Your note
         </label>
-        <input
-          id="guestbook-location"
-          className="guestbook-location signin-input"
-          type="text"
-          placeholder="a place, in your own words (optional)"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          maxLength={64}
+        <textarea
+          id={`${ids}-note`}
+          ref={noteRef}
+          className="guestbook-textarea"
+          rows={3}
+          placeholder="Leave a note…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
           disabled={busy}
+          aria-describedby={`${ids}-count`}
         />
-        <span className="guestbook-location-hint">
-          Tap map icon to fill the input with your general state/region/country.
-        </span>
-        {locError && <p className="signin-error">{locError}</p>}
+        <div className="guestbook-note-foot">
+          {!placeOpen && (
+            <button type="button" className="guestbook-add-place" onClick={() => setPlaceOpen(true)}>
+              <MapPinned size={14} strokeWidth={1.75} aria-hidden="true" />
+              Add a place
+            </button>
+          )}
+          <span
+            id={`${ids}-count`}
+            className={`guestbook-count${over ? ' guestbook-over' : ''}`}
+            aria-live={over ? 'polite' : 'off'}
+          >
+            {length} / {ENTRY_TEXT_MAX_GRAPHEMES}
+          </span>
+        </div>
       </div>
 
-      <div className="guestbook-form-actions">
-        <button
-          type="button"
-          className="guestbook-locate"
-          onClick={detectRegion}
-          disabled={busy || locating}
-          aria-label="Fill in my general region"
-          title="Fill in my general region"
-        >
-          <MapPinned size={16} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-        <button type="submit" className="signin-button" disabled={!canSign}>
-          {busy ? 'Signing…' : 'Sign'}
-        </button>
-        {signedAt && !error && (
-          <span className="guestbook-signed-note gutter">
-            Signed. The record now lives on your PDS.
+      {placeOpen && (
+        <div className="guestbook-location-field">
+          <label className="small-caps guestbook-location-label" htmlFor={`${ids}-place`}>
+            Signing from
+          </label>
+          <div className="guestbook-location-row">
+            <input
+              id={`${ids}-place`}
+              className="guestbook-location signin-input"
+              type="text"
+              placeholder="a place, in your own words (optional)"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              maxLength={64}
+              disabled={busy}
+            />
+            <button
+              type="button"
+              className="guestbook-locate"
+              onClick={detectRegion}
+              disabled={busy || locating}
+              aria-label="Fill in my general region"
+              title="Fill in my general region"
+            >
+              <MapPinned size={16} strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </div>
+          <span className="guestbook-location-hint">
+            The map button fills in your general state, region or country, never your town.
           </span>
+          {locError && <p className="signin-error">{locError}</p>}
+        </div>
+      )}
+
+      {/* The proof: the line as the register will set it. A visual echo of
+          the fields above, so it's hidden from screen readers, which already
+          have the fields. */}
+      <div className="guestbook-proof">
+        <p className="guestbook-proof-label small-caps">Preview</p>
+        <ul className="guestbook-list guestbook-proof-list" aria-hidden="true">
+          <GuestbookEntryRow preview entry={proof} number={count != null ? count + 1 : null} />
+        </ul>
+        <p className="guestbook-proof-note">
+          Saved to your own PDS as an <code>{GUESTBOOK_ENTRY_NSID}</code> record.
+        </p>
+      </div>
+
+      <div className="guestbook-signas">
+        {signedIn ? (
+          <>
+            <p className="guestbook-signas-line">
+              Signing as <span className="guestbook-signas-handle">{signerHandle || 'you'}</span>
+            </p>
+            <button type="submit" className="signin-button" disabled={!canSign}>
+              {busy ? 'Signing…' : 'Sign the guestbook'}
+            </button>
+          </>
+        ) : (
+          <>
+            <label className="small-caps guestbook-signas-label" htmlFor={`${ids}-handle`}>
+              Sign as
+            </label>
+            <div className="guestbook-signas-row">
+              <input
+                id={`${ids}-handle`}
+                className="signin-input"
+                type="text"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder="handle, DID, or PDS URL"
+                value={handleInput}
+                onChange={(e) => setHandleInput(e.target.value)}
+                onFocus={revealOnFocus}
+                disabled={busy}
+              />
+              <button type="submit" className="signin-button" disabled={!canSign}>
+                {busy ? (
+                  'Redirecting…'
+                ) : (
+                  <>
+                    Sign with atproto <span aria-hidden="true">→</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="guestbook-signas-hint">
+              You’ll hop to your PDS to approve, then land back here, signed. It asks for one
+              permission: writing guestbook entries.
+            </p>
+          </>
         )}
       </div>
       {error && <p className="signin-error">{error}</p>}

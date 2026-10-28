@@ -1,9 +1,9 @@
 /* Interior of the guestbook sign sheet. BottomSheet owns positioning, the
    surface, and the expand animation; the padding + header here mirror the info
    sheet (InfoSheet.css) so every bottom-chrome sheet reads as one system. The
-   signed-in pen reuses the .guestbook-form styles from the /welcoming page
-   (Guestbook.css, imported by GuestbookSignForm); the signed-out sign-in uses
-   the .signin-* controls from SignInPanel. */
+   pen reuses the .guestbook-form styles from the /welcoming page
+   (Guestbook.css, imported by GuestbookSignForm) and the .signin-* controls
+   from SignInPanel. */
 .guestbook-sheet-panel {
   /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x,
      kept on :root for exactly this) so the sheet lines up with the nav dock,
@@ -17,10 +17,11 @@
 }
 
 /* On touch screens the sheet takes the whole gap between the bars, with its
-   content at the top: the signed-out handle field and the signed-in message
-   field then sit where the on-screen keyboard can't reach them, so nothing
-   has to move when it comes up (the nav dock's account view does the same;
-   ActionDock.css explains why). The height is BottomSheet's `fill` size. */
+   content at the top: the note, which the sheet opens on, sits where the
+   on-screen keyboard can't reach it (the nav dock's account view does the
+   same; ActionDock.css explains why). The handle field comes lower down, so
+   focusing it scrolls it up into view (GuestbookSignForm). The height is
+   BottomSheet's `fill` size. */
 @media (pointer: coarse) {
   .guestbook-sheet-panel.bottom-sheet-panel-compact {
     height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--sheet-bottom));
@@ -36,15 +37,7 @@
   font-family: var(--sans);
   font-size: var(--text-xs);
   letter-spacing: 0.16em;
-  color: var(--ink-faint);
-}
-
-/* The signer's handle in the header ("… as @handle") — normal case (overriding
-   the small-caps eyebrow) and a touch darker so the identity reads clearly. */
-.guestbook-sheet-signer {
-  font-variant: normal;
-  letter-spacing: 0.02em;
-  color: var(--ink-soft);
+  color: var(--ink-muted);
 }
 
 .guestbook-sheet-close {
@@ -67,17 +60,4 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
-}
-
-.guestbook-sheet-signin {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.guestbook-sheet-signin-text {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-  line-height: var(--leading);
 }

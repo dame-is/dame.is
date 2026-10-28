@@ -1,44 +1,44 @@
-/* Guestbook — the pen (sign form) and the pages (signature ledger). */
+/* Guestbook — the pen (sign form) and the pages (a numbered register). */
 
-/* --- invite / form ------------------------------------------------------ */
+/* --- the pen ------------------------------------------------------------ */
 
 /* The pen sits flush inside the sign sheet — no card padding/border/background;
-   the sheet supplies its own inset. */
+   the sheet supplies its own inset. Writing comes first, then the proof of
+   the line you'll leave, then signing. */
 .guestbook-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+}
+
+/* Every line of the form is its own paragraph, not the second of a passage. */
+.guestbook-form p {
+  text-indent: 0;
 }
 
 .guestbook-form .signin-button {
   align-self: flex-start;
 }
 
-.guestbook-form-head {
+.guestbook-note-field {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-.guestbook-form-eyebrow {
-  color: var(--ink-faint);
-  letter-spacing: 0.18em;
-}
-
-.guestbook-form-signer {
-  color: var(--ink);
-}
-
+/* The note is set as it will read: the serif, at the register's size, on the
+   page colour rather than a grey well. */
 .guestbook-textarea {
   width: 100%;
   resize: vertical;
-  min-height: 4.5em;
+  min-height: 5.5em;
   padding: var(--space-2) var(--space-3);
   font-family: var(--serif);
-  font-size: var(--text-base, 1rem);
+  font-size: var(--text-lg);
+  line-height: 1.5;
   color: var(--ink);
-  background: var(--page-edge);
-  border: 1px solid var(--rule-soft);
+  background: var(--page);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-2);
   outline: none;
   transition: border-color 120ms ease;
@@ -48,13 +48,44 @@
   border-color: var(--accent);
 }
 
-.guestbook-remaining {
-  align-self: flex-end;
-  margin-top: calc(var(--space-2) * -1);
+.guestbook-note-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Always shown, so the limit is known before it's hit. */
+.guestbook-count {
+  margin-left: auto;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
 }
 
 .guestbook-over {
   color: var(--tan);
+}
+
+/* "Add a place": the optional field stays folded until asked for. */
+.guestbook-add-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.guestbook-add-place:hover,
+.guestbook-add-place:focus-visible {
+  color: var(--accent);
 }
 
 /* "Signing from" — its own labelled block so it's obvious what the field
@@ -66,24 +97,28 @@
 }
 
 .guestbook-location-label {
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   letter-spacing: 0.18em;
   font-size: var(--text-xs);
 }
 
-.guestbook-location {
-  width: 100%;
-  max-width: 22rem;
+.guestbook-location-row {
+  display: flex;
+  gap: var(--space-2);
+  max-width: 26rem;
 }
 
-/* Icon-only "fill in my region" button — sits beside Sign in the actions row.
-   align-self: stretch pins its height to the Sign button's, and it shares the
-   Sign button's padding, so the two read as a matched pair. */
+.guestbook-location {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+/* Icon-only "fill in my region" button beside the place field. */
 .guestbook-locate {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: stretch;
   padding: var(--space-2) var(--space-3);
   color: var(--ink-soft);
   background: transparent;
@@ -109,25 +144,138 @@
   max-width: 52ch;
 }
 
-.guestbook-form-actions {
+/* The proof: your line as the register will set it. */
+.guestbook-proof {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.guestbook-proof-label {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  color: var(--ink-muted);
+}
+
+.guestbook-proof-list .guestbook-entry {
+  padding: var(--space-2) 0;
+  border-top: 0;
+}
+
+.guestbook-proof-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.guestbook-proof-note code {
+  font-family: var(--code);
+  color: var(--ink-soft);
+}
+
+.guestbook-entry-placeholder {
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+/* Signing, once: one handle field and one button, or "Signing as". */
+.guestbook-signas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.guestbook-signas-label {
+  color: var(--ink-muted);
+  letter-spacing: 0.18em;
+  font-size: var(--text-xs);
+}
+
+.guestbook-signas-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.guestbook-signed-note {
-  color: var(--accent);
+.guestbook-signas-row .signin-input {
+  flex: 1 1 14rem;
+  width: auto;
+  min-width: 0;
+  /* Clear of the keyboard and the bottom bar when focus scrolls it up. */
+  scroll-margin-bottom: 8rem;
 }
 
-/* --- entries ------------------------------------------------------------ */
+.guestbook-signas-hint,
+.guestbook-signas-line {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--ink-muted);
+}
+
+.guestbook-signas-hint {
+  font-size: var(--text-xs);
+}
+
+.guestbook-signas-line {
+  font-size: var(--text-sm);
+}
+
+.guestbook-signas-handle {
+  font-family: var(--mono-ui);
+  color: var(--ink);
+}
+
+/* --- the register -------------------------------------------------------- */
+
+/* The intro is written on ruled paper: the home hero's 14% ink rules, at the
+   intro's own line height. */
+/* One tile per line (rather than one repeating gradient across the box), so
+   the last line's rule can't round away at the box's edge. */
+.page:has(.guestbook-entries) .page-intro {
+  line-height: 1.6;
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(1.6em - 1px),
+    color-mix(in srgb, var(--ink) 14%, transparent) calc(1.6em - 1px)
+  );
+  background-size: 100% 1.6em;
+  background-repeat: repeat-y;
+  background-position: 0 -3px;
+}
 
 .guestbook-entries {
-  margin-top: var(--space-4);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--rule);
+  margin-top: var(--space-6);
 }
 
+/* One section head, the home day head's pattern: the title in sentence case,
+   the count as quiet meta on the same hairline. */
+.guestbook-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.guestbook-section-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+.guestbook-section-meta {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  text-align: right;
+}
+
+/* Kept for the admin moderation desk, which still heads its list this way. */
 .guestbook-entries-heading {
   font-family: var(--sans);
   letter-spacing: 0.18em;
@@ -135,14 +283,15 @@
   margin: 0 0 var(--space-4);
 }
 
-/* The book's empty/error states read as prose here, so keep them on the
-   left margin instead of the feed's centered treatment. */
+/* The book's error state reads as prose here, so keep it on the left margin
+   instead of the feed's centered treatment. */
 .guestbook-entries .feed-empty {
   text-align: left;
   padding: var(--space-4) 0;
 }
 
 .guestbook-list {
+  --gb-num-col: 2rem;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -150,106 +299,55 @@
   flex-direction: column;
 }
 
+/* With a margin to hang it in, the number sits outside the text column, so
+   the notes line up with the intro above them. */
+@media (min-width: 760px) {
+  .guestbook-entries .guestbook-list {
+    margin-left: calc(-1 * (var(--gb-num-col) + var(--space-3)));
+  }
+}
+
+/* A register line: the number in the margin, then the note and its
+   signature line. */
 .guestbook-entry {
-  display: flex;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: var(--gb-num-col) minmax(0, 1fr);
+  column-gap: var(--space-3);
+  align-items: baseline;
   padding: var(--space-3) 0;
   border-top: 1px solid var(--rule-soft);
 }
 
 .guestbook-entry:first-child {
   border-top: 0;
-  padding-top: 0;
 }
 
-.guestbook-entry-avatar {
-  flex: none;
-  width: 2.5rem;
-  height: 2.5rem;
-}
-
-.guestbook-entry-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border: 1px solid var(--rule);
-}
-
-.guestbook-entry-avatar-fallback {
-  width: 100%;
-  height: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-faint);
-  border: 1px dashed var(--rule);
+.guestbook-entry-number {
+  font-family: var(--serif);
+  font-size: 0.9375rem;
+  font-variant-numeric: oldstyle-nums tabular-nums;
+  color: var(--ink-muted);
+  text-align: right;
 }
 
 .guestbook-entry-body {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.guestbook-entry-head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
+.guestbook-entry-body p {
+  text-indent: 0;
+  margin-bottom: 0;
 }
 
-/* Identity stack beside the avatar: display name, then @handle, then "from".
-   Tight line-height (and no gap) so the lines read as one close-set block. */
-.guestbook-entry-identity {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.guestbook-entry-name {
-  color: var(--ink);
-}
-
-.guestbook-entry-name a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.guestbook-entry-name a:hover {
-  color: var(--accent);
-}
-
-.guestbook-entry-time {
-  flex: none;
-  white-space: nowrap;
-}
-
-.guestbook-entry-time a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.guestbook-entry-time a:hover {
-  color: var(--accent);
-}
-
-.guestbook-entry-remove {
-  font-family: var(--sans);
-  font-variant: all-small-caps;
-  letter-spacing: 0.12em;
-  font-size: var(--text-xs);
-  color: var(--tan);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-}
-
+/* The note is the loudest thing on the line. */
 .guestbook-entry-text {
   margin: 0;
+  max-width: var(--measure);
+  font-size: var(--text-lg);
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--ink);
@@ -267,45 +365,172 @@
   color: var(--accent);
 }
 
-/* Meta stack under a signature: the record's CID fingerprint and the "from"
-   location, each with its own icon, above any owner controls. */
-.guestbook-entry-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25em;
-  margin-top: var(--space-2);
-}
-
-.guestbook-entry-cid,
-.guestbook-entry-location {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  color: var(--ink-faint);
-}
-
-.guestbook-entry-cid svg,
-.guestbook-entry-location svg {
-  flex: none;
-}
-
-.guestbook-entry-controls {
+/* The signature line: a small avatar, the name in small caps, the handle,
+   the place in the signer's words, and the date at the far end, which is
+   the permalink. */
+.guestbook-entry-sig {
+  /* The full row, not the prose measure: the date closes it at the far end. */
+  max-width: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: 0.15rem 0.5rem;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
+.guestbook-entry-avatar {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.guestbook-entry-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  outline: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  outline-offset: -1px;
+}
+
+.guestbook-entry-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--ink-muted);
+  border: 1px dashed var(--rule);
+}
+
+.guestbook-entry-name {
+  font-variant: all-small-caps;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.guestbook-entry-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.guestbook-entry-name a:hover {
+  color: var(--accent);
+}
+
+.guestbook-entry-handle {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.guestbook-entry-location {
+  font-style: italic;
+}
+
+.guestbook-entry-location::before {
+  content: '·';
+  margin-right: 0.5rem;
+  font-style: normal;
+}
+
+.guestbook-entry-time {
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant: all-small-caps;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.07em;
+}
+
+.guestbook-entry-time a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.guestbook-entry-time a:hover {
+  color: var(--accent);
+}
+
+.guestbook-entry-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.guestbook-entry-remove {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  font-size: var(--text-xs);
+  color: var(--tan);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* The next blank line: the call to action, numbered where the next signature
+   will go, with a dashed rule under it like a line not yet written on. */
+.guestbook-entry-blank {
+  padding: var(--space-3) 0;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+.guestbook-entry-blank + .guestbook-entry {
+  border-top: 0;
+}
+
+.guestbook-blank-body {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.guestbook-blank-text {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.guestbook-blank-sign {
+  cursor: pointer;
+}
+
+/* An empty book: today's own line, under the collection it's waiting on. */
+.guestbook-empty p {
+  margin: 0;
+  max-width: none;
+  text-indent: 0;
+}
+
+.guestbook-empty-eyebrow {
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  font-style: normal;
+  color: var(--ink-muted);
+}
+
+.guestbook-empty-line {
   margin-top: var(--space-1);
 }
 
 /* --- moderation (owner edit mode) ---------------------------------------- */
 
 .guestbook-hidden-count {
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 .guestbook-moderation-note {
-  margin: 0 0 var(--space-4);
+  margin: var(--space-3) 0 var(--space-2);
   font-size: var(--text-sm);
   color: var(--ink-muted);
   font-style: italic;
@@ -398,11 +623,6 @@
   opacity: 0.6;
   cursor: default;
 }
-
-/* The "Sign guestbook" call to action reuses the home hero CTA button
-   (.home-hero-cta-btn) so it matches the primary destinations there; the
-   Signature icon rides inline via that class's flex + gap. The actual pen
-   lives in the bottom-chrome sign sheet (GuestbookSheet). */
 
 /* Source credit for the backlink assembly (Constellation + Slingshot, both
    microcosm), mirroring the /mothing "Mirrored from iNaturalist" footnote. */
