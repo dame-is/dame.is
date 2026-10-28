@@ -365,56 +365,56 @@ Ten clusters, ordered by impact. In each "Covers" list, the first ID of each gro
 
 ## Roadmap
 
-Effort: **S** is under a day, **M** a few days, **L** a week or more. The "Now" items are the most visible problems with the cheapest fixes, plus the two structural fixes that unblock the rest: the contrast floor and the responsive ledger.
+Effort: **S** is under a day, **M** a few days, **L** a week or more. The "Now" items are the most visible problems with the cheapest fixes, plus the two structural fixes that unblock the rest: the contrast floor and the responsive ledger. The Status column was checked against the code on `main` at `d49bb0b`, after #331 and #332; done rows are struck through.
 
-| Bucket | Item | Effort | Findings |
-|---|---|---|---|
-| **Now** | Sky contrast floor: a post-derivation lightness pass (faint and accent ≥ 4.5:1, muted ≥ 6:1, filled labels ≥ 4.5:1, ΔE between faint and accent), a 24-hour unit test, a ratio row in the Sky studio; the compass's open state stays dark | M | MOB-01, IDN-02, FEED-04, TYP-01, SYS-02, MOB-11 |
-| **Now** | Responsive ledger: a running-head caption above a full-width body under ~36rem or via container query; no label below 12px | M | MOB-02, FEED-01, LAY-01, TYP-11 |
-| **Now** | Paths that work: crumbs resolve through the verb registry (filtered ledger for verbs without an index); Back uses router state and means "up" on a deep link | S | NAV-01, INT-01 |
-| **Now** | Bottom bar survives small screens: the compass is pinned, low-priority chips move into the dock, hover is guarded for touch, an open chip shows × | M | MOB-03, MOB-06 |
-| **Now** | Drop caps on `.leaflet-doc` (two selectors and a regression check), plus a ❧ end-mark | S | TYP-02, IDN-03 |
-| **Now** | Phone grids: `minmax(min(…),1fr)` tracks for curating, moth plates and exploring | S | LAY-03, COL-02 |
-| **Now** | Steady first paint: bake `is.dame.sky` into the bundle, pre-paint the final palette, move `:root` fallbacks off parchment, reserve the mark's box | S | INT-02, IDN-13, IDN-07 |
-| **Now** | Hero holds: stop after 3 rotations or off-screen, tap to hold, run the marquee once | S | MOB-10, INT-12 |
-| **Now** | Ledger rows as links: time as permalink on every row, verb links to its section, quiet hover and focus-within mark | S | FEED-03, INT-07, NAV-04 |
-| **Now** | Visitor-facing dead ends: /themself fallback, /sharing hint for the owner only, a 404 with a voice, hide em-dash footers and the useless scroll chip | S | INT-09, NAV-07, COL-11, NAV-10, NAV-14, SYS-12 |
-| **Now** | Small correctness fixes: reuse AlbumCover in /listening, define `--text-md`, sign-in error in `--danger`, `text-wrap`, upright code, scope the `p + p` indent to prose | S | SYS-08, IDN-09, SYS-09, TYP-08, TYP-13, TYP-14, LAY-10 |
-| **Now** | Never 404 an existing post: title from image alt text when the text is empty; add reposting and the other verbs to `RECORD_SECTIONS` | S | GAP-01 |
-| **Next** | Ledger horizon: stop at the completeness date with a colophon; label capped counts "100+" / "since Oct 25" | M | FEED-02 |
-| **Next** | Reposts and quotes typeset as citations; one clock per row; no repeated URL on link-only posts | M | FEED-05, IDN-05, FEED-11, FEED-12 |
-| **Next** | Threads bracketed with a time range and cross-day dates; one day-header format; an "Earlier works" coda for year-only works | M | FEED-06, FEED-09, FEED-13 |
-| **Next** | Desktop ledger: one right edge for all content; verb and time as a left-margin note | S | LAY-04, FEED-07 |
-| **Next** | Filter sheet as an index (■/□, gloss, dot leaders, counts, a separate "only") | M | FEED-08, LAY-12, INT-08, MOB-13 |
-| **Next** | Single-kind pages: honour `showVerb={false}`; /logging as a diary with running dates; covers on /listening sessions | S | FEED-10, COL-09, LAY-08 |
-| **Next** | Native section layouts by default (plates, contact sheet, numbered contents) with a visible per-section "plates · index" switch; album tiles with a folio line | M | COL-01, IDN-04, COL-10 |
-| **Next** | In-page surfaces off surfaceSep and onto the nest-step mix (scoped class, not `:root` tokens) | M | IDN-01, SYS-04 |
-| **Next** | Chrome condenses while reading: tiers as masthead, breadcrumb folded into the pinned row, height-aware default | M | LAY-02, MOB-05, INT-13, GAP-03 |
-| **Next** | Tools that say what they do: desktop small-caps labels, a title on every chip, a "69 of 142" folio, a key in ⓘ, a vitals label and freshness, now-playing that ages, a larger chevron and crumb targets | S | NAV-05, MOB-09, INT-11, NAV-12, GAP-04, MOB-08 |
-| **Next** | Compass as table of contents: glosses, live folios, a current-page manicule, underline hover, grouped rows, search at the top, gerund page titles | M | NAV-03, IDN-08, TYP-12, NAV-08, NAV-13, GAP-07 |
-| **Next** | Sheets: a shared SheetHeader, a compact nav sheet over a veil, a history entry per overlay, a thumb-zone close | M | INT-04, SYS-06, MOB-12, MOB-04 |
-| **Next** | Record plate: human H1, ET colophon, one action row, previous/next, a quiet URI folio, collapsed empty replies, in-page eyebrows removed | M | COL-05, NAV-06, NAV-09, COL-06, SYS-10, NAV-11, LAY-07 |
-| **Next** | Route transition: reset scroll after the exit fade, or fade in only | S | INT-05 |
-| **Next** | One clock and one date style: a `<Time>` component on America/New_York, dayOfLife from Eastern calendar days shared with og/time.js | M | GAP-02, TYP-10, COL-08, SYS-11 |
-| **Next** | Long-form setting: 20px with an em measure, indent-only paragraphs, display-only smart punctuation, a styled heading ladder | M | TYP-03, TYP-04, TYP-07, TYP-08 |
-| **Next** | The kit: Button, the selected state, Segmented, Figures, Eyebrow/SectionHead, the label style, LinkCard | M | SYS-01, SYS-03, SYS-05, TYP-05, TYP-09, LAY-06, COL-07, IDN-11, TYP-06, SYS-07 |
-| **Next** | First visit: a fixed standfirst under the hero; ⓘ rewritten to start with Dame and the sections | S | NAV-02 |
-| **Next** | Share cards with photo plates; repost cards with the original author | M | GAP-01 |
-| **Later** | /mothing as an almanac of nights (tallies, most-seen plates, a filmstrip per night, months collapsed) | L | COL-03 |
-| **Later** | X-ray as marginalia on every page, including the chrome signals and the hero; the URI as an accessible description | L | INT-03, IDN-10, TYP-14 |
-| **Later** | Guestbook: compose first with a live preview, register-style entries, CID moved to x-ray | M | INT-10, COL-14, MOB-14 |
-| **Later** | Plates: galleries break the measure as justified rows; lightbox swipe, caption and record link | M | COL-04, LAY-09, IDN-06, INT-14 |
-| **Later** | One text block: long-form and records hang from the breadcrumb edge, with a marginalia column | L | LAY-05, COL-06 |
-| **Later** | Ratioed: a contents row, headings aligned with their breakout figures, shared tracks for the participants board | M | COL-13, COL-12, LAY-11 |
-| **Later** | Sky sheet: a labelled scrubber, frozen vs live, a remembered hour, an opt-in "your sky" | M | INT-06, MOB-07, GAP-06 |
-| **Later** | Night treatment for content images | S | GAP-10 |
-| **Later** | One ornament family (❧ or a moth-wing) for end-marks, day dividers and empty images; retire 🦋 | S | IDN-12 |
-| **Later** | Print styles for long-form, with a printed colophon | S | GAP-08 |
-| **Later** | /available as the hiring hub (marginalia column, link to the essay, Bluesky and GitHub) | S | GAP-05 |
-| **Later** | The "Open in…" chooser explains itself and remembers | S | GAP-09 |
-| **Later** | Cursor-paginated collections so the ledger horizon moves as the reader scrolls | L | FEED-02 |
-| **Later** | Oldstyle prose figures (self-host upstream Crimson Pro) | M | TYP-06 |
-| **Later** | Guards: stylelint allow-lists, two breakpoints, an owner-only kit/colophon page | S | SYS-09 |
+| Bucket | Item | Effort | Findings | Status |
+|---|---|---|---|---|
+| **Now** | ~~Sky contrast floor: a post-derivation lightness pass (faint and accent ≥ 4.5:1, muted ≥ 6:1, filled labels ≥ 4.5:1, ΔE between faint and accent), a 24-hour unit test, a ratio row in the Sky studio; the compass's open state stays dark~~ | M | MOB-01, IDN-02, FEED-04, TYP-01, SYS-02, MOB-11 | ✓ Done: Floored per hour with a 24-hour test (#331, #332) |
+| **Now** | Responsive ledger: a running-head caption above a full-width body under ~36rem or via container query; no label below 12px | M | MOB-02, FEED-01, LAY-01, TYP-11 | Partly: Labels no longer drop below `--text-meta`; still three columns on a phone |
+| **Now** | ~~Paths that work: crumbs resolve through the verb registry (filtered ledger for verbs without an index); Back uses router state and means "up" on a deep link~~ | S | NAV-01, INT-01 | ✓ Done: Crumbs link only to real routes; generated `/{verb}` indexes; Back walks history |
+| **Now** | Bottom bar survives small screens: the compass is pinned, low-priority chips move into the dock, hover is guarded for touch, an open chip shows × | M | MOB-03, MOB-06 | Partly: Compass stays on screen at 320px; touch hover guarded; open chip still has no × |
+| **Now** | ~~Drop caps on `.leaflet-doc` (two selectors and a regression check), plus a ❧ end-mark~~ | S | TYP-02, IDN-03 | ✓ Done |
+| **Now** | Phone grids: `minmax(min(…),1fr)` tracks for curating, moth plates and exploring | S | LAY-03, COL-02 | Partly: /creating, /mothing, /curating done; Exploring stats grid still one column on phones |
+| **Now** | ~~Steady first paint: bake `is.dame.sky` into the bundle, pre-paint the final palette, move `:root` fallbacks off parchment, reserve the mark's box~~ | S | INT-02, IDN-13, IDN-07 | ✓ Done: Sky painted at boot; 1 KB mark |
+| **Now** | Hero holds: stop after 3 rotations or off-screen, tap to hold, run the marquee once | S | MOB-10, INT-12 | Partly: Rests off-screen; ticker runs once. Tap-to-hold dropped by choice in #332 |
+| **Now** | Ledger rows as links: time as permalink on every row, verb links to its section, quiet hover and focus-within mark | S | FEED-03, INT-07, NAV-04 | Open: Time is still a plain span; no row hover |
+| **Now** | ~~Visitor-facing dead ends: /themself fallback, /sharing hint for the owner only, a 404 with a voice, hide em-dash footers and the useless scroll chip~~ | S | INT-09, NAV-07, COL-11, NAV-10, NAV-14, SYS-12 | ✓ Done: /themself fallback, /sharing for visitors, 404 lists the site |
+| **Now** | Small correctness fixes: reuse AlbumCover in /listening, define `--text-md`, sign-in error in `--danger`, `text-wrap`, upright code, scope the `p + p` indent to prose | S | SYS-08, IDN-09, SYS-09, TYP-08, TYP-13, TYP-14, LAY-10 | Partly: `--danger`, `text-wrap`, `p + p` scope done; AlbumCover in /listening, `--text-md`, upright code open |
+| **Now** | ~~Never 404 an existing post: title from image alt text when the text is empty; add reposting and the other verbs to `RECORD_SECTIONS`~~ | S | GAP-01 | ✓ Done |
+| **Next** | Ledger horizon: stop at the completeness date with a colophon; label capped counts "100+" / "since Oct 25" | M | FEED-02 | Partly: Per-verb horizon notes; no site-wide colophon or "100+" counts |
+| **Next** | Reposts and quotes typeset as citations; one clock per row; no repeated URL on link-only posts | M | FEED-05, IDN-05, FEED-11, FEED-12 | Open |
+| **Next** | Threads bracketed with a time range and cross-day dates; one day-header format; an "Earlier works" coda for year-only works | M | FEED-06, FEED-09, FEED-13 | Open |
+| **Next** | Desktop ledger: one right edge for all content; verb and time as a left-margin note | S | LAY-04, FEED-07 | Open |
+| **Next** | Filter sheet as an index (■/□, gloss, dot leaders, counts, a separate "only") | M | FEED-08, LAY-12, INT-08, MOB-13 | Open |
+| **Next** | Single-kind pages: honour `showVerb={false}`; /logging as a diary with running dates; covers on /listening sessions | S | FEED-10, COL-09, LAY-08 | Open: `showVerb={false}` is passed but the ledger row ignores it |
+| **Next** | Native section layouts by default (plates, contact sheet, numbered contents) with a visible per-section "plates · index" switch; album tiles with a folio line | M | COL-01, IDN-04, COL-10 | Partly: Section switch, plates, contact sheet, almanac; album folio line open |
+| **Next** | In-page surfaces off surfaceSep and onto the nest-step mix (scoped class, not `:root` tokens) | M | IDN-01, SYS-04 | Partly: Page edge done; raised/deep surfaces still scale with surfaceSep |
+| **Next** | Chrome condenses while reading: tiers as masthead, breadcrumb folded into the pinned row, height-aware default | M | LAY-02, MOB-05, INT-13, GAP-03 | Open |
+| **Next** | Tools that say what they do: desktop small-caps labels, a title on every chip, a "69 of 142" folio, a key in ⓘ, a vitals label and freshness, now-playing that ages, a larger chevron and crumb targets | S | NAV-05, MOB-09, INT-11, NAV-12, GAP-04, MOB-08 | Partly: Now-playing ages; labels, folio, titles, ⓘ key, vitals open |
+| **Next** | Compass as table of contents: glosses, live folios, a current-page manicule, underline hover, grouped rows, search at the top, gerund page titles | M | NAV-03, IDN-08, TYP-12, NAV-08, NAV-13, GAP-07 | Open |
+| **Next** | Sheets: a shared SheetHeader, a compact nav sheet over a veil, a history entry per overlay, a thumb-zone close | M | INT-04, SYS-06, MOB-12, MOB-04 | Open |
+| **Next** | ~~Record plate: human H1, ET colophon, one action row, previous/next, a quiet URI folio, collapsed empty replies, in-page eyebrows removed~~ | M | COL-05, NAV-06, NAV-09, COL-06, SYS-10, NAV-11, LAY-07 | ✓ Done |
+| **Next** | ~~Route transition: reset scroll after the exit fade, or fade in only~~ | S | INT-05 | ✓ Done |
+| **Next** | One clock and one date style: a `<Time>` component on America/New_York, dayOfLife from Eastern calendar days shared with og/time.js | M | GAP-02, TYP-10, COL-08, SYS-11 | Partly: Eastern time on record plates only; feed, dayOfLife and og/time.js still separate |
+| **Next** | ~~Long-form setting: 20px with an em measure, indent-only paragraphs, display-only smart punctuation, a styled heading ladder~~ | M | TYP-03, TYP-04, TYP-07, TYP-08 | ✓ Done |
+| **Next** | The kit: Button, the selected state, Segmented, Figures, Eyebrow/SectionHead, the label style, LinkCard | M | SYS-01, SYS-03, SYS-05, TYP-05, TYP-09, LAY-06, COL-07, IDN-11, TYP-06, SYS-07 | Partly: Figures and `--text-meta` built; Button, Segmented, SectionHead, LinkCard, selected state open |
+| **Next** | ~~First visit: a fixed standfirst under the hero; ⓘ rewritten to start with Dame and the sections~~ | S | NAV-02 | ✓ Done: ⓘ rewritten; standfirst dropped by choice in #332 |
+| **Next** | Share cards with photo plates; repost cards with the original author | M | GAP-01 | Open |
+| **Later** | ~~/mothing as an almanac of nights (tallies, most-seen plates, a filmstrip per night, months collapsed)~~ | L | COL-03 | ✓ Done |
+| **Later** | ~~X-ray as marginalia on every page, including the chrome signals and the hero; the URI as an accessible description~~ | L | INT-03, IDN-10, TYP-14 | ✓ Done: URI description on ledger rows only |
+| **Later** | Guestbook: compose first with a live preview, register-style entries, CID moved to x-ray | M | INT-10, COL-14, MOB-14 | Partly: Live preview open |
+| **Later** | Plates: galleries break the measure as justified rows; lightbox swipe, caption and record link | M | COL-04, LAY-09, IDN-06, INT-14 | Partly: Lightbox record link open |
+| **Later** | One text block: long-form and records hang from the breadcrumb edge, with a marginalia column | L | LAY-05, COL-06 | Partly: Essays done; record pages open |
+| **Later** | Ratioed: a contents row, headings aligned with their breakout figures, shared tracks for the participants board | M | COL-13, COL-12, LAY-11 | Partly: Participants board tracks done; contents row, heading alignment, bar label column open |
+| **Later** | Sky sheet: a labelled scrubber, frozen vs live, a remembered hour, an opt-in "your sky" | M | INT-06, MOB-07, GAP-06 | Partly: Remembered hour and "your sky" open |
+| **Later** | Night treatment for content images | S | GAP-10 | Open |
+| **Later** | One ornament family (❧ or a moth-wing) for end-marks, day dividers and empty images; retire 🦋 | S | IDN-12 | Partly: ❧ end-mark only; 🦋 still in MothTile and Mothing |
+| **Later** | Print styles for long-form, with a printed colophon | S | GAP-08 | Partly: Night print palette done; long-form print and colophon open |
+| **Later** | /available as the hiring hub (marginalia column, link to the essay, Bluesky and GitHub) | S | GAP-05 | Open |
+| **Later** | The "Open in…" chooser explains itself and remembers | S | GAP-09 | Open |
+| **Later** | Cursor-paginated collections so the ledger horizon moves as the reader scrolls | L | FEED-02 | Open |
+| **Later** | Oldstyle prose figures (self-host upstream Crimson Pro) | M | TYP-06 | Open |
+| **Later** | Guards: stylelint allow-lists, two breakpoints, an owner-only kit/colophon page | S | SYS-09 | Open |
 
 ---
 
