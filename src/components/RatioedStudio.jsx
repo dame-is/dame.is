@@ -49,6 +49,10 @@ import {
   FileText,
   Coffee,
 } from 'lucide-react';
+import Button from './Button.jsx';
+import Figures from './Figures.jsx';
+import SectionHead from './SectionHead.jsx';
+import Time from './Time.jsx';
 import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
 import RatioedRecord from './RatioedRecord.jsx';
@@ -1494,8 +1498,12 @@ export default function RatioedStudio({ agent, did }) {
     // margins, which only happens inside a block container — the pane itself is
     // a flex column with a gap.
     <div className="rs-root">
-      {error && <p className="admin-error">{error}</p>}
-      {note && <p className="admin-field-hint">{note}</p>}
+      {error && (
+        <p className="rs-error" role="alert">
+          {error}
+        </p>
+      )}
+      {note && <p className="rs-note">{note}</p>}
 
       {/* Said once the wait is over, not during it: the series below is the
           bundled measurement, which is right for every sealed piece and stale
@@ -1503,14 +1511,14 @@ export default function RatioedStudio({ agent, did }) {
           read rather than reloading the page. */}
       {pdsSlow && pieces !== null && (
         <div className="rs-degraded">
-          <p className="admin-field-hint">
+          <p className="rs-note">
             The PDS didn’t answer, so this is the build’s snapshot rather than a fresh read —
             anything published since the last deploy is missing from it, including a piece that
             might be live right now. Don’t post from this state.
           </p>
-          <button type="button" className="admin-link-subtle" onClick={refresh}>
-            try again
-          </button>
+          <Button variant="text" size="sm" onClick={refresh}>
+            Try again
+          </Button>
         </div>
       )}
 
@@ -1524,10 +1532,14 @@ export default function RatioedStudio({ agent, did }) {
           style={scale}
           className={`rs-live${alarming ? ' liked' : !justSealed && withdrawn ? ' withdrawn' : ''}`}
         >
-          <header className="rs-live-head">
-            <span className="rs-live-take">take {pieceSlug(live)}</span>
-            <span className="rs-live-clock">{fmtDuration(aliveMs)}</span>
-          </header>
+          {/* The kit's section head, with the stopwatch in its meta slot: the
+              take is the panel's title, and how long it has stood is the one
+              figure read against it. */}
+          <SectionHead
+            className="rs-live-head"
+            title={`Take ${pieceSlug(live)}`}
+            meta={<span className="rs-live-clock">{fmtDuration(aliveMs)}</span>}
+          />
 
           {/* How this one is doing, in the only unit the project has: the
               longest piece so far. */}
@@ -1576,7 +1588,7 @@ export default function RatioedStudio({ agent, did }) {
             <p className="rs-live-state">
               {justSealed && error ? (
                 <>
-                  Sealed at {new Date(sealed.sealedAt).toLocaleTimeString()}, and the measurement
+                  Sealed at <Time value={sealed.sealedAt} variant="clock" />, and the measurement
                   failed. The seal is on the record; nothing else is. Measure it again — the index is
                   the part that was unreachable, and it is the only part still missing.
                 </>
@@ -1612,18 +1624,18 @@ export default function RatioedStudio({ agent, did }) {
                 `.rs-live.liked .rs-seal`) — so the thumb that has been resting
                 over it is already over it. */}
             {!justSealed && (
-              <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
+              <Button variant="primary" className="rs-seal" onClick={seal} disabled={!!busy}>
                 <Lock size={alarming ? 17 : 15} aria-hidden="true" />
                 {busy === 'seal' ? 'Sealing…' : 'Seal'}
-              </button>
+              </Button>
             )}
             {/* A seal that landed and a measurement that did not. Without this
                 the only way back is a reload, which re-offers "Seal this piece"
                 and writes a second threadgate over the first — moving the one
                 timestamp the lifespan is measured from. */}
             {justSealed && error && (
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 className="rs-seal"
                 onClick={() => {
                   setError(null);
@@ -1633,13 +1645,15 @@ export default function RatioedStudio({ agent, did }) {
               >
                 <RefreshCw size={15} aria-hidden="true" />
                 {busy === 'measure' ? 'Measuring…' : 'Measure this piece'}
-              </button>
+              </Button>
             )}
             {/* The rest of the row is one glyph each — the words live in the
                 title and the label — and the three squares sit flush as one
                 segment so the whole row still fits a phone beside the seal. */}
             <div className="rs-live-acts">
-              <a
+              <Button
+                as="a"
+                variant="icon"
                 className="rs-live-act"
                 href={`https://bsky.app/profile/${ME_HANDLE}/post/${live.rkey}`}
                 target="_blank"
@@ -1648,19 +1662,22 @@ export default function RatioedStudio({ agent, did }) {
                 aria-label="Open the post on Bluesky"
               >
                 <ExternalLink size={15} aria-hidden="true" />
-              </a>
-              <Link
+              </Button>
+              <Button
+                as={Link}
+                variant="icon"
                 className="rs-live-act"
                 to={piecePath(live)}
                 title="The piece’s own page"
                 aria-label="The piece’s own page"
               >
                 <FileText size={15} aria-hidden="true" />
-              </Link>
+              </Button>
               {CAN_WAKE && (
-                <button
-                  type="button"
-                  className={`rs-live-act${keepAwake ? ' on' : ''}`}
+                <Button
+                  variant="icon"
+                  on={keepAwake}
+                  className="rs-live-act"
                   onClick={() => setKeepAwake((v) => !v)}
                   aria-pressed={keepAwake}
                   title={
@@ -1671,7 +1688,7 @@ export default function RatioedStudio({ agent, did }) {
                   aria-label="Keep the screen awake"
                 >
                   <Coffee size={15} aria-hidden="true" />
-                </button>
+                </Button>
               )}
             </div>
 
@@ -1708,7 +1725,7 @@ export default function RatioedStudio({ agent, did }) {
           </div>
 
           {justSealed && (
-            <p className="admin-field-hint">
+            <p className="rs-note">
               Replies are closed. The figures below come from the backlink index, which lags — but
               the stream already witnessed the like, so the reaction time is in hand either way.
             </p>
@@ -1752,7 +1769,7 @@ export default function RatioedStudio({ agent, did }) {
                             in none of its counts. */}
                         <button
                           type="button"
-                          className={`rs-act${liked ? ' on' : ''}`}
+                          className={`rs-act${liked ? ' is-on' : ''}`}
                           onClick={() => likeRow(e)}
                           disabled={Boolean(acting)}
                           title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
@@ -1766,7 +1783,7 @@ export default function RatioedStudio({ agent, did }) {
                         </button>
                         <button
                           type="button"
-                          className={`rs-act${replyTo?.rkey === e.rkey ? ' on' : ''}`}
+                          className={`rs-act${replyTo?.rkey === e.rkey ? ' is-on' : ''}`}
                           onClick={() =>
                             setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
                           }
@@ -1799,22 +1816,17 @@ export default function RatioedStudio({ agent, did }) {
                       onChange={(ev) => setReplyTo((r) => ({ ...r, text: ev.target.value }))}
                     />
                     <div className="rs-reply-acts">
-                      <button
-                        type="button"
-                        className="admin-gate-button"
+                      <Button
+                        size="sm"
                         onClick={sendReply}
                         disabled={Boolean(acting) || !replyTo.text.trim()}
                       >
                         <Send size={13} aria-hidden="true" />
                         {acting === e.rkey ? 'Posting…' : 'Reply'}
-                      </button>
-                      <button
-                        type="button"
-                        className="admin-link-subtle"
-                        onClick={() => setReplyTo(null)}
-                      >
-                        cancel
-                      </button>
+                      </Button>
+                      <Button variant="text" size="sm" onClick={() => setReplyTo(null)}>
+                        Cancel
+                      </Button>
                       <span className="rs-reply-where">
                         {e.k === 'quote'
                           ? 'their thread — this piece never sees it'
@@ -1829,8 +1841,8 @@ export default function RatioedStudio({ agent, did }) {
         </section>
       ) : announce ? null : (
         <section className="rs-compose">
-          <h2 className="rs-h2">Take {String(take).padStart(2, '0')}</h2>
-          <p className="admin-field-hint">
+          <SectionHead title={`Take ${String(take).padStart(2, '0')}`} />
+          <p className="rs-note">
             {!prev ? (
               <>Nothing to quote yet. </>
             ) : quote === undefined ? (
@@ -1872,79 +1884,65 @@ export default function RatioedStudio({ agent, did }) {
           )}
           <div className="rs-actions">
             {orphan ? (
-              <button
-                type="button"
-                className="admin-gate-button"
-                onClick={finishOrphan}
-                disabled={!!busy}
-              >
+              <Button variant="primary" onClick={finishOrphan} disabled={!!busy}>
                 <Send size={14} aria-hidden="true" />
                 {busy === 'publish'
                   ? 'Writing…'
                   : `Finish take ${String(orphan.take).padStart(2, '0')}'s record`}
-              </button>
+              </Button>
             ) : (
               /* Disabled while the quote lookup is outstanding. `quote` is
                  tri-state and the hint below distinguishes all three, but
                  `publish` collapses `undefined` into "no quote" — and the
                  lookup runs against a `resolvePds` this file has measured at
                  eight seconds and at twenty-eight. */
-              <button
-                type="button"
-                className="admin-gate-button"
-                onClick={publish}
-                disabled={!!busy || quote === undefined}
-              >
+              <Button variant="primary" onClick={publish} disabled={!!busy || quote === undefined}>
                 <Send size={14} aria-hidden="true" />
                 {busy === 'publish'
                   ? 'Posting…'
                   : quote === undefined
                     ? 'Reading the take to quote…'
                     : `Post take ${String(take).padStart(2, '0')}`}
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              className="admin-link-subtle"
+            <Button
+              variant="text"
+              size="sm"
               onClick={() => fillDraft(template ?? DEFAULT_TEMPLATE, take)}
               disabled={!!busy}
             >
-              reset to the template
-            </button>
+              Reset to the template
+            </Button>
           </div>
         </section>
       )}
 
       {announce && (
         <section className="rs-announce">
-          <h2 className="rs-h2">Take {pieceSlug(announce.piece)} is sealed</h2>
-          <dl className="rs-figures">
-            <div>
-              <dt>alive</dt>
-              <dd>{fmtDuration(announce.piece.lifespanMs)}</dd>
-            </div>
-            <div>
-              <dt>broken by</dt>
-              <dd>@{announce.piece.breaker?.handle}</dd>
-            </div>
-            <div>
-              <dt>reaction</dt>
-              <dd>
-                {typeof announce.piece.breaker?.reactionMs === 'number' ? (
-                  <>
-                    {fmtSeconds(announce.piece.breaker.reactionMs)}
-                    {/* Same number, different provenance, and the record says
-                        which: a like nothing can be shown any more, timed by
-                        the log that watched it land. */}
-                    {announce.piece.breaker.likeSurvives ? '' : ' — off the log; the like is gone'}
-                  </>
-                ) : (
-                  'not indexed yet'
-                )}
-              </dd>
-            </div>
-          </dl>
-          <p className="admin-field-hint">
+          <SectionHead title={`Take ${pieceSlug(announce.piece)} is sealed`} />
+          {/* The kit's figures band. The reaction's provenance rides as its
+              note: same number, different source, and the record says which —
+              a like nothing can be shown any more, timed by the log that
+              watched it land. */}
+          <Figures
+            label="The sealed piece in figures"
+            columns={3}
+            items={[
+              { key: 'alive', label: 'Alive', value: fmtDuration(announce.piece.lifespanMs) },
+              { key: 'breaker', label: 'Broken by', value: `@${announce.piece.breaker?.handle}` },
+              typeof announce.piece.breaker?.reactionMs === 'number'
+                ? {
+                    key: 'reaction',
+                    label: 'Reaction',
+                    value: fmtSeconds(announce.piece.breaker.reactionMs),
+                    note: announce.piece.breaker.likeSurvives
+                      ? undefined
+                      : 'off the log; the like is gone',
+                  }
+                : { key: 'reaction', label: 'Reaction', value: 'not indexed yet' },
+            ]}
+          />
+          <p className="rs-note">
             The first line is the one every take has carried, and it&rsquo;s what the site reads
             the breaker back out of — keep its shape. The rest is computed and yours to cut.
           </p>
@@ -1970,22 +1968,17 @@ export default function RatioedStudio({ agent, did }) {
             })}
           </p>
           <div className="rs-actions">
-            <button
-              type="button"
-              className="admin-gate-button"
-              onClick={postAnnouncement}
-              disabled={!!busy}
-            >
+            <Button variant="primary" onClick={postAnnouncement} disabled={!!busy}>
               <Send size={14} aria-hidden="true" />
               {busy === 'announce' ? 'Replying…' : 'Post the reply'}
-            </button>
-            <button type="button" className="admin-gate-button" onClick={remeasure} disabled={!!busy}>
+            </Button>
+            <Button onClick={remeasure} disabled={!!busy}>
               <RefreshCw size={14} aria-hidden="true" />
               {busy === 'measure' ? 'Measuring…' : 'Measure again'}
-            </button>
-            <button
-              type="button"
-              className="admin-link-subtle"
+            </Button>
+            <Button
+              variant="text"
+              size="sm"
               onClick={() => {
                 // Both, or the panel goes but the seal state stays and the next
                 // piece of the session runs unwatched.
@@ -1993,40 +1986,38 @@ export default function RatioedStudio({ agent, did }) {
                 setSealed(null);
               }}
             >
-              dismiss
-            </button>
+              Dismiss
+            </Button>
           </div>
         </section>
       )}
 
       {!live && (
         <section className="rs-template">
-          {/* No glyph. Its two siblings — "Take 12" and "The series" — are the
-              same `.rs-h2` with none, and one iconised heading in three reads as
-              an accident rather than a system. */}
-          <h2 className="rs-h2">The template</h2>
+          {/* No glyph. Its siblings — "Take 12", "The page's words" and "The
+              series" — are the same SectionHead with none, and one iconised
+              heading among them reads as an accident rather than a system. */}
+          <SectionHead title="The template" />
           {tplDraft === null ? (
             <>
-              <p className="admin-field-hint">
-                Stored on your PDS at <code>{TEMPLATE_NSID}/self</code>, so the wording can change
-                without a deploy. <code>{'{take}'}</code> becomes the number and{' '}
-                <code>{'{link}'}</code> the piece&rsquo;s own page.
+              <p className="rs-note">
+                Stored on your PDS at <code className="ident">{TEMPLATE_NSID}/self</code>, so the
+                wording can change without a deploy. <code className="ident">{'{take}'}</code> becomes
+                the number and <code className="ident">{'{link}'}</code> the piece&rsquo;s own page.
               </p>
               <pre className="rs-template-preview">{template ?? '…'}</pre>
               <div className="rs-actions">
-                <button
-                  type="button"
-                  className="admin-gate-button"
+                <Button
                   onClick={() => setTplDraft(template ?? DEFAULT_TEMPLATE)}
                   disabled={template === undefined}
                 >
                   Edit the template
-                </button>
+                </Button>
               </div>
             </>
           ) : (
             <>
-              <p className="admin-field-hint">
+              <p className="rs-note">
                 Checked against the scan that measures pieces before it saves. A template the scan
                 can&rsquo;t recognise makes pieces the site never finds — which is exactly how take
                 13 went missing.
@@ -2039,24 +2030,26 @@ export default function RatioedStudio({ agent, did }) {
                 onChange={(e) => setTplDraft(e.target.value)}
               />
               {templateProblems(tplDraft, take).map((p) => (
-                <p className="admin-error-inline" key={p}>{p}</p>
+                <p className="rs-problem" key={p}>
+                  {p}
+                </p>
               ))}
 
               {/* The other half of the record, and the reason it is here rather
                   than in the code: on a piece whose like was deleted, this
                   sentence is the only evidence the like ever existed. */}
-              <label className="admin-field-label" htmlFor="rs-announce-tpl">
+              <label className="eyebrow rs-label" htmlFor="rs-announce-tpl">
                 The concluding reply
               </label>
-              <p className="admin-field-hint">
+              <p className="rs-note">
                 The whole of it, figures included. A line of{' '}
-                <code>{ANNOUNCEMENT_BREAK}</code> on its own starts a second reply in the same
+                <code className="ident">{ANNOUNCEMENT_BREAK}</code> on its own starts a second reply in the same
                 thread, which is how it carries more than a post holds.
               </p>
               <ul className="rs-tokens">
                 {ANNOUNCEMENT_TOKENS.map(([token, what]) => (
                   <li key={token}>
-                    <code>{token}</code> {what}
+                    <code className="ident">{token}</code> {what}
                   </li>
                 ))}
               </ul>
@@ -2071,19 +2064,19 @@ export default function RatioedStudio({ agent, did }) {
               {/* What it comes to for the longest handle the project has drawn,
                   which is the case it fails on and the case nobody writing it
                   has in mind. */}
-              <p className="admin-field-hint">
+              <p className="rs-note">
                 {announcementLengths(annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT)
                   .map((n, i, all) => `${all.length > 1 ? `reply ${i + 1}: ` : ''}${n}/${POST_MAX}`)
                   .join(' · ')}{' '}
                 at its longest
               </p>
               {announcementProblems(annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT).map((p) => (
-                <p className="admin-error-inline" key={p}>{p}</p>
+                <p className="rs-problem" key={p}>
+                  {p}
+                </p>
               ))}
               <div className="rs-actions">
-                <button
-                  type="button"
-                  className="admin-gate-button"
+                <Button
                   onClick={saveTemplate}
                   disabled={
                     !!busy ||
@@ -2092,27 +2085,27 @@ export default function RatioedStudio({ agent, did }) {
                   }
                 >
                   {busy === 'template' ? 'Saving…' : 'Save the template'}
-                </button>
-                <button
-                  type="button"
-                  className="admin-link-subtle"
+                </Button>
+                <Button
+                  variant="text"
+                  size="sm"
                   onClick={() => {
                     setTplDraft(null);
                     setAnnDraft(null);
                   }}
                 >
-                  cancel
-                </button>
-                <button
-                  type="button"
-                  className="admin-link-subtle"
+                  Cancel
+                </Button>
+                <Button
+                  variant="text"
+                  size="sm"
                   onClick={() => {
                     setTplDraft(DEFAULT_TEMPLATE);
                     setAnnDraft(DEFAULT_ANNOUNCEMENT);
                   }}
                 >
-                  restore the built-in
-                </button>
+                  Restore the built-in
+                </Button>
               </div>
             </>
           )}
@@ -2128,35 +2121,34 @@ export default function RatioedStudio({ agent, did }) {
           page a piece is being READ on while it runs is the likeliest moment
           anybody would want to. */}
       <section className="rs-copy">
-        <h2 className="rs-h2">The page&rsquo;s words</h2>
+        <SectionHead title="The page’s words" />
         {copyDraft === null ? (
           <>
-            <p className="admin-field-hint">
-              The captions on a piece&rsquo;s own page, stored at <code>{COPY_NSID}/self</code>{' '}
-              so they can be rewritten without a deploy. The figures are not here: they are
+            <p className="rs-note">
+              The captions on a piece&rsquo;s own page, stored at{' '}
+              <code className="ident">{COPY_NSID}/self</code> so they can be rewritten without a
+              deploy. The figures are not here: they are
               measured, and a caption is not.
             </p>
             <div className="rs-actions">
-              <button
-                type="button"
-                className="admin-gate-button"
+              <Button
                 onClick={() => setCopyDraft({ ...(copy || DEFAULT_COPY) })}
                 disabled={copy === null}
               >
                 {copy === null ? 'Reading…' : 'Edit the words'}
-              </button>
+              </Button>
             </div>
           </>
         ) : (
           <>
-            <p className="admin-field-hint">
+            <p className="rs-note">
               Every field falls back to the site&rsquo;s own sentence, so clearing one restores it
               rather than emptying it.
             </p>
             {COPY_FIELDS.map((f) => (
               <label className="rs-copy-field" key={f.key}>
-                <span className="rs-copy-label">{f.label}</span>
-                <span className="admin-field-hint">{f.hint}</span>
+                <span className="rs-copy-label eyebrow">{f.label}</span>
+                <span className="rs-note">{f.hint}</span>
                 <textarea
                   className="admin-input"
                   rows={2}
@@ -2169,35 +2161,25 @@ export default function RatioedStudio({ agent, did }) {
               </label>
             ))}
             <div className="rs-actions">
-              <button
-                type="button"
-                className="admin-gate-button"
-                onClick={saveCopy}
-                disabled={!!busy}
-              >
+              <Button onClick={saveCopy} disabled={!!busy}>
                 {busy === 'copy' ? 'Saving…' : 'Save the words'}
-              </button>
-              <button
-                type="button"
-                className="admin-link-subtle"
-                onClick={() => setCopyDraft(null)}
-              >
-                cancel
-              </button>
-              <button
-                type="button"
-                className="admin-link-subtle"
-                onClick={() => setCopyDraft({ ...DEFAULT_COPY })}
-              >
-                restore the built-ins
-              </button>
+              </Button>
+              <Button variant="text" size="sm" onClick={() => setCopyDraft(null)}>
+                Cancel
+              </Button>
+              <Button variant="text" size="sm" onClick={() => setCopyDraft({ ...DEFAULT_COPY })}>
+                Restore the built-ins
+              </Button>
             </div>
           </>
         )}
       </section>
 
       <section className="rs-series">
-        <h2 className="rs-h2">The series</h2>
+        <SectionHead
+          title="The series"
+          meta={done.length > 6 ? `latest 6 of ${done.length}` : null}
+        />
         <ul className="rs-series-list">
           {[...done]
             .sort((a, b) => b.take - a.take)
@@ -2230,33 +2212,35 @@ export default function RatioedStudio({ agent, did }) {
                         again, and it is the only button here that writes a
                         pre-seal figure. */}
                     {!p.measuredAt && (
-                      <button
-                        type="button"
-                        className="admin-link-subtle rs-series-wanted"
+                      <Button
+                        variant="text"
+                        size="sm"
+                        className="rs-series-wanted"
                         onClick={() => remeasure(p)}
                         disabled={!!busy}
                         title="This piece was sealed but never measured. Read its records now."
                       >
                         <RefreshCw size={12} aria-hidden="true" />
-                        {busy === 'measure' ? 'measuring…' : 'measure'}
-                      </button>
+                        {busy === 'measure' ? 'Measuring…' : 'Measure'}
+                      </Button>
                     )}
-                    <button
-                      type="button"
-                      className="admin-link-subtle"
+                    <Button
+                      variant="text"
+                      size="sm"
                       onClick={() => repair(p)}
                       disabled={!!busy}
                       title="Fill in whatever this record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, and everything that has landed since the seal. The alive window is never re-read."
                     >
                       <Wrench size={12} aria-hidden="true" />
-                      {busy === `repair:${p.rkey}` ? 'repairing…' : 'repair'}
-                    </button>
+                      {busy === `repair:${p.rkey}` ? 'Repairing…' : 'Repair'}
+                    </Button>
                     {/* Offered on any piece, not only the unnamed ones: a
                         breaker recorded by handle alone predates the DID being
                         stored, and the roster is keyed by DID. */}
-                    <button
-                      type="button"
-                      className={`admin-link-subtle${gaps.needsAName ? ' rs-series-wanted' : ''}`}
+                    <Button
+                      variant="text"
+                      size="sm"
+                      className={gaps.needsAName ? 'rs-series-wanted' : ''}
                       onClick={() =>
                         setNaming(isNaming ? null : { rkey: p.rkey, text: unnamed ? '' : b.handle })
                       }
@@ -2264,8 +2248,8 @@ export default function RatioedStudio({ agent, did }) {
                       title="Say who ended this piece. The handle is resolved to a DID and both go on the record; nothing else is touched. The one repair nothing can do for you."
                     >
                       <UserPen size={12} aria-hidden="true" />
-                      {unnamed ? 'name the breaker' : 'rename'}
-                    </button>
+                      {unnamed ? 'Name the breaker' : 'Rename'}
+                    </Button>
                   </span>
                   {isNaming && (
                     <span className="rs-series-name">
@@ -2280,21 +2264,16 @@ export default function RatioedStudio({ agent, did }) {
                           if (e.key === 'Escape') setNaming(null);
                         }}
                       />
-                      <button
-                        type="button"
-                        className="admin-gate-button"
+                      <Button
+                        size="sm"
                         onClick={() => nameBreaker(p, naming.text)}
                         disabled={!!busy || !naming.text.trim()}
                       >
                         {busy === `name:${p.rkey}` ? 'Resolving…' : 'Save'}
-                      </button>
-                      <button
-                        type="button"
-                        className="admin-link-subtle"
-                        onClick={() => setNaming(null)}
-                      >
-                        cancel
-                      </button>
+                      </Button>
+                      <Button variant="text" size="sm" onClick={() => setNaming(null)}>
+                        Cancel
+                      </Button>
                     </span>
                   )}
                 </li>
@@ -2304,7 +2283,7 @@ export default function RatioedStudio({ agent, did }) {
         {/* Both links lowercase. They are one caption, and "The essay · the
             full catalogue" set one of them as a title and the other as a
             phrase. */}
-        <p className="admin-field-hint">
+        <p className="rs-note">
           A breaking like that was deleted can still have its reaction time recovered. A piece the
           studio watched carries the answer on its own record — the log saw the like land and saw
           it go — and that never expires. A piece nothing was watching has 36 hours, for as long as
@@ -2312,7 +2291,7 @@ export default function RatioedStudio({ agent, did }) {
           be filtered down to one account. After that the number is gone, as it is for six of the
           first thirteen.
         </p>
-        <p className="admin-field-hint">
+        <p className="rs-note">
           <Link to={`/creating/${RATIOED_PATH}`}>the essay</Link> ·{' '}
           {/* An ordinary <Link>: it is a whole-query replacement rather than a
               merge, so it cannot leave a stale `c` or `r` behind, and this

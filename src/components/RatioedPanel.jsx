@@ -43,6 +43,11 @@ import {
   Wrench,
 } from 'lucide-react';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import Button from './Button.jsx';
+import Figures from './Figures.jsx';
+import SectionHead from './SectionHead.jsx';
+import Tag from './Tag.jsx';
+import Time from './Time.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { COLLECTIONS, RATIOED_DOC_RKEY, RATIOED_SOURCE, ME_DID } from '../config.js';
 import {
@@ -685,51 +690,57 @@ export default function RatioedPanel({ agent, did }) {
 
   return (
     <>
-      <div className="ratioed-panel-summary">
-        <div>
-          <span className="ratioed-panel-figure">{publishedCount}</span>
-          <span className="ratioed-panel-label">on your PDS</span>
-        </div>
-        <div>
-          <span className="ratioed-panel-figure">{SEED_PIECES.length}</span>
-          <span className="ratioed-panel-label">in the bundled measurement</span>
-        </div>
-        <div>
-          <span className="ratioed-panel-figure">{backlinks == null ? '—' : backlinks}</span>
-          <span className="ratioed-panel-label">backlinks on take 01</span>
-        </div>
-      </div>
+      {/* The catalogue in figures: the kit's ruled band, as /logging and the
+          front desk set theirs, in place of three hand-set 2rem numerals. */}
+      <Figures
+        label="The catalogue in figures"
+        className="ratioed-panel-figures"
+        columns={3}
+        items={[
+          { key: 'pds', value: publishedCount, label: 'On your PDS' },
+          {
+            key: 'bundle',
+            value: SEED_PIECES.length,
+            label: 'In the bundle',
+            note: 'the bundled measurement',
+          },
+          {
+            key: 'backlinks',
+            value: backlinks == null ? '—' : backlinks,
+            label: 'Backlinks on take 01',
+          },
+        ]}
+      />
 
+      {/* One filled button at most. The first publish is this panel's commit;
+          once the pieces are on the PDS, republishing is upkeep like the rest
+          of the row. While a scan's findings are open, their "Publish these"
+          is the commit instead, so the two are never filled at once. */}
       <div className="ratioed-panel-actions">
-        <button
-          type="button"
-          className="admin-gate-button"
+        <Button
+          variant={!publishedCount && !found?.length ? 'primary' : 'quiet'}
           onClick={publishAll}
           disabled={!!busy}
         >
           <Upload size={14} aria-hidden="true" />
           {busy === 'publish' ? 'Publishing…' : publishedCount ? 'Republish all' : 'Publish all to PDS'}
-        </button>
-        <button type="button" className="admin-gate-button" onClick={scan} disabled={!!busy}>
+        </Button>
+        <Button onClick={scan} disabled={!!busy}>
           <Search size={14} aria-hidden="true" />
           {busy === 'scan' ? 'Scanning…' : 'Scan for new pieces'}
-        </button>
+        </Button>
         {missingLogs.length > 0 && (
-          <button
-            type="button"
-            className="admin-gate-button"
+          <Button
             onClick={repairScanned}
             disabled={!!busy}
             title="These were scanned while the backlink reader was broken and recorded as posts nobody touched. Reads their records again and overwrites the engagement figures, the reaction time and the event log."
           >
             <ListPlus size={14} aria-hidden="true" />
             {busy === 'repair' ? 'Re-measuring…' : `Re-measure scanned (${missingLogs.length})`}
-          </button>
+          </Button>
         )}
         {sealedCount > 0 && (
-          <button
-            type="button"
-            className="admin-gate-button"
+          <Button
             onClick={repairAll}
             disabled={!!busy}
             title="Fill in whatever each record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, and everything that has landed since the seal. Figures measured while a piece was alive are never re-read."
@@ -738,40 +749,35 @@ export default function RatioedPanel({ agent, did }) {
             {busy === 'repair-all'
               ? 'Repairing…'
               : `Repair all (${sealedCount})${gaps.fixable ? ` · ${gaps.fixable} to fill` : ''}`}
-          </button>
+          </Button>
         )}
         {publishedCount > 0 && (
-          <button
-            type="button"
-            // `admin-gate-button-danger` was defined in no stylesheet, so the
-            // one irreversible button on this panel rendered identically to the
-            // four beside it. `.admin-danger` (Admin.css:85) is the real
-            // modifier: outlined in --tan, filling on hover.
-            className="admin-gate-button admin-danger"
-            onClick={deleteAll}
-            disabled={!!busy}
-          >
+          // The one irreversible button on this panel, so it takes the kit's
+          // danger tier: quiet, in --danger, which keeps its hue at every hour
+          // where --tan (what `.admin-danger` painted it in) turns with the sky.
+          <Button variant="danger" onClick={deleteAll} disabled={!!busy}>
             <Trash2 size={14} aria-hidden="true" />
             Delete all
-          </button>
+          </Button>
         )}
-        <Link
-          className="admin-gate-button"
-          to={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&r=${RATIOED_DOC_RKEY}`}
-        >
+        <Button as={Link} to={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&r=${RATIOED_DOC_RKEY}`}>
           <ExternalLink size={14} aria-hidden="true" />
           Edit the essay
-        </Link>
+        </Button>
       </div>
 
-      {progress && <p className="admin-field-hint">{progress}</p>}
-      {error && <p className="admin-error">{error}</p>}
+      {progress && <p className="ratioed-panel-note">{progress}</p>}
+      {error && (
+        <p className="ratioed-panel-error" role="alert">
+          {error}
+        </p>
+      )}
       {/* What a repair will not close, said plainly, because the alternative is
           a count that goes on reading "4 incomplete" after four repairs. Every
           one of those four is a suspended or deleted account: the row names a
           DID, `getProfiles` answers nothing, and the log says so. */}
       {(gaps.stuckRows > 0 || gaps.needAName > 0) && (
-        <p className="admin-field-hint">
+        <p className="ratioed-panel-note">
           {gaps.stuckRows > 0 && (
             <>
               {gaps.stuckRows} log row{gaps.stuckRows === 1 ? '' : 's'} across {gaps.stuckPieces}{' '}
@@ -791,17 +797,18 @@ export default function RatioedPanel({ agent, did }) {
 
       {found && (
         <section className="ratioed-panel-found">
-          <h2 className="ratioed-panel-found-head">
-            {found.length ? `${found.length} unrecorded piece(s)` : 'Nothing new'}
-          </h2>
+          <SectionHead
+            title={found.length ? 'Unrecorded pieces' : 'Nothing new'}
+            meta={found.length || null}
+          />
           {truncated && (
-            <p className="admin-field-hint">
+            <p className="ratioed-panel-note">
               The scan stopped at {SCAN_LIMIT} records per collection, so anything sealed before
               that wasn&rsquo;t looked at.
             </p>
           )}
           {!found.length ? (
-            <p className="admin-field-hint">
+            <p className="ratioed-panel-note">
               Every sealed piece in the records read already has a measurement record.
             </p>
           ) : (
@@ -812,7 +819,7 @@ export default function RatioedPanel({ agent, did }) {
                     <span className="ratioed-panel-take">
                       {record.take ? String(record.take).padStart(2, '0') : '??'}
                     </span>
-                    <span className="ratioed-panel-state">discovered</span>
+                    <Tag>discovered</Tag>
                   </header>
                   <Measurements collapse={stacked}>
                     <dt>alive</dt>
@@ -850,18 +857,13 @@ export default function RatioedPanel({ agent, did }) {
                 </article>
               ))}
               <div className="ratioed-panel-actions">
-                <button
-                  type="button"
-                  className="admin-gate-button"
-                  onClick={publishFound}
-                  disabled={!!busy}
-                >
+                <Button variant="primary" onClick={publishFound} disabled={!!busy}>
                   <Upload size={14} aria-hidden="true" />
                   {busy === 'publish-found' ? 'Publishing…' : 'Publish these'}
-                </button>
-                <button type="button" className="admin-gate-button" onClick={() => setFound(null)}>
+                </Button>
+                <Button variant="text" onClick={() => setFound(null)}>
                   Dismiss
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -880,20 +882,21 @@ export default function RatioedPanel({ agent, did }) {
               <article className="ratioed-panel-row" key={rkey}>
                 <header>
                   <span className="ratioed-panel-take">{String(piece.take).padStart(2, '0')}</span>
-                  <span className={`ratioed-panel-state${onPds ? ' live' : ''}`}>
-                    {onPds ? 'published' : 'not published'}
-                  </span>
+                  <Tag on={Boolean(onPds)}>{onPds ? 'published' : 'not published'}</Tag>
                   {/* Something this record holds — its figures, its event log,
                       what the studio witnessed — is in no bundle, so the record
                       is the only copy of it there is. */}
-                  {pdsOnly && <span className="ratioed-panel-state">pds only</span>}
+                  {pdsOnly && <Tag>pds only</Tag>}
                   {onPds && (
-                    <Link
+                    <Button
+                      as={Link}
+                      variant="text"
+                      size="sm"
                       className="ratioed-panel-edit"
                       to={`/admin?c=${encodeURIComponent(NSID)}&r=${rkey}`}
                     >
-                      edit record
-                    </Link>
+                      Edit record
+                    </Button>
                   )}
                 </header>
                 <Measurements collapse={stacked}>
@@ -924,18 +927,24 @@ export default function RatioedPanel({ agent, did }) {
                   {published && published.measuredAt !== piece.measuredAt && (
                     <>
                       <dt>on pds</dt>
-                      <dd>measured {published.measuredAt.slice(0, 10)}</dd>
+                      <dd>
+                        measured <Time value={published.measuredAt} variant="dateShort" />
+                      </dd>
                     </>
                   )}
                 </Measurements>
                 <p className="ratioed-panel-uri">
-                  <a
+                  <Button
+                    as="a"
+                    variant="text"
+                    size="sm"
                     href={`https://bsky.app/profile/${ME_DID}/post/${rkey}`}
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    view the piece
-                  </a>
+                    View the piece
+                    <ExternalLink size={12} aria-hidden="true" />
+                  </Button>
                 </p>
               </article>
             );
