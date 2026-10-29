@@ -3,6 +3,7 @@ import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { Link } from 'react-router-dom';
 import { renderPostText } from '../lib/postRichText.jsx';
+import { isRenderableReply, linearRun, renderableReplies } from '../lib/postThread.js';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import Time from './Time.jsx';
@@ -26,32 +27,65 @@ const REPLY_INDENT_CAP = 4;
  * loading / error states so the section stays mounted while the thread
  * resolves. `action` sits at the right of the Replies heading (a post's page
  * puts its "Open in…" there).
+ *
+ * `groups` files the replies under the posts of a self-thread instead, each
+ * group `{ id, n, postHref, excerpt, replies }`: "on 2 · we have people out
+ * here…", the head linking up to post 2. Groups with no replies are left out.
  */
 export default function Comments({
   atUri,
   replies,
+  groups = null,
   status = 'ready',
   metrics = null,
   emptyMessage = 'No replies yet.',
   action = null,
 }) {
   if (!atUri) return null;
+  const all = groups ? groups.flatMap((g) => g.replies || []) : replies || [];
   // A thread with nothing in it takes one line ("Replies · none yet · reply
   // on Bluesky") instead of a heading over an empty block.
-  const empty =
-    status === 'ready' && !(replies || []).some(isRenderableReply) && !metrics?.replyCount;
+  const empty = status === 'ready' && !all.some(isRenderableReply) && !metrics?.replyCount;
   if (empty) return <EmptyComments atUri={atUri} action={action} />;
   return (
     <section className="comments-section">
       <SectionHead as="h3" title="Replies" meta={action} />
       {metrics && <EngagementBar metrics={metrics} atUri={atUri} />}
-      <CommentsBody
-        replies={replies}
-        status={status}
-        emptyMessage={emptyMessage}
-      />
+      {groups && all.length > 0 ? (
+        <ReplyGroups groups={groups} />
+      ) : (
+        <CommentsBody replies={all} status={status} emptyMessage={emptyMessage} />
+      )}
     </section>
   );
+}
+
+/**
+ * Replies filed by the post of a thread they answer, in the thread's order.
+ * Each head names the post by its number and opening words and links up to
+ * it; each post's reply count links down here (Record.jsx ThreadPost).
+ */
+function ReplyGroups({ groups }) {
+  return groups.map((group) => {
+    const visible = (group.replies || []).filter(isRenderableReply);
+    if (visible.length === 0) return null;
+    return (
+      <section key={group.id} id={group.id} className="comments-group" aria-label={`Replies to post ${group.n}`}>
+        <p className="comments-group-head">
+          <a href={group.postHref}>
+            <span className="small-caps comments-group-on">on</span>
+            <span className="comments-group-n">{group.n}</span>
+            <span className="comments-group-excerpt">{group.excerpt}</span>
+          </a>
+        </p>
+        <ul className="comments-tree reveal-stagger">
+          {visible.map((node, i) => (
+            <ReplyNode key={node.post?.uri || node.uri || i} node={node} depth={0} />
+          ))}
+        </ul>
+      </section>
+    );
+  });
 }
 
 /**
@@ -148,66 +182,100 @@ function CommentsBody({ replies, status, emptyMessage }) {
  * scroll.
  */
 function ReplyNode({ node, depth }) {
-  if (node?.$type === 'app.bsky.feed.defs#notFoundPost') {
-    return <li className="comment comment-missing">a deleted post</li>;
+  if (!node?.post) return <MissingReply node={node} />;
+  return (
+    <li className="comment">
+      <ReplyCard post={node.post} />
+      <ReplyChildren node={node} depth={depth} />
+    </li>
+  );
+}
+
+/**
+ * A node's replies, one level in. A single reply starts a run: it and every
+ * reply under it that is the only reply to the one before (linearRun) sit in
+ * one list at this indent, so a back-and-forth between two people reads down
+ * the page instead of stepping right at every turn. Where the run ends on a
+ * post with several replies, those nest under it as usual.
+ */
+function ReplyChildren({ node, depth }) {
+  const children = renderableReplies(node);
+  if (children.length === 0) return null;
+  const className =
+    'comments-tree comments-tree-nested' + (depth + 1 > REPLY_INDENT_CAP ? ' comments-tree-capped' : '');
+  if (children.length === 1) {
+    const run = linearRun(children[0]);
+    return (
+      <ul className={`${className} comments-run`} data-depth={depth + 1}>
+        {run.map((member, i) =>
+          member.post ? (
+            <li className="comment" key={member.post.uri}>
+              <ReplyCard post={member.post} />
+              {i === run.length - 1 && <ReplyChildren node={member} depth={depth + 1} />}
+            </li>
+          ) : (
+            <MissingReply key={member.uri || i} node={member} />
+          ),
+        )}
+      </ul>
+    );
   }
+  return (
+    <ul className={className} data-depth={depth + 1}>
+      {children.map((child, i) => (
+        <ReplyNode key={child.post?.uri || child.uri || i} node={child} depth={depth + 1} />
+      ))}
+    </ul>
+  );
+}
+
+function MissingReply({ node }) {
   if (node?.$type === 'app.bsky.feed.defs#blockedPost') {
     return <li className="comment comment-missing">a blocked post</li>;
   }
-  const post = node?.post;
-  if (!post) return null;
+  if (node?.$type === 'app.bsky.feed.defs#notFoundPost') {
+    return <li className="comment comment-missing">a deleted post</li>;
+  }
+  return null;
+}
+
+function ReplyCard({ post }) {
   const author = post.author || {};
   const text = post.record?.text || '';
   const facets = post.record?.facets || null;
   const ts = post.record?.createdAt || post.indexedAt;
   const embed = post.embed || post.record?.embed || null;
-  const childReplies = (node.replies || []).filter(isRenderableReply);
   return (
-    <li className="comment">
-      <article className="comment-card" data-at-uri={post.uri}>
-        <header className="comment-head">
-          {author.avatar ? (
-            <img
-              className="comment-avatar"
-              src={avatarThumb(author.avatar)}
-              alt=""
-              width={40}
-              height={40}
-              loading="lazy"
-            />
-          ) : (
-            <span className="comment-avatar comment-avatar-fallback" aria-hidden="true" />
-          )}
-          <div className="comment-byline">
-            <AuthorLink author={author} />
-            {ts && (
-              <span className="comment-time gutter">
-                <PermalinkOrText post={post}><Time value={ts} variant="relative" /></PermalinkOrText>
-              </span>
-            )}
-          </div>
-        </header>
-        {text && <p className="comment-text">{renderPostText(text, facets)}</p>}
-        {embed && (
-          <div className="comment-embed">
-            <PostEmbed embed={embed} did={author.did} />
-          </div>
+    <article className="comment-card" data-at-uri={post.uri}>
+      <header className="comment-head">
+        {author.avatar ? (
+          <img
+            className="comment-avatar"
+            src={avatarThumb(author.avatar)}
+            alt=""
+            width={40}
+            height={40}
+            loading="lazy"
+          />
+        ) : (
+          <span className="comment-avatar comment-avatar-fallback" aria-hidden="true" />
         )}
-      </article>
-      {childReplies.length > 0 && (
-        <ul
-          className={
-            'comments-tree comments-tree-nested' +
-            (depth + 1 > REPLY_INDENT_CAP ? ' comments-tree-capped' : '')
-          }
-          data-depth={depth + 1}
-        >
-          {childReplies.map((child, i) => (
-            <ReplyNode key={child.post?.uri || i} node={child} depth={depth + 1} />
-          ))}
-        </ul>
+        <div className="comment-byline">
+          <AuthorLink author={author} />
+          {ts && (
+            <span className="comment-time gutter">
+              <PermalinkOrText post={post}><Time value={ts} variant="relative" /></PermalinkOrText>
+            </span>
+          )}
+        </div>
+      </header>
+      {text && <p className="comment-text">{renderPostText(text, facets)}</p>}
+      {embed && (
+        <div className="comment-embed">
+          <PostEmbed embed={embed} did={author.did} />
+        </div>
       )}
-    </li>
+    </article>
   );
 }
 
@@ -270,11 +338,4 @@ function PermalinkOrText({ post, children }) {
     );
   }
   return <span>{children}</span>;
-}
-
-function isRenderableReply(node) {
-  if (!node) return false;
-  if (node.$type === 'app.bsky.feed.defs#notFoundPost') return true;
-  if (node.$type === 'app.bsky.feed.defs#blockedPost') return true;
-  return Boolean(node.post);
 }

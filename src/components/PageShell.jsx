@@ -18,7 +18,8 @@ import { useChromeBar } from '../hooks/useChromeBar.jsx';
  * URL segment: a mothing night passes its day. A record page passes its own
  * rkey, so the chrome keeps the TID rather than borrowing the page's title.
  * `crumbDate` (an ISO instant) is printed at the right of the masthead's
- * trail: a post's date, where its page has no date line.
+ * trail: a post's date, where its page has no date line. `crumbNote` goes
+ * just before it: a thread post's place in its thread, "3 of 6".
  *
  * `facts` is a short line set under the title, before the intro: a gallery's
  * "Updated October 29, 2026 · 250 blocks · 2 years old".
@@ -34,6 +35,7 @@ export default function PageShell({
   headTitle,
   crumb = null,
   crumbDate = null,
+  crumbNote = null,
   selectable = false,
 }) {
   // Publish the route's backing record to edit mode so the owner's quick-edit
@@ -48,10 +50,10 @@ export default function PageShell({
   const { pathname } = useLocation();
   const { setCrumb } = useChromeBar();
   useEffect(() => {
-    if (!crumb && !crumbDate) return undefined;
-    setCrumb({ path: pathname, label: crumb, date: crumbDate });
+    if (!crumb && !crumbDate && !crumbNote) return undefined;
+    setCrumb({ path: pathname, label: crumb, date: crumbDate, note: crumbNote });
     return () => setCrumb((cur) => (cur?.path === pathname ? null : cur));
-  }, [crumb, crumbDate, pathname, setCrumb]);
+  }, [crumb, crumbDate, crumbNote, pathname, setCrumb]);
 
   return (
     <article className="page">

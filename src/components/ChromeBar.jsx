@@ -206,6 +206,7 @@ export default function ChromeBar() {
   // A post's date, at the right of the masthead's trail (PageShell's
   // `crumbDate`): its page has no date line of its own.
   const ownDate = pageCrumb?.path === mountedPath ? pageCrumb.date : null;
+  const ownNote = pageCrumb?.path === mountedPath ? pageCrumb.note : null;
   const titleLabel = !ownLabel && isDetailPage ? head.title : null;
   const crumbs = withPageLabel(baseCrumbs, ownLabel || titleLabel);
   const dayLabel = useCurrentDayLabel(mountedPath);
@@ -396,6 +397,7 @@ export default function ChromeBar() {
                   aria-hidden={reading ? undefined : true}
                 >
                   <Trail crumbs={crumbs} titled={!!titleLabel} />
+                  {ownNote && <span className="chrome-head-note">{ownNote}</span>}
                 </nav>
               )}
             </div>
@@ -505,6 +507,7 @@ export default function ChromeBar() {
             <nav className="chrome-breadcrumb" aria-label="Breadcrumb">
               <Trail crumbs={crumbs} titled={!!titleLabel} withRoot />
             </nav>
+            {ownNote && <span className="chrome-crumb-note">{ownNote}</span>}
             {ownDate && (
               <Time value={ownDate} variant="clock" className="chrome-crumb-date">
                 {crumbStamp(ownDate)}

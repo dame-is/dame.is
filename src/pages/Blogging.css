@@ -801,6 +801,163 @@
   overflow-wrap: anywhere;
 }
 
+/* A post's whole self-thread on its page (Record.jsx ThreadPosts): every
+   post at full size, numbered as the folded feed row numbers them, the one
+   the address names marked. Each post is the positioning context for its
+   number and its mark, and is scrolled to with the end of the post above it
+   still showing. */
+.record-thread {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-thread-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  max-width: none;
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.record-thread-span {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.record-thread .record-thread-post {
+  position: relative;
+  isolation: isolate;
+  scroll-margin-top: var(--space-7);
+}
+
+.record-thread-head + .record-thread-post {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* The number, raised at the start of the first line like a verse number,
+   in the margin's faint ink. Its time is in the stats line instead. */
+.record-thread-num {
+  margin-right: 0.3em;
+  font-size: 0.72em;
+  line-height: 0;
+  vertical-align: 0.42em;
+  font-variant-numeric: lining-nums;
+  color: var(--ink-faint);
+  text-decoration: none;
+}
+
+.record-thread-num-time {
+  display: none;
+}
+
+/* A post with no words keeps its number on a line of its own above what it
+   holds, as the folded feed row does. */
+.record-thread-bare {
+  line-height: 1;
+}
+
+.record-thread-bare .record-thread-num {
+  font-size: var(--text-xs);
+  line-height: 1;
+  vertical-align: baseline;
+}
+
+.record-thread-stats a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--ink-faint);
+}
+
+.record-thread-stats a:hover,
+.record-thread-stats a:focus-visible {
+  color: var(--ink);
+}
+
+/* The post the address names: its number in the accent for as long as the
+   page is open, and a wash behind it that fades once the page has settled on
+   it. A wash, not a bar: the feed's hover bar went for the same reason. */
+.record-thread-post.is-linked .record-thread-num {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.record-thread-post.is-linked::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: var(--thread-wash-top, calc(-1 * var(--space-2))) calc(-1 * var(--space-3))
+    calc(-1 * var(--space-2));
+  background: var(--highlight);
+  pointer-events: none;
+  animation: record-thread-linked 1.4s ease-out 1.6s both;
+}
+
+/* A post below another starts under the dotted rule, so its wash does too. */
+.record-thread-post + .record-thread-post.is-linked {
+  --thread-wash-top: var(--space-2);
+}
+
+@keyframes record-thread-linked {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Where the page's gutter has room, the number hangs in it with its time
+   under it, the way the ledger hangs its verbs, and the stats line drops
+   the time it carried on narrower screens. */
+@media (min-width: 1000px) {
+  .record-thread-num {
+    position: absolute;
+    top: calc(var(--thread-num-top, 0px) + 0.3em);
+    right: calc(100% + var(--space-3));
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.15;
+    vertical-align: baseline;
+  }
+
+  .record-thread-post + .record-thread-post {
+    --thread-num-top: var(--space-4);
+  }
+
+  .record-thread-num-time {
+    display: block;
+    font-size: var(--text-2xs);
+    font-weight: 400;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+
+  .record-thread-post.is-linked .record-thread-num-time {
+    color: var(--accent);
+  }
+
+  /* Its number out in the margin, a wordless post's own line is empty; it
+     gives back the gap it would open above the embed. */
+  .record-thread-bare {
+    margin-bottom: calc(-1 * var(--space-2));
+  }
+
+  .record-thread-stats-time {
+    display: none;
+  }
+
+  .record-thread-stats-bare {
+    display: none;
+  }
+}
+
 /* The printed colophon (BlogPost.jsx PrintColophon) exists only on paper. */
 .blog-print-colophon {
   display: none;
