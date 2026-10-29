@@ -1983,10 +1983,11 @@ a.reference-card-profile:focus-visible {
 }
 
 /* A row says it's a link. On hover (pointer devices only, see the note in
-   typography.css) or while one of its links has keyboard focus, a 2px accent
-   bar marks it in the left margin like a reader's pencil, and its gerund and
-   time underline. No wash, no shadow; a tap still opens the row. X-ray draws
-   its own bracket there (::before, Xray.css), so this is the ::after. */
+   typography.css) its gerund and time underline. While one of its links has
+   keyboard focus, a 2px accent bar also marks it in the left margin like a
+   reader's pencil; hover leaves the margin alone. No wash, no shadow; a tap
+   still opens the row. X-ray draws its own bracket there (::before,
+   Xray.css), so this is the ::after. */
 .feed-ledger .feed-item-ledger {
   position: relative;
 }
@@ -2022,10 +2023,6 @@ a.reference-card-profile:focus-visible {
 }
 
 @media (hover: hover) {
-  .feed-ledger .feed-item-ledger:hover::after {
-    opacity: 1;
-  }
-
   .feed-item-ledger:hover > a.ledger-verb,
   .feed-item-ledger:hover > .ledger-verb > a,
   .feed-item-ledger:hover > a.ledger-time,
