@@ -14,6 +14,7 @@ import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyMarkUrl } from '../lib/skyAvatars.js';
 import { SKY_BANDS, skyHourLabel } from '../lib/skyTheme.js';
 import { buildCrumbs, parentPathFor } from '../lib/breadcrumbs.js';
+import { crumbStamp } from '../lib/recordPlate.js';
 import { shortDayLabel } from '../lib/shortDayLabel.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useXray } from '../hooks/useXray.jsx';
@@ -51,6 +52,7 @@ import GuestbookSheet from './GuestbookSheet.jsx';
 import DebugSheet from './DebugSheet.jsx';
 import SkyHourSheet from './SkyHourSheet.jsx';
 import Footer from './Footer.jsx';
+import Time from './Time.jsx';
 import './ChromeBar.css';
 
 // The home handle is a router <Link>; wrap it so it can participate in the
@@ -201,6 +203,9 @@ export default function ChromeBar() {
   // through PageShell's `crumb` ("Oct 26 · 5:36 pm" rather than a record's
   // rkey), else on a detail page the title it shows, rather than its slug.
   const ownLabel = pageCrumb?.path === mountedPath ? pageCrumb.label : null;
+  // A post's date, at the right of the masthead's trail (PageShell's
+  // `crumbDate`): its page has no date line of its own.
+  const ownDate = pageCrumb?.path === mountedPath ? pageCrumb.date : null;
   const titleLabel = !ownLabel && isDetailPage ? head.title : null;
   const crumbs = withPageLabel(baseCrumbs, ownLabel || titleLabel);
   const dayLabel = useCurrentDayLabel(mountedPath);
@@ -500,6 +505,11 @@ export default function ChromeBar() {
             <nav className="chrome-breadcrumb" aria-label="Breadcrumb">
               <Trail crumbs={crumbs} titled={!!titleLabel} withRoot />
             </nav>
+            {ownDate && (
+              <Time value={ownDate} variant="clock" className="chrome-crumb-date">
+                {crumbStamp(ownDate)}
+              </Time>
+            )}
             {stripNsid && <span className="chrome-crumb-nsid">{stripNsid}</span>}
           </div>
         )}

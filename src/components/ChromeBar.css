@@ -338,6 +338,25 @@
   text-align: right;
 }
 
+/* A post's date at the right of the masthead's trail, in the trail's own
+   type, the NSID (on a desktop) after it. The same 2px trim as the trail
+   sits it on the trail's line. */
+.chrome-crumb-date {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: calc(var(--space-2) - 2px) 0 var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.chrome-crumb-date + .chrome-crumb-nsid {
+  flex: 0 0 auto;
+  margin-left: var(--space-3);
+}
+
 .chrome-crumb-sep {
   color: var(--ink-faint);
   user-select: none;

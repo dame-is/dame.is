@@ -314,19 +314,25 @@ export default function Record({ verb, nsid, source }) {
   const createdAt = item?.createdAt;
   const sentence = item ? recordSentence(verb, item.payload || {}, { subject: subjectName }) : null;
   const all = allInSection(verb);
+  // A post is its own words, so its page opens on them: no title restating
+  // the post, no date line. The trail names it by rkey and carries its date
+  // at the right; the sentence stays the page's heading for a screen reader.
+  const isPost = verb === 'posting';
 
   return (
     <PageShell
-      title={sentence ? <RecordTitle sentence={sentence} /> : null}
+      title={sentence && !isPost ? <RecordTitle sentence={sentence} /> : null}
       atUri={atUri}
       cid={cid}
       headTitle={headTitleFor(verb, item, sentence)}
-      crumb={item ? crumbFor(verb, item) : null}
+      crumb={isPost ? rkey : item ? crumbFor(verb, item) : null}
+      crumbDate={isPost ? createdAt : null}
     >
       <article className="record-page">
+        {isPost && sentence && <h1 className="visually-hidden">{sentenceText(sentence)}</h1>}
         {/* One line in Dame's clock: the verb's past tense, the day, the time
             and the day of life. The relative age stays in the footer. */}
-        {item && createdAt && (
+        {item && createdAt && !isPost && (
           <p className="record-colophon">
             <VerbIcon verb={verb} size={13} aria-hidden="true" />
             {colophon(verb, createdAt)}

@@ -40,8 +40,8 @@ export function calendarDay(at) {
 
 /**
  * "Oct 26": the day `at` falls on, with the year only when it isn't `ref`'s
- * ("Oct 26, 2025"). The ledger's one absolute short date: a running date on
- * /logging, a day header's short form. '' for a bad date.
+ * ("Oct 26, 2025"). The ledger's one absolute short date: a day header's
+ * short form. '' for a bad date.
  */
 export function shortDay(at, ref = new Date()) {
   const s = formatDateShort(at);
