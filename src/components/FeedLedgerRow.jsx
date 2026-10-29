@@ -429,14 +429,7 @@ function summarize(item) {
   const payload = item.payload || {};
   switch (item.verb) {
     case 'logging':
-      // A status completes the sentence the site is named for, so the name
-      // runs into it in small caps: "dame.is playing tennis".
-      return (
-        <>
-          <span className="ledger-me">{ME_HANDLE}</span>{' '}
-          {plain(payload.status || payload.text, 'a status')}
-        </>
-      );
+      return plain(payload.status || payload.text, 'a status');
     case 'posting':
       return summarizePost(item);
     case 'blogging':

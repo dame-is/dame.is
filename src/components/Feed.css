@@ -2118,14 +2118,6 @@ a.ledger-verb:focus-visible,
   text-indent: 0;
 }
 
-/* A status runs into the name the site is named for: "dame.is playing
-   tennis", the name in small caps. */
-.ledger-me {
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
-  color: var(--ink-muted);
-}
-
 .ledger-text {
   font-family: var(--serif);
   font-size: var(--text-base);
