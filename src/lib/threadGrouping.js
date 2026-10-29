@@ -20,13 +20,16 @@
 //     continuesPrev: true if this post's parent is the post directly
 //                    above it in the rendered thread,
 //     rootAtUri: the atUri of the oldest post in the thread (for keys),
+//     selfReplies: how many posts in the thread reply to this one, which
+//                  its replyCount includes,
 //   }
 
 import { compareIsoDesc } from './time.js';
 
 const POSTING_VERB = 'posting';
 
-function selfReplyParentUri(item, myDid) {
+/** The at:// URI of the post of Dame's that `item` replies to, if any. */
+export function selfReplyParentUri(item, myDid) {
   if (item?.verb !== POSTING_VERB) return null;
   const parentUri = item.payload?.reply?.parent?.uri;
   if (!parentUri) return null;
@@ -63,8 +66,10 @@ export function groupSelfReplyThreads(items, myDid) {
     if (ra !== rb) parent[ra] = rb;
   }
 
-  // childIdx -> parentIdx (only when the parent is also in the feed)
+  // childIdx -> parentIdx (only when the parent is also in the feed), and
+  // parentIdx -> how many of its children are.
   const directParent = new Map();
+  const childCount = new Map();
   for (let i = 0; i < items.length; i++) {
     const parentUri = selfReplyParentUri(items[i], myDid);
     if (!parentUri) continue;
@@ -72,6 +77,7 @@ export function groupSelfReplyThreads(items, myDid) {
     if (pIdx === undefined) continue;
     union(i, pIdx);
     directParent.set(i, pIdx);
+    childCount.set(pIdx, (childCount.get(pIdx) || 0) + 1);
   }
 
   // Bucket items by root.
@@ -116,6 +122,7 @@ export function groupSelfReplyThreads(items, myDid) {
           anchorAt,
           continuesPrev,
           rootAtUri,
+          selfReplies: childCount.get(idx) || 0,
         },
       });
       consumed.add(idx);
@@ -123,6 +130,140 @@ export function groupSelfReplyThreads(items, myDid) {
   }
 
   return output;
+}
+
+/**
+ * Union-find over a feed's self-reply edges: `find(i)` names the thread item
+ * `i` belongs to (an item in none names itself).
+ */
+function threadFinder(items, myDid) {
+  const indexByUri = new Map();
+  items.forEach((item, i) => {
+    if (item?.atUri) indexByUri.set(item.atUri, i);
+  });
+  const parent = items.map((_, i) => i);
+  function find(x) {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+    return x;
+  }
+  for (let i = 0; i < items.length; i++) {
+    const pIdx = indexByUri.get(selfReplyParentUri(items[i], myDid));
+    if (pIdx === undefined) continue;
+    const a = find(i);
+    const b = find(pIdx);
+    if (a !== b) parent[a] = b;
+  }
+  return find;
+}
+
+/**
+ * A self-thread is one entry, so a view of the feed shows all of it or none
+ * of it: every item of `all` that shares a thread with something in `subset`
+ * joins `subset`. That's what lets a filter or search that matches one post
+ * bring the whole thread, and lets the feed's window, when a thread's newest
+ * post is in view, bring its older posts however far down they sit.
+ *
+ * `subset` holds items of `all` (the same objects). The result keeps `all`'s
+ * order; it's `subset` itself when nothing needed adding.
+ */
+export function completeSelfThreads(subset, all, myDid) {
+  if (!Array.isArray(subset) || !Array.isArray(all) || !myDid || !subset.length) {
+    return subset;
+  }
+  const find = threadFinder(all, myDid);
+  const wanted = new Set(subset);
+  const threads = new Set();
+  all.forEach((item, i) => {
+    if (wanted.has(item)) threads.add(find(i));
+  });
+  const out = [];
+  let added = 0;
+  all.forEach((item, i) => {
+    if (wanted.has(item)) {
+      out.push(item);
+      wanted.delete(item);
+    } else if (threads.has(find(i))) {
+      out.push(item);
+      added += 1;
+    }
+  });
+  if (!added) return subset;
+  // Anything of `subset` that `all` didn't hold keeps its place at the end.
+  return wanted.size ? [...out, ...wanted] : out;
+}
+
+/**
+ * The posts of Dame's that self-replies in `items` answer but that neither
+ * `items` nor `known` holds: a thread's earlier posts that were never loaded
+ * (older than the feed reaches). Sorted, so the list can key a fetch.
+ */
+export function missingSelfParents(items, known, myDid) {
+  if (!myDid) return [];
+  const have = new Set();
+  for (const item of [...(known || []), ...(items || [])]) {
+    if (item?.atUri) have.add(item.atUri);
+  }
+  const missing = new Set();
+  for (const item of items || []) {
+    const parentUri = selfReplyParentUri(item, myDid);
+    if (parentUri && !have.has(parentUri)) missing.add(parentUri);
+  }
+  return [...missing].sort();
+}
+
+/**
+ * The ledger's form of a self-thread: one row for the whole run. Takes the
+ * output of `groupSelfReplyThreads` and folds each thread's members (which it
+ * emits together, oldest first) into a single row that copies the oldest
+ * post's fields, so the row reads, dates and links like the thread's start,
+ * and carries every member, oldest first, as `_thread.posts`. Everything else
+ * passes through untouched.
+ */
+export function collapseSelfThreads(items) {
+  if (!Array.isArray(items)) return items;
+  const out = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const thread = item?._thread;
+    const posts = thread?.isFirst ? items.slice(i, i + thread.length) : null;
+    // Only a whole run folds: a member missing from the slice (it shouldn't
+    // be) leaves the rows as they were rather than dropping one.
+    const whole =
+      posts &&
+      posts.length === thread.length &&
+      posts.every((p, j) => p?._thread?.position === j);
+    if (!whole || posts.length < 2) {
+      out.push(item);
+      continue;
+    }
+    out.push({ ...item, _thread: { ...thread, posts } });
+    i += posts.length - 1;
+  }
+  return out;
+}
+
+/** Whether a row is a folded self-thread (see `collapseSelfThreads`). */
+export function isSelfThreadRow(item) {
+  return Array.isArray(item?._thread?.posts) && item._thread.posts.length > 1;
+}
+
+/**
+ * A folded thread's engagement, added up across its posts. Every post after
+ * the first is a reply to another post in the thread, and the AppView counts
+ * it in that parent's replies, so those come off: what's left is replies from
+ * anyone else (and any of Dame's that branch off the thread).
+ */
+export function threadEngagement(posts) {
+  const sum = (key) => posts.reduce((n, p) => n + (p?.payload?.[key] || 0), 0);
+  return {
+    likeCount: sum('likeCount'),
+    replyCount: Math.max(0, sum('replyCount') - (posts.length - 1)),
+    repostCount: sum('repostCount'),
+    quoteCount: sum('quoteCount'),
+  };
 }
 
 /**

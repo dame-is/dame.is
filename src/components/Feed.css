@@ -2053,6 +2053,54 @@ a.reference-card-profile:focus-visible {
   border-bottom-style: dashed;
 }
 
+/* A self-thread folded into one row (collapseSelfThreads, ThreadLedgerBody):
+   its posts stack as the paragraphs of one entry, under the row's one time,
+   and each starts with its number. */
+.ledger-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A post's number: small and raised, like a verse number, kept off the
+   line's height, and in the margin's faint ink rather than the body's link
+   accent. */
+.ledger-thread-num {
+  margin-right: 0.3em;
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: 0.4em;
+  font-variant-numeric: lining-nums;
+}
+
+.ledger-body a.ledger-thread-num {
+  color: var(--ink-faint);
+}
+
+/* A post with no words (a picture, a link card) has no first line to start
+   its number, so the number sits beside the embed's top edge instead, where
+   that line would have begun. */
+.ledger-thread-post:has(> .ledger-thread-bare) {
+  display: flex;
+  align-items: flex-start;
+}
+
+.ledger-thread-bare {
+  flex: none;
+}
+
+.ledger-thread-post > .ledger-thread-bare + .ledger-embed {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+}
+
+/* A post after a picture or card stands a little clear of it, so its number
+   reads as starting the next post rather than captioning the one above. */
+.ledger-thread-post:has(> .ledger-embed) + .ledger-thread-post {
+  margin-top: var(--space-1);
+}
+
 /* The margin's gerund links to its section; it keeps the column's ink. */
 .ledger-verb-link {
   color: inherit;
@@ -2854,7 +2902,6 @@ a.ledger-time:focus-visible {
     grid-area: counts;
     margin-top: 0;
   }
-
   /* An opened session's songs and a night's sightings span the column,
      under the caption. */
   :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-track-row {

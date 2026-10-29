@@ -16,7 +16,13 @@ import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.js
 import { formatTime, groupByDay } from '../lib/time.js';
 import { getAuthorFeed } from '../lib/atproto.js';
 import { blueskyPostToFeedItem } from '../lib/feedBuilder.js';
-import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
+import {
+  collapseSelfThreads,
+  completeSelfThreads,
+  groupSelfReplyThreads,
+  threadAwareDateKey,
+} from '../lib/threadGrouping.js';
+import { useThreadBackfill } from '../hooks/useThreadBackfill.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -45,13 +51,27 @@ export default function Posting() {
     () => (items || []).filter((i) => !removedUris.has(i.atUri)),
     [items, removedUris],
   );
+  // One of Dame's self-threads is one entry: when a filter or search lets
+  // any of its posts through, the rest come with it.
   const filtered = useMemo(
-    () => filterPostingItems(safeItems, params, ME_DID),
+    () => completeSelfThreads(filterPostingItems(safeItems, params, ME_DID), safeItems, ME_DID),
     [safeItems, params],
   );
   const feedWindow = useFeedWindow(filtered, params.toString());
-  const { visible } = feedWindow;
-  const threaded = useMemo(() => groupSelfReplyThreads(visible, ME_DID), [visible]);
+  // And a thread in view comes whole, however far back its first post sits:
+  // further down the list, or older than the fetch reached (fetched here).
+  const backfill = useThreadBackfill(feedWindow.visible, safeItems, ME_DID);
+  const visible = useMemo(() => {
+    const have = new Set(safeItems.map((item) => item.atUri));
+    const extra = backfill.filter((post) => !have.has(post.atUri));
+    const pool = extra.length ? [...filtered, ...extra] : filtered;
+    return completeSelfThreads(feedWindow.visible, pool, ME_DID);
+  }, [feedWindow.visible, filtered, safeItems, backfill]);
+  // As on home, the ledger sets a self-thread as one row.
+  const threaded = useMemo(() => {
+    const grouped = groupSelfReplyThreads(visible, ME_DID);
+    return ledger ? collapseSelfThreads(grouped) : grouped;
+  }, [visible, ledger]);
   const groups = groupByDay(threaded, threadAwareDateKey);
 
   // Feed page: report the newest visible record's time in the global footer.
