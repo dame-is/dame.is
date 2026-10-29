@@ -245,3 +245,7 @@ a.comment-author-name:focus-visible {
 .comments-empty-line .small-caps {
   letter-spacing: 0.12em;
 }
+
+.comments-empty-action {
+  margin-left: auto;
+}

@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CornerDownRight } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import PostCard from '../components/PostCard.jsx';
 import ListenRow from '../components/ListenRow.jsx';
@@ -12,7 +11,7 @@ import FlushCard from '../components/cards/FlushCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
-import AturiActions from '../components/AturiActions.jsx';
+import AturiActions, { OpenInButton } from '../components/AturiActions.jsx';
 import SequenceFoot from '../components/SequenceFoot.jsx';
 import VitalsChip from '../components/VitalsChip.jsx';
 import VerbIcon from '../components/VerbIcon.jsx';
@@ -318,6 +317,12 @@ export default function Record({ verb, nsid, source }) {
   // the post, no date line. The trail names it by rkey and carries its date
   // at the right; the sentence stays the page's heading for a screen reader.
   const isPost = verb === 'posting';
+  // No replies section under a repost whose post is gone: there is no thread
+  // to read, and "No replies yet" would claim there is.
+  const hasReplies = Boolean(threadMode && item?.atUri && !item.payload?.subjectMissing);
+  // A post's "Open in…" sits at the right of its Replies heading, in place of
+  // the row of actions under the record.
+  const openInReplies = isPost && hasReplies;
 
   return (
     <PageShell
@@ -359,7 +364,7 @@ export default function Record({ verb, nsid, source }) {
           </div>
         )}
 
-        {item && (
+        {item && !openInReplies && (
           <AturiActions atUri={atUri}>
             {verb === 'listening' &&
               musicLinksFor(item.payload).map((l) => (
@@ -370,13 +375,12 @@ export default function Record({ verb, nsid, source }) {
           </AturiActions>
         )}
 
-        {/* No replies section under a repost whose post is gone: there is no
-            thread to read, and "No replies yet" would claim there is. */}
-        {threadMode && item?.atUri && !item.payload?.subjectMissing && (
+        {hasReplies && (
           <Comments
             atUri={item?.payload?.subjectUri || item.atUri}
             replies={replies}
             status={repliesStatus}
+            action={openInReplies ? <OpenInButton atUri={atUri} /> : null}
           />
         )}
 
@@ -883,44 +887,16 @@ function splitSelfThread(rootNode, authorDid) {
 
 /**
  * One continuation post in the author's self-reply thread, rendered as a
- * full-size post in the main area (not a nested reply). A dotted rule and a
- * "↳ continued" marker tie it to the post above; the timestamp links to the
- * post's own record page.
+ * full-size post in the main area (not a nested reply), tied to the post
+ * above by a dotted rule and nothing else: it reads on as the same post.
  */
 function SelfThreadPost({ item }) {
   const text = item.payload?.text || '';
   const facets = item.payload?.facets || null;
   const embed = item.payload?.embed || item.payload?.embedRecord || null;
-  const author = item.payload?.author || null;
-  const authorDid = author?.did;
-  const ts = item.createdAt || item.payload?.indexedAt;
-  // Local permalink only for the author's own posts (the only records this
-  // site hosts); a reposted foreign thread links its continuations out to
-  // bsky.app instead, matching the parent-chain treatment above.
-  const isMine = authorDid === ME_DID;
-  const localHref = isMine ? recordPathFromAtUri(item.atUri) : null;
-  const externalHref = !isMine && author?.handle && item.atUri
-    ? `https://bsky.app/profile/${author.handle}/post/${item.atUri.split('/').pop()}`
-    : null;
+  const authorDid = item.payload?.author?.did;
   return (
     <article className="record-thread-post" data-at-uri={item.atUri}>
-      <header className="record-thread-head">
-        <span className="record-thread-cont small-caps">
-          <CornerDownRight size={12} strokeWidth={1.75} aria-hidden="true" />
-          continued
-        </span>
-        {ts && (
-          <span className="gutter record-thread-time">
-            {localHref ? (
-              <Link to={localHref}><Time value={ts} variant="relative" /></Link>
-            ) : externalHref ? (
-              <a href={externalHref} target="_blank" rel="noreferrer noopener"><Time value={ts} variant="relative" /></a>
-            ) : (
-              <Time value={ts} variant="relative" />
-            )}
-          </span>
-        )}
-      </header>
       {text && <p className="record-thread-text">{renderPostText(text, facets)}</p>}
       {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
     </article>

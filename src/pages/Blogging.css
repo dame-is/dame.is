@@ -776,12 +776,11 @@
 
 /* Author's own self-reply continuation, lifted into the main post area and
    stacked below the focused post as one linear thread. Full-size posts (not
-   nested replies); each is tied to the one above by a dotted rule and a
-   quiet "↳ continued" marker. */
+   nested replies), each tied to the one above by a dotted rule alone, with
+   the same space either side of it. */
 .record-self-thread {
   display: flex;
   flex-direction: column;
-  margin-top: var(--space-5);
 }
 
 .record-thread-post {
@@ -791,36 +790,6 @@
   padding-top: var(--space-4);
   margin-top: var(--space-4);
   border-top: 1px dotted var(--rule);
-}
-
-.record-thread-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-}
-
-.record-thread-cont {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-}
-
-.record-thread-time {
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-.record-thread-time a {
-  color: var(--ink-faint);
-  text-decoration: none;
-  border-bottom: 1px dotted transparent;
-}
-
-.record-thread-time a:hover,
-.record-thread-time a:focus-visible {
-  border-bottom-color: var(--ink-faint);
 }
 
 .record-thread-text {
