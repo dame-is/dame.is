@@ -21,8 +21,12 @@ const ACTIVITY_ICON = {
  * the status. Pass a pre-hydrated `vitals` object, or a `stateRef` to hydrate
  * lazily (snapshot-first, live fallback). Renders nothing until it resolves, so
  * a status with no ref — or an unresolvable one — shows exactly as before.
+ *
+ * `variant="facts"` sets the same readings as plain words for a record page's
+ * facts line ("65 bpm · stationary · 189 cal"), with no glyphs or second
+ * typeface, so they read as one block with the date above them.
  */
-export default function VitalsChip({ stateRef, vitals: provided }) {
+export default function VitalsChip({ stateRef, vitals: provided, variant = 'chip' }) {
   const [vitals, setVitals] = useState(provided || null);
 
   useEffect(() => {
@@ -47,6 +51,19 @@ export default function VitalsChip({ stateRef, vitals: provided }) {
   const hasBody =
     vitals.heartRate != null || vitals.activity || vitals.caloriesBurned != null;
   if (!hasBody) return null;
+
+  if (variant === 'facts') {
+    const parts = [
+      vitals.heartRate != null && `${vitals.heartRate} bpm`,
+      vitals.activity && activityLabel(vitals.activity).toLowerCase(),
+      vitals.caloriesBurned != null && `${vitals.caloriesBurned} cal`,
+    ].filter(Boolean);
+    return (
+      <p className="vitals-line" aria-label="Body-state captured with this status">
+        {parts.join(' · ')}
+      </p>
+    );
+  }
 
   const ActivityIcon = (vitals.activity && ACTIVITY_ICON[vitals.activity]) || PersonStanding;
 

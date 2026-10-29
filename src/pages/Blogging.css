@@ -646,24 +646,23 @@
   }
 }
 
-.record-colophon {
-  display: flex;
-  align-items: center;
-  gap: 0.45em;
-  max-width: none;
-  margin: 0 0 var(--space-5);
+/* The record's facts under its title: the colophon, and a status's
+   body-state under it. Set as a page's facts line is (app.css .page-facts),
+   in sentence case and the reading face, and pulled up to the title out of
+   the page's usual gap, so the two lines read as one block with it. */
+.record-facts {
+  margin: calc(-1 * var(--space-4)) 0 var(--space-5);
   font-family: var(--sans);
   font-size: var(--text-meta);
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
+  line-height: 1.35;
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
-  text-indent: 0;
 }
 
-.record-colophon svg {
-  flex: none;
-  color: var(--accent);
+.record-facts > p {
+  max-width: none;
+  margin: 0;
+  text-indent: 0;
 }
 
 /* `max-width: none` because the global `p` cap is 65ch of this smaller type,

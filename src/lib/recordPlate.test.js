@@ -83,7 +83,7 @@ describe("Dame's clock", () => {
   });
 
   it('writes the colophon with the past tense and the day of life', () => {
-    expect(colophon('logging', iso)).toBe('logged Monday, October 26, 2026 · 5:36 pm · day 12,226');
+    expect(colophon('logging', iso)).toBe('Logged Monday, October 26, 2026 · 5:36 pm · day 12,226');
   });
 
   it("counts the day of life on Dame's calendar day, whatever the instant", () => {

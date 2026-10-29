@@ -14,7 +14,6 @@ import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions, { OpenInButton } from '../components/AturiActions.jsx';
 import SequenceFoot from '../components/SequenceFoot.jsx';
 import VitalsChip from '../components/VitalsChip.jsx';
-import VerbIcon from '../components/VerbIcon.jsx';
 import Time from '../components/Time.jsx';
 import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
 import {
@@ -335,13 +334,17 @@ export default function Record({ verb, nsid, source }) {
     >
       <article className="record-page">
         {isPost && sentence && <h1 className="visually-hidden">{sentenceText(sentence)}</h1>}
-        {/* One line in Dame's clock: the verb's past tense, the day, the time
-            and the day of life. The relative age stays in the footer. */}
+        {/* The record's facts, set under the title as a page's facts line is:
+            the verb's past tense, the day, the time and the day of life in
+            Dame's clock, then a status's body-state on a line of its own. The
+            relative age stays in the footer. */}
         {item && createdAt && !isPost && (
-          <p className="record-colophon">
-            <VerbIcon verb={verb} size={13} aria-hidden="true" />
-            {colophon(verb, createdAt)}
-          </p>
+          <div className="record-facts">
+            <p className="record-colophon">{colophon(verb, createdAt)}</p>
+            {verb === 'logging' && item.payload?.stateRef?.uri && (
+              <VitalsChip stateRef={item.payload.stateRef} variant="facts" />
+            )}
+          </div>
         )}
 
         {threadMode && parents.length > 0 && (
@@ -595,9 +598,9 @@ function RecordBody({ verb, item, ownReplies = 0 }) {
     case 'reposting':
       return <PostCard {...item} variant="record" ownReplies={ownReplies} />;
     case 'logging':
-      // The status is the page's H1, so the body is what it carries beyond
-      // its words: the body-state captured with it, when it has one.
-      return item.payload?.stateRef?.uri ? <VitalsChip stateRef={item.payload.stateRef} /> : null;
+      // The status is the page's H1 and its body-state sits in the facts
+      // under it, so there is no body.
+      return null;
     case 'listening':
       return (
         <>
