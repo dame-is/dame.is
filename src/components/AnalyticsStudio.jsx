@@ -29,8 +29,11 @@ import {
   MessagesSquare,
   Quote,
   Repeat2,
-  Users,
 } from 'lucide-react';
+import Button from './Button.jsx';
+import Figures from './Figures.jsx';
+import SectionHead from './SectionHead.jsx';
+import Segmented from './Segmented.jsx';
 import { ME_HANDLE } from '../config.js';
 import { getProfile, resolvePds } from '../lib/atproto.js';
 import {
@@ -120,48 +123,31 @@ export default function AnalyticsStudio({ agent, did }) {
         <FirstRun archive={archive} />
       ) : (
         <>
-          <nav className="an-tabs" aria-label="Analytics sections">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                className={`an-tab${tab === t.key ? ' is-active' : ''}`}
-                aria-current={tab === t.key ? 'true' : undefined}
-                onClick={() => setTab(t.key)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
+          {/* The six sections, then the window and (where it applies) the
+              kind of engagement: three rows of keys, each the kit's
+              Segmented, so "which one is on" reads the same in all three. */}
+          <Segmented
+            className="an-tabs"
+            label="Analytics sections"
+            value={tab}
+            onChange={setTab}
+            options={TABS.map((t) => ({ value: t.key, label: t.label }))}
+          />
 
           <div className="an-filters">
-            <div className="an-chiprow" role="group" aria-label="Period">
-              {ANALYTICS_PERIODS.map((p) => (
-                <button
-                  key={p.key}
-                  type="button"
-                  className={`an-chip${periodKey === p.key ? ' is-active' : ''}`}
-                  aria-pressed={periodKey === p.key}
-                  onClick={() => setPeriodKey(p.key)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="Period"
+              value={periodKey}
+              onChange={setPeriodKey}
+              options={ANALYTICS_PERIODS.map((p) => ({ value: p.key, label: p.label }))}
+            />
             {showKind && (
-              <div className="an-chiprow" role="group" aria-label="Engagement type">
-                {kinds.map((k) => (
-                  <button
-                    key={k.key}
-                    type="button"
-                    className={`an-chip${kind === k.key ? ' is-active' : ''}`}
-                    aria-pressed={kind === k.key}
-                    onClick={() => setKind(k.key)}
-                  >
-                    {k.label}
-                  </button>
-                ))}
-              </div>
+              <Segmented
+                label="Engagement type"
+                value={kind}
+                onChange={setKind}
+                options={kinds.map((k) => ({ value: k.key, label: k.label }))}
+              />
             )}
           </div>
 
@@ -625,9 +611,9 @@ function SyncStrip({ archive }) {
         <span className="an-strip-track" aria-hidden="true">
           <span className="an-strip-fill" style={{ width: pct != null ? `${pct}%` : '30%' }} data-indeterminate={pct == null ? '' : undefined} />
         </span>
-        <button type="button" className="an-strip-cancel" onClick={cancelSync}>
+        <Button size="sm" onClick={cancelSync}>
           Cancel
-        </button>
+        </Button>
       </div>
     );
   }
@@ -650,21 +636,21 @@ function SyncStrip({ archive }) {
       {syncError && <span className="an-strip-error">{syncError}</span>}
       <span className="an-strip-actions">
         {!pm.complete && (
-          <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={() => archive.runSync('resume')}>
+          <Button size="sm" onClick={() => archive.runSync('resume')}>
             Resume build
-          </button>
+          </Button>
         )}
-        <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={() => runSync('incremental')}>
+        <Button size="sm" onClick={() => runSync('incremental')}>
           Sync
-        </button>
-        <button
-          type="button"
-          className="an-strip-rebuild"
+        </Button>
+        <Button
+          size="sm"
+          variant="text"
           title="Clear the post archive and rebuild it from the AppView — the only way deleted posts leave, and old posts' counts fully refresh."
           onClick={() => runSync('full')}
         >
           Rebuild
-        </button>
+        </Button>
       </span>
     </div>
   );
@@ -672,9 +658,8 @@ function SyncStrip({ archive }) {
 
 function FirstRun({ archive }) {
   return (
-    <div className="an-hero">
-      <Users className="an-hero-glyph" size={22} aria-hidden="true" />
-      <h2 className="an-hero-title">Build the archive</h2>
+    <section className="an-first" aria-labelledby="an-first-head">
+      <SectionHead id="an-first-head" title="Build the archive" />
       <p className="an-hero-body">
         Analytics are derived client-side from your own data: the repo’s own archive (one download
         that yields every record in every collection, all-time), every current follower with the
@@ -689,10 +674,12 @@ function FirstRun({ archive }) {
             ? ' Another dame.is tab is holding the archive open, so a build here would only last the session. Close that tab, then reload this one to keep it.'
             : ' This browser is blocking IndexedDB, so the archive will only last the session.')}
       </p>
-      <button type="button" className="admin-gate-button" onClick={() => archive.runSync('full')} disabled={Boolean(archive.sync)}>
-        Build the archive
-      </button>
-    </div>
+      <div>
+        <Button variant="primary" onClick={() => archive.runSync('full')} disabled={Boolean(archive.sync)}>
+          Build the archive
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -758,38 +745,50 @@ function FollowersTab({ archive, period, nowMs }) {
   const cumulative = mode === 'cumulative' || together;
   return (
     <section className="an-panel" aria-label="Follower growth">
-      <div className="an-tiles">
-        <StatTile
-          label="Followers"
-          value={model.total}
-          sub={
-            counterGap != null && counterGap !== 0
-              ? `${profileCount.toLocaleString('en-US')} on the profile`
-              : null
-          }
-        />
-        <StatTile
-          label={`New in ${period.label.toLowerCase()}`}
-          value={model.gained}
-          delta={period.days ? model.compare.pct : null}
-          deltaTitle={period.days ? `vs previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}` : null}
-        />
-        <StatTile label="Per day" value={model.perDay < 10 ? Math.round(model.perDay * 10) / 10 : Math.round(model.perDay)} exact />
-      </div>
+      <Figures
+        className="an-figures"
+        label="Followers in figures"
+        items={[
+          stat({
+            label: 'Followers',
+            value: model.total,
+            sub:
+              counterGap != null && counterGap !== 0
+                ? `${profileCount.toLocaleString('en-US')} on the profile`
+                : null,
+          }),
+          stat({
+            label: `New in ${period.label.toLowerCase()}`,
+            value: model.gained,
+            delta: period.days ? model.compare.pct : null,
+            deltaTitle: period.days
+              ? `vs previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
+              : null,
+          }),
+          stat({
+            label: 'Per day',
+            value: model.perDay < 10 ? Math.round(model.perDay * 10) / 10 : Math.round(model.perDay),
+            exact: true,
+          }),
+        ]}
+      />
 
       <div className="an-card">
-        <div className="an-card-head">
-          <h3 className="an-card-title">Growth</h3>
-          <ModeToggle
-            value={mode}
-            onChange={setMode}
-            options={[
-              { key: 'cumulative', label: 'Cumulative' },
-              { key: 'together', label: 'Together' },
-              ...model.units.map((u) => ({ key: u, label: unitLabel(u) })),
-            ]}
-          />
-        </div>
+        <SectionHead
+          as="h3"
+          title="Growth"
+          meta={
+            <ModeToggle
+              value={mode}
+              onChange={setMode}
+              options={[
+                { key: 'cumulative', label: 'Cumulative' },
+                { key: 'together', label: 'Together' },
+                ...model.units.map((u) => ({ key: u, label: unitLabel(u) })),
+              ]}
+            />
+          }
+        />
         <SeriesChart
           series={cumulative ? model.cumulative : model.counts}
           seriesLabel={together ? 'Followers' : null}
@@ -947,38 +946,41 @@ function BlocksTab({ archive, period, nowMs }) {
       : null;
   return (
     <section className="an-panel" aria-label="Blocks received">
-      <div className="an-tiles">
-        <StatTile label="Current block reach" value={model.total} />
-        <StatTile label="Direct blocks" value={model.directTotal} />
-        <StatTile label="Via moderation lists" value={model.listTotal} />
-        <StatTile
-          label={`New in ${period.label.toLowerCase()}`}
-          value={model.received}
-          delta={period.days ? model.compare.pct : null}
-          deltaTitle={
-            period.days
+      <Figures
+        className="an-figures"
+        label="Blocks in figures"
+        items={[
+          stat({ label: 'Current block reach', value: model.total }),
+          stat({ label: 'Direct blocks', value: model.directTotal }),
+          stat({ label: 'Via moderation lists', value: model.listTotal }),
+          stat({
+            label: `New in ${period.label.toLowerCase()}`,
+            value: model.received,
+            delta: period.days ? model.compare.pct : null,
+            deltaTitle: period.days
               ? `vs previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
-              : null
-          }
-        />
-      </div>
+              : null,
+          }),
+        ]}
+      />
 
       <div className="an-card">
-        <div className="an-card-head">
-          <h3 className="an-card-title">
-            {together ? 'Followers & block reach' : stacked ? 'Block reach by path' : 'Blocks received'}
-          </h3>
-          <ModeToggle
-            value={mode}
-            onChange={setMode}
-            options={[
-              { key: 'cumulative', label: 'Cumulative' },
-              { key: 'stacked', label: 'Stacked' },
-              { key: 'together', label: 'Together' },
-              ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit) })),
-            ]}
-          />
-        </div>
+        <SectionHead
+          as="h3"
+          title={together ? 'Followers & block reach' : stacked ? 'Block reach by path' : 'Blocks received'}
+          meta={
+            <ModeToggle
+              value={mode}
+              onChange={setMode}
+              options={[
+                { key: 'cumulative', label: 'Cumulative' },
+                { key: 'stacked', label: 'Stacked' },
+                { key: 'together', label: 'Together' },
+                ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit) })),
+              ]}
+            />
+          }
+        />
         <SeriesChart
           series={chartSeries}
           seriesLabel={together ? 'Followers' : stacked ? 'Direct' : null}
@@ -1067,27 +1069,50 @@ function PostsTab({ archive, period, nowMs }) {
 
   return (
     <section className="an-panel" aria-label="Posting trends">
-      <div className="an-tiles">
-        <StatTile
-          label={`Posts in ${period.label.toLowerCase()}`}
-          value={model.count}
-          delta={period.days ? model.compare.pct : null}
-          deltaTitle={period.days ? `vs previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}` : null}
-        />
-        <StatTile label="Per day" value={model.perDay < 10 ? Math.round(model.perDay * 10) / 10 : Math.round(model.perDay)} exact />
-        <StatTile label="Replies" value={model.count ? Math.round((model.replies / model.count) * 100) : 0} unit="%" exact />
-        <StatTile label="With media" value={model.count ? Math.round((model.withMedia / model.count) * 100) : 0} unit="%" exact />
-      </div>
+      <Figures
+        className="an-figures"
+        label="Posts in figures"
+        items={[
+          stat({
+            label: `Posts in ${period.label.toLowerCase()}`,
+            value: model.count,
+            delta: period.days ? model.compare.pct : null,
+            deltaTitle: period.days
+              ? `vs previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
+              : null,
+          }),
+          stat({
+            label: 'Per day',
+            value: model.perDay < 10 ? Math.round(model.perDay * 10) / 10 : Math.round(model.perDay),
+            exact: true,
+          }),
+          stat({
+            label: 'Replies',
+            value: model.count ? Math.round((model.replies / model.count) * 100) : 0,
+            unit: '%',
+            exact: true,
+          }),
+          stat({
+            label: 'With media',
+            value: model.count ? Math.round((model.withMedia / model.count) * 100) : 0,
+            unit: '%',
+            exact: true,
+          }),
+        ]}
+      />
 
       <div className="an-card">
-        <div className="an-card-head">
-          <h3 className="an-card-title">Posts per {unitNoun(model.unit)}</h3>
-          <ModeToggle
-            value={model.unit}
-            onChange={setUnitPick}
-            options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
-          />
-        </div>
+        <SectionHead
+          as="h3"
+          title={`Posts per ${unitNoun(model.unit)}`}
+          meta={
+            <ModeToggle
+              value={model.unit}
+              onChange={setUnitPick}
+              options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
+            />
+          }
+        />
         <SeriesChart
           series={model.counts}
           trend={model.trend}
@@ -1151,26 +1176,35 @@ function EngagementTab({ archive, period, kind, nowMs }) {
 
   return (
     <section className="an-panel" aria-label="Engagement">
-      <div className="an-tiles">
-        <StatTile
-          label={kind === 'all' ? 'Engagement received' : `${head} received`}
-          value={model.total}
-          delta={period.days ? model.compare.pct : null}
-          deltaTitle={period.days ? `on posts from the previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}` : null}
-        />
-        <StatTile label="Per post" value={Math.round(model.perPost * 10) / 10} exact />
-        <StatTile label="Best post" value={model.top.length ? engagementOf(model.top[0], kind) : 0} />
-      </div>
+      <Figures
+        className="an-figures"
+        label="Engagement in figures"
+        items={[
+          stat({
+            label: kind === 'all' ? 'Engagement received' : `${head} received`,
+            value: model.total,
+            delta: period.days ? model.compare.pct : null,
+            deltaTitle: period.days
+              ? `on posts from the previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
+              : null,
+          }),
+          stat({ label: 'Per post', value: Math.round(model.perPost * 10) / 10, exact: true }),
+          stat({ label: 'Best post', value: model.top.length ? engagementOf(model.top[0], kind) : 0 }),
+        ]}
+      />
 
       <div className="an-card">
-        <div className="an-card-head">
-          <h3 className="an-card-title">{head} by post date</h3>
-          <ModeToggle
-            value={model.unit}
-            onChange={setUnitPick}
-            options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
-          />
-        </div>
+        <SectionHead
+          as="h3"
+          title={`${head} by post date`}
+          meta={
+            <ModeToggle
+              value={model.unit}
+              onChange={setUnitPick}
+              options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
+            />
+          }
+        />
         <SeriesChart
           series={model.series}
           trend={model.trend}
@@ -1187,7 +1221,7 @@ function EngagementTab({ archive, period, kind, nowMs }) {
       </div>
 
       <div className="an-card">
-        <h3 className="an-card-title">Top posts</h3>
+        <SectionHead as="h3" title="Top posts" />
         {model.top.length === 0 ? (
           <p className="an-empty">No posts in this window.</p>
         ) : (
@@ -1288,18 +1322,28 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
     <section className="an-panel" aria-label="People">
       <div className="an-people">
         <div className="an-card">
-          <h3 className="an-card-title">
-            <MessagesSquare size={13} aria-hidden="true" className="an-card-glyph" />
-            They engage with you
-          </h3>
+          <SectionHead
+            as="h3"
+            title={
+              <>
+                <MessagesSquare size={18} aria-hidden="true" className="an-card-glyph" />
+                They engage with you
+              </>
+            }
+          />
           <ActorList rows={model.inTop} cardFor={cardFor} empty="No inbound engagement recorded in this window yet — sync to gather notifications." />
           {inCoverage && <p className="an-card-caption">{inCoverage}</p>}
         </div>
         <div className="an-card">
-          <h3 className="an-card-title">
-            <Heart size={13} aria-hidden="true" className="an-card-glyph" />
-            You engage with them
-          </h3>
+          <SectionHead
+            as="h3"
+            title={
+              <>
+                <Heart size={18} aria-hidden="true" className="an-card-glyph" />
+                You engage with them
+              </>
+            }
+          />
           {kind === 'mention' ? (
             <p className="an-empty">Mentions are tracked inbound only.</p>
           ) : (
@@ -1395,17 +1439,19 @@ function AtmosphereTab({ archive, period, nowMs }) {
     // No repo archive yet — either it is being pulled right now, or the
     // last pull failed and the sync error in the strip says why.
     return (
-      <section className="an-panel an-hero" aria-label="Atmosphere">
-        <h2 className="an-hero-title">The whole repo, not just Bluesky</h2>
+      <section className="an-panel an-first" aria-labelledby="an-atmo-head">
+        <SectionHead id="an-atmo-head" title="The whole repo, not just Bluesky" />
         <p className="an-hero-body">
           One sync downloads the repo&rsquo;s own archive — every record in every collection, back
           to the very first — and charts what got written when.
           {sync ? ' Syncing now…' : ' Run a sync to build it.'}
         </p>
         {!sync && (
-          <button type="button" className="admin-gate-button" onClick={() => archive.runSync('incremental')}>
-            Sync now
-          </button>
+          <div>
+            <Button variant="primary" onClick={() => archive.runSync('incremental')}>
+              Sync now
+            </Button>
+          </div>
         )}
       </section>
     );
@@ -1413,29 +1459,35 @@ function AtmosphereTab({ archive, period, nowMs }) {
 
   return (
     <section className="an-panel" aria-label="Atmosphere">
-      <div className="an-tiles">
-        <StatTile label={`Records in ${period.label.toLowerCase()}`} value={model.total} />
-        <StatTile label="Collections" value={model.collections} exact />
-        <StatTile
-          label="Per day"
-          value={
-            model.total / model.spanDays < 10
-              ? Math.round((model.total / model.spanDays) * 10) / 10
-              : Math.round(model.total / model.spanDays)
-          }
-          exact
-        />
-      </div>
+      <Figures
+        className="an-figures"
+        label="The repo in figures"
+        items={[
+          stat({ label: `Records in ${period.label.toLowerCase()}`, value: model.total }),
+          stat({ label: 'Collections', value: model.collections, exact: true }),
+          stat({
+            label: 'Per day',
+            value:
+              model.total / model.spanDays < 10
+                ? Math.round((model.total / model.spanDays) * 10) / 10
+                : Math.round(model.total / model.spanDays),
+            exact: true,
+          }),
+        ]}
+      />
 
       <div className="an-card">
-        <div className="an-card-head">
-          <h3 className="an-card-title">Records written per {unitNoun(model.unit)}</h3>
-          <ModeToggle
-            value={model.unit}
-            onChange={setUnitPick}
-            options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
-          />
-        </div>
+        <SectionHead
+          as="h3"
+          title={`Records written per ${unitNoun(model.unit)}`}
+          meta={
+            <ModeToggle
+              value={model.unit}
+              onChange={setUnitPick}
+              options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
+            />
+          }
+        />
         <SeriesChart
           series={model.series}
           trend={model.trend}
@@ -1448,7 +1500,7 @@ function AtmosphereTab({ archive, period, nowMs }) {
       </div>
 
       <div className="an-card">
-        <h3 className="an-card-title">By collection</h3>
+        <SectionHead as="h3" title="By collection" />
         {model.ranked.length === 0 && <p className="an-empty">No records written in this window.</p>}
         <ol className="an-actors an-collections">
           {model.ranked.map((c) => {
@@ -1484,48 +1536,55 @@ function AtmosphereTab({ archive, period, nowMs }) {
 /* Shared pieces — tiles, toggles, the chart                            */
 /* ================================================================== */
 
-function StatTile({ label, value, unit = null, delta = undefined, deltaTitle = null, sub = null, exact = false, approx = false }) {
-  const shown = exact ? Number(value).toLocaleString('en-US') : fmtCompact(value);
-  // A delta renders whenever a comparison exists (deltaTitle names it); a null
-  // delta inside one is the "new" case — something over nothing has no honest
-  // percentage. No comparison, no delta element at all.
+/**
+ * One figure for the kit's Figures band: the label above, the number on the
+ * shared baseline, and a note under it carrying the qualifier (`sub`) and the
+ * change against the previous window (`delta`).
+ *
+ * A compact number ("1.2K") keeps the exact one as its tooltip. A delta renders
+ * whenever a comparison exists (deltaTitle names it); a null delta inside one
+ * is the "new" case, since something over nothing has no honest percentage.
+ * No comparison, no delta at all.
+ */
+function stat({ label, value, unit = null, delta = undefined, deltaTitle = null, sub = null, exact = false, approx = false }) {
+  const full = Number(value).toLocaleString('en-US');
+  const shown = exact ? full : fmtCompact(value);
   const hasDelta = deltaTitle != null;
-  return (
-    <div className="an-tile">
-      <span className="an-tile-value" title={exact ? undefined : Number(value).toLocaleString('en-US')}>
+  const direction = delta != null && delta > 0 ? ' is-up' : delta != null && delta < 0 ? ' is-down' : '';
+  return {
+    key: label,
+    label,
+    value: (
+      <span title={exact ? undefined : full}>
         {approx ? '~' : ''}
         {shown}
-        {unit && <span className="an-tile-inline-unit">{unit}</span>}
+        {unit && <span className="an-fig-unit">{unit}</span>}
       </span>
-      <span className="an-tile-label">{label}</span>
-      {sub && <span className="an-tile-sub">{sub}</span>}
-      {hasDelta && (
-        <span
-          className={`an-tile-delta${delta != null && delta > 0 ? ' is-up' : delta != null && delta < 0 ? ' is-down' : ''}`}
-          title={deltaTitle}
-        >
-          {fmtDelta(delta)}
-        </span>
-      )}
-    </div>
-  );
+    ),
+    note:
+      sub || hasDelta ? (
+        <>
+          {sub}
+          {sub && hasDelta && ' · '}
+          {hasDelta && (
+            <span className={`an-fig-delta${direction}`} title={deltaTitle}>
+              {fmtDelta(delta)}
+            </span>
+          )}
+        </>
+      ) : null,
+  };
 }
 
-function ModeToggle({ value, onChange, options }) {
+/** A chart's own switch (cumulative, weekly, …): the kit's Segmented. */
+function ModeToggle({ value, onChange, options, label = 'Chart' }) {
   return (
-    <div className="an-chiprow an-chiprow-tight" role="group">
-      {options.map((o) => (
-        <button
-          key={o.key}
-          type="button"
-          className={`an-chip${value === o.key ? ' is-active' : ''}`}
-          aria-pressed={value === o.key}
-          onClick={() => onChange(o.key)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={options.map((o) => ({ value: o.key, label: o.label }))}
+    />
   );
 }
 

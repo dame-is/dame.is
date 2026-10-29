@@ -1,0 +1,72 @@
+/* The legacy blog migration (LegacyBlogMigration.jsx): one ruled row per
+   bundled post, its facts on one quiet line, its action at the right. */
+
+.lbm-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+}
+
+.lbm-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.lbm-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.lbm-title {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+
+.lbm-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+/* The "·" between facts belongs to the fact after it, so a long slug that
+   wraps takes its separator with it instead of leaving one at a line's end. */
+.lbm-meta > * + *::before {
+  content: '·';
+  margin-right: var(--space-2);
+  font-family: var(--sans);
+  color: var(--ink-faint);
+}
+
+.lbm-excerpt,
+.lbm-status {
+  text-indent: 0;
+  margin: var(--space-1) 0 0;
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.lbm-status.ss-error {
+  color: var(--danger);
+}
+
+.lbm-status.ss-saved {
+  color: var(--accent);
+}
+
+.lbm-actions {
+  flex-shrink: 0;
+}

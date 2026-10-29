@@ -6,6 +6,10 @@ import { COLLECTIONS } from '../config.js';
 import { getRecordIfExists, isSwapConflict } from '../lib/recordWrites.js';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { Skeleton } from './Skeleton.jsx';
+import Button from './Button.jsx';
+import Tag from './Tag.jsx';
+import './siteStudios.css';
+import './PageContentPanel.css';
 
 /**
  * Link props for one `is.dame.page` record on the GENERIC records surface —
@@ -51,8 +55,13 @@ export function pageRecordLink(go, rkey, { mode = null } = {}) {
  *   - embedded atop a backing collection's record list (self-fetches status)
  *   - the standalone Site-pages studio (status seeded via the `exists` prop
  *     from one batched listRecords, so it skips the per-panel getRecord)
+ *
+ * Either way it is one ruled row: the page, where its title and intro come
+ * from (a Tag and the record's path), and the actions. `inList` is the
+ * studio's case, where a "Page content" head above the rows already says what
+ * each row is about; embedded on its own, the row names it.
  */
-export default function PageContentPanel({ agent, did, slug, exists: initialExists }) {
+export default function PageContentPanel({ agent, did, slug, exists: initialExists, inList = false }) {
   const { go } = useAdminShell();
   const def = pageDefault(slug);
   const [exists, setExists] = useState(initialExists);
@@ -173,97 +182,66 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
   if (!def) return null;
 
   return (
-    <div className="admin-page-panel">
-      <div className="admin-page-panel-head">
-        <span className="admin-page-panel-label">{def.label} — page content</span>
-        <span
-          className={`admin-badge ${
-            checking || unknown
-              ? ''
-              : exists
-                ? 'admin-badge-pds'
-                : 'admin-badge-local'
-          }`}
-        >
+    <div className="pcp-wrap">
+      <div className="pcp">
+        <span className="pcp-name">{inList ? def.label : `${def.label} page content`}</span>
+        <span className="pcp-source">
           {checking ? (
-            <Skeleton width="1.75rem" height="0.7rem" />
+            <Skeleton width="11rem" height="0.85em" />
           ) : unknown ? (
-            'Unknown'
+            <span className="reveal pcp-source-line">
+              <Tag tone="danger">unknown</Tag>
+              <span>
+                Couldn’t check for <span className="ident">is.dame.page/{slug}</span>: {checkError}
+              </span>
+            </span>
           ) : exists ? (
-            'PDS'
+            <span className="reveal pcp-source-line">
+              <Tag on>on PDS</Tag>
+              <span className="ident">is.dame.page/{slug}</span>
+            </span>
           ) : (
-            'Local'
+            <span className="reveal pcp-source-line">
+              <Tag>built in</Tag>
+              <span>hardcoded in the site</span>
+            </span>
           )}
         </span>
-      </div>
-      <p className="admin-page-panel-desc">
-        {checking ? (
-          <Skeleton width="70%" height="0.85em" />
-        ) : unknown ? (
-          <span className="reveal">
-            Couldn’t check for <code>is.dame.page/{slug}</code> on your PDS —{' '}
-            {checkError}
-          </span>
-        ) : exists ? (
-          <span className="reveal">
-            Title &amp; intro are served from <code>is.dame.page/{slug}</code> on your PDS.
-          </span>
-        ) : (
-          <span className="reveal">
-            Title &amp; intro are hardcoded in the site. Migrate to edit them on your PDS.
-          </span>
-        )}
-      </p>
-      <div className="admin-page-panel-actions">
-        {unknown ? (
-          <button
-            ref={primaryRef}
-            type="button"
-            className="admin-gate-button admin-gate-button-tight"
-            onClick={() => {
-              // This button is replaced while the check runs; hand focus to
-              // whatever stands in its place once it is settled. The check is
-              // marked as running here, in the click's own commit, so the
-              // focus is not spent on this button before it goes.
-              wantFocus.current = true;
-              setChecking(true);
-              setCheckError(null);
-              setCheckNonce((n) => n + 1);
-            }}
-          >
-            Check again
-          </button>
-        ) : exists ? (
-          <>
-            <Link
+        <span className="pcp-actions">
+          {unknown ? (
+            <Button
               ref={primaryRef}
-              className="admin-gate-button admin-gate-button-tight"
-              {...pageRecordLink(go, slug)}
+              size="sm"
+              onClick={() => {
+                // This button is replaced while the check runs; hand focus to
+                // whatever stands in its place once it is settled. The check is
+                // marked as running here, in the click's own commit, so the
+                // focus is not spent on this button before it goes.
+                wantFocus.current = true;
+                setChecking(true);
+                setCheckError(null);
+                setCheckNonce((n) => n + 1);
+              }}
             >
-              Edit
-            </Link>
-            <button
-              type="button"
-              className="admin-gate-button admin-gate-button-tight admin-danger"
-              onClick={revert}
-              disabled={busy}
-            >
-              {busy ? 'Reverting…' : 'Revert to local'}
-            </button>
-          </>
-        ) : (
-          <button
-            ref={primaryRef}
-            type="button"
-            className="admin-gate-button admin-gate-button-tight"
-            onClick={migrate}
-            disabled={busy || checking}
-          >
-            {busy ? 'Migrating…' : 'Migrate to PDS'}
-          </button>
-        )}
+              Check again
+            </Button>
+          ) : exists ? (
+            <>
+              <Button as={Link} ref={primaryRef} size="sm" {...pageRecordLink(go, slug)}>
+                Edit
+              </Button>
+              <Button size="sm" variant="danger" onClick={revert} disabled={busy}>
+                {busy ? 'Reverting…' : 'Revert to local'}
+              </Button>
+            </>
+          ) : (
+            <Button ref={primaryRef} size="sm" onClick={migrate} disabled={busy || checking}>
+              {busy ? 'Migrating…' : 'Migrate to PDS'}
+            </Button>
+          )}
+        </span>
+        {error && <p className="ss-error pcp-error">{error}</p>}
       </div>
-      {error && <p className="admin-error">{error}</p>}
     </div>
   );
 }

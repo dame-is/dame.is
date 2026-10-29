@@ -1,0 +1,42 @@
+/* The Site pages studio (PagesOverview.jsx). Its page rows are
+   PageContentPanel's own; this covers the raw records list below them and
+   the loading lines that stand in for either. */
+
+/* The skeleton takes `.pcp`'s grid, so its three bars sit where the name,
+   the source and the actions will. */
+.pages-skel-row {
+  list-style: none;
+}
+
+/* One raw record: its key as an identifier, then its title, then a tag when
+   the slug is not one of the site's built-in pages. A link, so cmd-click
+   opens the record in a new tab. */
+.pages-rec {
+  display: grid;
+  grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.pages-rec-title {
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+@media (hover: hover) {
+  .pages-rec:hover .pages-rec-title {
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+}
+
+.pages-rec-tag {
+  align-self: center;
+}

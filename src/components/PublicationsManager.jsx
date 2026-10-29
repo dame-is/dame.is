@@ -31,12 +31,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Copy, Check } from 'lucide-react';
 import { Skeleton, SkeletonShell } from './Skeleton.jsx';
+import Button, { buttonClass } from './Button.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import { rkeyFromUri } from './RecordEditor.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { paletteForHour, skyHourKey, easternHour } from '../lib/skyTheme.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
 import { resolvePds } from '../lib/atproto.js';
+import './siteStudios.css';
 import './PublicationsManager.css';
 
 const PUB_NSID = 'site.standard.publication';
@@ -153,19 +155,17 @@ function pubLink(go, { rkey = null, mode = null } = {}) {
 /**
  * Publication-shaped loading rows.
  *
- * The generic `AdminRecordListSkeleton` stood here: unframed 35px rows holding
- * a short bar on the LEFT and a long one on the right. The real `.pub-list-row`
- * is a 73px bordered, filled card whose short element — the mono rkey — is on
- * the RIGHT, so the placeholder promised the wrong height AND the mirror image
- * of the layout, and the list grew 76px and gained two card frames when the
- * data landed. This is the row's own box with the row's own three bars.
+ * The generic `AdminRecordListSkeleton` once stood here, with its short bar on
+ * the LEFT, where the real row's short element (the mono rkey) is on the
+ * RIGHT, so the list jumped when the data landed. This is the row's own
+ * geometry with the row's own three bars, on the same hairline.
  */
 function PubListSkeleton({ rows = 2 }) {
   return (
     <SkeletonShell label="Loading publications">
-      <ul className="pub-list pub-skel">
+      <ul className="ss-rows pub-skel">
         {Array.from({ length: rows }, (_, i) => (
-          <li key={i} className="pub-skel-row">
+          <li key={i} className="ss-row pub-skel-row">
             {/* Sizes are PROPS, not classes: `Skeleton` writes width/height
                 inline (height defaults to 1em), so a stylesheet cannot reach
                 them. */}
@@ -303,14 +303,14 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
               record that does not exist, so the editor (which is what registers
               that slot) never mounts and slot 1 is the Surfaces sheet. This is
               the only way out of a dead link on a phone. */}
-          <div className="admin-toolbar">
-            <Link className="admin-link-subtle" {...backLink}>
+          <div className="ss-actions">
+            <Button as={Link} variant="text" size="sm" {...backLink}>
               ← All publications
-            </Link>
+            </Button>
           </div>
-          <p className="placeholder-card">
-            No <code>{PUB_NSID}</code> record with the key <code className="admin-mono">{rkey}</code>{' '}
-            under this DID.
+          <p className="ss-empty">
+            No <span className="ident">{PUB_NSID}</span> record with the key{' '}
+            <span className="ident">{rkey}</span> under this DID.
           </p>
         </>
       );
@@ -346,35 +346,34 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
 
   return (
     <>
-      {/* The same action row its two sibling Site studios open with: an
-          `.admin-toolbar` (which supplies the rule that ends it) holding a
-          `-tight` button. This one was a bare 40px button with no rule under
-          it, so three surfaces that do the same job opened three ways. */}
-      <div className="admin-toolbar">
-        <Link
-          className="admin-gate-button admin-gate-button-tight"
-          {...subjectLink({ mode: 'new' })}
-        >
+      <div className="ss-actions">
+        <Button as={Link} size="sm" {...subjectLink({ mode: 'new' })}>
           <Plus size={14} aria-hidden="true" />
           New publication
-        </Link>
+        </Button>
       </div>
 
-      {error && <p className="admin-error">{error}</p>}
+      {error && <p className="ss-error">{error}</p>}
       {records === null ? (
         <PubListSkeleton rows={2} />
       ) : records.length === 0 ? (
-        <p className="placeholder-card">
-          No {PUB_NSID} records found under this DID. Create one above.
+        <p className="ss-empty">
+          No <span className="ident">{PUB_NSID}</span> records under this DID yet. Create one above.
         </p>
       ) : (
-        <ul className="pub-list">
+        <ul className="ss-rows pub-list">
           {records.map((r) => (
-            <li key={r.rkey}>
+            <li key={r.rkey} className="ss-row">
               <Link className="pub-list-row" {...subjectLink({ rkey: r.rkey })}>
                 <span className="pub-list-name">{r.value?.name || '(untitled)'}</span>
-                <span className="pub-list-url">{r.value?.url || '—'}</span>
-                <code className="admin-mono pub-list-rkey">{r.rkey}</code>
+                {/* Without a URL a publication can't be verified, and the
+                    Front Desk counts it as a need; say so in words. */}
+                {r.value?.url ? (
+                  <span className="ident pub-list-url">{r.value.url}</span>
+                ) : (
+                  <span className="pub-list-url pub-list-nourl">No URL yet</span>
+                )}
+                <span className="ident pub-list-rkey">{r.rkey}</span>
               </Link>
             </li>
           ))}
@@ -691,22 +690,22 @@ function PublicationEditor({
           to sit beside it, an <h2> naming the record at 12px, is gone: the pane
           head names it now, at the size a subject deserves. */}
       {!stacked && (
-        <div className="admin-toolbar">
-          <Link className="admin-link-subtle" {...backLink}>
+        <div className="ss-actions">
+          <Button as={Link} variant="text" size="sm" {...backLink}>
             ← All publications
-          </Link>
+          </Button>
         </div>
       )}
 
-      {error && <p className="admin-error">{error}</p>}
+      {error && <p className="ss-error">{error}</p>}
 
       {/* The at:// URI is the reason anyone comes back to this page: it's what
           src/config.js points at, and there is nowhere else to read it off. */}
       {!isNew && <AtUriRow did={did} rkey={rkey} />}
 
       {rawMode ? (
-        <div className="admin-field">
-          <label className="admin-field-label" htmlFor="pub-raw">
+        <div className="pub-field">
+          <label className="eyebrow" htmlFor="pub-raw">
             Raw record JSON
           </label>
           <textarea
@@ -717,10 +716,10 @@ function PublicationEditor({
             onChange={(e) => setRawText(e.target.value)}
             rows={22}
           />
-          {rawError && <p className="admin-error-inline">{rawError}</p>}
+          {rawError && <p className="ss-error">{rawError}</p>}
         </div>
       ) : (
-        <div className="admin-form">
+        <div className="pub-form">
           {/* NO PLACEHOLDER on this one field. `https://dame.is/blogging` was
               set in `--ink-soft` against a typed value's `--ink` — a contrast
               ratio of 1.53:1 between "empty" and "filled" — so the one field
@@ -729,8 +728,10 @@ function PublicationEditor({
               publications with no url", read a URL in the box, pressed Save and
               were refused for a field you believed was set. An empty box reads
               empty; the requirement is stated in words below it instead. */}
-          <label className="admin-field">
-            <span className="admin-field-label">URL <span className="admin-field-hint">(base for the embed + verification)</span></span>
+          <label className="pub-field">
+            <span className="eyebrow ss-label">
+              URL <span className="ss-label-aside">the base for the embed and its verification</span>
+            </span>
             <input
               className="admin-input"
               type="text"
@@ -741,15 +742,15 @@ function PublicationEditor({
               aria-describedby={urlSet ? undefined : 'pub-url-required'}
             />
             {!urlSet && (
-              <span className="admin-error-inline pub-required" id="pub-url-required">
+              <span className="ss-error pub-required" id="pub-url-required">
                 Required. Bluesky fetches <code>/.well-known/site.standard.publication</code> from
                 this address to verify the publication, so Save refuses without it.
               </span>
             )}
           </label>
 
-          <label className="admin-field">
-            <span className="admin-field-label">Name</span>
+          <label className="pub-field">
+            <span className="eyebrow">Name</span>
             <input
               className="admin-input"
               type="text"
@@ -758,8 +759,8 @@ function PublicationEditor({
             />
           </label>
 
-          <label className="admin-field">
-            <span className="admin-field-label">Description</span>
+          <label className="pub-field">
+            <span className="eyebrow">Description</span>
             <textarea
               className="admin-input"
               rows={2}
@@ -768,8 +769,8 @@ function PublicationEditor({
             />
           </label>
 
-          <div className="admin-field">
-            <span className="admin-field-label">Preferences</span>
+          <div className="pub-field">
+            <span className="eyebrow">Preferences</span>
             <label className="pub-check">
               <input
                 type="checkbox"
@@ -789,9 +790,9 @@ function PublicationEditor({
           </div>
 
           {/* ---- theme ---- */}
-          <div className="admin-field">
-            <span className="admin-field-label">
-              Theme <span className="admin-field-hint">(site.standard.theme.basic — what Bluesky renders)</span>
+          <div className="pub-field">
+            <span className="eyebrow ss-label">
+              Theme <span className="ss-label-aside">site.standard.theme.basic, what Bluesky renders</span>
             </span>
             <div className="pub-theme-grid">
               {THEME_FIELDS.map((f) =>
@@ -824,7 +825,7 @@ function PublicationEditor({
               )}
             </div>
             {!theme && (
-              <p className="admin-field-hint">
+              <p className="ss-hint">
                 No theme on this record, so the embed renders in Bluesky’s own colours — not in
                 black. Fill all four from the site’s palette below, or set one at a time.
               </p>
@@ -843,15 +844,17 @@ function PublicationEditor({
           </div>
 
           {/* ---- icon ---- */}
-          <div className="admin-field">
-            <span className="admin-field-label">Icon</span>
+          <div className="pub-field">
+            <span className="eyebrow">Icon</span>
             <div className="pub-icon-row">
               {iconUrl ? (
                 <img className="pub-icon-preview" src={iconUrl} alt="Publication icon" />
               ) : (
                 <div className="pub-icon-preview pub-icon-empty">none</div>
               )}
-              <label className="admin-gate-button admin-gate-button-tight pub-file">
+              {/* A <label> drawn as the kit's small button, so the file input
+                  inside it stays the real control. */}
+              <label className={buttonClass({ size: 'sm', className: 'pub-file' })}>
                 Upload file…
                 <input type="file" accept="image/*" onChange={onPickFile} hidden />
               </label>
@@ -859,10 +862,10 @@ function PublicationEditor({
           </div>
 
           {/* ---- migrate ---- */}
-          <div className="admin-field pub-migrate">
-            <span className="admin-field-label">Apply the site's look</span>
-            <p className="admin-field-hint">
-              Fill the theme from the sky palette and set the icon to that hour's dynamic avatar.
+          <div className="pub-field pub-migrate">
+            <span className="eyebrow">Apply the site’s look</span>
+            <p className="ss-hint">
+              Fill the theme from the sky palette and set the icon to that hour’s dynamic avatar.
             </p>
             <div className="pub-migrate-row">
               <label className="pub-hour">
@@ -875,12 +878,12 @@ function PublicationEditor({
                   ))}
                 </select>
               </label>
-              <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={applySky} disabled={iconBusy}>
-                {iconBusy ? 'Applying…' : 'Apply theme + avatar'}
-              </button>
-              <button type="button" className="admin-link-subtle" onClick={applyThemeOnly} disabled={iconBusy}>
-                theme only
-              </button>
+              <Button size="sm" onClick={applySky} disabled={iconBusy}>
+                {iconBusy ? 'Applying…' : 'Apply theme and avatar'}
+              </Button>
+              <Button size="sm" variant="text" onClick={applyThemeOnly} disabled={iconBusy}>
+                Theme only
+              </Button>
             </div>
           </div>
         </div>
@@ -888,11 +891,11 @@ function PublicationEditor({
 
       {/* Save is the strip's, at the top of the pane. What stays here is the one
           control that changes what the form IS rather than what it holds. */}
-      <div className="pub-actions">
-        <button type="button" className="admin-link-subtle" onClick={toggleRaw} disabled={saving}>
+      <div className="ss-actions pub-actions">
+        <Button size="sm" variant="text" onClick={toggleRaw} disabled={saving}>
           {rawMode ? '← Structured fields' : 'Edit raw JSON'}
-        </button>
-        <span aria-live="polite">{flash ? <span className="admin-success">Saved ✓</span> : null}</span>
+        </Button>
+        <span aria-live="polite">{flash ? <span className="ss-saved">Saved</span> : null}</span>
       </div>
     </>
   );
@@ -914,10 +917,9 @@ function AtUriRow({ did, rkey }) {
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
   return (
     <div className="pub-uri">
-      <code className="admin-mono pub-uri-value">{uri}</code>
-      <button
-        type="button"
-        className="admin-gate-button admin-gate-button-tight"
+      <span className="ident pub-uri-value">{uri}</span>
+      <Button
+        size="sm"
         onClick={async () => {
           try {
             await navigator.clipboard.writeText(uri);
@@ -931,8 +933,8 @@ function AtUriRow({ did, rkey }) {
       >
         {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
         {copied ? 'Copied' : 'Copy'}
-      </button>
-      <p className="admin-field-hint pub-uri-hint">
+      </Button>
+      <p className="ss-hint pub-uri-hint">
         Paste into <code>src/config.js</code> — <code>PORTFOLIO_PUBLICATION</code>,{' '}
         <code>BLOG_PUBLICATION</code> or <code>RATIOED_PUBLICATION</code> — and redeploy. Until then
         the site doesn&rsquo;t know this publication exists.

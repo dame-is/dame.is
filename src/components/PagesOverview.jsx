@@ -18,12 +18,41 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import PageContentPanel, { pageRecordLink } from './PageContentPanel.jsx';
 import { rkeyFromUri } from './RecordEditor.jsx';
-import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from './Skeleton.jsx';
+import { Skeleton, SkeletonShell } from './Skeleton.jsx';
+import Button from './Button.jsx';
+import SectionHead from './SectionHead.jsx';
+import Tag from './Tag.jsx';
 import { COLLECTIONS } from '../config.js';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { knownPageSlugs } from '../lib/pageRegistry.js';
+import './siteStudios.css';
+import './PageContentPanel.css';
+import './PagesOverview.css';
+
+/**
+ * Row-shaped loading lines for either list on this surface: a name, a longer
+ * source line and the actions' width, on the same hairline the rows use, so
+ * nothing moves when the records land.
+ */
+function PageRowsSkeleton({ rows = 4, label }) {
+  return (
+    <SkeletonShell label={label}>
+      <ul className="ss-rows">
+        {Array.from({ length: rows }, (_, i) => (
+          <li key={i} className="pcp pages-skel-row">
+            {/* Sizes are PROPS: `Skeleton` writes width/height inline. */}
+            <Skeleton width={`${5 + ((i * 3) % 4)}rem`} height="1em" />
+            <Skeleton width={`${50 + ((i * 17) % 30)}%`} height="0.85em" />
+            <Skeleton width="5.5rem" height="1.75rem" />
+          </li>
+        ))}
+      </ul>
+    </SkeletonShell>
+  );
+}
 
 export default function PagesOverview({ agent, did }) {
   // Page records are edited on the generic records surface, so every link out of
@@ -64,94 +93,91 @@ export default function PagesOverview({ agent, did }) {
   const known = new Set(knownPageSlugs());
   const extraRecords = (records || []).filter((r) => !known.has(rkeyFromUri(r.uri)));
 
+  const slugs = knownPageSlugs();
+  const onPds = records ? slugs.filter((slug) => existing.has(slug)).length : null;
+
   return (
     <>
-      <div className="admin-toolbar">
-        <Link
-          className="admin-gate-button admin-gate-button-tight"
-          {...pageRecordLink(go, null, { mode: 'new' })}
-        >
-          New page record
-        </Link>
-      </div>
+      {error && <p className="ss-error">{error}</p>}
 
-      {error && <p className="admin-error">{error}</p>}
-
-      <section className="admin-page-section">
-        <h2 className="admin-collection-group-heading small-caps">Local vs PDS</h2>
-        <p className="admin-collection-group-note">
-          Which pages serve their title &amp; intro from a PDS record vs the
-          hardcoded defaults. Migrate or revert any of them.
+      <section className="ss-section" aria-labelledby="pages-content-head">
+        <SectionHead
+          id="pages-content-head"
+          title="Page content"
+          meta={
+            <Button as={Link} size="sm" {...pageRecordLink(go, null, { mode: 'new' })}>
+              <Plus size={14} aria-hidden="true" />
+              New page record
+            </Button>
+          }
+        />
+        <p className="ss-note">
+          Which pages serve their title and intro from a record on your PDS, and
+          which from the defaults built into the site
+          {onPds != null && ` (${onPds} of ${slugs.length} on your PDS)`}. Migrate or
+          revert any of them.
         </p>
         {failed ? (
-          // Blocks, not bare paragraphs: each follows the section's note, and a
-          // sibling paragraph takes the prose indent.
-          <div>
-            <p className="placeholder-card">
+          <>
+            <p className="ss-empty">
               The page records could not be listed, so which pages are local and
               which are on your PDS is not known.
             </p>
-            <div className="admin-actions">
-              <button
-                type="button"
-                className="admin-gate-button"
-                onClick={() => setLoadNonce((n) => n + 1)}
-              >
-                Try again
-              </button>
+            <div className="ss-actions">
+              <Button onClick={() => setLoadNonce((n) => n + 1)}>Try again</Button>
             </div>
-          </div>
+          </>
         ) : records === null ? (
-          <AdminPagePanelsSkeleton panels={knownPageSlugs().length || 4} />
+          <PageRowsSkeleton rows={slugs.length || 4} label="Loading page content" />
         ) : (
-          <div className="admin-page-panels reveal">
-            {knownPageSlugs().map((slug) => (
+          <div className="reveal">
+            {slugs.map((slug) => (
               <PageContentPanel
                 key={slug}
                 agent={agent}
                 did={did}
                 slug={slug}
                 exists={existing.has(slug)}
+                inList
               />
             ))}
           </div>
         )}
       </section>
 
-      <section className="admin-page-section">
-        <h2 className="admin-collection-group-heading small-caps">Page records</h2>
-        <p className="admin-collection-group-note">
+      <section className="ss-section" aria-labelledby="pages-records-head">
+        <SectionHead
+          id="pages-records-head"
+          title="Page records"
+          meta={records ? records.length.toLocaleString('en-US') : null}
+        />
+        <p className="ss-note">
           The raw <code>{COLLECTIONS.page}</code> records on your PDS, including any
-          page slugs beyond the built-in surfaces above.
+          page slugs beyond the built-in pages above.
         </p>
         {failed ? (
-          <div>
-            <p className="placeholder-card">Not loaded.</p>
-          </div>
+          <p className="ss-empty">Not loaded.</p>
         ) : records === null ? (
-          <AdminRecordListSkeleton rows={4} label="Loading page records" />
+          <PageRowsSkeleton rows={4} label="Loading page records" />
         ) : records.length === 0 ? (
-          <p className="placeholder-card">No page records on your PDS yet.</p>
+          <p className="ss-empty">No page records on your PDS yet.</p>
         ) : (
-          <ul className="admin-record-list reveal-stagger">
+          <ul className="ss-rows reveal-stagger">
             {records.map((rec) => {
               const r = rkeyFromUri(rec.uri);
               return (
-                <li key={rec.uri} className="admin-record-row">
-                  <Link className="admin-record-link" {...pageRecordLink(go, r)}>
-                    <code className="admin-record-rkey">{r}</code>
-                    <span className="admin-record-preview">
+                <li key={rec.uri} className="ss-row">
+                  <Link className="pages-rec" {...pageRecordLink(go, r)}>
+                    <span className="ident pages-rec-key">{r}</span>
+                    <span className="pages-rec-title">
                       {rec.value?.title || rec.value?.intro || ''}
                     </span>
                     {/* The rows the count under this list is about. It used to
                         name a number — "3 records outside the built-in page
                         surfaces" — over eight rows drawn identically, so there
                         was no way to tell WHICH three; and the Front Desk sends
-                        you here with the same number as a task. Same chip
-                        vocabulary as the LOCAL / PDS badges above. */}
-                    {!known.has(r) && (
-                      <span className="admin-badge admin-badge-local pages-extra-badge">extra</span>
-                    )}
+                        you here with the same number as a task. */}
+                    {!known.has(r) && <Tag className="pages-rec-tag">extra</Tag>}
                   </Link>
                 </li>
               );
@@ -159,10 +185,10 @@ export default function PagesOverview({ agent, did }) {
           </ul>
         )}
         {extraRecords.length > 0 && (
-          <p className="admin-field-hint">
-            The {extraRecords.length} row{extraRecords.length === 1 ? '' : 's'} badged{' '}
+          <p className="ss-hint">
+            The {extraRecords.length} row{extraRecords.length === 1 ? '' : 's'} tagged{' '}
             <strong>extra</strong> {extraRecords.length === 1 ? 'is a page slug' : 'are page slugs'}{' '}
-            beyond the built-in surfaces above.
+            beyond the built-in pages above.
           </p>
         )}
       </section>

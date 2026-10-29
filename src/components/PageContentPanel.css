@@ -1,0 +1,72 @@
+/* One page's row (PageContentPanel.jsx): the page, where its title and intro
+   come from, and the actions, on a --rule-soft hairline. Its own container,
+   because it is drawn in two places of different widths: a row of the Site
+   pages studio, and alone atop a record list in the narrow list column. */
+
+.pcp-wrap {
+  container-type: inline-size;
+  container-name: pcp;
+}
+
+.pcp {
+  display: grid;
+  grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.pcp-name {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.pcp-source {
+  min-width: 0;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.pcp-source-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.pcp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.pcp-error {
+  grid-column: 1 / -1;
+}
+
+/* Narrow: the name and its actions share the first line, the source takes
+   the second. */
+@container pcp (max-width: 34rem) {
+  .pcp {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .pcp-name {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .pcp-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .pcp-source {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

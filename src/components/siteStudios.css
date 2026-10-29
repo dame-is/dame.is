@@ -1,0 +1,125 @@
+/* The site studios (Site pages, Nav menu, Publications, Guestbook, the legacy
+   blog migration) in the kit's idiom: a SectionHead on a hairline, ruled rows
+   on --rule-soft, no fills and no tinted boxes, the label voice at 0.1em, and
+   Button for every control (controls.css). Every class here is `ss-` and
+   renders inside the workbench only, so nothing on a public route moves.
+
+   No margins on a studio's top-level blocks: they are children of
+   `.wb-studio`, whose flex `gap` owns the rhythm between them. */
+
+.ss-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The section's own gap spaces what follows the head. */
+.ss-section > .section-head {
+  margin-bottom: 0;
+}
+
+/* Status lines and notes, not prose: none of them takes the `p + p` indent
+   typography.css gives a passage's later paragraphs. */
+.ss-note,
+.ss-hint,
+.ss-empty,
+.ss-error {
+  text-indent: 0;
+}
+
+.ss-note {
+  margin: 0;
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.ss-hint {
+  margin: 0;
+  max-width: var(--measure);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+}
+
+/* A path or a script name inside a sentence: the identifier's quiet mono
+   (controls.css .ident), not the prose <code> chip, whose tint read as a
+   badge in the middle of a line. */
+.ss-note code,
+.ss-hint code,
+.ss-empty code,
+.ss-error code {
+  font-family: var(--code);
+  font-size: 0.9em;
+  font-style: normal;
+  color: var(--ink-faint);
+  background: none;
+  padding: 0;
+}
+
+.ss-error code {
+  color: inherit;
+}
+
+.ss-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Ruled rows: a hairline under each, none above the first, because the
+   SectionHead over them already draws one. */
+.ss-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ss-row {
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* An empty or unreachable state, in the site's own voice: one italic line,
+   never a dashed box (a dashed hairline is how the kit draws "disabled"). */
+.ss-empty {
+  margin: 0;
+  max-width: var(--measure);
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.ss-error {
+  margin: 0;
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
+/* "Saved", where a studio confirms a write the shell's strip didn't make. */
+.ss-saved {
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+
+/* A field's label, in the label voice (typography.css .eyebrow), for the
+   studios' own forms. `.admin-field-label` is shared with the public
+   quick-edit sheet, so it is left alone and these studios stop using it. */
+.ss-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+}
+
+.ss-label-aside {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink-muted);
+}

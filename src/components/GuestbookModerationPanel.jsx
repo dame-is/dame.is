@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import GuestbookEntryRow from './GuestbookEntryRow.jsx';
 import { Skeleton, SkeletonShell } from './Skeleton.jsx';
+import Button from './Button.jsx';
+import SectionHead from './SectionHead.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { GUESTBOOK_DEADLINE_MS, withDeadline } from '../admin/useAdminData.js';
 import { fetchGuestbookEntries, setEntryHidden } from '../lib/guestbook.js';
 import { GUESTBOOK_NSID, GUESTBOOK_ENTRY_NSID } from '../config.js';
+import './siteStudios.css';
+import './GuestbookModerationPanel.css';
 
 /*
  * The ceiling on one page of the book, and the race that enforces it, are
@@ -80,7 +84,9 @@ function GuestbookRowsSkeleton({ rows = 5 }) {
  * never anything unsaved for the strip to hold.
  *
  * `GuestbookEntryRow` and `Guestbook.css` are shared with the public /welcoming
- * route and are read-only from here.
+ * route and are read-only from here. Its hide control and its badges are set
+ * in the kit's button and tag voice by GuestbookModerationPanel.css, scoped to
+ * `.gbm-list`, so /welcoming's owner edit mode keeps its own look.
  */
 export default function GuestbookModerationPanel({ agent }) {
   const { go } = useAdminShell();
@@ -173,12 +179,27 @@ export default function GuestbookModerationPanel({ agent }) {
   const bookPatch = { view: null, c: GUESTBOOK_NSID, r: 'self', mode: null, for: null };
   const bookHref = `/admin?c=${encodeURIComponent(GUESTBOOK_NSID)}&r=self`;
 
+  // The head's meta: the total first, then what is kept off the public page
+  // and what that leaves, as the public guestbook's own "Signatures … 36".
+  const headMeta =
+    typeof total === 'number'
+      ? [
+          total.toLocaleString('en-US'),
+          hiddenCount > 0 && `${hiddenCount.toLocaleString('en-US')} hidden`,
+          flaggedCount > 0 && `${flaggedCount.toLocaleString('en-US')} auto-hidden`,
+          (hiddenCount > 0 || flaggedCount > 0) && `${publicCount.toLocaleString('en-US')} public`,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : null;
+
   return (
     <>
-      <div className="admin-toolbar">
-        <Link
+      <div className="ss-actions">
+        <Button
+          as={Link}
+          size="sm"
           to={bookHref}
-          className="admin-gate-button admin-gate-button-tight"
           onClick={(event) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
             event.preventDefault();
@@ -186,54 +207,39 @@ export default function GuestbookModerationPanel({ agent }) {
           }}
         >
           Edit the book record
-        </Link>
-        {/* A real navigation off /admin, so it stays an ordinary <Link> — and
-            it is drawn OUTLINED with the top bar's outbound arrow rather than
-            as a second filled button. Two identically weighted primaries side
-            by side said nothing about the fact that one of them leaves the
-            workbench; this borrows the vocabulary "View site" already uses for
-            exactly that. */}
-        <Link to="/welcoming" className="studio-out">
+        </Button>
+        {/* A real navigation off /admin, so it stays an ordinary <Link>, with
+            the outbound arrow "View site" uses for leaving the workbench. */}
+        <Button as={Link} size="sm" to="/welcoming">
           View /welcoming
-          <ArrowUpRight className="studio-out-glyph" aria-hidden="true" strokeWidth={1.75} />
-        </Link>
+          <ArrowUpRight size={14} aria-hidden="true" />
+        </Button>
       </div>
 
       {status === 'ready' && !book && (
-        <p className="placeholder-card">
-          The book record (<code>{GUESTBOOK_NSID}/self</code>) doesn't exist yet — run{' '}
-          <code>scripts/create-guestbook.mjs</code> to open it with a proper title.
-          Hiding an entry below will also create it on the spot with default chrome.
+        <p className="ss-empty">
+          The book record (<span className="ident">{GUESTBOOK_NSID}/self</span>) doesn’t exist
+          yet. Run <code>scripts/create-guestbook.mjs</code> to open it with a proper title;
+          hiding an entry below also creates it on the spot, with default chrome.
         </p>
       )}
 
-      <section className="guestbook-entries">
-        <h2 className="guestbook-entries-heading small-caps">
-          {typeof total === 'number'
-            ? `${total.toLocaleString()} ${total === 1 ? 'signature' : 'signatures'}`
-            : 'Signatures'}
-          {(hiddenCount > 0 || flaggedCount > 0) && (
-            <span className="guestbook-hidden-count">
-              {hiddenCount > 0 && <> · {hiddenCount} hidden</>}
-              {flaggedCount > 0 && <> · {flaggedCount} auto-hidden</>}
-              {' '}· {publicCount} public
-            </span>
-          )}
-        </h2>
+      <section className="ss-section gbm" aria-labelledby="gbm-head">
+        <SectionHead id="gbm-head" title="Signatures" meta={headMeta} />
 
         {/* Deliberately a fact and not a task. `flagged` is recomputed from the
             language filter on every render and is never persisted anywhere, so
             an "awaiting review" queue built on it would have nothing to clear
-            and would nag forever. The entries themselves are below, badged. */}
+            and would nag forever. The entries themselves are below, tagged. */}
         {flaggedCount > 0 && (
-          <p className="admin-field-hint">
+          <p className="ss-hint">
             {flaggedCount} auto-hidden by the language filter, not on your hidden list (first page).
           </p>
         )}
 
-        <p className="admin-field-hint">
-          <code className="admin-collection-nsid">{GUESTBOOK_ENTRY_NSID}</code> — each signature
-          lives on its signer’s own PDS.
+        <p className="ss-hint">
+          <span className="ident">{GUESTBOOK_ENTRY_NSID}</span>: each signature lives on its
+          signer’s own PDS.
         </p>
 
         {status === 'loading' ? (
@@ -241,19 +247,21 @@ export default function GuestbookModerationPanel({ agent }) {
         ) : status === 'error' ? (
           /* A sentence with no control was the whole error state: the only way
              to retry was to leave the surface and come back. */
-          <p className="feed-empty gb-error">
-            {failure === 'timeout'
-              ? 'The backlink index didn’t answer within 8 seconds.'
-              : 'The backlink index is unreachable right now.'}{' '}
-            <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={load}>
+          <div className="ss-actions">
+            <p className="ss-empty">
+              {failure === 'timeout'
+                ? 'The backlink index didn’t answer within 8 seconds.'
+                : 'The backlink index is unreachable right now.'}
+            </p>
+            <Button size="sm" onClick={load}>
               Try again
-            </button>
-          </p>
+            </Button>
+          </div>
         ) : !entries || entries.length === 0 ? (
-          <p className="feed-empty">No signatures yet.</p>
+          <p className="ss-empty">No signatures yet.</p>
         ) : (
           <>
-            <ul className="guestbook-list reveal-stagger">
+            <ul className="guestbook-list gbm-list reveal-stagger">
               {entries.map((entry) => (
                 <GuestbookEntryRow
                   key={entry.uri}
@@ -264,14 +272,11 @@ export default function GuestbookModerationPanel({ agent }) {
               ))}
             </ul>
             {cursor && (
-              <button
-                type="button"
-                className="guestbook-more"
-                onClick={loadMore}
-                disabled={loadingMore}
-              >
-                {loadingMore ? 'Turning the page…' : 'Earlier signatures'}
-              </button>
+              <div className="ss-actions">
+                <Button size="sm" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? 'Turning the page…' : 'Earlier signatures'}
+                </Button>
+              </div>
             )}
           </>
         )}
