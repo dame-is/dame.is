@@ -2,33 +2,23 @@
 
    THREE THINGS TO KNOW BEFORE EDITING THIS FILE.
 
-   1. Every selector here is `.fd-*`, and nothing else in the tree may write
-      one. The `.wb-*` prefixes belong to the shell, the list column and the
-      record pane; `.admin-*` and `.rf-*` are frozen public API, reachable from
-      the public quick-edit sheet and from /exploring. This file therefore reuses
-      those classes where the vocabulary already exists — the section heads
-      (`.admin-collection-group-head`), the record rows (`.admin-record-*`), the
-      text input (`.admin-input`) — and never edits one.
+   1. The page is set in the site's kit, and this file only lays it out: the
+      counts are Figures (Figures.css), the section heads SectionHead and the
+      actions Button (controls.css), the labels the eyebrow (typography.css).
+      Every selector here is `.fd-*`; `.wb-*` belongs to the shell and
+      `.admin-*` / `.rf-*` are frozen public API, reachable from the public
+      quick-edit sheet and from /exploring, so nothing here writes one.
 
    2. Colours come from theme.css tokens only. The live theme is
       `data-theme="sky"`, an hour-computed palette, so a literal hex would be
-      wrong for twenty-three hours of the day.
-
-      Two roles, kept apart on purpose:
-        --accent  is INTERACTIVE. Links, hover, focus. The moss green.
-        --tan     is SEMANTIC STATE. It is the palette's warm horizon tone and
-                  is already what `.admin-danger`, `.admin-error` and
-                  `.admin-field-required` speak with. Attention on this page is
-                  a rust rule in --tan, never an accent-coloured badge, so
-                  "something is interactive" and "something needs you" can never
-                  be confused for one another.
+      wrong for twenty-three hours of the day. --accent is for what you can
+      follow; attention is said in words, and a failure is --danger.
 
    3. Density is inherited, not declared. The shell re-scopes six global tokens
       on `.wb`, and custom properties inherit, so every --space-* and
       --text-base below is already the denser admin scale. Do not restate them.
 
-   Zero border-radius anywhere — --radius-1..3 are all 0 and this file adds no
-   rounded corner of its own. */
+   Zero border-radius anywhere. */
 
 .fd {
   display: flex;
@@ -42,174 +32,32 @@
 /* ------------------------------------------------------------------ */
 
 /* The head reuses the shell's `.wb-pane-head` for its type, its wrapping and
-   its baseline alignment; `.fd-head` adds exactly one thing — the trailing
-   control, pushed to the far edge. */
-.fd-head > .fd-action {
+   its baseline alignment; this adds the trailing control, pushed to the far
+   edge. */
+.fd-head > .fd-refresh {
   margin-left: auto;
-}
-
-/* The one button vocabulary this page needs: a hairline outline in the small-caps
-   voice. Deliberately NOT `.admin-gate-button`, which is a solid --ink primary —
-   far too loud for a control the owner uses once a day to re-read a number. */
-.fd-action {
-  appearance: none;
-  flex: 0 0 auto;
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: none;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.fd-action:hover:not(:disabled),
-.fd-action:focus-visible:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: var(--highlight);
-}
-
-.fd-action:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* The six section heads — "Needs you", "Latest records" and the four group
-   names. Minted here rather than borrowed, because the borrowed pairing was
-   `.admin-collection-group-heading small-caps` and those two classes disagree:
-   the first sets 0.2em and the second 0.05em, and `.small-caps` is emitted
-   later in typography.css, so it won. The result was the only six labels on
-   this screen off the house voice — measured at 0.6px of tracking against the
-   2.16px every other small-caps label carries, with the sub-head NESTED under
-   "Needs you" at 3.6× its parent's. The `.admin-collection-group-head` wrapper
-   still supplies the rule and the spacing; only the heading's own type is ours
-   now, so this page no longer depends on a frozen public class for it. */
-.fd-section-heading {
-  margin: 0;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
+  align-self: center;
 }
 
 /* ------------------------------------------------------------------ */
-/* Counts row                                                           */
+/* Counts                                                               */
 /* ------------------------------------------------------------------ */
 
-.fd-counts {
-  list-style: none;
+/* The band is the page's first block below the head; the flex gap spaces it,
+   so its own trailing margin goes. */
+.fd .fd-figures {
   margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  /* Three shared rows — label, number, caption — which the four tiles adopt
-     through `subgrid` below. See `.fd-tile`. */
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: var(--space-4);
 }
 
-.fd-tile {
-  /* The number's type size, published as a token because the loading skeleton
-     has to match it and `Skeleton` writes its height as an inline style — a
-     class cannot reach it. One value, stepped down once at the breakpoint,
-     keeps the placeholder and the digits it stands in for the same height. */
-  --fd-value-size: var(--text-3xl);
-  /* SUBGRID, so the label row is sized by the tallest label in the ROW rather
-     than by each tile's own. A row of counts is a comparison and has to sit on
-     one line: free-flowing labels meant "Documents published" and "Hidden from
-     the site" wrapped to two lines while "Drafts" and "Guestbook" stayed on
-     one, and every number below inherited the offset — a measured 19.2px step
-     between siblings at every width from 960 down to 320. A `min-height` of two
-     lines on the label would also level them, at the cost of a permanently
-     blank second line at 1440 where nothing wraps; this costs nothing at any
-     width. Every tile carries the same padding, so every tile's tracks are
-     inset by the same amount and they still agree. */
-  display: grid;
-  grid-row: span 3;
-  grid-template-rows: subgrid;
-  row-gap: var(--space-1);
-  min-width: 0;
-  padding: var(--space-4);
-  border: 1px solid var(--rule);
-  background: var(--page-edge);
+/* A placeholder in the numeral's own type, so `2ch` is two of its digits. */
+.fd-fig-skel {
+  font-size: var(--text-2xl);
+  vertical-align: -0.1em;
 }
 
-/* Attention is a rust rule, not a badge — and a rule on ONE EDGE, not an even
-   glow, because hue alone can no longer carry it. Under the live `sky` theme
-   --tan and --accent-soft are derived from one hour-computed hue and land two
-   teals apart (measured #2295a0 against #3494b2 at hours 3, 8, 14, 19 and 22),
-   so a tan box and the open rail chip's accent box read as the same state.
-   A thick left edge is the form the `.fd-need` rows below already use for
-   attention and the form no interactive control on this page takes, so the two
-   stay distinguishable at every hour. Drawn as an inset shadow rather than a
-   border: a 3px border would reflow the tile and shift its neighbours as a
-   number landed. */
-.fd-tile[data-attention] {
-  border-color: var(--tan);
-  box-shadow: inset 3px 0 0 var(--tan);
-}
-
-.fd-tile-label {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
-}
-
-/* The value placeholder wears the value's own type so its `3ch` width resolves
-   against the digits it stands in for — `ch` is a font-relative unit and the
-   skeleton would otherwise be three characters of the body text, a 24px bar
-   where a ~65px number lands. */
-.fd-tile-skel {
-  font-family: var(--code);
-  font-size: var(--fd-value-size);
-}
-
-/* --code, not --mono: the site's serif font mode (which main.jsx always sets)
-   folds --mono into the serif, and a count is data. `tnum` keeps the digits on
-   a common width so a number changing under a refresh does not jiggle. */
-.fd-tile-value {
-  font-family: var(--code);
-  font-size: var(--fd-value-size);
-  line-height: 1.05;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  font-feature-settings: 'tnum' 1;
-}
-
-/* Prose where a number would be — "Guestbook index unavailable". Never a 0. */
-.fd-tile-flat {
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-tight);
-  color: var(--ink-muted);
-}
-
-/* Captions sit on the tile's floor so the four values keep a common baseline
-   even when one tile's caption runs to two lines. `align-self: end` rather than
-   the `margin-top: auto` this used before the tile became a subgrid — the
-   caption owns the last row and hangs from its bottom edge. */
-.fd-tile-notes {
-  display: flex;
-  flex-direction: column;
-  align-self: end;
-  padding-top: var(--space-2);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-tight);
-  color: var(--ink-faint);
-}
-
-/* A caption carrying a `title` explains an approximation; mark it as such
+/* A note that carries a `title` explains an approximation; mark it as such
    rather than leaving the tooltip undiscoverable. */
-.fd-tile-notes span[title] {
+.fd-figures .figures-note span[title] {
   cursor: help;
   text-decoration: underline dotted var(--rule);
   text-underline-offset: 0.25em;
@@ -217,75 +65,8 @@
 
 /* One failed collection costs one number, never the page. */
 .fd-warn {
-  font-family: var(--sans);
-  font-size: var(--text-xl);
-  line-height: 1.05;
-  color: var(--tan);
+  color: var(--danger);
   cursor: help;
-}
-
-/* ------------------------------------------------------------------ */
-/* Counts, as a scanline                                                */
-/* ------------------------------------------------------------------ */
-
-/* What the counts row becomes below 62rem. FrontDesk renders EITHER this or
-   `.fd-counts`, never both, so these rules live here rather than in the stacked
-   block at the foot — the element does not exist above the breakpoint.
-
-   It is one wrapping LINE BOX, and that is the whole point: four tiles in an
-   auto-fill grid minted empty tracks for a fixed set of four items (up to 285px
-   of dead track at 960; three tracks for four items at 430–500, orphaning
-   Guestbook onto a row of its own) and broke their own shared baseline by
-   19.2px whenever one label wrapped and another did not. A line box has no
-   tracks to leave empty and one baseline per line whatever wraps. 56px doing
-   the work of 236.
-
-   `order: 1` is the phone's inversion: the head and the two panels are order 0,
-   so the numbers fall in behind "Needs you" and "Latest records" — what needs
-   you, then what changed, then the counts. */
-.fd-scan {
-  --fd-value-size: var(--text-lg);
-  order: 1;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  /* Space, not a `·`: a glyph separator between wrapping items either orphans
-     onto the head of the next line or hangs off the end of the previous one. */
-  column-gap: var(--space-5);
-  row-gap: var(--space-2);
-}
-
-.fd-scan-item {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  white-space: nowrap;
-}
-
-/* A caption carrying a `title` explains an approximation, or in the scanline's
-   case carries the caption the tile had room to print. Mark it either way. */
-.fd-scan-item[title] {
-  cursor: help;
-}
-
-.fd-scan-value,
-.fd-scan-skel {
-  font-family: var(--code);
-  font-size: var(--fd-value-size);
-  line-height: 1.05;
-  color: var(--ink);
-  font-feature-settings: 'tnum' 1;
-}
-
-.fd-scan-label {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-faint);
 }
 
 /* ------------------------------------------------------------------ */
@@ -293,19 +74,14 @@
 /* ------------------------------------------------------------------ */
 
 /* Not an even split: "Needs you" is a short list of sentences and is empty on a
-   healthy repo, while every "Latest records" row carries an rkey, a label, a
-   surface and a time on one line. The extra ninth goes where the content is. */
+   healthy repo, while every "Latest records" row carries a margin note, a title
+   and an rkey. The extra ninth goes where the content is. */
 .fd-columns {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
   /* Two shared rows — head, then body — which both panels adopt through
      `subgrid`, so the two section heads occupy ONE row and their rules land on
-     the same edge whatever their notes do. Without it the heads are sized
-     independently: at 1024 the "Latest records" note runs to three lines and
-     "Needs you" to two, which put the two 1px rules 22.4px out of level and
-     took each column's first row with them. `.admin-collection-group-head` is
-     frozen public API and cannot be given a min-height, so the levelling has to
-     come from here. */
+     the same edge whatever their metas do. */
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-6);
 }
@@ -314,7 +90,14 @@
   display: grid;
   grid-row: span 2;
   grid-template-rows: subgrid;
+  row-gap: 0;
   min-width: 0;
+}
+
+/* The heads sit on the subgrid's row, so the rule spaces them from the rows
+   rather than the head's own margin. */
+.fd-panel > .section-head {
+  margin-bottom: 0;
 }
 
 /* Everything under the head, wrapped: a subgrid of two rows can hold exactly
@@ -325,8 +108,10 @@
 }
 
 .fd-empty {
+  margin: var(--space-3) 0 0;
   font-family: var(--serif);
   font-size: var(--text-base);
+  font-style: italic;
   color: var(--ink-muted);
 }
 
@@ -334,33 +119,21 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
 }
 
-/* The rust rule is uniform across work items and consistency checks. Everything
-   in this section is here precisely because it is not zero, so ranking the rows
-   against one another would be inventing a severity the data does not carry —
-   the sub-heading is what separates the two kinds. */
+/* A need is a ledger row: the fact on the left, the text Button that resolves
+   it on the right, a hairline under it. `last baseline`, so a label that wraps
+   puts the action beside its LAST line rather than interleaving the sentence
+   with its own affordance. Declared after the plain `baseline` so a browser
+   that does not know the two-value form keeps the old alignment. */
 .fd-need {
-  border-left: 2px solid var(--tan);
-  padding-left: var(--space-3);
-}
-
-/* `last baseline`, so a label that wraps puts the action verb beside its LAST
-   line rather than its first. On the first baseline the row reads "3 page
-   records the site" → "REVIEW THE RECORDS →" → "never reads", which is the
-   sentence interleaved with its own affordance. Declared after the plain
-   `baseline` so a browser that does not know the two-value form keeps the old
-   alignment rather than falling back to `stretch`. */
-.fd-need-link {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
   align-items: last baseline;
-  gap: var(--space-3);
-  text-decoration: none;
-  color: var(--ink);
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule-soft);
 }
 
 .fd-need-label {
@@ -368,48 +141,32 @@
   font-family: var(--serif);
   font-size: var(--text-base);
   color: var(--ink);
-  transition: color 120ms ease;
 }
 
 .fd-need-action {
-  flex: 0 0 auto;
-  margin-left: auto;
   white-space: nowrap;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
-  transition: color 120ms ease;
 }
 
-.fd-need-link:hover .fd-need-label,
-.fd-need-link:focus-visible .fd-need-label,
-.fd-need-link:hover .fd-need-action,
-.fd-need-link:focus-visible .fd-need-action {
-  color: var(--accent);
-}
-
-/* Per-record links under an item that has them (only drafts, today). Each one
-   goes to the surface the record is homed on, so a portfolio draft opens in
-   Creating and a blog draft in Blogging. */
+/* Per-record links under an item that has them (only drafts, today), in the
+   site's own link: ink with an accent-soft underline. Each goes to the surface
+   the record is homed on, so a portfolio draft opens in Creating. */
 .fd-need-rows {
+  grid-column: 1 / -1;
   list-style: none;
-  margin: var(--space-1) 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
 }
 
-/* The bullet and its link share a row rather than the link running inline after
-   the marker, so the link can be given a 44px box on a touch pointer without
-   the marker jumping onto a line of its own. Identical to the inline rendering
-   at every width where it is not. */
+/* The bullet and its link share a row, so the link can take a 44px box on a
+   touch pointer without the marker jumping onto a line of its own. */
 .fd-need-row {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
+  font-size: var(--text-sm);
 }
 
 .fd-need-row::before {
@@ -418,125 +175,83 @@
 }
 
 .fd-need-row a {
-  flex: 1 1 auto;
-  min-width: 0;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .fd-subhead {
-  margin-top: var(--space-4);
-  margin-bottom: var(--space-2);
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-faint);
+  margin: var(--space-4) 0 0;
 }
 
 /* ------------------------------------------------------------------ */
-/* A "Latest records" row                                               */
+/* Latest records, as ledger rows                                       */
 /* ------------------------------------------------------------------ */
 
-/* FOUR COLUMNS, one line high, at every width.
-
-   `.fd-row-surface` used to live inside `.admin-record-main`, which is a
-   `flex-wrap: wrap` box holding the title, so the kind label floated
-   immediately after a title of variable length: measured across eight
-   rows its left edge spanned 358px, the gap from it to the timestamp swung from
-   373px to 39px, and a long title pushed it onto a line of its own — row
-   heights of 44.8, 68 and 94.6px inside one eight-row list. The rkeys lined up
-   and the times lined up; the one column between them never did.
-
-   The tracks are declared on the LIST and adopted by every row through
-   `subgrid`, not declared on each row: a grid per row would size its own
-   `max-content` track to its own label and the column would still zigzag —
-   which is the defect, one level down. Declared once, the kind track is exactly
-   as wide as the widest label actually on screen, so it can neither clip "Site
-   pages" nor reserve room for a label that is not there.
-
-   ALL OF THIS IS SCOPED UNDER `.fd`. `.admin-record-*` is frozen public API,
-   reached from /exploring and from the public quick-edit sheet, and none of it
-   may follow this page there. */
-.fd .admin-record-list {
+/* The home ledger's grammar on a desk: the surface and the time stacked as a
+   margin note, the title in the column, and the rkey as a quiet folio at the
+   right. One grid on the LIST, every row a subgrid of it, so the three tracks
+   align down the column whatever each title does. */
+.fd-led {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
-  grid-template-columns: 14ch minmax(0, 1fr) max-content max-content;
+  grid-template-columns: 6rem minmax(0, 1fr) max-content;
   column-gap: var(--space-4);
 }
 
-.fd .admin-record-row,
-.fd .admin-record-link {
+.fd-led-row {
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
-}
-
-.fd .admin-record-link {
   align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule-soft);
 }
 
-/* The title truncates rather than wrapping, so every row is one line and the
-   list's height is `rows × one row` — which is what lets the placeholder
-   reserve it exactly (see LatestSkeleton). */
-.fd .admin-record-main {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The house rule is IBM Plex Mono for rkeys and at-uris, and it held in the
-   list column and the editor head but not here — the same record read as
-   Crimson Pro 12px on the dashboard and mono 12px one click away. `--code`,
-   `--text-xs`, `--ink-faint`: `.wb-list-rkey`'s exact voice, so a record looks
-   the same wherever it is listed. The fixed 14ch width goes with it; the grid
-   track owns the column now. */
-.fd .admin-record-rkey {
-  width: auto;
-  font-family: var(--code);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Same repair on the timestamp: `.wb-list-time`'s small-caps voice rather than
-   `--mono-ui` at 0.04em. `margin-left` back to 0 because the grid places it —
-   an `auto` margin inside a track only pushes it off its own column. */
-.fd .admin-record-time {
-  margin-left: 0;
+.fd-led-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
   font-family: var(--sans);
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
+  font-size: var(--text-meta);
+  line-height: 1.3;
 }
 
-/* The surface a row belongs to. Neutral on purpose — `.admin-record-chip` is
-   the outlined --tan tag that means "not on the public site", and a surface
-   name means nothing of the kind. */
-.fd-row-surface {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
-  color: var(--ink-muted);
-  white-space: nowrap;
+.fd-led-verb {
+  color: var(--accent);
+  text-decoration: none;
 }
 
-/* The placeholder rows are the real rows with skeletons in the tracks, so they
-   are the same height by construction — but only because the bars stay INLINE.
-   A skeleton is a span; left inline it sits in a line box whose strut is the
-   row's own serif at --text-base, so the row stands 44.8px whatever height the
-   bar itself is given. Made `display: block` it would be its own box, the strut
-   would go, and the placeholder row would come out 38.4px — 6.4px short per
-   row, which across LATEST_LIMIT rows is a 51px jump when the data lands.
-   Centred rather than baseline-aligned because a bar has no text baseline to
-   align on. */
-.fd-latest-skel .admin-record-link {
-  align-items: center;
+.fd-led-time {
+  color: var(--ink-faint);
 }
 
-/* "Needs you", loading: the section's own left rule and row geometry rather
-   than three bars floating in the column, so the placeholder reads as the
-   section it stands in for. */
-.fd-needs-skel .fd-need-link {
-  display: block;
+.fd-led-title {
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .fd-led-verb:hover,
+  .fd-led-title:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+}
+
+.fd-led-rkey {
+  text-align: right;
 }
 
 /* ------------------------------------------------------------------ */
@@ -549,146 +264,97 @@
   gap: var(--space-6);
 }
 
-.fd-group {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+/* A group's note is a sentence, not a count, so it sits in the head's meta
+   slot in the meta's own quiet voice and wraps under the title when it has to. */
+.fd-group .section-head-meta {
+  max-width: 32rem;
 }
 
+/* Unboxed cells on hairlines, like the rail's rows, laid out as a grid so the
+   whole directory reads at a glance. No fill and no border of their own: the
+   rule above each cell is the only line. */
 .fd-tiles {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  column-gap: var(--space-5);
 }
 
 .fd-surface {
-  display: flex;
   min-width: 0;
-  transition: opacity 120ms ease;
+  border-bottom: 1px solid var(--rule-soft);
 }
 
-/* Hover borrows the rail chip's vocabulary — accent border over an accent wash
-   — so a grid tile and a rail button answer the same click the same way. */
 .fd-surface-link {
-  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--rule-soft);
-  text-decoration: none;
+  gap: 0.15rem;
+  height: 100%;
+  padding: var(--space-3) var(--space-2);
   color: var(--ink);
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  text-decoration: none;
+  transition: background 120ms ease;
 }
 
-.fd-surface-link:hover,
+@media (hover: hover) {
+  .fd-surface-link:hover {
+    background: var(--wash-hover);
+  }
+}
+
 .fd-surface-link:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: var(--highlight);
+  background: var(--wash-hover);
+  outline-offset: -2px;
 }
 
 .fd-surface-head {
   display: flex;
   align-items: baseline;
-  gap: var(--space-3);
-  min-width: 0;
+  gap: var(--space-2);
 }
 
 .fd-surface-label {
   min-width: 0;
   font-family: var(--serif);
-  font-size: var(--text-lg);
-  line-height: var(--leading-tight);
+  font-size: var(--text-base);
 }
 
-/* ONE trailing slot, one voice, on every tile.
-
-   It used to hold a mono count on a countable surface, a serif small-caps
-   "Open →" on the three large collections, and a small-caps "no records yet"
-   on an empty one — a fact and an action in the same position, in two
-   families, two sizes and two colours, so tiles in one row read as differently
-   interactive when the whole tile is the link in every case. Now the slot is
-   always a number in the data voice, and where there is no number honestly
-   available it is an em dash: the three large collections still carry no count
-   (246 requests for the Bluesky posts alone, and an invented number is worse
-   than no number) and still say so, but they say it in the slot's own voice
-   with the reason on hover.
-
-   "no records yet" goes with it: the tile is already dimmed to 0.55 for an
-   empty collection, which is the rail's treatment of the same surface, and `0`
-   is the honest reading of a 200 with an empty array whether the collection is
-   empty or has never existed. */
 .fd-surface-mark {
   margin-left: auto;
-  white-space: nowrap;
-  font-family: var(--code);
-  font-size: var(--text-sm);
-  color: var(--ink-muted);
-  font-feature-settings: 'tnum' 1;
-}
-
-.fd-surface-mark[title] {
-  cursor: help;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
 }
 
 .fd-surface-blurb {
   font-family: var(--sans);
   font-size: var(--text-sm);
   line-height: var(--leading-tight);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 .fd-surface-skel {
-  flex: 0 0 auto;
   margin-left: auto;
-}
-
-/* Dimmed, never disabled: an absent collection and an empty one are
-   indistinguishable at the API and to the owner, and either way you may want to
-   write the first record. Same treatment the rail gives the same surface. */
-.fd-surface[data-absent] {
-  opacity: 0.55;
-}
-
-.fd-surface[data-absent]:hover,
-.fd-surface[data-absent]:focus-within {
-  opacity: 1;
 }
 
 /* ------------------------------------------------------------------ */
 /* Open any collection                                                  */
 /* ------------------------------------------------------------------ */
 
-/* Label ABOVE its control, like `.admin-field-label` on every other labelled
-   control in the admin — this was the one field in the tree whose label sat
-   beside its input, and 9px below the input's own top edge, so it was neither
-   stacked nor baseline-aligned. */
+/* Label ABOVE its control, in the eyebrow voice the markup carries, like a
+   field label on every other labelled control in the admin. */
 .fd-any {
   display: flex;
   flex-direction: column;
-  align-items: start;
+  align-items: flex-start;
   gap: var(--space-2);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--rule-soft);
 }
 
-.fd-any-label {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
-}
-
-/* The field and the button that submits it share a row of their own, stretched,
-   so they share BOTH edges. Centring a 29.2px button inside a 37.2px input left
-   it inset 4px top and bottom, reading as an undersized control beside a
-   full-height one. */
+/* The field and the button that submits it share a row, stretched, so both
+   share both edges. */
 .fd-any-row {
   display: flex;
   align-items: stretch;
@@ -713,26 +379,15 @@
 /* Stacked (drill-down) — 62rem / 992px                                 */
 /* ------------------------------------------------------------------ */
 
-/* Nothing in here sheds CONTENT any more, which is the other half of why the
-   18-tile grid is unrendered rather than restyled: the rules that used to hide
-   the blurbs, the "Open →" marks and the rkeys fired at 960 as well as at 390,
-   so a 768px tablet with a 676px-wide pane was handed the phone's layout — the
-   grid became a redundant second copy of a chip row 500px above it, and rows
-   with 200px of empty space lost their rkey column on the grounds that it was
-   "a third of a 390px row". Everything below is a reflow the width genuinely
-   needs, which is as true at 768 as at 390; the touch floors are in their own
-   block after this one, and the two rules that really are about a phone are
-   behind a phone-sized query after that. */
 @media (max-width: 61.99rem) {
-  /* Needs you first, then Latest records — both are order 0 and first in the
-     DOM, so the single column already puts them ahead of the counts scanline
-     (`order: 1`) and the surfaces door (`order: 2`). */
+  /* Needs you first, then Latest records, then the numbers, then the door:
+     the columns are first in this order and the counts and the door follow. */
+  .fd-figures {
+    order: 1;
+  }
+
   .fd-columns {
     grid-template-columns: minmax(0, 1fr);
-    /* Stacked, these two are no longer columns: they are two more bands
-       carrying the same heading and rule as the groups, so they take the band
-       joint every other seam on this page uses. The column gutter read as a
-       halved gap — 17.6px inside a stack whose every other joint is 32. */
     gap: var(--space-6);
   }
 
@@ -744,51 +399,26 @@
     grid-row: auto;
     grid-template-rows: none;
   }
-
-  /* Each row is its own 44px box now, so these two gaps can come down to what
-     keeps two rust rules — and two record titles — from reading as one. */
-  .fd-needs {
-    gap: var(--space-2);
-  }
-
-  .fd-need-rows {
-    gap: 0;
-  }
-
-  /* Four columns and a 44px floor. The row's own `padding: var(--space-3) 0`
-     already stands it at 44.8, so this is a guarantee rather than a change. */
-  .fd .admin-record-list {
-    column-gap: var(--space-3);
-  }
-
-  .fd .admin-record-link {
-    min-height: var(--wb-hit);
-  }
 }
 
 /* ------------------------------------------------------------------ */
 /* Touch targets on a coarse pointer, at any width                      */
 /* ------------------------------------------------------------------ */
 
-/* A media query LIST, so this is "stacked OR touch" and the rules are stated
-   once. The breakpoint alone is not enough — a 1024px tablet is above it and
-   still has a thumb, and every control below measured under 44px there
-   (`.fd-need-link` 24.3, its per-record links 15, `.fd-surface-link` 32.4,
-   `.fd-action` 29.2). A fine pointer at 390px is not a phone but is how this
-   page is looked at while it is being built, and it should see what a phone
-   sees.
-
-   PAINTED height rather than the `.wb-hit` ::before halo, in every case here,
-   because all of these are stacked or gridded SIBLINGS with gaps under 16px:
-   two boxes grown 8px on every side across a 9.6px gap overlap by 6.4px and the
-   later sibling wins the tap, which is exactly how the old chip row let 14 of
-   19 adjacent pairs steal each other's taps. A control that can simply be 44px
-   tall should be 44px tall. */
+/* "Stacked OR touch": a 1024px tablet is above the breakpoint and still has a
+   thumb. PAINTED height rather than a grown ::before, because these are
+   stacked siblings with small gaps, and grown boxes that overlap let the later
+   sibling steal the tap. */
 @media (max-width: 61.99rem), (pointer: coarse) {
-  .fd-action,
-  .fd-need-link,
-  .fd-surface-link {
+  .fd-need-action,
+  .fd-surface-link,
+  .fd-led-title {
     min-height: var(--wb-hit);
+  }
+
+  .fd-need-action {
+    display: inline-flex;
+    align-items: center;
   }
 
   .fd-need-row a {
@@ -802,46 +432,26 @@
 /* Phone only — 700px                                                  */
 /* ------------------------------------------------------------------ */
 
-/* Two rules that are about a PHONE rather than about the stacked breakpoint,
-   and are therefore behind a phone-sized query. Everything else that used to
-   fire at 62rem — hiding the surface blurbs, the "Open →" marks, the "no
-   records yet" — was written about a 390px phone and fired on a 768px tablet
-   with a 676px pane; those are gone rather than moved, because the grid they
-   styled is not rendered when stacked at all.
-
-   The rkey one survives because it is true: the rkey track is a fixed 14ch,
-   which is a third of a 358px row, and a title squeezed into what is left wraps
-   to three lines. Above 700px there is room for all four columns and they stay.
-   The label, the surface and the time are what identify a row on a phone; the
-   rkey is one tap away on the record itself. */
+/* The rkey folio is the one track a 358px row can't spare: the surface, the
+   time and the title identify a row, and the rkey is one tap away on the
+   record itself. A need stacks its action under its sentence, so the row
+   reads in order. */
 @media (max-width: 700px) {
-  .fd .admin-record-list {
-    grid-template-columns: minmax(0, 1fr) max-content max-content;
+  .fd-led {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
   }
 
-  .fd .admin-record-rkey {
+  .fd-led-rkey {
     display: none;
   }
 
-  /* The second of the two. A "needs you" row is a sentence and a verb; give it
-     358px and the sentence takes
-     three lines while the verb keeps its own, and `margin-left: auto` collapses
-     to the flex gap, so the row reads "3 page records" → "REVIEW THE RECORDS →"
-     → "the site never reads" with ~54px of empty space under the verb. Stacked
-     it reads in order. Above 700px the row is wide enough for both on one line
-     — and where the label still wraps, `last baseline` above keeps the verb
-     beside its last line rather than its first. No row gap: a serif sentence
-     over a small-caps verb is already two voices, and a phone screen is not
-     the place to spend 5px saying so again. */
-  .fd-need-link {
-    flex-direction: column;
-    align-items: start;
+  .fd-need {
+    grid-template-columns: minmax(0, 1fr);
     gap: 0;
-    padding-block: var(--space-1);
   }
 
   .fd-need-action {
-    margin-left: 0;
+    justify-self: start;
   }
 }
 
@@ -849,47 +459,14 @@
 /* The phone's door to everything else                                  */
 /* ------------------------------------------------------------------ */
 
-/* Rendered only when stacked, in place of the 758px surface grid. One row, one
-   tap, and the same sheet the bar's left slot opens — the directory is stated
-   once and reached from everywhere rather than drawn twice on the one screen
-   that already has the bar. */
-.fd-all {
+/* Rendered only when stacked, in place of the surface grid: one quiet Button,
+   full width, opening the same sheet the bar's left slot opens. */
+.wb .fd-all {
   order: 2;
-  appearance: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  justify-content: space-between;
   width: 100%;
-  min-height: var(--wb-hit);
-  padding: var(--space-2) 0;
-  border: 0;
-  border-top: 1px solid var(--rule-soft);
-  border-radius: 0;
-  background: none;
-  text-align: start;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.fd-all-label {
-  font-family: var(--serif);
-  font-size: var(--text-lg);
-  line-height: var(--leading-tight);
 }
 
 .fd-all-mark {
-  margin-left: auto;
-  font-family: var(--sans);
-  font-size: var(--text-sm);
   color: var(--ink-faint);
-}
-
-.fd-all:hover,
-.fd-all:focus-visible {
-  color: var(--accent);
-}
-
-.fd-all:hover .fd-all-mark,
-.fd-all:focus-visible .fd-all-mark {
-  color: var(--accent);
 }
