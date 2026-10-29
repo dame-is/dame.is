@@ -24,19 +24,20 @@ export function dayHeaderLabels(date, now = new Date()) {
 }
 
 /**
- * The head of a day in a feed, set like a book's running head: the date on
+ * The head of a day in a feed, set like a book's running head: the day on
  * the left and the day-of-life folio on the right, like a page number
- * ("Wednesday, Oct 28 … day 12,228"). Nothing else: what the day holds is
- * in the rows beneath it. `meta` is only for a passing note about the feed
- * itself (the home ledger's "Updating…"), set before the
+ * ("Today … day 12,229", "Wednesday, Oct 28 … day 12,228"). The two most
+ * recent days go by their names, older ones by their date. Nothing else:
+ * what the day holds is in the rows beneath it. `meta` is only for a passing
+ * note about the feed itself (the home ledger's "Updating…"), set before the
  * folio. `variant="ledger"` rules it under for the ledger's rows (Feed.css).
  *
- * "Today" and "Yesterday" aren't printed, but they are what the day is called:
- * a screen reader hears "Today, Wednesday, Oct 28", and the chrome, which
+ * A named day keeps its date in reach: a screen reader hears "Today,
+ * Wednesday, Oct 28", and a pointer finds it in the tooltip. The chrome, which
  * reads the day in view from `.day-section-header .day-header`, takes
- * `data-day-label` ("Today", "Oct 25") for the ↑ beside it. Both follow a
- * clock that keeps running (useNow), so a page left open past midnight moves
- * them along.
+ * `data-day-label` ("Today", "Oct 25") for the ↑ beside it. All of it follows
+ * a clock that keeps running (useNow), so a page left open past midnight
+ * moves the names along.
  */
 export default function DayOfLifeHeader({
   date,
@@ -52,8 +53,9 @@ export default function DayOfLifeHeader({
         className="day-header"
         data-day-label={short}
         aria-label={relative ? `${relative}, ${dateText}` : undefined}
+        title={relative ? dateText : undefined}
       >
-        {dateText}
+        {relative || dateText}
       </h3>
       <p className="day-header-meta">
         {meta && <span className="day-header-note">{meta}</span>}
