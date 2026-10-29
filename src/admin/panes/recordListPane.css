@@ -448,16 +448,6 @@
   color: var(--accent);
 }
 
-/* The panel's own label is `--text-lg`: the same size as this pane's <h1>, which
-   below 62rem is the page's only heading. A card at the foot of a column cannot
-   be the typographic equal of the column's title — measured at 390, where the
-   panel label read as the MORE prominent of the two because it had more space
-   around it. Scoped to this column, because the panel is also rendered
-   standalone in the Site-pages studio, where it IS the heading of its card. */
-.wb-list .admin-page-panel-label {
-  font-size: var(--text-base);
-}
-
 /* `display: flex` on a <summary> drops the UA disclosure triangle, so the state
    is drawn explicitly — the same caret, and the same quarter turn, the surfaces
    sheet uses for its collapsed Legacy group. */

@@ -757,27 +757,6 @@
   }
 }
 
-/* A state badge (PDS / Local) is the kit's tag: the label voice on a hairline,
-   the "on" look for the live state, never a fill. */
-.wb .admin-badge {
-  padding: 0 0.4em;
-  min-height: 1.25rem;
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--text-xs);
-  letter-spacing: 0.1em;
-  line-height: 1;
-  color: var(--ink-muted);
-  background: transparent;
-  border: 1px solid var(--rule);
-}
-
-.wb .admin-badge-pds {
-  color: var(--ink);
-  background: var(--wash-selected);
-  border-color: var(--accent);
-}
-
 /* "20 loaded" beside "Select all", wherever a studio draws the toolbar: plain
    meta in tabular figures rather than wide small caps. */
 .wb .admin-multiselect-count {

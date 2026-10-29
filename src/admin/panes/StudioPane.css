@@ -32,43 +32,7 @@
  *     RecordListPane renders outside any studio.
  */
 
-/* ---- leaving the admin looks like leaving the admin ------------------ */
-
-/* A studio's outbound link ("View /welcoming"): the kit's small quiet Button
- * (controls.css) in sentence case, with the top bar's outbound arrow. A studio
- * that renders `<Button as={Link}>` needs none of this; it stays for any that
- * still draws the class.
- */
-.studio-out {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  min-height: var(--control-h-sm);
-  padding: 0.2em 0.625rem;
-  font-family: var(--sans);
-  font-size: var(--text-meta);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--ink-soft);
-  background: transparent;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  text-decoration: none;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-@media (hover: hover) {
-  .studio-out:hover {
-    color: var(--ink);
-    border-color: var(--accent-soft);
-    background: var(--wash-hover);
-  }
-}
-
-.studio-out-glyph {
-  width: 0.875rem;
-  height: 0.875rem;
-}
+/* ---- a surface with no studio --------------------------------------- */
 
 .wb-studio-missing {
   font-style: italic;
@@ -76,41 +40,6 @@
 }
 
 /* ---- the guestbook studio ------------------------------------------- */
-
-/* `.guestbook-entries` is a whole page's worth of section on /welcoming: it
- * closes the sign-up form above it with a rule and its own space. Inside a
- * studio the `.admin-toolbar` directly above it ALREADY ends with a rule, so
- * the two landed 30.4px apart with nothing but whitespace between them — the
- * only doubled rule anywhere in the admin. The studio's flex `gap` owns the
- * rhythm here, so the section keeps none of its page-level framing.
- */
-.wb-studio .guestbook-entries {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-}
-
-/* The section heading. Its shared rule sets a family, tracking and colour but
- * no size, so it inherits the site's <h2> — 28px, identical to `.wb-pane-title`
- * on the same screen, and "SIGNATURES" read as a second page title. Every other
- * section heading in the workbench (`.wb-rail-heading`, `.fd-subhead`) is 12px.
- */
-.wb-studio .guestbook-entries-heading {
-  font-size: var(--text-xs);
-  color: var(--ink-muted);
-}
-
-/* The error state's sentence and its retry control on one line. `text-indent`
- * is 24px on a paragraph in this pane — right for prose, wrong for a status
- * line whose first character would sit 24px in from every other left edge on
- * the surface. */
-.wb-studio .gb-error {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  text-indent: 0;
-}
 
 /* Signature-shaped loading rows: `GuestbookRowsSkeleton` mirrors
  * `.guestbook-entry`'s box so the list does not jump when the real rows land. */
@@ -153,27 +82,4 @@
 
 .gb-skel-time {
   flex: none;
-}
-
-/* ---- the site-pages studio ------------------------------------------ */
-
-/* The "extra" chip on a page record whose slug is not one of the built-in page
- * surfaces. `.admin-record-preview` is not a flex child that grows, so without
- * this the chip would sit against the end of the title instead of at the end of
- * the row where `.admin-record-time` sits on every other record list. */
-.pages-extra-badge {
-  margin-inline-start: auto;
-}
-
-/* ---- touch targets --------------------------------------------------- */
-
-/* `.studio-out` is this file's own class, so its 44px floor lives here. The
- * `.admin-gate-button-tight` and `.admin-link-subtle` floors that used to sit
- * beside it moved to Admin.css under `.wb`, where they cover the record list,
- * the record detail and the blocks editor as well as the studios — see the
- * collected touch block at the foot of that file. */
-@media (max-width: 61.99rem) {
-  .wb-studio .studio-out {
-    min-height: var(--wb-hit, 2.75rem);
-  }
 }

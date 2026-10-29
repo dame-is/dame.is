@@ -1188,7 +1188,6 @@ export default function RecordListPane({ surface, agent, did }) {
       ref={rootRef}
       data-selecting={selectionOn ? '' : undefined}
       data-stacked={stacked ? '' : undefined}
-      data-marker={visModel ? '' : undefined}
     >
       {/* Sticky inside the column's own scroller — which is what `.wb-pane-list`
           is at EVERY width — so the filter and the bulk actions stay reachable
@@ -1416,9 +1415,7 @@ export default function RecordListPane({ surface, agent, did }) {
       {error && <p className="admin-error">{error}</p>}
 
       {firstLoad ? (
-        // `marker` from the same `visModel` the real rows read, so the
-        // placeholder titles start on the pixel the loaded titles will.
-        <AdminRecordListSkeleton rows={8} variant="workbench" marker={!!visModel} />
+        <AdminRecordListSkeleton rows={8} variant="workbench" />
       ) : shown.length === 0 && !error ? (
         <div className="wb-list-empty">{emptyState()}</div>
       ) : (
@@ -1481,7 +1478,8 @@ export default function RecordListPane({ surface, agent, did }) {
               {surface.label} — page content
               <ChevronRight className="wb-list-page-caret" size={14} aria-hidden="true" />
             </summary>
-            <PageContentPanel agent={agent} did={did} slug={surface.pageSlug} />
+            {/* `inList`: the summary above already names the page. */}
+            <PageContentPanel agent={agent} did={did} slug={surface.pageSlug} inList />
           </details>
         ) : (
           <PageContentPanel agent={agent} did={did} slug={surface.pageSlug} />

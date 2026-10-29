@@ -52,11 +52,9 @@ const BREAKPOINTS = {
 // list; nothing new goes on it.
 const LEGACY_TYPE = [
   'src/components/ActionDock.css',
-  'src/components/AnalyticsStudio.css',
   'src/components/ChromeBar.css',
   'src/components/DebugOverlay.css',
   'src/components/EditModeBar.css',
-  'src/components/PublicationsManager.css',
   'src/components/Xray.css',
   'src/components/blocks/RatioedBlock.css',
   'src/components/blocks/blocks.css',
