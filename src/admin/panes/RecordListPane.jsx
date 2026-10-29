@@ -54,9 +54,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, ChevronUp, RefreshCw, Search, X } from 'lucide-react';
+import { ChevronRight, ChevronUp, Plus, RefreshCw, Search, X } from 'lucide-react';
 import AdminSheet from '../AdminSheet.jsx';
+import Button from '../../components/Button.jsx';
 import PageContentPanel from '../../components/PageContentPanel.jsx';
+import Segmented from '../../components/Segmented.jsx';
+import Tag from '../../components/Tag.jsx';
+import Time from '../../components/Time.jsx';
 import { rkeyFromUri } from '../../components/RecordEditor.jsx';
 import { AdminRecordListSkeleton } from '../../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../../components/HeroSentence.jsx';
@@ -64,7 +68,6 @@ import { COLLECTIONS } from '../../config.js';
 import { lexiconFor } from '../../lib/lexicons.js';
 import { visibilityModelFor } from '../../lib/recordVisibility.js';
 import { isSwapConflict } from '../../lib/recordWrites.js';
-import { relativeTime } from '../../lib/time.js';
 import { latestInstant, rowLabel, stampAutoTimestamps } from '../recordFields.js';
 import { rowHrefFor } from '../surfaces.js';
 import { useAdminShell } from '../useAdminShell.jsx';
@@ -255,14 +258,9 @@ function HeroSeedButton({ agent, did, existingCount, onSeeded }) {
 
   return (
     <>
-      <button
-        type="button"
-        className="admin-link-subtle wb-list-empty-action"
-        onClick={seed}
-        disabled={busy}
-      >
+      <Button variant="text" size="sm" className="wb-list-empty-action" onClick={seed} disabled={busy}>
         {busy ? 'Seeding…' : 'Seed the built-in hero phrases'}
-      </button>
+      </Button>
       {error && <p className="admin-error">{error}</p>}
     </>
   );
@@ -273,32 +271,21 @@ function HeroSeedButton({ agent, did, existingCount, onSeeded }) {
 /* ------------------------------------------------------------------ */
 
 /**
- * What a row SAYS, without deciding what tapping it does. Two lines rather than
- * the old single line, because this column is 22rem wide and the old row spent
- * 14ch of it on the rkey before the title started. Line one is what the record
- * IS; line two is how it is addressed and when it was last touched.
- *
- * The status square is absolutely positioned (see `.wb-list-dot`) so that a
- * row's title and its rkey share one left edge on the four surfaces that draw
- * one, exactly as they already do on the four that do not.
+ * What a row SAYS, without deciding what tapping it does. Two lines: what the
+ * record IS, then when it was last touched, how it is addressed and, on the
+ * collections that can hide a record, a tag when it is hidden ("draft",
+ * "disabled"). The tag is the only state mark: a row the site shows needs none.
  */
-function RowBody({ label, chip, hidden, hasState, rkey, instant }) {
+function RowBody({ label, chip, rkey, instant }) {
   return (
     <>
       <span className="wb-list-line">
-        {hasState && (
-          <span className="wb-list-dot" data-hidden={hidden ? '' : undefined} aria-hidden="true" />
-        )}
         <span className="wb-list-label">{label || '(untitled)'}</span>
       </span>
       <span className="wb-list-meta">
-        <code className="wb-list-rkey">{rkey}</code>
-        {chip && <span className="admin-record-chip small-caps">{chip}</span>}
-        {instant && (
-          <time className="wb-list-time" dateTime={instant} title={instant}>
-            {relativeTime(instant)}
-          </time>
-        )}
+        {instant && <Time className="wb-list-time" value={instant} variant="relative" tabular />}
+        <span className="wb-list-rkey ident">{rkey}</span>
+        {chip && <Tag>{chip}</Tag>}
       </span>
     </>
   );
@@ -321,8 +308,6 @@ function RecordRow({
   rkey,
   label,
   chip,
-  hidden,
-  hasState,
   instant,
   href,
   open,
@@ -336,22 +321,13 @@ function RecordRow({
   const className = [
     'admin-record-row',
     'wb-list-row',
-    open ? 'is-open' : '',
+    open ? 'is-on' : '',
     checked ? 'is-selected' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
-  const body = (
-    <RowBody
-      label={label}
-      chip={chip}
-      hidden={hidden}
-      hasState={hasState}
-      rkey={rkey}
-      instant={instant}
-    />
-  );
+  const body = <RowBody label={label} chip={chip} rkey={rkey} instant={instant} />;
 
   // The record's own title, not its rkey. A screen-reader user ticking rows for
   // a bulk delete was hearing twelve characters of base32.
@@ -662,6 +638,21 @@ export default function RecordListPane({ surface, agent, did }) {
       return sort === 'oldest' ? av - bv : bv - av;
     });
   }, [surfaceRecords, query, visibility, sort, visModel, collection, lex]);
+
+  // The visibility keys' counts, over what has loaded, so the segment says what
+  // each key will show before it is pressed. A `+` while pages are still behind
+  // it, as every count in the admin carries.
+  const visCounts = useMemo(() => {
+    if (!visModel) return null;
+    let hidden = 0;
+    for (const rec of surfaceRecords) if (visModel.isHidden(rec.value)) hidden += 1;
+    const more = done ? '' : '+';
+    return {
+      all: `${surfaceRecords.length}${more}`,
+      visible: `${surfaceRecords.length - hidden}${more}`,
+      hidden: `${hidden}${more}`,
+    };
+  }, [visModel, surfaceRecords, done]);
 
   const filtering = query.trim() !== '' || visibility !== 'all';
   // Before the first response there is no list, so there is nothing to filter,
@@ -1147,9 +1138,9 @@ export default function RecordListPane({ surface, agent, did }) {
               ? `No loaded record matches “${query.trim()}”.`
               : 'No loaded record matches this filter.'}
           </p>
-          <button type="button" className="admin-link-subtle wb-list-empty-action" onClick={clearFilter}>
+          <Button variant="text" size="sm" className="wb-list-empty-action" onClick={clearFilter}>
             Clear the filter
-          </button>
+          </Button>
         </>
       );
     }
@@ -1165,7 +1156,7 @@ export default function RecordListPane({ surface, agent, did }) {
     if (isLegacy) {
       return (
         <p className="wb-list-empty-line">
-          Nothing in <code className="wb-list-empty-nsid">{collection}</code>. This collection is
+          Nothing in <span className="ident">{collection}</span>. This collection is
           legacy — new records are written elsewhere.
         </p>
       );
@@ -1183,9 +1174,9 @@ export default function RecordListPane({ surface, agent, did }) {
             onSeeded={() => invalidate(surface.nsids)}
           />
         ) : (
-          <button type="button" className="admin-link-subtle wb-list-empty-action" onClick={openNew}>
+          <Button variant="text" size="sm" className="wb-list-empty-action" onClick={openNew}>
             Write the first one
-          </button>
+          </Button>
         )}
       </>
     );
@@ -1215,39 +1206,40 @@ export default function RecordListPane({ surface, agent, did }) {
           <h1 className="wb-pane-title wb-list-title" ref={headingRef} tabIndex={-1}>
             {surface.label}
           </h1>
-          <button
-            type="button"
-            className="admin-link-subtle wb-list-refresh"
+          <Button
+            variant="icon"
+            size="sm"
+            className="wb-list-refresh"
             onClick={() => invalidate(surface.nsids)}
             disabled={loading || busy}
             title="Refresh this list"
             aria-label="Refresh this list"
           >
-            <RefreshCw size={stacked ? 20 : 14} aria-hidden="true" />
-          </button>
+            <RefreshCw size={14} strokeWidth={1.5} aria-hidden="true" />
+          </Button>
           {/* Below 62rem "New" is the bar's right slot: it is the surface's
               primary action and belongs under the thumb, not in the corner
               furthest from it. */}
           {!stacked && canCreate && (
-            <Link
+            <Button
+              as={Link}
               to={newHref}
-              className="admin-gate-button admin-gate-button-tight wb-list-new"
+              size="sm"
+              className="wb-list-new"
               onClick={(event) => {
                 if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
                 event.preventDefault();
                 openNew();
               }}
             >
+              <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
               New
-            </Link>
+            </Button>
           )}
         </div>
 
-        {/* Developer orientation, and one line of it. On the synthetic surface the
-            <h1> IS the nsid, so printing it twice says nothing twice. */}
-        {!stacked && !surface.synthetic && (
-          <code className="admin-collection-nsid wb-list-nsid">{collection}</code>
-        )}
+        {/* The collection's NSID is in the running head (AdminTopBar), where a
+            public record page prints its own; it isn't repeated here. */}
 
         {showControls &&
           (stacked ? (
@@ -1268,7 +1260,7 @@ export default function RecordListPane({ surface, agent, did }) {
                   />
                   <button
                     type="button"
-                    className="wb-list-ctl"
+                    className="btn btn--sm wb-list-ctl"
                     onClick={() => setFilterOpen(false)}
                   >
                     Done
@@ -1278,7 +1270,7 @@ export default function RecordListPane({ surface, agent, did }) {
                 <>
                   <button
                     type="button"
-                    className="wb-list-ctl wb-list-ctl-grow"
+                    className="btn btn--sm wb-list-ctl wb-list-ctl-grow"
                     aria-expanded="false"
                     onClick={() => setFilterOpen(true)}
                   >
@@ -1290,7 +1282,7 @@ export default function RecordListPane({ surface, agent, did }) {
                   {query.trim() && (
                     <button
                       type="button"
-                      className="wb-list-ctl wb-list-ctl-icon"
+                      className="btn btn--sm btn--icon wb-list-ctl wb-list-ctl-icon"
                       aria-label="Clear the filter"
                       onClick={() => setView({ query: '' })}
                     >
@@ -1299,7 +1291,7 @@ export default function RecordListPane({ surface, agent, did }) {
                   )}
                   <button
                     type="button"
-                    className="wb-list-ctl"
+                    className="btn btn--sm wb-list-ctl"
                     aria-expanded={sheet === OPTIONS_SHEET}
                     aria-controls="wb-list-options"
                     onClick={() => setSheet(sheet === OPTIONS_SHEET ? null : OPTIONS_SHEET)}
@@ -1342,19 +1334,21 @@ export default function RecordListPane({ surface, agent, did }) {
                   this segment appears only where it can mean something — and it
                   says it in that collection's own words. */}
               {visOptions && (
-                <div className="wb-list-seg" role="group" aria-label="Visibility">
-                  {visOptions.map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      className={`wb-list-seg-btn${visibility === option.key ? ' is-on' : ''}`}
-                      aria-pressed={visibility === option.key}
-                      onClick={() => setView({ visibility: option.key })}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  className="wb-list-seg"
+                  label="Visibility"
+                  value={visibility}
+                  onChange={(key) => setView({ visibility: key })}
+                  options={visOptions.map((option) => ({
+                    value: option.key,
+                    label: (
+                      <>
+                        {option.label}
+                        {visCounts && <span className="wb-list-seg-n">{visCounts[option.key]}</span>}
+                      </>
+                    ),
+                  }))}
+                />
               )}
 
               <div className="admin-multiselect-toolbar wb-list-bulk">
@@ -1386,35 +1380,33 @@ export default function RecordListPane({ surface, agent, did }) {
                 <div className="admin-multiselect-actions wb-list-actions" data-armed={selected.size ? '' : undefined}>
                   {visModel && (
                     <>
-                      <button
-                        type="button"
-                        className="admin-gate-button admin-gate-button-tight wb-list-toggle-btn"
+                      <Button
+                        size="sm"
                         onClick={() => bulkSetHidden(true)}
                         disabled={busy || selected.size === 0}
                         title={`Mark the selected records ${visOptions[2].label.toLowerCase()}`}
                       >
                         {vis.hide}
-                      </button>
-                      <button
-                        type="button"
-                        className="admin-gate-button admin-gate-button-tight wb-list-toggle-btn"
+                      </Button>
+                      <Button
+                        size="sm"
                         onClick={() => bulkSetHidden(false)}
                         disabled={busy || selected.size === 0}
                         title={`Mark the selected records ${visOptions[1].label.toLowerCase()}`}
                       >
                         {vis.show}
-                      </button>
+                      </Button>
                     </>
                   )}
-                  <button
-                    type="button"
-                    className="admin-gate-button admin-gate-button-tight wb-list-danger"
+                  <Button
+                    size="sm"
+                    variant="danger"
                     onClick={bulkDelete}
                     disabled={busy || selected.size === 0}
                     aria-label={`Delete ${selected.size} selected records`}
                   >
                     {busy ? 'Working…' : 'Delete'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </>
@@ -1428,7 +1420,7 @@ export default function RecordListPane({ surface, agent, did }) {
         // placeholder titles start on the pixel the loaded titles will.
         <AdminRecordListSkeleton rows={8} variant="workbench" marker={!!visModel} />
       ) : shown.length === 0 && !error ? (
-        <div className="placeholder-card wb-list-empty">{emptyState()}</div>
+        <div className="wb-list-empty">{emptyState()}</div>
       ) : (
         // `.reveal`, not `.reveal-stagger`: the stagger animates each child and
         // would re-fire every row on every keystroke as the filter reorders them.
@@ -1443,8 +1435,6 @@ export default function RecordListPane({ surface, agent, did }) {
                 rkey={key}
                 label={rowLabel(rec.value, collection, lex)}
                 chip={hidden ? visModel.chipLabel(rec.value) || 'hidden' : null}
-                hidden={hidden}
-                hasState={!!visModel}
                 instant={latestInstant(rec.value, rec.uri, collection)}
                 href={rowHrefFor(surface, key)}
                 open={open}
@@ -1474,15 +1464,9 @@ export default function RecordListPane({ surface, agent, did }) {
           filter that hides every loaded row must not also hide the button that
           would load the rows it is looking for. */}
       {!done && records.length > 0 && (
-        <button
-          type="button"
-          ref={moreRef}
-          className="admin-gate-button admin-gate-button-tight wb-list-more"
-          disabled={loading}
-          onClick={loadMore}
-        >
+        <Button ref={moreRef} size="sm" className="wb-list-more" disabled={loading} onClick={loadMore}>
           {loading ? 'Loading…' : 'Load more'}
-        </button>
+        </Button>
       )}
 
       {/* Below the rows, and below the fold, because it is a once-a-year

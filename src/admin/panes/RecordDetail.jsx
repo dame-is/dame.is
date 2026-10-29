@@ -51,8 +51,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COLLECTIONS, PORTFOLIO_PUBLICATION } from '../../config.js';
 import { lexiconFor } from '../../lib/lexicons.js';
 import { publicRecordPath } from '../../lib/publicRecordPath.js';
+import { visibilityModelFor } from '../../lib/recordVisibility.js';
+import BreakableId from '../../components/BreakableId.jsx';
+import Button from '../../components/Button.jsx';
+import Fleuron from '../../components/Fleuron.jsx';
 import RecordEditor from '../../components/RecordEditor.jsx';
-import { recordTitle } from '../recordFields.js';
+import Segmented from '../../components/Segmented.jsx';
+import Time from '../../components/Time.jsx';
+import { latestInstant, recordTitle } from '../recordFields.js';
 import { useAdminShell } from '../useAdminShell.jsx';
 import './recordDetail.css';
 
@@ -193,6 +199,20 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
 
   const title = isNew ? `New ${newLabel}` : recordTitle(record, collection, rkey, lex);
   const kicker = lex?.label || null;
+  // The facts line under the title, as a public record page sets its own: what
+  // kind of record this is, its state where the collection has one ("draft",
+  // "disabled") and the date it carries. Each fact appears only once it is
+  // known, so a record still loading says no more than its type.
+  const visModel = visibilityModelFor(collection);
+  const hiddenLabel =
+    record && visModel?.isHidden(record) ? visModel.chipLabel(record) || 'hidden' : null;
+  const instant =
+    record && rkey && !isNew ? latestInstant(record, `at://${did}/${collection}/${rkey}`, collection) : null;
+  const facts = [
+    kicker && { key: 'type', node: kicker },
+    hiddenLabel && { key: 'state', node: hiddenLabel },
+    instant && { key: 'date', node: <Time value={instant} variant="date" /> },
+  ].filter(Boolean);
 
   /* --- driving the editor from the strip and the bar --------------------- */
 
@@ -497,7 +517,10 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
       // state exactly as they do to the form. `tabIndex={-1}` makes it a focus
       // target after a delete; it is never in the Tab order.
       <div className="wb-editor wb-editor-blank" ref={blankRef} tabIndex={-1}>
-        <p className="placeholder-card wb-editor-empty">
+        {/* The site's own voice for an empty page: the fleuron the essays and
+            the ledger end on, one italic line, and a quiet way forward. */}
+        <Fleuron />
+        <p className="wb-editor-empty">
           {deleted ? (
             <>
               Deleted <strong>{deleted}</strong>.{' '}
@@ -521,9 +544,9 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
             lives in the OTHER column, which on a wide screen is 600px away and
             on a phone is a different screen entirely. */}
         {canCreate && (
-          <button type="button" className="admin-gate-button" onClick={startNew}>
+          <Button size="sm" onClick={startNew}>
             New record
-          </button>
+          </Button>
         )}
       </div>
     );
@@ -536,12 +559,24 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
 
   return (
     <div className="wb-editor">
+      {/* The record's identity as a public record page sets it: the title, a
+          facts line (its type, its state where the collection has one, its
+          date), and its at:// address as a quiet folio broken at its slashes. */}
       <div className="wb-pane-head wb-editor-head">
-        {/* The type, at the size a type deserves. It used to BE the heading. */}
-        {kicker && <p className="wb-editor-kicker">{kicker}</p>}
         <Heading className="wb-pane-title wb-editor-title">{title}</Heading>
-        <code className="admin-collection-nsid">{collection}</code>
-        {rkey && <code className="wb-editor-rkey">{rkey}</code>}
+        {facts.length > 0 && (
+          <p className="wb-editor-facts">
+            {facts.map((fact, i) => (
+              <span key={fact.key}>
+                {i > 0 && ' · '}
+                {fact.node}
+              </span>
+            ))}
+          </p>
+        )}
+        <p className="wb-editor-uri ident">
+          <BreakableId>{rkey ? `at://${did}/${collection}/${rkey}` : `at://${did}/${collection}`}</BreakableId>
+        </p>
       </div>
 
       {/* Mounted only while it has something to say. `role="status"` announces
@@ -572,18 +607,16 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
           honest markup being cheaper, here, than implementing a pattern nothing
           about this bar wants. */}
       {!status.notFound && (
-        <div className="wb-tabs wb-editor-tabs" role="group" aria-label="Record body">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              className="wb-tab"
-              aria-pressed={activeTab === t.key}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="section-head wb-editor-tabs">
+          <h3 className="section-head-title">Record</h3>
+          <div className="section-head-meta">
+            <Segmented
+              label="Record body"
+              value={activeTab}
+              onChange={setTab}
+              options={tabs.map((t) => ({ value: t.key, label: t.label }))}
+            />
+          </div>
         </div>
       )}
 
@@ -617,9 +650,9 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
           // The editor draws the state; the way out of it is the shell's, because
           // "back to the list" here is a query-param patch no leaf component can
           // express.
-          <button type="button" className="admin-gate-button" onClick={backToList}>
+          <Button size="sm" onClick={backToList}>
             Back to {surface.label}
-          </button>
+          </Button>
         }
       />
     </div>

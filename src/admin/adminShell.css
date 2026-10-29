@@ -663,43 +663,132 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Tab bar (Edit · Preview · JSON)                                      */
+/* The shared editor, inside the workbench                              */
 /* ------------------------------------------------------------------ */
 
-.wb-tabs {
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--rule);
-}
+/* RecordEditor, its field cards and the blocks editor are shared with the
+   public quick-edit sheet, which portals to <body>, outside `.wb`, and keeps
+   their `.admin-*` look exactly as it is (docs/admin-rebuild-decisions.md §4).
+   Inside the workbench the same parts take the kit's voice instead, and every
+   rule here is scoped to `.wb` so not one of them can reach the sheet.
 
-.wb-tab {
-  appearance: none;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+   Labels: the eyebrow (typography.css), at its 0.1em rather than the 0.16em
+   these rules carried. The required mark is the label's own faint ink: under
+   the sky, --tan computes the same teal as the hint below the field. */
+.wb .admin-field-label,
+.wb .rf-inline-label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
   color: var(--ink-muted);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
 }
 
-.wb-tab:hover:not(:disabled) {
-  color: var(--accent);
+.wb .admin-field-required {
+  color: var(--ink-faint);
 }
 
-.wb-tab[aria-selected='true'] {
+/* Identifiers in running text lose the site's tinted code chip: in the admin
+   they are data beside a name, set as `.ident` is (controls.css). A JSON dump
+   in a <pre> keeps its own box. */
+.wb :not(pre) > code {
+  background: none;
+  padding: 0;
+}
+
+/* Any `.admin-gate-button` still drawn inside the workbench (the editor's own,
+   the blocks editor's) is the kit's quiet small Button: sentence case on a
+   hairline, never the filled ink slab, which at 7 pm turned near white. The
+   danger tier and the dashed disabled state follow controls.css. */
+.wb .admin-gate-button {
+  min-height: var(--control-h-sm);
+  padding: 0.2em 0.625rem;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  font-variant: normal;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+}
+
+/* Admin.css fills the button on any :hover, which a touch screen leaves stuck
+   after a tap; inside the workbench that fill is cancelled outright, and only a
+   real pointer gets the kit's wash. */
+.wb .admin-gate-button:hover:not(:disabled) {
+  color: var(--ink-soft);
+  background: transparent;
+  border-color: var(--rule);
+}
+
+.wb .admin-gate-button.admin-danger:hover:not(:disabled) {
+  color: var(--danger);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
+}
+
+@media (hover: hover) {
+  .wb .admin-gate-button:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--wash-hover);
+    border-color: var(--accent-soft);
+  }
+
+  .wb .admin-gate-button.admin-danger:hover:not(:disabled) {
+    color: var(--danger);
+    background: var(--danger-wash);
+    border-color: var(--danger);
+  }
+}
+
+.wb .admin-gate-button.admin-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
+}
+
+.wb .admin-gate-button:disabled {
+  opacity: 1;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px dashed var(--rule);
+}
+
+@media (pointer: coarse) {
+  .wb .admin-gate-button {
+    min-height: var(--wb-hit);
+  }
+}
+
+/* A state badge (PDS / Local) is the kit's tag: the label voice on a hairline,
+   the "on" look for the live state, never a fill. */
+.wb .admin-badge {
+  padding: 0 0.4em;
+  min-height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+}
+
+.wb .admin-badge-pds {
   color: var(--ink);
-  border-bottom-color: var(--accent);
+  background: var(--wash-selected);
+  border-color: var(--accent);
 }
 
-.wb-tab:disabled {
-  opacity: 0.45;
-  cursor: default;
+/* "20 loaded" beside "Select all", wherever a studio draws the toolbar: plain
+   meta in tabular figures rather than wide small caps. */
+.wb .admin-multiselect-count {
+  font-size: var(--text-meta);
+  font-variant: normal;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb .admin-collection-group-heading {
+  letter-spacing: 0.1em;
 }
 
 /* ------------------------------------------------------------------ */
@@ -717,7 +806,12 @@
    so the title, the NSID and the rkey were painted over and an empty band sat
    above. The pane is the scrollport and it starts where the top bar ends; nothing
    on this route is measured against chrome. z-index 5 sits above pane content and
-   below every chrome surface. */
+   below every chrome surface.
+
+   It sits on the page with one hairline under it, as a sheet's header does
+   (BottomSheet.css `.sheet-head`), rather than in a raised, boxed band: it is
+   the head of the record below it, not a second toolbar. Opaque, because the
+   form scrolls under it. */
 .wb-strip {
   position: sticky;
   top: 0;
@@ -726,9 +820,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--rule);
-  background: var(--surface-raised);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--page);
 }
 
 .wb-strip-state {

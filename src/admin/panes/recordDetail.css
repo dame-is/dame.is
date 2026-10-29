@@ -61,13 +61,8 @@
 .wb-editor-empty {
   margin: 0;
   max-width: var(--measure);
-}
-
-/* `.admin-gate-button` sets `align-self: flex-start` for the form rows it was
-   written for, which in a centred column pins it to the card's left edge and
-   half-undoes the centring. */
-.wb-editor-blank .admin-gate-button {
-  align-self: center;
+  font-style: italic;
+  color: var(--ink-muted);
 }
 
 /* ------------------------------------------------------------------ */
@@ -79,33 +74,19 @@
   border-bottom: 1px solid var(--rule-soft);
 }
 
-/* The record's TYPE, above its name. The heading used to be the type — you
-   drilled into Curating and landed on a page headed "Curating" — so the label
-   has not been lost, it has been put where a type belongs: the small-caps voice
-   the whole admin uses for the name of a kind of thing. */
-.wb-editor-kicker {
-  flex: 0 0 100%;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
-}
-
 /* Smaller than the shell's `--text-2xl` pane title. On a records surface the
    list column already spends an <h1> on the surface's name; this is the record
    inside it, and a studio's full-pane title should still read as the largest
    thing in the workbench.
 
-   Its own line, with the NSID and the rkey on the baseline row beneath: the
-   title is now a record's title, which can be a sentence, and a sentence sharing
-   a flex line with two code chips wraps into them.
+   Its own line, with the facts line and the URI folio beneath: the title is a
+   record's title, which can be a sentence.
 
    `overflow-wrap: anywhere` because this string is the one unbounded input on
    the screen — a hand-typed NSID collection titles its records with whatever the
    record says — and at 320px an unbreakable one was clipped mid-word with no
-   ellipsis. Three lines is enough to recognise a record by; past that the rkey
-   chip and the NSID identify it exactly. */
+   ellipsis. Three lines is enough to recognise a record by; past that the URI
+   folio identifies it exactly. */
 .wb-editor .wb-editor-title {
   flex: 0 0 100%;
   min-width: 0;
@@ -117,25 +98,25 @@
   overflow: hidden;
 }
 
-/* The rkey is the record's identity, so it is genuinely data: `--code`, which
-   stays monospace in every font mode, unlike `--mono`. The neighbouring
-   `.admin-collection-nsid` now agrees — an earlier version of this comment
-   recorded its serif as a deliberate design decision in frozen public CSS, and
-   that was wrong twice over: the class has no public consumer, and an NSID is
-   the same class of string as the rkey under it. Admin.css sets it to `--code`
-   itself now. */
-.wb-editor-rkey {
-  font-family: var(--code);
-  font-size: var(--text-xs);
-  color: var(--ink-soft);
-  word-break: break-all;
+/* The facts line, in the record page's voice: its type, its state and its
+   date, in sentence case at the meta size. */
+.wb-editor-facts {
+  flex: 0 0 100%;
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
 }
 
-/* The `.wb-editor .admin-collection-nsid { overflow-wrap: anywhere }` override
-   that used to sit here is gone with the same reasoning as the `--code` note
-   above: Admin.css makes that swap on the class itself now, so every surface
-   drawing an NSID stops splitting `fm.teal.alpha.feed.play` into two fragments
-   reading `fm.teal.alp` / `ha.feed.play`, not just this pane. */
+/* The record's at:// address as a quiet folio (`.ident`), broken only at its
+   slashes and dots (BreakableId). */
+.wb-editor-uri {
+  flex: 0 0 100%;
+  margin: 0;
+  /* typography.css indents a paragraph that follows a paragraph; this is a
+     folio under the facts line, not a second paragraph of prose. */
+  text-indent: 0;
+}
 
 /* A transient confirmation ("Copied at://…") for an action taken in a sheet that
    closes over its own press. Monospace because what it echoes is an at-uri. */
@@ -151,19 +132,18 @@
 /* Tabs and the notes under them                                        */
 /* ------------------------------------------------------------------ */
 
+/* Edit · Preview · JSON is the kit's Segmented in a SectionHead's meta slot
+   (controls.css), as /logging sets "24h · 7 days" beside "Recent state". The
+   keys are `aria-pressed` buttons, not a tablist that would implement none of
+   the tablist contract. */
 .wb-editor .wb-editor-tabs {
+  margin-bottom: 0;
   /* Opaque, because it pins itself over scrolling content when stacked. */
   background: var(--page);
 }
 
-/* The tabs are `aria-pressed` buttons now, not a `role="tab"` tablist that
-   implemented none of the tablist contract. adminShell.css paints the active one
-   through `[aria-selected='true']`, which those buttons correctly no longer
-   carry, so the same paint is restated here against the attribute they do —
-   qualified with `.wb-editor` to outrank a single-class rule in a later sheet. */
-.wb-editor .wb-tab[aria-pressed='true'] {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
+.wb-editor .wb-editor-tabs .section-head-title {
+  font-size: var(--text-lg);
 }
 
 /* A note about what the body on screen is: the JSON caveat above the textarea,
@@ -238,23 +218,14 @@
     z-index: 4;
   }
 
-  /* The pane's own buttons — "Back to Blogging", "New record", "Try again" —
-     measure 40px, four short of the floor. Painted rather than grown for the
-     same reason as the tabs, and scoped under `.wb-editor` so the identical
-     class in the quick-edit sheet (which portals outside the workbench) is not
-     touched. */
-  .wb-editor .admin-gate-button {
-    min-height: var(--wb-hit);
-  }
-
-  /* 44px, painted rather than grown. `.wb-hit`'s pseudo-halo is for controls
-     that must stay visually small; these are already a row of touch targets with
-     a `--space-1` gap, and two grown boxes that close would overlap by 8px and
-     hand the later sibling its neighbour's taps — which is exactly how the old
-     chip row lost 14 of 19 adjacent pairs. */
-  .wb-editor .wb-tab {
-    display: inline-flex;
-    align-items: center;
+  /* The pane's own buttons and the Segmented's keys at the 44px floor, painted
+     rather than grown, whatever the pointer reports: two grown boxes this close
+     would overlap and hand the later sibling its neighbour's taps. Scoped under
+     `.wb-editor`, so the quick-edit sheet (which portals outside the
+     workbench) is not touched. */
+  .wb-editor .btn,
+  .wb-editor .admin-gate-button,
+  .wb-editor .segmented-key {
     min-height: var(--wb-hit);
   }
 }

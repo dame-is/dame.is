@@ -149,11 +149,10 @@ export default function StudioPane({
 
   return (
     <div className="wb-studio">
+      {/* The surface's NSID is in the running head (AdminTopBar), where a
+          public record page prints its own, so the head is the title alone. */}
       <div className="wb-pane-head">
         <h1 className="wb-pane-title">{title}</h1>
-        {surface.nsid && (
-          <code className="admin-collection-nsid">{surface.nsid}</code>
-        )}
       </div>
       {blurb && <p className="wb-pane-blurb">{blurb}</p>}
       {Studio ? (
@@ -162,9 +161,8 @@ export default function StudioPane({
         // instance under new props.
         createElement(Studio, { key: surface.key, ...props })
       ) : (
-        <p className="placeholder-card">
-          No studio is registered for{' '}
-          <code className="admin-collection-nsid">{surface.key}</code>.
+        <p className="wb-studio-missing">
+          No studio is registered for <span className="ident">{surface.key}</span>.
         </p>
       )}
     </div>

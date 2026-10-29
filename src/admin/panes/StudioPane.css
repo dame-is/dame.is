@@ -34,38 +34,45 @@
 
 /* ---- leaving the admin looks like leaving the admin ------------------ */
 
-/* A studio's outbound link — "View /welcoming" — in the top bar's outbound
- * vocabulary: outlined rather than filled, with the same arrow glyph. Two
- * equally weighted filled buttons said nothing about the fact that one of them
- * navigates off /admin entirely. Sized to sit in an `.admin-toolbar` beside
- * `.admin-gate-button-tight`, which measures 32px.
+/* A studio's outbound link ("View /welcoming"): the kit's small quiet Button
+ * (controls.css) in sentence case, with the top bar's outbound arrow. A studio
+ * that renders `<Button as={Link}>` needs none of this; it stays for any that
+ * still draws the class.
  */
 .studio-out {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  min-height: 2rem;
-  padding: var(--space-1) var(--space-3);
+  gap: 0.4em;
+  min-height: var(--control-h-sm);
+  padding: 0.2em 0.625rem;
   font-family: var(--sans);
-  font-size: var(--text-sm);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--ink-soft);
   background: transparent;
   border: 1px solid var(--rule);
   border-radius: 0;
   text-decoration: none;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.studio-out:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
+@media (hover: hover) {
+  .studio-out:hover {
+    color: var(--ink);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
 }
 
 .studio-out-glyph {
-  width: 0.8rem;
-  height: 0.8rem;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.wb-studio-missing {
+  font-style: italic;
+  color: var(--ink-muted);
 }
 
 /* ---- the guestbook studio ------------------------------------------- */
