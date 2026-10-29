@@ -1945,10 +1945,9 @@ a.reference-card-profile:focus-visible {
   gap: 0;
 }
 
-/* Day header is a single line: the (short) date on the left — never
-   shrunk, so it can't wrap mid-date — the day's stats right-aligned,
-   and a full-strength rule anchoring the day's table of rows beneath
-   it. */
+/* The ledger's day header: the date on the left (never shrunk, so it can't
+   wrap mid-date), the day-of-life folio right-aligned, and a full-strength
+   rule anchoring the day's rows beneath it. */
 .feed-ledger .day-section-header {
   flex-direction: row;
   flex-wrap: wrap;
@@ -1965,8 +1964,7 @@ a.reference-card-profile:focus-visible {
   font-size: var(--text-lg);
 }
 
-/* What the day holds sits at the rows' label size, right-aligned, with the
-   day-of-life folio closing the line. */
+/* The folio sits at the rows' label size, right-aligned. */
 .feed-ledger .day-header-meta {
   justify-content: flex-end;
   font-size: var(--text-meta);
@@ -2697,7 +2695,7 @@ a.ledger-time:focus-visible {
   }
 
   .feed-ledger .day-header {
-    font-size: var(--text-base);
+    font-size: 1.0625rem;
   }
 
   /* Side by side, a collapsed run leaves the species line about twenty

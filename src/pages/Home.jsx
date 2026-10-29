@@ -9,7 +9,7 @@ import FeedFilters, {
   resolveActiveVerbs,
 } from '../components/FeedFilters.jsx';
 import FeedItem from '../components/FeedItem.jsx';
-import DayOfLifeHeader, { DayCounts } from '../components/DayOfLifeHeader.jsx';
+import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
 import VerbIcon from '../components/VerbIcon.jsx';
 import { verbIndexIntro } from '../lib/recordPlate.js';
@@ -152,17 +152,17 @@ function loadUnifiedSnapshot() {
 }
 
 /**
- * The most recent day's summary line doubles as the live-refresh
- * indicator. While a refresh is confirming the latest activity the line
- * reads "Fetching latest activity…"; once the live result lands it
- * cross-fades to that day's real engagement/stats. This keeps the signal
- * to a single quiet line under the date instead of a separate banner.
+ * The newest day's header doubles as the live-refresh indicator. While a
+ * refresh is confirming the latest activity it notes "Fetching latest
+ * activity…" before the day's folio, and the note fades out once the live
+ * result lands. This keeps the signal to a quiet aside on the day's own line
+ * instead of a separate banner.
  *
  * A refresh that couldn't reach anything leaves the feed as it was and says
  * so here (`stale`), the way the single-collection pages footnote theirs,
  * rather than passing off what's on screen as current.
  */
-function DayActivityMeta({ checking, stale, stats, reduce }) {
+function DayActivityMeta({ checking, stale, reduce }) {
   const fade = {
     initial: reduce ? false : { opacity: 0 },
     animate: { opacity: 1 },
@@ -191,11 +191,7 @@ function DayActivityMeta({ checking, stale, stats, reduce }) {
         >
           {stale}
         </motion.span>
-      ) : (
-        <motion.span key="stats" {...fade}>
-          {stats}
-        </motion.span>
-      )}
+      ) : null}
     </AnimatePresence>
   );
 }
@@ -1043,15 +1039,8 @@ export default function Home({ verb: presetVerb = null } = {}) {
                   variant={ledger ? 'ledger' : 'default'}
                   meta={
                     gi === 0 ? (
-                      <DayActivityMeta
-                        checking={checking}
-                        stale={staleNote}
-                        stats={<DayCounts items={group.items} />}
-                        reduce={reduce}
-                      />
-                    ) : (
-                      <DayCounts items={group.items} />
-                    )
+                      <DayActivityMeta checking={checking} stale={staleNote} reduce={reduce} />
+                    ) : null
                   }
                 />
                 {/* The ledger's day header carries its own bottom rule, so

@@ -18,27 +18,28 @@ describe('dayHeaderLabels (viewer in New York)', () => {
   const evening = '2026-10-27T01:30:00Z';
   const now = new Date('2026-10-27T15:00:00Z');
 
-  it('names the local day, with its date in full beside it', () => {
+  it('dates the local day in full, and keeps the name it goes by', () => {
     expect(dayHeaderLabels(evening, now)).toEqual({
-      name: 'Yesterday',
       date: 'Monday, October 26',
+      relative: 'Yesterday',
       short: 'Yesterday',
     });
-    expect(dayHeaderLabels(now, now)).toMatchObject({
-      name: 'Today',
+    expect(dayHeaderLabels(now, now)).toEqual({
       date: 'Tuesday, October 27',
+      relative: 'Today',
+      short: 'Today',
     });
   });
 
-  it('names an older day by its weekday, and a past year by its year', () => {
+  it('gives an older day no name, and a past year its year', () => {
     expect(dayHeaderLabels('2026-10-25T16:00:00Z', now)).toEqual({
-      name: 'Sunday',
-      date: 'October 25',
+      date: 'Sunday, October 25',
+      relative: null,
       short: 'Oct 25',
     });
     expect(dayHeaderLabels('2025-03-02T16:00:00Z', now)).toEqual({
-      name: 'Sunday',
-      date: 'March 2, 2025',
+      date: 'Sunday, March 2, 2025',
+      relative: null,
       short: 'Mar 2, 2025',
     });
   });

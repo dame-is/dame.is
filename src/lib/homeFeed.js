@@ -2,10 +2,9 @@
 // src/pages/Home.jsx so they can be tested without mounting the page. Pure:
 // nothing here fetches, and nothing mutates its inputs.
 
-import { DEFAULT_HOME_VERBS, VERB_REGISTRY, nsidFromAtUri, verbConfig } from './verbRegistry.js';
+import { DEFAULT_HOME_VERBS, nsidFromAtUri } from './verbRegistry.js';
 import { compareIsoDesc } from './time.js';
 import { isObservationBatch } from './observationBatches.js';
-import { getReplyHint } from './postReplyHint.js';
 import { isYearOnlyDate } from './ledger.js';
 
 const DEFAULT_VERBS = new Set(DEFAULT_HOME_VERBS);
@@ -177,58 +176,6 @@ export function splitYearOnlyWorks(items) {
     return true;
   });
   return { dated: yearOnly.length ? dated : items, yearOnly };
-}
-
-// A day's counts read in the registry's order, after the busiest.
-const VERB_ORDER = new Map(
-  ['posting', 'replying', ...VERB_REGISTRY.map((v) => v.verb)].map((v, i) => [v, i]),
-);
-
-/**
- * What a day holds, by what each row's margin calls it: `[{ verb, count }]`,
- * busiest first. A post counts as `replying` when its row says so (a reply to
- * a post that isn't the one above it), a listening session as its songs and a
- * night of moths as its sightings, so "listened to 22 songs" matches the
- * session rows once they're opened. Horizon markers aren't records.
- */
-export function dayVerbCounts(items) {
-  const counts = new Map();
-  const bump = (verb, n) => counts.set(verb, (counts.get(verb) || 0) + n);
-  for (const item of items || []) {
-    if (!item?.verb || isHorizonMarker(item)) continue;
-    if (item.verb === 'posting') {
-      const reply = !item._thread?.continuesPrev && getReplyHint(item.payload);
-      bump(reply ? 'replying' : 'posting', 1);
-    } else if (item.verb === 'listening') {
-      bump('listening', Array.isArray(item.plays) ? item.plays.length : item.count || 1);
-    } else if (isObservationBatch(item)) {
-      bump(item.verb, item.observations.length);
-    } else {
-      bump(item.verb, 1);
-    }
-  }
-  const rank = (v) => VERB_ORDER.get(v) ?? VERB_ORDER.size;
-  return [...counts]
-    .map(([verb, count]) => ({ verb, count }))
-    .sort((a, b) => b.count - a.count || rank(a.verb) - rank(b.verb));
-}
-
-const plural = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
-
-// Verbs whose past tense needs a noun to read as a count.
-const COUNT_PHRASES = {
-  replying: (n) => `replied ${n.toLocaleString()}`,
-  listening: (n) => `listened to ${plural(n, 'song', 'songs')}`,
-  mothing: (n) => `spotted ${plural(n, 'moth', 'moths')}`,
-  feeding: (n) => `published ${plural(n, 'feed', 'feeds')}`,
-  listing: (n) => `made ${plural(n, 'list', 'lists')}`,
-};
-
-/** "posted 18", "listened to 22 songs": one of a day header's counts. */
-export function countPhrase(verb, count) {
-  const phrase = COUNT_PHRASES[verb];
-  if (phrase) return phrase(count);
-  return `${verbConfig(verb)?.pastTense || verb} ${count.toLocaleString()}`;
 }
 
 /** The at:// URIs a row stands for: its members if it's a batch, else itself. */

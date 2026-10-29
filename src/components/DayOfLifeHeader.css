@@ -1,40 +1,33 @@
+/* A day's running head, on one line: the date on the left and the
+   day-of-life folio on the right, like a page number (DayOfLifeHeader). It
+   wraps the folio under the date only when a very narrow column can't hold
+   both. */
 .day-section-header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
   margin: 0 0 var(--space-5);
 }
 
-/* Day-group heading: the day's name in the serif ("Today", "Sunday"), and
-   its date beside it in small caps, so the break between days reads as a
-   section with a dateline rather than one long label. */
 .day-header {
   font-family: var(--serif);
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 500;
   line-height: var(--leading-tight);
   letter-spacing: -0.005em;
   color: var(--ink);
   margin: 0;
 }
 
-.day-header-date {
-  margin-left: 0.15em;
-  font-size: 0.78em;
-  font-weight: 400;
-  font-variant: all-small-caps;
-  letter-spacing: 0.1em;
-  color: var(--ink-faint);
-  white-space: nowrap;
-}
-
-/* What the day holds, then the day-of-life folio that closes the line — a
-   quiet secondary line under the date heading (on one line with it in the
-   ledger, see Feed.css). */
+/* The folio, and before it the home feed's passing note about itself
+   ("Fetching latest activity…") while there is one. */
 .day-header-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
+  justify-content: flex-end;
   column-gap: 1.2em;
   font-family: var(--sans);
   font-size: var(--text-meta);
@@ -43,45 +36,9 @@
   letter-spacing: 0.02em;
 }
 
-/* Each count links to its section, underlined in the accent's soft voice so
-   the line reads as a running head and not a row of buttons. */
-.day-header-counts a {
-  color: var(--ink-soft);
-  text-decoration: underline;
-  text-decoration-color: var(--accent-soft);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
-.day-header-counts a:focus-visible {
-  color: var(--accent);
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) {
-  .day-header-counts a:hover {
-    color: var(--accent);
-    text-decoration-color: currentColor;
-  }
-}
-
 .day-header-folio {
   font-variant: all-small-caps;
   letter-spacing: 0.1em;
   font-size: 1.05em;
   white-space: nowrap;
-}
-
-/* Subsequent day groups in a feed get a deeper top margin (applied on
-   the parent .feed-day-group, see Feed.css) so the break between one
-   day and the next reads as a section divider — the day-header itself
-   stays anchored to the top of its group. */
-
-/* A clause the meta line drops on a phone, where it shares one line with the
-   date (/listening's artist count). */
-@media (max-width: 600px) {
-  .day-header-wide {
-    display: none;
-  }
 }

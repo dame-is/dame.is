@@ -143,11 +143,7 @@ export default function Listening() {
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader
-                  date={group.date}
-                  variant={ledger ? 'ledger' : 'default'}
-                  meta={listeningDayMeta(group.items)}
-                />
+                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
                 <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
                   {group.items.map((item) => {
                     // FeedItem is the list item itself, and memoized, as on the
@@ -189,39 +185,6 @@ export default function Listening() {
         </p>
       )}
     </PageShell>
-  );
-}
-
-/**
- * Per-day summary for the listening ledger's day header: what was actually
- * played that day, in songs, minutes and unique artists, ahead of the
- * day-of-life folio. `sessions` are the collapsed listening batches shown
- * under the header; each carries its underlying `plays`, so the numbers stay
- * in step with the (possibly search-filtered) rows below. Durations are
- * stored in seconds. The artist count gives way on a phone, where the line
- * has to share its width with the date.
- */
-function listeningDayMeta(sessions) {
-  let songs = 0;
-  let seconds = 0;
-  const artists = new Set();
-  for (const session of sessions) {
-    const plays = session.plays || [session];
-    for (const play of plays) {
-      const p = play.payload || {};
-      songs += 1;
-      const dur = Number(p.duration);
-      if (Number.isFinite(dur) && dur > 0) seconds += dur;
-      for (const name of playArtistNames(p)) artists.add(name.toLowerCase());
-    }
-  }
-  const minutes = Math.round(seconds / 60);
-  const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
-  return (
-    <>
-      {plural(songs, 'song')} · {minutes.toLocaleString()} min
-      <span className="day-header-wide"> · {plural(artists.size, 'artist')}</span>
-    </>
   );
 }
 
