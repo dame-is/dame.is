@@ -5,21 +5,18 @@ import { useLayoutEffect, useRef, useState } from 'react';
  * row is wider than the screen. The compass is not on the list. It never
  * shrinks and never leaves, because it is the way to the rest of the site.
  *
- * - `words`: the small-caps word in each chip on a wide desktop, and the
- *   first-visit captions under them on a phone. They go before any tool does.
  * - `home`: the wordmark in the top bar already goes home.
  * - `info`: the ⓘ sheet. Its key is still one tap away in the compass sheet.
  * - `day`: the day in view beside ↑. A signal, not a tool.
  * - `back`, then the page's own tools, then ↑ itself.
  * - With the menu open the bar wears the menu's own controls: Account, then
- *   the feed layout in words, give way last.
+ *   the feed layout's two choices, give way last.
  * - The hour chip, last of all.
  *
  * A chip that leaves the bar is drawn at the foot of the compass sheet with
- * its word (ActionDock), so nothing is lost, only moved.
+ * its name (ActionDock), so nothing is lost, only moved.
  */
 export const BAR_PRIORITY = [
-  'words',
   'home',
   'info',
   'day',
@@ -39,27 +36,34 @@ export const BAR_PRIORITY = [
 // are read as whole layout pixels; see useBarOverflow).
 const SLACK = 1;
 
+// Coming back takes a little more room than staying. What a chip or the day
+// costs is remembered from when it was last drawn, and can come out a few
+// pixels short of what it takes once it's back: ↑'s face widens a little to
+// sit beside the day. On a 320px phone that left the row 2px too wide with
+// the day in and 1px under with it out, and the bar swapped between the two
+// every frame until React stopped it. So while anything is out, it returns
+// only when the row would still have this much to spare.
+const RETURN_MARGIN = 8;
+
 /**
  * Which chips leave the bar, given what the row needs with everything in it
  * and what it has. Pure, so it can be tested without a layout.
  *
  * `items` describes every chip on the bar right now, shown or hidden, keyed
- * as in BAR_PRIORITY: `{ key, width, extra, gap, shown }`. `width` is the
- * chip without its word, `extra` what the word adds, `gap` the gap it brings
- * with it. A hidden chip's sizes are the last ones measured.
+ * as in BAR_PRIORITY: `{ key, width, gap, shown }`. `width` is the chip (↑
+ * without the day beside it), `gap` the gap it brings with it. A hidden
+ * chip's sizes are the last ones measured.
  *
- * `natural` is what the row's visible content takes now; `wordsShown` and
- * `dayShown` say whether the words and the day are in that figure. `forced`
- * are keys that are out of the bar whatever the room (Home on a phone).
+ * `natural` is what the row's visible content takes now; `dayShown` says
+ * whether the day is in that figure. `forced` are keys that are out of the
+ * bar whatever the room (Home on a phone).
  *
- * Returns `{ hidden, words, day }`.
+ * Returns `{ hidden, day }`.
  */
 export function planBarOverflow({
   box,
   natural,
   items,
-  wordsWanted,
-  wordsShown,
   dayWidth = 0,
   dayShown = false,
   forced = [],
@@ -67,40 +71,38 @@ export function planBarOverflow({
 }) {
   const byKey = new Map(items.map((it) => [it.key, it]));
   const forcedSet = new Set(forced);
-  // What the row would need with every chip back, every word and the day.
+  // What the row would need with every chip back and the day.
   let full = natural;
   for (const it of items) {
     if (forcedSet.has(it.key)) continue;
-    if (!it.shown) full += it.width + it.gap + (wordsWanted ? it.extra : 0);
-    else if (wordsWanted && !wordsShown) full += it.extra;
+    if (!it.shown) full += it.width + it.gap;
   }
   if (!dayShown && dayWidth > 0) full += dayWidth;
 
+  const anyOut =
+    items.some((it) => !it.shown && !forcedSet.has(it.key)) || (!dayShown && dayWidth > 0);
+  const room = anyOut ? box - RETURN_MARGIN : box + SLACK;
+
   const hidden = [...forcedSet].filter((k) => byKey.has(k));
   const out = new Set(hidden);
-  let words = wordsWanted;
   // The day stays allowed unless it is actually taken out; with no day on
   // the bar there's nothing to plan for it.
   let day = true;
   for (const key of priority) {
-    if (full <= box + SLACK) break;
-    if (key === 'words') {
-      if (!words) continue;
-      for (const it of items) if (!out.has(it.key)) full -= it.extra;
-      words = false;
-    } else if (key === 'day') {
+    if (full <= room) break;
+    if (key === 'day') {
       if (!day || dayWidth <= 0) continue;
       full -= dayWidth;
       day = false;
     } else {
       const it = byKey.get(key);
       if (!it || out.has(key)) continue;
-      full -= it.width + it.gap + (words ? it.extra : 0);
+      full -= it.width + it.gap;
       out.add(key);
       hidden.push(key);
     }
   }
-  return { hidden, words, day };
+  return { hidden, day };
 }
 
 const REM_FALLBACK = 16;
@@ -121,17 +123,15 @@ const REM_FALLBACK = 16;
  * transforms, and a rect read mid-animation measured a chip at a fraction of
  * its width and left the compass off the screen.
  *
- * `mode` names the layout the words are drawn in ('row' beside the glyph on
- * a desktop, 'column' as captions under it), since a word costs a different
- * amount in each. Returns `{ hidden: Set, words, day }`.
+ * Returns `{ hidden: Set, day }`.
  */
-export function useBarOverflow(rowRef, { wordsWanted, mode, forced, dayPresent = false, enabled = true }) {
-  const [plan, setPlan] = useState(() => ({ hidden: new Set(forced), words: wordsWanted, day: true }));
+export function useBarOverflow(rowRef, { forced, dayPresent = false, enabled = true }) {
+  const [plan, setPlan] = useState(() => ({ hidden: new Set(forced), day: true }));
   const sizesRef = useRef(new Map());
   const planRef = useRef(plan);
   planRef.current = plan;
   const argsRef = useRef(null);
-  argsRef.current = { wordsWanted, mode, forced, enabled, dayPresent };
+  argsRef.current = { forced, enabled, dayPresent };
   const measureRef = useRef(null);
 
   if (!measureRef.current) {
@@ -164,11 +164,10 @@ export function useBarOverflow(rowRef, { wordsWanted, mode, forced, dayPresent =
       let dayMeasured = false;
       for (const el of row.querySelectorAll('[data-tool]')) {
         const key = el.dataset.tool;
-        const known = sizes.get(key) || { width: 1.75 * rem, gap: rowGap, extra: {} };
+        const known = sizes.get(key) || { width: 1.75 * rem, gap: rowGap };
         const visible = getComputedStyle(el).display !== 'none';
         if (visible) {
           const face = el.querySelector('.chrome-nav-face') || el;
-          const chipW = el.offsetWidth;
           let faceW = face.offsetWidth;
           const daySpan = key === 'scroll' ? el.querySelector('.chrome-scroll-day') : null;
           if (daySpan) {
@@ -182,9 +181,6 @@ export function useBarOverflow(rowRef, { wordsWanted, mode, forced, dayPresent =
           }
           known.width = faceW;
           known.gap = parseFloat(getComputedStyle(el.parentElement).columnGap) || rowGap;
-          if (current.words && args.wordsWanted) {
-            known.extra = { ...known.extra, [args.mode]: Math.max(0, chipW - faceW - (daySpan ? dayWidth : 0)) };
-          }
           sizes.set(key, known);
         } else if (key === 'scroll' && args.dayPresent) {
           dayWidth = known.day || 0;
@@ -194,7 +190,6 @@ export function useBarOverflow(rowRef, { wordsWanted, mode, forced, dayPresent =
           key,
           width: known.width,
           gap: known.gap,
-          extra: known.extra[args.mode] || 0,
           shown: visible,
         });
       }
@@ -202,19 +197,16 @@ export function useBarOverflow(rowRef, { wordsWanted, mode, forced, dayPresent =
         box,
         natural,
         items,
-        wordsWanted: args.wordsWanted,
-        wordsShown: current.words && args.wordsWanted,
         dayWidth: args.dayPresent ? dayWidth : 0,
         dayShown: dayMeasured,
         forced: args.forced,
       });
       const nextHidden = new Set(next.hidden);
       const same =
-        next.words === current.words &&
         next.day === current.day &&
         nextHidden.size === current.hidden.size &&
         [...nextHidden].every((k) => current.hidden.has(k));
-      if (!same) setPlan({ hidden: nextHidden, words: next.words, day: next.day });
+      if (!same) setPlan({ hidden: nextHidden, day: next.day });
     };
   }
 

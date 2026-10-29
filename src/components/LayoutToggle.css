@@ -1,6 +1,6 @@
-/* The feed layout in words, in the bottom bar's left cluster while the menu
-   is open: "layout: ledger · cards". Small caps in the bar's word voice; the
-   current choice wears the bar's "on" look (ChromeBar.css `.is-open`). */
+/* The feed layout's two choices, in the bottom bar's left cluster while the
+   menu is open: "ledger · cards". Small caps; the current choice wears the
+   bar's "on" look (ChromeBar.css `.is-open`). */
 .layout-toggle {
   display: inline-flex;
   align-items: center;
@@ -12,10 +12,6 @@
   letter-spacing: 0.1em;
   color: var(--ink-muted);
   white-space: nowrap;
-}
-
-.layout-toggle-label::after {
-  content: ':';
 }
 
 .layout-toggle-item {
@@ -59,14 +55,6 @@
   color: var(--ink);
   border-color: var(--accent);
   background: var(--wash-selected, color-mix(in srgb, var(--accent) 16%, var(--page)));
-}
-
-/* A narrow phone keeps the choice and drops the word "layout": the two
-   options name themselves. */
-@media (max-width: 380px) {
-  .layout-toggle-label {
-    display: none;
-  }
 }
 
 /* Touch targets, as the bottom bar's chips around these do (ChromeBar.css):

@@ -74,9 +74,6 @@
 
 .chrome-bar-primary {
   flex: 0 0 auto;
-  /* Queried by the atmosphere's word (below), which steps aside when the row
-     is too narrow for it, in ems, so large text counts as narrow. */
-  container-type: inline-size;
 }
 
 /* Title + running head share a baseline and travel together as a single
@@ -615,15 +612,6 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.chrome-expand-word {
-  display: none;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
-  color: var(--ink-muted);
-}
-
 .chrome-expand:focus-visible .chrome-expand-face {
   color: var(--accent);
   border-color: var(--accent-soft);
@@ -708,49 +696,6 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-/* The chip's word: small caps in --ink-soft (6.6–11.9:1 on the bar across
-   the sampled hours), off until there's a reason to draw it. */
-.chrome-nav-label {
-  display: none;
-  font-family: var(--sans);
-  font-size: 0.875rem;
-  font-variant: all-small-caps;
-  letter-spacing: 0.1em;
-  line-height: 1;
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
-
-/* A wide desktop has room: every chip says what it does, beside its face. */
-.chrome-bar-bottom.has-words .chrome-nav-label {
-  display: inline;
-}
-
-/* A phone's first visit: each chip's word as a caption under its face, at
-   12px in --ink-muted (≥ 4.7:1 on the bar at every sampled hour). The faces
-   rise to make room, so the bar keeps its height and nothing resting on it
-   moves; the captions go after the visitor's first tap on the bar. */
-.chrome-bar-bottom.has-captions .chrome-bottom-row,
-.chrome-bar-bottom.has-captions .chrome-bottom-cluster {
-  align-items: flex-start;
-}
-
-.chrome-bar-bottom.has-captions .chrome-bottom-row {
-  padding-top: 0.4rem;
-}
-
-.chrome-bar-bottom.has-captions .chrome-nav {
-  flex-direction: column;
-  gap: 2px;
-}
-
-.chrome-bar-bottom.has-captions .chrome-nav-label {
-  display: block;
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  color: var(--ink-muted);
-}
-
 /* A chip that didn't fit (useBarOverflow) waits in the compass sheet. Hidden
    rather than unmounted, so its size can be remembered and the motion layout
    around it doesn't animate a mount. */
@@ -796,9 +741,6 @@
     color: var(--accent);
     border-color: var(--accent-soft);
     background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  }
-  .chrome-nav:hover .chrome-nav-label {
-    color: var(--accent);
   }
 }
 
@@ -1062,13 +1004,6 @@
   min-height: var(--chrome-h);
 }
 
-/* Wide enough for words, the bar spreads its chips a little so each word
-   stays with its own face. */
-.chrome-bar-bottom.has-words .chrome-bottom-row,
-.chrome-bar-bottom.has-words .chrome-bottom-cluster {
-  gap: var(--space-4);
-}
-
 .chrome-nav-top {
   display: none;
 }
@@ -1237,17 +1172,6 @@
     border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
   }
 
-  /* The folded atmosphere gets its word on a phone, and one tall target from
-     the end of the status to the screen's edge; the status stays its own
-     link. Reading, the running head needs the room for the trail, so the
-     word steps aside and the chevron stays. */
-  .chrome-expand-word {
-    display: inline;
-  }
-  .chrome-bar-top.is-reading .chrome-expand-word {
-    display: none;
-  }
-
   /* One slim running head: the NSID moves to x-ray, where records are the
      point, and the masthead's trail keeps to one line. */
   .chrome-head-nsid,
@@ -1261,14 +1185,6 @@
     text-align: left;
     white-space: normal;
     overflow-wrap: anywhere;
-  }
-}
-
-/* A row too narrow for the wordmark, the word and the chevron together (a
-   320px phone under 150% text) keeps the wordmark and the chevron. */
-@container (max-width: 16em) {
-  .chrome-bar-primary .chrome-expand-word {
-    display: none;
   }
 }
 

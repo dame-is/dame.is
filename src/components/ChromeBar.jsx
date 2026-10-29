@@ -71,15 +71,11 @@ const SIZE_SETTLE_MS = 120;
 // reader asked to see it, and scrolling on into the page is reading again.
 const PEEK_SCROLL_CLOSE_PX = 240;
 
-// Widths the chrome changes shape at. Phones: the atmosphere chevron gets its
-// word, Home leaves the bottom bar, the record NSID moves to x-ray. Wide: each
-// bottom-bar chip says what it does in a small-caps word.
+// The width the chrome changes shape at: on a phone Home leaves the bottom
+// bar (the wordmark goes home) and the record NSID moves to x-ray. The bar's
+// chips carry no words at any width; each says what it does in its title
+// and its accessible name.
 const PHONE_QUERY = '(max-width: 700px)';
-const WIDE_QUERY = '(min-width: 60rem)';
-
-// The first-visit captions under the bottom bar's chips on a phone go once
-// the visitor has tapped the bar. Remembered here; see useBarCaptions.
-const CAPTIONS_KEY = 'dame.bar.captioned';
 
 /** The sky band behind this hour's avatar frame, deep sky over horizon. */
 function skyBand(hour) {
@@ -427,11 +423,6 @@ export default function ChromeBar() {
                 : 'Atmosphere: what Dame is doing, listening to, and their phone'
             }
           >
-            {/* Named on a phone, where it is the only way to the atmosphere
-                and a bare chevron in the corner said nothing. */}
-            <span className="chrome-expand-word" aria-hidden="true">
-              atmosphere
-            </span>
             <span className="chrome-expand-face">
               {/* Rotation is a CSS transition keyed to is-open, so it runs on
                   the compositor. */}
@@ -614,37 +605,12 @@ function useMediaQuery(query) {
   return matches;
 }
 
-/** Whether the bottom bar still owes this visitor its first-visit captions,
- *  and the call that pays them. Storage can be blocked (a private window, site
- *  data off); then the captions show on every visit and go after the first
- *  tap of each, and nothing else changes. */
-function useBarCaptions() {
-  const [seen, setSeen] = useState(() => {
-    try {
-      return localStorage.getItem(CAPTIONS_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const markSeen = () => {
-    if (seen) return;
-    setSeen(true);
-    try {
-      localStorage.setItem(CAPTIONS_KEY, '1');
-    } catch {
-      // Storage blocked: they come back next visit.
-    }
-  };
-  return [!seen, markSeen];
-}
-
 /** A bar chip's insides: its face (the hairline square, or the text box on
- *  the hour chip) and its word. While the sheet a chip opens is up, the
- *  sheet's × is drawn over the face, the face's own content hidden but still
- *  holding its width, so open and closed differ by shape, not just tint, and
- *  nothing beside it moves. The word is visual only: each chip's
- *  accessible name is its aria-label. */
-function ChipBody({ glyph: Glyph, sheetOpen = false, word, children }) {
+ *  the hour chip). While the sheet a chip opens is up, the sheet's × is drawn
+ *  over the face, the face's own content hidden but still holding its width,
+ *  so open and closed differ by shape, not just tint, and nothing beside it
+ *  moves. Each chip's accessible name is its aria-label. */
+function ChipBody({ glyph: Glyph, sheetOpen = false, children }) {
   return (
     <>
       <span className={`chrome-nav-face${sheetOpen ? ' is-sheet-open' : ''}`}>
@@ -653,11 +619,6 @@ function ChipBody({ glyph: Glyph, sheetOpen = false, word, children }) {
           <X className="chrome-nav-glyph chrome-nav-close" aria-hidden="true" strokeWidth={1.75} />
         )}
       </span>
-      {word && (
-        <span className="chrome-nav-label" aria-hidden="true">
-          {word}
-        </span>
-      )}
     </>
   );
 }
@@ -789,14 +750,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   // so its words only appear, with the menu open, on those.
   const onLayoutFeed = FEED_LAYOUT_PATHS.includes(location.pathname);
 
-  // Words. On a wide desktop every chip says what it does in small caps,
-  // inside the same button. On a phone the chips carry captions until the
-  // visitor first taps the bar; they stand aside while a sheet or the menu
-  // is up, since one of those is a tap already taken.
   const phone = useMediaQuery(PHONE_QUERY);
-  const wide = useMediaQuery(WIDE_QUERY);
-  const [captionsDue, markCaptionsSeen] = useBarCaptions();
-  const captions = captionsDue && !wide && !dockOpen && !panel;
 
   // The day in view rides beside ↑ (useCurrentDayLabel); on a feed without
   // day sections, the count of entries scrolled past does instead.
@@ -807,12 +761,9 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   // BAR_PRIORITY order and is drawn in the compass sheet instead. Home always
   // leaves a phone's bar: the wordmark goes home.
   const plan = useBarOverflow(rowRef, {
-    wordsWanted: wide || captions,
-    mode: wide ? 'row' : 'column',
     forced: phone ? ['home'] : [],
     dayPresent: !!dayText && showScrollJump && !dockOpen,
   });
-  const words = plan.words && (wide || captions);
   const out = (key) => (plan.hidden.has(key) ? ' is-out' : '');
   const showDay = !!dayText && plan.day && !dockOpen;
 
@@ -993,7 +944,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   };
   const layoutProp = reduce ? undefined : true;
   // What can move the right cluster's buttons: one of its controls coming or
-  // going, the day beside ↑ changing, or the words and the chips that fit.
+  // going, the day beside ↑ changing, or the chips that fit.
   // Motion measures a `layout` element on every render unless told what its
   // layout depends on, and this bar renders whenever the page scrolls past a
   // feed item.
@@ -1004,19 +955,9 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
     showScrollJump,
     dockOpen,
     isOwner,
-    words,
-    captions,
     [...plan.hidden].join(','),
   ].join('|');
 
-  const barClass = [
-    'chrome-bar',
-    'chrome-bar-bottom',
-    words && wide ? 'has-words' : '',
-    words && captions ? 'has-captions' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
 
   return (
     // `layoutScroll layoutRoot` — the bar is `position: fixed`, and its right-
@@ -1030,13 +971,11 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
     // bar as a layout root makes its children resolve relative to the bar (not the
     // scrolling document), so only genuine layout shifts inside the bar animate.
     <motion.div
-      className={barClass}
+      className="chrome-bar chrome-bar-bottom"
       role="toolbar"
       aria-label="Global actions"
       layoutScroll
       layoutRoot
-      // The first tap anywhere on the bar pays the first-visit captions.
-      onClickCapture={captionsDue ? markCaptionsSeen : undefined}
     >
       <div className="chrome-bottom-row" ref={rowRef}>
         {/* Left cluster. While the nav dock is open, the page-level controls
@@ -1096,7 +1035,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                       : `Sky: the site is coloured like Dame’s sky at ${hourLabel} Eastern time. Tap to pick an hour`
                   }
                 >
-                  <ChipBody sheetOpen={skyPanelOpen} word={words ? 'sky' : null}>
+                  <ChipBody sheetOpen={skyPanelOpen}>
                     <span
                       className="chrome-sky-swatch"
                       style={{ backgroundImage: skyBand(skyHour) }}
@@ -1141,7 +1080,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     }
                     title={filterCustomized ? 'Filter: this feed is filtered' : TOOL_META.filter.title}
                   >
-                    <ChipBody glyph={ListFilterPlus} sheetOpen={filterPanelOpen} word={words ? 'filter' : null} />
+                    <ChipBody glyph={ListFilterPlus} sheetOpen={filterPanelOpen} />
                   </button>
                 )}
                 {/* Shown while a query is active even with search switched
@@ -1158,7 +1097,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
                     title={searchActive ? `Search: “${params.get('q')}”` : TOOL_META.search.title}
                   >
-                    <ChipBody glyph={Search} sheetOpen={searchPanelOpen} word={words ? 'search' : null} />
+                    <ChipBody glyph={Search} sheetOpen={searchPanelOpen} />
                   </button>
                 )}
                 {/* Withheld on /admin, and this one is about ROOM rather than
@@ -1180,7 +1119,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     aria-label="About this site"
                     title={TOOL_META.info.title}
                   >
-                    <ChipBody glyph={Info} sheetOpen={infoPanelOpen} word={words ? 'about' : null} />
+                    <ChipBody glyph={Info} sheetOpen={infoPanelOpen} />
                   </button>
                 )}
                 {/* The admin's surface-level pair: what is happening, what do
@@ -1213,7 +1152,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                         things it does. The dirty state is still here — it moved
                         into the glyph's own colour (ChromeBar.css), which is how
                         every other control in this bar carries a state. */}
-                    <ChipBody glyph={Ellipsis} sheetOpen={adminActionsOpen} word={words ? 'more' : null} />
+                    <ChipBody glyph={Ellipsis} sheetOpen={adminActionsOpen} />
                   </button>
                 )}
                 {adminPrimary && (
@@ -1247,7 +1186,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     aria-label={xrayActive ? 'Stop inspecting' : 'Inspect this page'}
                     title={xrayActive ? 'Stop inspecting' : TOOL_META.inspect.title}
                   >
-                    <ChipBody glyph={Microscope} word={words ? 'inspect' : null} />
+                    <ChipBody glyph={Microscope} />
                   </button>
                 )}
                 {onResumePage && (
@@ -1259,7 +1198,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     aria-label="Print or save this resume as PDF"
                     title={TOOL_META.print.title}
                   >
-                    <ChipBody glyph={Printer} word={words ? 'print' : null} />
+                    <ChipBody glyph={Printer} />
                   </button>
                 )}
                 {/* Withheld on /admin: the shell's PageShell registers no
@@ -1278,7 +1217,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     aria-label={chromeEditOpen ? 'Exit edit mode' : 'Enter edit mode'}
                     title={chromeEditOpen ? 'Exit edit mode' : 'Edit mode'}
                   >
-                    <ChipBody glyph={Pencil} word={words ? 'edit' : null} />
+                    <ChipBody glyph={Pencil} />
                   </button>
                 )}
                 {isOwner && chromeEditOpen && (
@@ -1290,7 +1229,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     aria-label="Close edit mode without saving"
                     title="Close edit mode without saving"
                   >
-                    <ChipBody glyph={X} word={words ? 'close' : null} />
+                    <ChipBody glyph={X} />
                   </button>
                 )}
               </motion.div>
@@ -1316,7 +1255,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               title={TOOL_META.back.title}
               {...controlFade}
             >
-              <ChipBody glyph={ArrowLeft} word={words ? 'back' : null} />
+              <ChipBody glyph={ArrowLeft} />
             </motion.button>
           )}
         </AnimatePresence>
@@ -1354,7 +1293,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               <span className="visually-hidden">
                 {atTop ? 'Scroll to the end' : 'Scroll to the top'}
               </span>
-              <ChipBody word={words ? (atTop ? 'end' : 'top') : null}>
+              <ChipBody>
                 {atTop ? (
                   <ArrowDown className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 ) : (
@@ -1396,7 +1335,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               }}
               {...controlFade}
             >
-              <ChipBody glyph={Home} word={words ? 'home' : null} />
+              <ChipBody glyph={Home} />
             </MotionLink>
           )}
         </AnimatePresence>
@@ -1419,7 +1358,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               title={TOOL_META.account.title}
               {...controlFade}
             >
-              <ChipBody glyph={User} word={words ? 'account' : null} />
+              <ChipBody glyph={User} />
             </motion.button>
           )}
         </AnimatePresence>
@@ -1447,7 +1386,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
             }
             title={adminSurface ? `${adminSurface.label} — change surface` : 'Admin'}
           >
-            <ChipBody glyph={LayoutGrid} sheetOpen={adminNavOpen || adminDirectoryOpen} word={words ? 'admin' : null} />
+            <ChipBody glyph={LayoutGrid} sheetOpen={adminNavOpen || adminDirectoryOpen} />
           </motion.button>
         )}
         {/* The compass: the menu, and the one chip that never leaves the bar
@@ -1465,7 +1404,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
           aria-label={dockOpen ? 'Close menu' : 'Open menu'}
           title={dockOpen ? 'Close the menu' : 'Menu: every page Dame is'}
         >
-          <ChipBody glyph={Compass} sheetOpen={dockOpen} word={words ? 'menu' : null} />
+          <ChipBody glyph={Compass} sheetOpen={dockOpen} />
         </motion.button>
       </div>
 
