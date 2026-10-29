@@ -21,7 +21,6 @@ import FlushCard from './cards/FlushCard.jsx';
 import VerbIcon from './VerbIcon.jsx';
 import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
 import { batchHref, isObservationBatch } from '../lib/observationBatches.js';
-import { isSelfThreadRow } from '../lib/threadGrouping.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor, nsidFromAtUri } from '../lib/verbRegistry.js';
@@ -139,6 +138,9 @@ function hrefFor(item) {
  * to a <ul>. `arriving` (with `arrivalDelay`, in seconds) plays the slide-in
  * for a record that just landed; it's read once, on mount, so the row plays
  * it on its first appearance only, whatever the prop does afterwards.
+ * `arrivingPosts` (the at:// URIs of a folded thread's posts that just
+ * landed, space-separated) does the same for posts joining a ledger row
+ * that's already on screen.
  * Memoized: a feed re-renders for many reasons that don't touch a given row.
  */
 function FeedItem({
@@ -148,6 +150,7 @@ function FeedItem({
   onOpenLightbox = null,
   arriving = false,
   arrivalDelay = 0,
+  arrivingPosts = '',
 }) {
   const navigate = useNavigate();
   const edit = useEditMode();
@@ -319,7 +322,6 @@ function FeedItem({
     ledger ? 'feed-item-ledger' : '',
     ledgerBatch ? 'feed-item-ledger-expandable' : '',
     canLightbox ? 'feed-item-ledger-lightbox' : '',
-    ledger && isSelfThreadRow(item) ? 'feed-item-ledger-thread' : '',
     item._thread ? 'feed-item-thread' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
@@ -378,6 +380,7 @@ function FeedItem({
           expanded={ledgerExpanded}
           onToggle={ledgerBatch ? () => setLedgerExpanded((v) => !v) : null}
           onOpenLightbox={onOpenLightbox}
+          arrivingPosts={arrivingPosts}
         />
       )}
       {!ledger && showVerb && (() => {

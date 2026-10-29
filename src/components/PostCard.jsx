@@ -98,8 +98,11 @@ function PostCardBody({
   source,
   variant = 'timeline',
   suppressReplyBadge = false,
+  _thread = null,
+  ownReplies = _thread?.selfReplies || 0,
 }) {
   const anisota = isAnisotaPost({ source, atUri });
+  const stats = postStatsLine(payload, ownReplies);
   const text = payload?.text || '';
   const facets = payload?.facets || null;
   const ts = createdAt || payload?.indexedAt;
@@ -202,9 +205,7 @@ function PostCardBody({
           postUri={payload?.subjectUri || atUri}
         />
       )}
-      {postStatsLine(payload) && (
-        <footer className="post-card-stats">{postStatsLine(payload)}</footer>
-      )}
+      {stats && <footer className="post-card-stats">{stats}</footer>}
     </article>
   );
 }
@@ -212,12 +213,15 @@ function PostCardBody({
 /**
  * A post's engagement as one line, "4 replies · 3 reposts · 93 likes",
  * leaving out any that are zero; '' when all are. Under a post card, and
- * under each continuation of a thread on a post's page.
+ * under each continuation of a thread on a post's page. `ownReplies` is how
+ * many of its replies are Dame's own thread carrying on, shown right beside
+ * it, so they don't count as replies here (the AppView's count includes
+ * them; see groupSelfReplyThreads' `selfReplies`).
  */
-export function postStatsLine(payload) {
+export function postStatsLine(payload, ownReplies = 0) {
   const tally = (n, one, many) => (n ? `${n} ${n === 1 ? one : many}` : null);
   return [
-    tally(payload?.replyCount, 'reply', 'replies'),
+    tally(Math.max(0, (payload?.replyCount || 0) - ownReplies), 'reply', 'replies'),
     tally(payload?.repostCount, 'repost', 'reposts'),
     tally(payload?.likeCount, 'like', 'likes'),
   ]

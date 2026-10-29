@@ -49,9 +49,12 @@ import { verbsWithEverySourceIn } from '../lib/verbRegistry.js';
 import { createSubjectResolver } from '../lib/subjectResolver.js';
 import {
   collapseSelfThreads,
+  completeSelfThreads,
   groupSelfReplyThreads,
+  isSelfThreadRow,
   threadAwareDateKey,
 } from '../lib/threadGrouping.js';
+import { useThreadBackfill } from '../hooks/useThreadBackfill.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
@@ -826,11 +829,19 @@ export default function Home({ verb: presetVerb = null } = {}) {
   // renderers, so the ledger steps aside while it's active.
   const { layout } = useFeedLayout();
   const ledger = layout === 'ledger' && !editActive;
-  const filtered = useMemo(() => {
-    const base = filterFeed(shownFeed, params, ME_DID);
-    if (!removedUris || removedUris.size === 0) return base;
-    return base.filter((item) => !removedUris.has(item.atUri));
-  }, [shownFeed, params, removedUris]);
+  const kept = useMemo(
+    () =>
+      removedUris?.size
+        ? shownFeed.filter((item) => !removedUris.has(item.atUri))
+        : shownFeed,
+    [shownFeed, removedUris],
+  );
+  // One of Dame's self-threads is one entry: when a filter or search lets
+  // any of its posts through, the rest come with it.
+  const filtered = useMemo(
+    () => completeSelfThreads(filterFeed(kept, params, ME_DID), kept, ME_DID),
+    [kept, params],
+  );
   // Works known only by their year leave the dated timeline (each would head
   // a "January 1" of its own over a "12:00 am") and close the ledger instead,
   // under their years.
@@ -848,14 +859,32 @@ export default function Home({ verb: presetVerb = null } = {}) {
     return out;
   }, [filtered]);
   // Client-side pagination — the user only sees the first `visibleCount`
-  // filtered items at a time. Slicing here (before threading / day
-  // grouping) means thread chains never get split mid-conversation: each
-  // visible window is a clean prefix of the filtered timeline.
-  const visible = useMemo(
+  // filtered items at a time, a clean prefix of the timeline.
+  const windowed = useMemo(
     () => timeline.slice(0, visibleCount),
     [timeline, visibleCount],
   );
-  const hasMore = timeline.length > visible.length;
+  const hasMore = timeline.length > windowed.length;
+  // A thread in view comes whole, however far back its first post sits:
+  // further down the timeline, past where posting's fetch was trimmed (still
+  // loaded, see trimToHorizons), or never loaded at all (fetched here).
+  const backfill = useThreadBackfill(windowed, safeFeed, ME_DID);
+  const threadPool = useMemo(() => {
+    const seen = new Set();
+    for (const item of timeline) if (item?.atUri) seen.add(item.atUri);
+    const extra = [];
+    for (const item of [...safeFeed, ...backfill]) {
+      if (item?.verb !== 'posting' || !item.atUri || seen.has(item.atUri)) continue;
+      if (removedUris?.has(item.atUri)) continue;
+      seen.add(item.atUri);
+      extra.push(item);
+    }
+    return extra.length ? [...timeline, ...extra] : timeline;
+  }, [timeline, safeFeed, backfill, removedUris]);
+  const visible = useMemo(
+    () => completeSelfThreads(windowed, threadPool, ME_DID),
+    [windowed, threadPool],
+  );
 
   // Grow the visible window as the reader nears the bottom. The extra items
   // are already in memory, so this is an instant reveal rather than a fetch;
@@ -1076,6 +1105,16 @@ export default function Home({ verb: presetVerb = null } = {}) {
                     const step = isNew
                       ? Math.min(arrivalIndex.get(uri) ?? 0, ARRIVAL_STAGGER_STEPS)
                       : 0;
+                    // A post that joins a thread already on screen arrives
+                    // inside its row: the row stays put and the new post
+                    // slides in (a space-separated list keeps the memo).
+                    const arrivingPosts =
+                      !reduce && !isNew && isSelfThreadRow(item)
+                        ? item._thread.posts
+                            .filter((post) => newUris.has(post.atUri))
+                            .map((post) => post.atUri)
+                            .join(' ')
+                        : '';
                     return (
                       <FeedItem
                         key={item.rowKey || uri || `fallback-${group.dateKey}-${i}`}
@@ -1084,6 +1123,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
                         onOpenLightbox={ledger ? openObservationLightbox : undefined}
                         arriving={isNew}
                         arrivalDelay={step * 0.06}
+                        arrivingPosts={arrivingPosts || undefined}
                       />
                     );
                   })}

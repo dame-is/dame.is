@@ -350,7 +350,7 @@ export default function Record({ verb, nsid, source }) {
 
         {item ? (
           <div className="reveal">
-            <RecordBody verb={verb} item={item} />
+            <RecordBody verb={verb} item={item} ownReplies={selfThread.length ? 1 : 0} />
           </div>
         ) : (
           <RecordSkeleton />
@@ -358,8 +358,12 @@ export default function Record({ verb, nsid, source }) {
 
         {item && selfThread.length > 0 && (
           <div className="record-self-thread" aria-label="Thread continues">
-            {selfThread.map((post) => (
-              <SelfThreadPost key={post.atUri} item={post} />
+            {selfThread.map((post, i) => (
+              <SelfThreadPost
+                key={post.atUri}
+                item={post}
+                ownReplies={i < selfThread.length - 1 ? 1 : 0}
+              />
             ))}
           </div>
         )}
@@ -585,11 +589,11 @@ function LexiconList({ nsids }) {
 /* Body dispatch                                                       */
 /* ------------------------------------------------------------------ */
 
-function RecordBody({ verb, item }) {
+function RecordBody({ verb, item, ownReplies = 0 }) {
   switch (verb) {
     case 'posting':
     case 'reposting':
-      return <PostCard {...item} variant="record" />;
+      return <PostCard {...item} variant="record" ownReplies={ownReplies} />;
     case 'logging':
       // The status is the page's H1, so the body is what it carries beyond
       // its words: the body-state captured with it, when it has one.
@@ -889,14 +893,16 @@ function splitSelfThread(rootNode, authorDid) {
  * One continuation post in the author's self-reply thread, rendered as a
  * full-size post in the main area (not a nested reply), tied to the post
  * above by a dotted rule and nothing else: it reads on as the same post,
- * with its own engagement under it, as the post's card has.
+ * with its own engagement under it, as the post's card has. `ownReplies` is
+ * 1 when the thread carries on below it, since that next post is one of the
+ * replies its count includes.
  */
-function SelfThreadPost({ item }) {
+function SelfThreadPost({ item, ownReplies = 0 }) {
   const text = item.payload?.text || '';
   const facets = item.payload?.facets || null;
   const embed = item.payload?.embed || item.payload?.embedRecord || null;
   const authorDid = item.payload?.author?.did;
-  const stats = postStatsLine(item.payload);
+  const stats = postStatsLine(item.payload, ownReplies);
   return (
     <article className="record-thread-post" data-at-uri={item.atUri}>
       {text && <p className="record-thread-text">{renderPostText(text, facets)}</p>}

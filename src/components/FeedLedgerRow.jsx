@@ -1,6 +1,13 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
-import { formatTime, formatWallClockTime } from '../lib/time.js';
+import {
+  dateKey,
+  formatDateShort,
+  formatMonthDay,
+  formatTime,
+  formatWallClockTime,
+} from '../lib/time.js';
 import LedgerXrayLine from './LedgerXrayLine.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
@@ -95,6 +102,7 @@ export default function FeedLedgerRow({
   expanded = false,
   onToggle = null,
   onOpenLightbox = null,
+  arrivingPosts = '',
 }) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
   // Self-thread follow-ons show no label at all: the dashed rule above the
@@ -144,7 +152,11 @@ export default function FeedLedgerRow({
   // (a 2:59pm sighting reading 10:59am). Falls back to the localized time only
   // for the rare observation with no recorded time.
   const wallClock = isObservation ? formatWallClockTime(item.payload?.observedTime) : '';
-  const timeText = yearOnly ? yearOf(ts) : wallClock || (ts ? formatTime(ts) : '');
+  const timeText = yearOnly
+    ? yearOf(ts)
+    : threadPosts
+      ? threadStart(ts, item._thread.anchorAt)
+      : wallClock || (ts ? formatTime(ts) : '');
   // What the <time> says to a machine: the instant, a floating local time for
   // a wall-clock observation, or just the year.
   const machineTime = yearOnly
@@ -167,7 +179,7 @@ export default function FeedLedgerRow({
         <span className="ledger-verb" aria-hidden="true" />
       )}
       <div className={threadPosts ? 'ledger-body ledger-thread' : 'ledger-body'}>
-        {threadPosts && <ThreadLedgerBody posts={threadPosts} />}
+        {threadPosts && <ThreadLedgerBody posts={threadPosts} arriving={arrivingPosts} />}
         {isRepost && <RepostQuote item={item} />}
         {isRedaction && (
           <div className="ledger-embed ledger-redaction">
@@ -291,44 +303,87 @@ function EngagementCounts({ payload, posts = 1 }) {
 }
 
 /**
- * A folded self-thread's posts, oldest first, as the paragraphs of one entry.
- * Each keeps its own way to its record page: on a wide screen its time, set
- * in the time column beside its first line, and on a phone, where the row's
- * caption carries the thread's one time, a small number before it, the way a
- * verse is numbered (Feed.css shows the one the width calls for).
+ * When a folded thread began. The row is filed under its newest post's day,
+ * so a thread begun that same day gives its start as a time ("11:31 am"),
+ * and one begun on an earlier day gives the date instead ("Oct 1"), which a
+ * bare time under "Today" would pass off as this morning.
  */
-function ThreadLedgerBody({ posts }) {
-  return posts.map((post, i) => {
-    const href = recordPathFromAtUri(post.atUri);
-    const ts = post.createdAt || post.payload?.createdAt || post.payload?.indexedAt || null;
-    const time = ts ? formatTime(ts) : '';
-    const embed = ledgerEmbed(post);
-    const label = `Post ${i + 1} of ${posts.length}${time ? `, ${time}` : ''}`;
-    return (
-      <div className="ledger-thread-post" key={post.atUri || i}>
-        <div className="ledger-thread-content">
-          <p className="ledger-text">
-            {href ? (
-              <Link className="ledger-thread-num" to={href} aria-label={label}>
-                {i + 1}
-              </Link>
-            ) : (
-              <span className="ledger-thread-num">{i + 1}</span>
-            )}
-            {summarizePost(post)}
-          </p>
-          {embed && (
-            <div className="ledger-embed">
-              <PostEmbed embed={embed.embed} did={embed.did} postUri={post.atUri} />
-            </div>
-          )}
+function threadStart(ts, anchorAt) {
+  if (!ts) return '';
+  if (!anchorAt || dateKey(ts) === dateKey(anchorAt)) return formatTime(ts);
+  return dateKey(ts).slice(0, 4) === dateKey(anchorAt).slice(0, 4)
+    ? formatMonthDay(ts)
+    : formatDateShort(ts);
+}
+
+/**
+ * A folded self-thread's posts, oldest first, as the paragraphs of one entry,
+ * under the row's one time (the thread's first). `arriving` lists the posts
+ * that just landed (space-separated at:// URIs; see FeedItem).
+ */
+function ThreadLedgerBody({ posts, arriving = '' }) {
+  const landed = arriving ? new Set(arriving.split(' ')) : null;
+  return posts.map((post, i) => (
+    <ThreadLedgerPost
+      key={post.atUri || i}
+      post={post}
+      n={i + 1}
+      of={posts.length}
+      arriving={Boolean(landed?.has(post.atUri))}
+    />
+  ));
+}
+
+/**
+ * One post of a folded thread. It starts with a small number, the way a verse
+ * is numbered, which links to its own record page and carries its own time as
+ * a tooltip. A post with no words (a picture, a link card) keeps its number on
+ * a line of its own above it. A post that joins a row already on screen slides
+ * in once, as a new row does (read on mount, dropped when it's played, so a
+ * row that moves later doesn't play it again).
+ */
+function ThreadLedgerPost({ post, n, of, arriving }) {
+  const [arrival, setArrival] = useState(arriving);
+  const href = recordPathFromAtUri(post.atUri);
+  const ts = post.createdAt || post.payload?.createdAt || post.payload?.indexedAt || null;
+  const text = summarizePost(post);
+  const embed = ledgerEmbed(post);
+  const label = `Post ${n} of ${of}${ts ? `, ${formatTime(ts)}` : ''}`;
+  const number = ts ? (
+    <Time value={ts} variant="clock">
+      {n}
+    </Time>
+  ) : (
+    n
+  );
+  return (
+    <div
+      className={arrival ? 'ledger-thread-post feed-item-arriving' : 'ledger-thread-post'}
+      onAnimationEnd={
+        arrival
+          ? (e) => {
+              if (e.target === e.currentTarget) setArrival(false);
+            }
+          : undefined
+      }
+    >
+      <p className={text ? 'ledger-text' : 'ledger-text ledger-thread-bare'}>
+        {href ? (
+          <Link className="ledger-thread-num" to={href} aria-label={label}>
+            {number}
+          </Link>
+        ) : (
+          <span className="ledger-thread-num">{number}</span>
+        )}
+        {text}
+      </p>
+      {embed && (
+        <div className="ledger-embed">
+          <PostEmbed embed={embed.embed} did={embed.did} postUri={post.atUri} />
         </div>
-        <TimeLink className="ledger-time ledger-thread-time" href={href} dateTime={ts}>
-          {time}
-        </TimeLink>
-      </div>
-    );
-  });
+      )}
+    </div>
+  );
 }
 
 /**
