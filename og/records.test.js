@@ -388,6 +388,13 @@ describe('postImages / postCardCopy', () => {
     ]);
   });
 
+  it('leaves out a U+FFFC left where an inline object was', () => {
+    expect(postCardCopy({ text: 'the big tech companies￼' }).text).toBe('the big tech companies');
+    // A post that is nothing but the placeholder has no words to show.
+    const marked = postCardCopy({ text: '￼', embed: imagesEmbed(image(CID_A, 'a sunset')) });
+    expect(marked).toMatchObject({ text: '', caption: 'a sunset' });
+  });
+
   it('captions a post with no words by its alt text, and counts photos with none', () => {
     const alt = postCardCopy({ text: '', embed: imagesEmbed(image(CID_A, 'a sunset')) });
     expect(alt).toMatchObject({ text: '', caption: 'a sunset', standIn: '' });
