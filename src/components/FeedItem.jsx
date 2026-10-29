@@ -132,9 +132,7 @@ function hrefFor(item) {
  * selection UI.
  *
  * `showVerb={false}` is a single-kind page: the cards drop their verb badge
- * and the ledger its repeated gerund. `dayStart`, on such a page's ledger, is
- * the day this row opens (it carries the running date in its margin; see
- * FeedLedgerRow's DiaryDate).
+ * and the ledger its repeated gerund.
  *
  * The component renders the list item itself, so a list hands it straight
  * to a <ul>. `arriving` (with `arrivalDelay`, in seconds) plays the slide-in
@@ -145,7 +143,6 @@ function hrefFor(item) {
 function FeedItem({
   item,
   showVerb = true,
-  dayStart = null,
   layout = 'cards',
   onOpenLightbox = null,
   arriving = false,
@@ -322,7 +319,6 @@ function FeedItem({
     ledgerBatch ? 'feed-item-ledger-expandable' : '',
     canLightbox ? 'feed-item-ledger-lightbox' : '',
     item._thread ? 'feed-item-thread' : '',
-    ledger && dayStart && !showVerb ? 'feed-item-day-start' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
     threadContinuation ? 'feed-item-thread-continuation' : '',
@@ -377,7 +373,6 @@ function FeedItem({
           xrayId={xrayId}
           href={href}
           showVerb={showVerb}
-          dayStart={dayStart}
           expanded={ledgerExpanded}
           onToggle={ledgerBatch ? () => setLedgerExpanded((v) => !v) : null}
           onOpenLightbox={onOpenLightbox}

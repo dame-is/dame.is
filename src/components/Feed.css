@@ -125,13 +125,6 @@
   margin-top: var(--space-7);
 }
 
-/* /logging's ledger is a diary: its days run on without a heading or a gap,
-   each opened by a full-strength rule and a running date in the margin
-   (FeedLedgerRow's DiaryDate). */
-.feed-diary .feed-day-group + .feed-day-group {
-  margin-top: 0;
-}
-
 /* Verb badge — icon + gerund (or "replying to @handle", "continuing")
    above the card body, matching how reply hints already render. Sits at
    the row's start at every viewport width so the eye always finds the
@@ -2536,17 +2529,26 @@ a.ledger-time:focus-visible {
   margin-top: var(--space-3);
 }
 
+/* Pictures share the 26rem measure of the quote box and link card below, so
+   a post's embeds end on one right edge (and fill a phone's column). */
 .ledger-embed .post-embed-images {
   gap: var(--space-1);
-  max-width: 20rem;
+  max-width: 26rem;
 }
 
 /* A lone image sizes its frame from --embed-image-max-h (see PostEmbed.css).
-   In the ledger the picture fills the 20rem column at its true ratio; the
-   height cap only bounds very tall images so a portrait can't run away (it
-   matches the 20rem column width, so images fit within a 20rem square). */
+   In the ledger the picture fills the measure at its true ratio, uncropped.
+   The height cap is four thirds of the width (the percentage resolves
+   against the measure), so a phone's 3:4 portrait still fills it and only a
+   taller picture, a screenshot say, comes out narrower. */
 .ledger-embed .post-embed-images[data-count='1'] {
-  --embed-image-max-h: 20rem;
+  --embed-image-max-h: calc(100% * 4 / 3);
+}
+
+/* A picture whose record has no ratio is capped by height alone, where a
+   percentage would resolve to nothing, so it gets a fixed cap instead. */
+.ledger-embed .post-embed-images[data-count='1'] .post-embed-image:not([data-sized='true']) img {
+  max-height: 34rem;
 }
 
 /* Multi-image grids get uniform landscape crops so two rows of images
@@ -2728,54 +2730,6 @@ a.ledger-time:focus-visible {
   height: 2.25rem;
 }
 
-/* /logging: the first status of each day opens it with a full-strength rule
-   and carries the date and day of life in the margin; the rest of the day
-   leaves the margin empty. */
-.feed-diary .feed-item-ledger.feed-item-day-start {
-  border-top: 1px solid var(--rule);
-}
-
-/* A day's last status keeps its padding (a feed's last row in a day gives
-   it up, since a heading follows there); the next day's rule replaces its
-   hairline. */
-.feed-diary .feed-day-group .feed-list > .feed-item-ledger:last-child {
-  padding-bottom: var(--space-3);
-  border-bottom: 0;
-}
-
-.feed-diary .feed-day-group:first-child .feed-item-day-start {
-  border-top-color: transparent;
-}
-
-/* The running date keeps the day header's classes (the chrome's strip reads
-   the day in view from them) but none of its layout. */
-.feed-ledger .ledger-diary-date {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.feed-ledger .ledger-diary-date .day-header {
-  font-family: var(--serif);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  line-height: var(--leading-tight);
-  color: var(--ink-soft);
-}
-
-.ledger-diary-dol {
-  font-family: var(--serif);
-  font-size: var(--text-meta);
-  font-variant: all-small-caps;
-  letter-spacing: 0.1em;
-  line-height: var(--leading-tight);
-  color: var(--ink-faint);
-}
-
 /* The ledger's end (Home's LedgerColophon): a fleuron between hairlines, one
    sentence saying how far back the ledger is whole, and the pages whose own
    history goes further. Printed, not a button: there's no more to load. */
@@ -2893,13 +2847,13 @@ a.ledger-time:focus-visible {
 
   /* The dot that joins the gerund to the time. A row with no gerund (a
      thread's follow-on, a single-kind page's ordinary row) has an empty
-     cell, so its caption is the time alone; a cover or a running date in
-     that cell isn't a gerund either. Inline-block so a hovered time's
+     cell, so its caption is the time alone; a cover in that cell isn't a
+     gerund either. Inline-block so a hovered time's
      underline doesn't run under it. */
   :root:not([data-xray='on'])
     .feed-ledger-column
     .feed-item-ledger
-    > .ledger-verb:not(:empty, .ledger-cover, .ledger-diary-date)
+    > .ledger-verb:not(:empty, .ledger-cover)
     ~ .ledger-time::before {
     content: '·';
     display: inline-block;
@@ -2915,22 +2869,6 @@ a.ledger-time:focus-visible {
      under the caption. */
   :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-track-row {
     grid-column: 1 / -1;
-  }
-
-  /* /logging: the first status of a day opens with its running date on a
-     line of its own above it ("Oct 26  day 12,226"), where the margin held
-     it; the rest of the day's statuses caption with their time alone. */
-  :root:not([data-xray='on']) .feed-diary.feed-ledger-column .feed-item-day-start {
-    grid-template-areas:
-      'verb verb verb verb'
-      'body body body body'
-      'time time . counts';
-  }
-
-  :root:not([data-xray='on']) .feed-diary.feed-ledger-column .ledger-diary-date {
-    flex-direction: row;
-    align-items: baseline;
-    gap: 0.6em;
   }
 
   /* /listening keeps each session's cover beside it, so the column is the

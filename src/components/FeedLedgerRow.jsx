@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
-import { formatDayShortLabel, formatTime, formatWallClockTime } from '../lib/time.js';
+import { formatTime, formatWallClockTime } from '../lib/time.js';
 import LedgerXrayLine from './LedgerXrayLine.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
@@ -21,13 +21,10 @@ import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
 import { flushBody, isWordlessFlush } from '../lib/flushText.js';
 import {
   isYearOnlyDate,
-  longDay,
   sectionHref,
-  shortDay,
   trimLinkEcho,
   yearOf,
 } from '../lib/ledger.js';
-import { dayOfLife } from '../lib/dayOfLife.js';
 import InkblotFigure from './cards/InkblotFigure.jsx';
 import RedactedPost from './cards/RedactedPost.jsx';
 import AlbumCover from './AlbumCover.jsx';
@@ -87,16 +84,13 @@ const BATCH_LEDGER_NAMES = 2;
  * `showVerb={false}` is a single-kind page (/posting, /logging, /listening):
  * every row is the same verb, so the margin drops it and prints only the
  * exception ("replying"). /listening fills the freed margin
- * with the session's cover, and /logging with a running date: `dayStart` is
- * the day a row opens, on a page that dates its rows in the margin instead of
- * heading each day.
+ * with the session's cover.
  */
 export default function FeedLedgerRow({
   item,
   xrayId,
   href,
   showVerb = true,
-  dayStart = null,
   expanded = false,
   onToggle = null,
   onOpenLightbox = null,
@@ -159,9 +153,7 @@ export default function FeedLedgerRow({
     <>
       {/* The margin. A row with nothing to say there keeps an empty cell so
           grid auto-placement still lands the body in column 2. */}
-      {dayStart && !showVerb ? (
-        <DiaryDate date={dayStart} />
-      ) : listening && !showVerb ? (
+      {listening && !showVerb ? (
         <span className="ledger-verb ledger-cover" aria-hidden="true">
           <AlbumCover payload={item.payload} size={100} className="ledger-cover-art" />
         </span>
@@ -319,25 +311,6 @@ function VerbLabel({ label, className = 'ledger-verb-link' }) {
     </Link>
   ) : (
     <span className={className}>{label}</span>
-  );
-}
-
-/**
- * /logging's running date: the first status of each day carries the day and
- * its day of life in the margin, where the page used to head the day. It keeps
- * the day header's classes, which the chrome's strip reads the day in view
- * from, and its heading, so the page still has one heading per day.
- */
-function DiaryDate({ date }) {
-  const label = formatDayShortLabel(date);
-  const named = label === 'Today' || label === 'Yesterday';
-  return (
-    <header className="ledger-verb day-section-header ledger-diary-date">
-      <h3 className="day-header" aria-label={longDay(date)} data-day-label={named ? label : shortDay(date)}>
-        {named ? label : shortDay(date)}
-      </h3>
-      <span className="ledger-diary-dol">day {dayOfLife(date).toLocaleString('en-US')}</span>
-    </header>
   );
 }
 
