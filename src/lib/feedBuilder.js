@@ -166,6 +166,7 @@ export function blueskyPostToFeedItem(item) {
       replyCount: post.replyCount || 0,
       repostCount: post.repostCount || 0,
       likeCount: post.likeCount || 0,
+      quoteCount: post.quoteCount || 0,
       embed: post.embed || null,
       embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
@@ -221,6 +222,7 @@ export function repostToFullPostItem(item, record) {
       replyCount: view.replyCount || 0,
       repostCount: view.repostCount || 0,
       likeCount: view.likeCount || 0,
+      quoteCount: view.quoteCount || 0,
       embed: view.embed || null,
       embedRecord: view.record?.embed || null,
       indexedAt: view.indexedAt,
@@ -268,6 +270,7 @@ export function condensePostView(view) {
     replyCount: view.replyCount || 0,
     repostCount: view.repostCount || 0,
     likeCount: view.likeCount || 0,
+    quoteCount: view.quoteCount || 0,
   };
 }
 
