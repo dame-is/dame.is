@@ -191,7 +191,7 @@ export default function GuestbookSignForm({ agent, did, signedIn, signerHandle, 
             <p className="guestbook-signas-line">
               Signing as <span className="guestbook-signas-handle">{signerHandle || 'you'}</span>
             </p>
-            <button type="submit" className="signin-button" disabled={!canSign}>
+            <button type="submit" className="btn btn--primary signin-button" disabled={!canSign}>
               {busy ? 'Signing…' : 'Sign the guestbook'}
             </button>
           </>
@@ -219,7 +219,7 @@ export default function GuestbookSignForm({ agent, did, signedIn, signerHandle, 
                 onChange={(e) => setHandleInput(e.target.value)}
                 disabled={busy}
               />
-              <button type="submit" className="signin-button" disabled={!canSign}>
+              <button type="submit" className="btn btn--primary signin-button" disabled={!canSign}>
                 {busy ? (
                   'Redirecting…'
                 ) : (

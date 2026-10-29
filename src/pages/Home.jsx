@@ -24,7 +24,7 @@ import {
   beginRefresh,
   endRefresh,
 } from '../lib/feedCache.js';
-import { groupByDay } from '../lib/time.js';
+import { formatTime, groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
 import { collapseObservations } from '../lib/observationBatches.js';
 import { markFirstSightings, mergeFirstSightings } from '../lib/firstSightings.js';
@@ -37,11 +37,14 @@ import {
   assignRowKeys,
   carryOverFailedSources,
   classifyBuild,
+  completeSince,
   insertHorizonMarkers,
   isHorizonMarker,
   rebuildVerbs,
+  splitYearOnlyWorks,
   trimToHorizons,
 } from '../lib/homeFeed.js';
+import { longDay } from '../lib/ledger.js';
 import { verbsWithEverySourceIn } from '../lib/verbRegistry.js';
 import { createSubjectResolver } from '../lib/subjectResolver.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
@@ -52,7 +55,9 @@ import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
 import { useChromePanelActions } from '../hooks/useChromePanel.jsx';
 import { useFirstSightings } from '../hooks/useFirstSightings.js';
+import { useNow } from '../hooks/useNow.js';
 import { ME_DID } from '../config.js';
+import Fleuron from '../components/Fleuron.jsx';
 import '../components/Feed.css';
 
 const FEED_CACHE_KEY = 'unifiedFeed';
@@ -82,7 +87,7 @@ const MAX_PARTIAL_RETRIES = 3;
 // its own 15s timeout, but a run is dozens of them, some in series, and a
 // browser without AbortSignal.timeout gets no timeouts at all — while a run is
 // in flight every tick stands down, so one that never settles would freeze the
-// feed and leave "Fetching latest activity…" up for the rest of the visit. Far
+// feed and leave "Updating…" up for the rest of the visit. Far
 // past any real build; the subject caches a slow run warms survive it, so the
 // retry after it is faster.
 const REFRESH_WATCHDOG_MS = 90_000;
@@ -90,15 +95,10 @@ const REFRESH_WATCHDOG_MS = 90_000;
 // arrive together, the way the first-paint reveal stagger tops out.
 const ARRIVAL_STAGGER_STEPS = 8;
 // Pages a verb's older history lives on, for the marker where the home feed's
-// copy of it runs out.
-const VERB_PAGES = new Set([
-  'posting',
-  'logging',
-  'listening',
-  'blogging',
-  'creating',
-  'mothing',
-]);
+// copy of it runs out and the colophon that closes the ledger, which names
+// them in this order.
+const VERB_PAGE_ORDER = ['posting', 'logging', 'listening', 'mothing', 'blogging', 'creating'];
+const VERB_PAGES = new Set(VERB_PAGE_ORDER);
 
 
 /**
@@ -152,44 +152,17 @@ function loadUnifiedSnapshot() {
 }
 
 /**
- * Per-day summary line shown beside each day header in the home feed,
- * e.g. "59 items, 120 interactions".
- *   - items — real underlying records (listen batches expand to their
- *             `count` so a session of 10 songs reads as 10 items, not 1).
- *   - interactions — sum of like/repost/reply counts across this day's
- *                    posting items; how much activity those posts
- *                    attracted on Bluesky.
- * Parts with a zero count are omitted so quieter days read clean.
- */
-function dayStatsLine(items) {
-  let count = 0;
-  let interactions = 0;
-  for (const item of items || []) {
-    if (isHorizonMarker(item)) continue;
-    count += item?.count || 1;
-    if (item?.verb === 'posting') {
-      const p = item.payload || {};
-      interactions += (p.likeCount || 0) + (p.repostCount || 0) + (p.replyCount || 0);
-    }
-  }
-  const parts = [];
-  if (count) parts.push(`${count} ${count === 1 ? 'item' : 'items'}`);
-  if (interactions) parts.push(`${interactions} ${interactions === 1 ? 'interaction' : 'interactions'}`);
-  return parts.join(', ');
-}
-
-/**
- * The most recent day's summary line doubles as the live-refresh
- * indicator. While a refresh is confirming the latest activity the line
- * reads "Fetching latest activity…"; once the live result lands it
- * cross-fades to that day's real engagement/stats. This keeps the signal
- * to a single quiet line under the date instead of a separate banner.
+ * The newest day's header doubles as the live-refresh indicator. While a
+ * refresh is confirming the latest activity it notes "Updating…" before the
+ * day's folio (one short word: on a phone the line holds the date as well),
+ * and the note fades out once the live result lands. This keeps the signal to a quiet aside on the day's own line
+ * instead of a separate banner.
  *
  * A refresh that couldn't reach anything leaves the feed as it was and says
  * so here (`stale`), the way the single-collection pages footnote theirs,
  * rather than passing off what's on screen as current.
  */
-function DayActivityMeta({ checking, stale, stats, reduce }) {
+function DayActivityMeta({ checking, stale, reduce }) {
   const fade = {
     initial: reduce ? false : { opacity: 0 },
     animate: { opacity: 1 },
@@ -206,7 +179,7 @@ function DayActivityMeta({ checking, stale, stats, reduce }) {
           aria-live="polite"
           {...fade}
         >
-          Fetching latest activity&hellip;
+          Updating&hellip;
         </motion.span>
       ) : stale ? (
         <motion.span
@@ -218,11 +191,7 @@ function DayActivityMeta({ checking, stale, stats, reduce }) {
         >
           {stale}
         </motion.span>
-      ) : (
-        <motion.span key="stats" {...fade}>
-          {stats}
-        </motion.span>
-      )}
+      ) : null}
     </AnimatePresence>
   );
 }
@@ -242,6 +211,54 @@ function HorizonNote({ verb }) {
         <>Earlier {verb} isn&rsquo;t loaded here</>
       )}
     </li>
+  );
+}
+
+/**
+ * The ledger's end: a fleuron between hairlines, one sentence saying how far
+ * back it is whole, and the pages whose own history goes further. `since` is
+ * the newest horizon of the verbs on show (completeSince); the first whole day
+ * after it is the one named. With no verb cut short, the ledger holds
+ * everything, back to its oldest dated row (`oldest`). Only a live build
+ * knows where its fetches ran out (`known`): the snapshot painted first is a
+ * short prefix of one, so until the live feed lands the mark stands alone.
+ */
+function LedgerColophon({ known, since, oldest, verbs }) {
+  const now = useNow();
+  const today = longDay(now, now);
+  let line = '';
+  if (known && since) {
+    // A busy day can use up a kind's whole fetch, and then not even today
+    // is whole; the day after the horizon being today reads as just that.
+    const first = longDay(since, now, { next: true });
+    // Above this line each kind runs back as far as its own fetch reached,
+    // so "complete for today" would undersell what's there and "complete"
+    // alone would overclaim: say which days hold every kind.
+    if (longDay(since, now) === today) line = 'Not even today holds every kind of record yet.';
+    else if (first === today) line = 'Only today holds every kind of record.';
+    else line = `Every kind of record is here back to ${first}.`;
+  } else if (known && oldest) {
+    line = `That’s everything, back to ${longDay(oldest, now)}.`;
+  }
+  const pages = VERB_PAGE_ORDER.filter((v) => verbs.has(v));
+  return (
+    <footer className="ledger-colophon">
+      <p className="ledger-colophon-mark" aria-hidden="true">
+        <Fleuron />
+      </p>
+      {line && <p className="ledger-colophon-line">{line}</p>}
+      {since && pages.length > 0 && (
+        <p className="ledger-colophon-earlier">
+          Earlier:{' '}
+          {pages.map((verb, i) => (
+            <span key={verb}>
+              {i > 0 && ' · '}
+              <Link to={`/${verb}`}>{verb}</Link>
+            </span>
+          ))}
+        </p>
+      )}
+    </footer>
   );
 }
 
@@ -768,8 +785,11 @@ export default function Home({ verb: presetVerb = null } = {}) {
     () => (snapshotFeed ? feedFilterCounts(snapshotFeed, ME_DID) : null),
     [snapshotFeed],
   );
-  const { counts, estimatedVerbs } = useMemo(() => {
+  const { counts, estimatedVerbs, cappedVerbs } = useMemo(() => {
     const liveSet = new Set(liveVerbs);
+    // The live verbs whose first fetch stopped at INITIAL_FETCH_MAX (their
+    // horizons), so the sheet prints "100+" rather than a total-looking 100.
+    const capped = new Set(Object.keys(horizons || {}).filter((v) => liveSet.has(v)));
     // A filter key is "live-known" when its underlying fetch verb was in
     // the latest live result. `replying` is a virtual view of `posting`.
     const isLive = (key) => liveSet.has(key === 'replying' ? 'posting' : key);
@@ -787,8 +807,8 @@ export default function Home({ verb: presetVerb = null } = {}) {
         est.add(key);
       }
     }
-    return { counts: out, estimatedVerbs: est };
-  }, [liveCounts, snapshotCounts, liveVerbs]);
+    return { counts: out, estimatedVerbs: est, cappedVerbs: capped };
+  }, [liveCounts, snapshotCounts, liveVerbs, horizons]);
 
   // Records the owner deleted this session are dropped optimistically so
   // the feed reflects the change immediately, ahead of the next live fetch
@@ -807,11 +827,22 @@ export default function Home({ verb: presetVerb = null } = {}) {
     if (!removedUris || removedUris.size === 0) return base;
     return base.filter((item) => !removedUris.has(item.atUri));
   }, [shownFeed, params, removedUris]);
-  // The filtered feed plus a marker row where each verb's copy runs out.
+  // Works known only by their year leave the dated timeline (each would head
+  // a "January 1" of its own over a "12:00 am") and close the ledger instead,
+  // under their years.
+  const { dated, yearOnly } = useMemo(() => splitYearOnlyWorks(filtered), [filtered]);
+  // The dated feed plus a marker row where each verb's copy runs out.
   const timeline = useMemo(
-    () => insertHorizonMarkers(filtered, horizons),
-    [filtered, horizons],
+    () => insertHorizonMarkers(dated, horizons),
+    [dated, horizons],
   );
+  // How far back the whole ledger can vouch for itself, for its colophon.
+  const since = useMemo(() => completeSince(dated, horizons), [dated, horizons]);
+  const shownVerbs = useMemo(() => {
+    const out = new Set();
+    for (const item of filtered) if (item?.verb) out.add(item.verb);
+    return out;
+  }, [filtered]);
   // Client-side pagination — the user only sees the first `visibleCount`
   // filtered items at a time. Slicing here (before threading / day
   // grouping) means thread chains never get split mid-conversation: each
@@ -964,7 +995,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
     staleNote =
       feedSourceRef.current === 'snapshot' || !loadedAt
         ? 'live refresh failed · showing the saved snapshot'
-        : `live refresh failed · as of ${loadedAt.toLocaleTimeString()}`;
+        : `live refresh failed · as of ${formatTime(loadedAt)}`;
   }
 
   // The home feed aggregates many records; it has no single is.dame.page/home
@@ -981,7 +1012,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
         {/* One flex child holds the whole feed body (or the cold-load
             fetching line) so its spacing rides in the wrapper rather than
             in the parent's animatable flex `gap`. */}
-        <div className={`home-feed-region${ledger ? ' feed-ledger' : ''}`}>
+        <div className={`home-feed-region${ledger ? ' feed-ledger feed-ledger-column' : ''}`}>
           {loading || (checking && filtered.length === 0) ? (
             // Shaped like the ledger (verb | body | time), so the rows land
             // in its place rather than below a status line.
@@ -1008,15 +1039,8 @@ export default function Home({ verb: presetVerb = null } = {}) {
                   variant={ledger ? 'ledger' : 'default'}
                   meta={
                     gi === 0 ? (
-                      <DayActivityMeta
-                        checking={checking}
-                        stale={staleNote}
-                        stats={dayStatsLine(group.items)}
-                        reduce={reduce}
-                      />
-                    ) : (
-                      dayStatsLine(group.items)
-                    )
+                      <DayActivityMeta checking={checking} stale={staleNote} reduce={reduce} />
+                    ) : null
                   }
                 />
                 {/* The ledger's day header carries its own bottom rule, so
@@ -1057,7 +1081,33 @@ export default function Home({ verb: presetVerb = null } = {}) {
                 </ul>
               </li>
             ))}
+            {!hasMore && yearOnly.length > 0 && (
+              <li className="feed-day-group feed-earlier-works">
+                {/* Headed like a day, so the chrome's strip names it. */}
+                <header className="day-section-header">
+                  <h3 className="day-header">Earlier works</h3>
+                  <p className="day-header-meta">dated by their year</p>
+                </header>
+                <ul className="feed-list">
+                  {yearOnly.map((item) => (
+                    <FeedItem
+                      key={item.rowKey || item.atUri}
+                      item={item}
+                      layout={ledger ? 'ledger' : 'cards'}
+                    />
+                  ))}
+                </ul>
+              </li>
+            )}
           </ol>
+          )}
+          {!loading && !hasMore && filtered.length > 0 && (
+            <LedgerColophon
+              known={horizons != null}
+              since={since}
+              oldest={dated[dated.length - 1]?.createdAt || null}
+              verbs={shownVerbs}
+            />
           )}
         </div>
         {!loading && hasMore && (
@@ -1149,7 +1199,12 @@ export default function Home({ verb: presetVerb = null } = {}) {
       </nav>
 
       <section className="home-latest">
-        <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
+        <FeedFilters
+          counts={counts}
+          estimatedVerbs={estimatedVerbs}
+          cappedVerbs={cappedVerbs}
+          fetchCap={INITIAL_FETCH_MAX}
+        />
         {feedBody}
       </section>
 

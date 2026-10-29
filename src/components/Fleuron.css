@@ -1,0 +1,10 @@
+/* Sized by the caller's font-size; coloured by the caller too, defaulting to
+   the accent the essay end-mark set. `font-style: normal` keeps an italic
+   context from slanting a fallback font's glyph. */
+.fleuron {
+  display: inline-block;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--accent);
+}

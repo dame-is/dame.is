@@ -65,6 +65,8 @@
   transition: outline-color 200ms ease;
 }
 
+/* A sighting with no photo: the plate's keyline with the house fleuron in
+   it, in the faint ink so it reads as a blank plate, not as content. */
 .mothing-placeholder {
   aspect-ratio: 1 / 1;
   display: flex;
@@ -163,6 +165,11 @@
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
+}
+
+.mothing-placeholder .fleuron,
+.mothing-ledger-thumb-empty .fleuron {
+  color: var(--ink-faint);
 }
 
 .mothing-ledger-names {

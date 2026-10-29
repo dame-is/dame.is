@@ -21,7 +21,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
-import RatioedStats from '../components/RatioedStats.jsx';
+import Figures from '../components/Figures.jsx';
+import Segmented from '../components/Segmented.jsx';
 import {
   SEED_PIECES,
   SEED_PEOPLE,
@@ -345,30 +346,32 @@ export default function RatioedParticipants() {
             : ' The ranking below counts how many times each of them got there before the seal.'}
         </p>
 
-        <RatioedStats cells={headline} />
-        <RatioedStats cells={texture} dense />
+        <Figures items={headline} columns={4} label="Headline figures" />
+        <Figures items={texture} columns={4} dense label="More figures" />
 
         <section className="ratioed-piece-section">
           <div className="ratioed-board-controls">
-            <div className="ratioed-board-seg" role="group" aria-label="Rank by">
-              {SORTS.map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  aria-pressed={sort === s.key}
-                  onClick={() => {
-                    if (sort === s.key) setDir(-dir);
-                    else {
-                      setSort(s.key);
-                      setDir(-1);
-                    }
-                  }}
-                >
-                  {s.label}
-                  {sort === s.key && <span aria-hidden="true">{dir === 1 ? ' ↑' : ' ↓'}</span>}
-                </button>
-              ))}
-            </div>
+            {/* Pressing the key that's already down reverses the order. */}
+            <Segmented
+              label="Rank by"
+              value={sort}
+              options={SORTS.map((s) => ({
+                value: s.key,
+                label: (
+                  <>
+                    {s.label}
+                    {sort === s.key && <span aria-hidden="true">{dir === 1 ? ' ↑' : ' ↓'}</span>}
+                  </>
+                ),
+              }))}
+              onChange={(key) => {
+                if (sort === key) setDir(-dir);
+                else {
+                  setSort(key);
+                  setDir(-1);
+                }
+              }}
+            />
             <input
               className="ratioed-board-find"
               type="search"
@@ -443,7 +446,7 @@ export default function RatioedParticipants() {
             shown < rows.length && (
               <button
                 type="button"
-                className="ratioed-board-more"
+                className="btn btn--sm ratioed-board-more"
                 onClick={() => setShown(rows.length)}
               >
                 Show all {rows.length} ({rows.length - shown} more)

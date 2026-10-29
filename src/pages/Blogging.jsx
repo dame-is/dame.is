@@ -4,12 +4,13 @@ import PageShell from '../components/PageShell.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
+import Time from '../components/Time.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { relativeTime, formatDateFull, compareIsoDesc } from '../lib/time.js';
+import { compareIsoDesc, isRecent } from '../lib/time.js';
 import { showOnBlog, isDraft } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { smartenText } from '../lib/smartPunctuation.js';
@@ -87,7 +88,7 @@ export default function Blogging() {
             key: e.uri || i,
             href: e.href,
             title: e.title,
-            time: e.createdAt ? relativeTime(e.createdAt) : null,
+            time: e.createdAt ? <Time value={e.createdAt} variant="relative" /> : null,
             nsid: nsidFromAtUri(e.uri),
             atUri: e.uri || null,
             cid: e.cid || null,
@@ -110,8 +111,12 @@ export default function Blogging() {
                 <span className="blogging-toc-meta gutter">
                   {e.createdAt && (
                     <>
-                      <span className="blogging-toc-rel">{relativeTime(e.createdAt)}</span>
-                      <span className="blogging-toc-date">{formatDateFull(e.createdAt)}</span>
+                      {/* The age only while it's news; past 30 days it would
+                          be the date again, and the date is right there. */}
+                      {isRecent(e.createdAt) && (
+                        <Time className="blogging-toc-rel" value={e.createdAt} variant="relative" />
+                      )}
+                      <Time className="blogging-toc-date" value={e.createdAt} variant="date" />
                     </>
                   )}
                 </span>

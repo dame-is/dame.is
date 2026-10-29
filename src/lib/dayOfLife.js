@@ -1,54 +1,47 @@
-// Local-calendar-anchored day-of-life calc. Originally UTC-noon
-// (ported from .eleventy.js) but the feed groups posts by *local*
-// calendar date, so the day number needs to follow the same anchor —
-// otherwise a post made at 11pm EST would show "Day N" while its
-// group header says May 5 ("today"), giving a one-off mismatch.
+// Day of life, counted on Dame's calendar (America/New_York), the one the
+// ledger groups by and the share cards stamp their folio with. og/time.js
+// re-exports dayOfLife from here, so the chrome's "on day N", a ledger day
+// header, a record's colophon and a card's folio are one count.
 //
-// The birthdate is the other half of that anchor, and it is a calendar date,
-// not an instant: May 7 wherever the reader is. It used to be parsed as UTC
-// midnight, which west of Greenwich is the evening of May 6 — so every count
-// in the Americas ran a day ahead, and the birthday arrived a day early.
+// It used to follow the reader's calendar. Then a reader in Los Angeles at
+// 10 pm her time — 1 am in New York — saw yesterday's number beside today's
+// card, and one in Tokyo saw tomorrow's. Before that it was UTC midnight
+// rolled back to local midnight, which ran a day high west of Greenwich.
+//
+// The birthdate is a calendar date, not an instant: May 7 wherever anyone
+// is. Parsed as UTC midnight it was the evening of May 6 in New York, and
+// every count ran a day ahead with the birthday a day early.
 //
 // Both ends are reduced to calendar days and counted with Date.UTC, which has
-// no DST and no zone history. Counting between local midnights instead needed
-// rounding for the 23- and 25-hour days, and still came out a day short in a
-// zone that has skipped a date since 1993 (Kiribati, Samoa).
+// no DST and no zone history. Counting between midnights instead needed
+// rounding for the 23- and 25-hour days, and came out a day short in a zone
+// that has skipped a date (Kiribati, Samoa) — moot now that only one zone is
+// read, but there's no reason to go back to it.
 
 import { BIRTHDATE } from '../config.js';
-
-const MS_PER_DAY = 86_400_000;
-
-/** A Date's local calendar day as `{ y, m, d }` (m 0-based). */
-function localDay(date) {
-  const t = new Date(date);
-  return { y: t.getFullYear(), m: t.getMonth(), d: t.getDate() };
-}
+import { calendarDay, calendarDaysBetween } from './time.js';
 
 /**
  * The birthdate as `{ y, m, d }`. A string's leading 'YYYY-MM-DD' is the
- * calendar day it names, whatever follows it; a Date is taken at its local
- * calendar day.
+ * calendar day it names, whatever follows it; a Date is read on Dame's clock.
  */
 function birthDay(birthdate) {
   const m =
     typeof birthdate === 'string' && /^(\d{4})-(\d{2})-(\d{2})/.exec(birthdate);
   if (m) return { y: Number(m[1]), m: Number(m[2]) - 1, d: Number(m[3]) };
-  return localDay(birthdate);
-}
-
-/** Whole days from one calendar day to another. */
-function daysBetween(a, b) {
-  return Math.round(
-    (Date.UTC(b.y, b.m, b.d) - Date.UTC(a.y, a.m, a.d)) / MS_PER_DAY,
-  );
+  return calendarDay(birthdate);
 }
 
 /**
- * Days lived (1-indexed: birthdate is Day 1). Flips at the reader's local
- * midnight, not UTC's.
+ * Days lived (1-indexed: birthdate is Day 1), on the day `at` falls on in New
+ * York. Flips at midnight there, whatever the reader's zone. A bare
+ * 'YYYY-MM-DD' is the day it names (a mothing night's date, for one). NaN
+ * for a date that won't parse.
  */
 export function dayOfLife(at = new Date(), birthdate = BIRTHDATE) {
-  return Math.max(1, daysBetween(birthDay(birthdate), localDay(at)) + 1);
+  const day = calendarDay(at);
+  if (!day) return NaN;
+  return Math.max(1, calendarDaysBetween(birthDay(birthdate), day) + 1);
 }
 
 /**
@@ -57,7 +50,7 @@ export function dayOfLife(at = new Date(), birthdate = BIRTHDATE) {
  */
 export function yearOfLife(at = new Date(), birthdate = BIRTHDATE) {
   const birth = birthDay(birthdate);
-  const now = localDay(at);
+  const now = calendarDay(at);
   let years = now.y - birth.y;
   if (now.m < birth.m || (now.m === birth.m && now.d < birth.d)) years--;
   return years + 1; // "Year N" = currently in your Nth year of life.
@@ -66,19 +59,19 @@ export function yearOfLife(at = new Date(), birthdate = BIRTHDATE) {
 /** The most recent birthday on or before `at`, as a calendar day. */
 function lastBirthday(at, birthdate) {
   const birth = birthDay(birthdate);
-  const now = localDay(at);
+  const now = calendarDay(at);
   const thisYear = { y: now.y, m: birth.m, d: birth.d };
-  return daysBetween(thisYear, now) >= 0
+  return calendarDaysBetween(thisYear, now) >= 0
     ? thisYear
     : { ...thisYear, y: now.y - 1 };
 }
 
 /**
  * Day-of-year-of-life (1..365, or 366 in a year of life that spans a Feb 29).
- * Counts days since the most recent birthday, in the local calendar.
+ * Counts days since the most recent birthday.
  */
 export function dayOfYearOfLife(at = new Date(), birthdate = BIRTHDATE) {
-  return daysBetween(lastBirthday(at, birthdate), localDay(at)) + 1;
+  return calendarDaysBetween(lastBirthday(at, birthdate), calendarDay(at)) + 1;
 }
 
 /**
@@ -87,7 +80,7 @@ export function dayOfYearOfLife(at = new Date(), birthdate = BIRTHDATE) {
  */
 export function daysInYearOfLife(at = new Date(), birthdate = BIRTHDATE) {
   const last = lastBirthday(at, birthdate);
-  return daysBetween(last, { ...last, y: last.y + 1 });
+  return calendarDaysBetween(last, { ...last, y: last.y + 1 });
 }
 
 /**

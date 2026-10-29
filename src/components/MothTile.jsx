@@ -4,8 +4,10 @@
 // (The stats band is the shared Figures component now.)
 
 import FirstSightingChip from './FirstSightingChip.jsx';
+import Fleuron from './Fleuron.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
-import { formatObservedTime, mothName } from '../lib/mothing.js';
+import { mothName } from '../lib/mothing.js';
+import { formatWallClockTime } from '../lib/time.js';
 
 /**
  * One observation as an image tile that opens the in-page lightbox (the
@@ -33,7 +35,7 @@ export function MothTile({ obs, onOpen, first = false }) {
   const showSci = sci && sci !== title;
   // A specimen label: the time in small caps, the common name, the binomial
   // in italic, and the first-sighting mark on its own line when it applies.
-  const time = formatObservedTime(obs.observedTime).replace(/(am|pm)$/, ' $1');
+  const time = formatWallClockTime(obs.observedTime);
   const caption = (
     <span className="mothing-tile-caption">
       {time && <span className="mothing-time">{time}</span>}
@@ -66,7 +68,9 @@ export function MothTile({ obs, onOpen, first = false }) {
         </button>
       ) : (
         <div className="mothing-tile mothing-tile-empty">
-          <div className="mothing-placeholder" aria-hidden="true">&#x1F98B;</div>
+          <div className="mothing-placeholder" aria-hidden="true">
+            <Fleuron />
+          </div>
           {caption}
         </div>
       )}

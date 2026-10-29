@@ -9,7 +9,6 @@ import {
   seasonOf,
   seasonsOf,
   weekdayOf,
-  formatObservedTime,
   isCalendarDate,
   isNightSlug,
   mothLightboxImages,
@@ -97,20 +96,6 @@ describe('isCalendarDate', () => {
     expect(isCalendarDate('2026-08-00')).toBe(false);
     expect(isCalendarDate('2026-8-18')).toBe(false);
     expect(isCalendarDate(undefined)).toBe(false);
-  });
-});
-
-describe('formatObservedTime', () => {
-  it('reads a wall-clock as 12-hour, with midnight and noon at 12', () => {
-    expect(formatObservedTime('20:47')).toBe('8:47 pm');
-    expect(formatObservedTime('00:19')).toBe('12:19 am');
-    expect(formatObservedTime('12:00')).toBe('12:00 pm');
-    expect(formatObservedTime('01:47')).toBe('1:47 am');
-  });
-
-  it('returns empty for a missing or malformed time', () => {
-    expect(formatObservedTime(null)).toBe('');
-    expect(formatObservedTime('1:47')).toBe('');
   });
 });
 

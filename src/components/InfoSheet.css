@@ -1,66 +1,11 @@
 /* Interior of the info bottom sheet. BottomSheet owns positioning, the
-   surface, and the expand animation; only the prose layout lives here. */
-.info-sheet-panel {
-  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x,
-     kept on :root for exactly this) so the prose lines up with the nav dock,
-     the breadcrumb, and the bottom-bar buttons at every breakpoint. */
-  padding: var(--space-4) var(--chrome-pad-x);
+   surface, the expand animation and the header (title and ×); only the prose
+   layout lives here, on the chrome bars' shared column (--chrome-pad-x) so it
+   lines up with the nav dock, the breadcrumb and the bottom-bar buttons. */
+.info-sheet-content {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.info-sheet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  color: var(--ink-faint);
-}
-
-.info-sheet-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: var(--page);
-  color: var(--ink-soft);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.info-sheet-close:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 14%, var(--page));
-}
-
-@media (hover: hover) {
-  .info-sheet-close:hover {
-    color: var(--accent);
-    border-color: var(--accent-soft);
-    background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  }
-}
-
-/* Touch target: 44px on a coarse pointer without growing the painted 28px
-   box, as the bottom bar's chips do (ChromeBar.css). */
-@media (pointer: coarse) {
-  .info-sheet-close {
-    position: relative;
-  }
-  .info-sheet-close::before {
-    content: '';
-    position: absolute;
-    inset: -8px;
-  }
 }
 
 .info-sheet-body {
@@ -88,4 +33,96 @@
   font-weight: 600;
   color: var(--ink);
   margin: var(--space-2) 0 0;
+}
+
+/* The key to the two bars, above the about text: each control drawn as it is
+   in the bar (a hairline square, the hour chip's text) with its word in small
+   caps, and a line in the serif italic on what it does, in rows ruled like
+   the ledger. */
+.info-key {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* A wide sheet would run the glosses out to a line no one reads in one go. */
+  max-width: 46rem;
+}
+
+.info-key-title {
+  margin: 0;
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.info-key-list {
+  margin: 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.info-key-row {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.info-key-term {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Line the chip's middle up with the gloss's first line. */
+  align-self: start;
+}
+
+.info-key-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-soft);
+}
+
+.info-key-chip svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.info-key-chip.is-text {
+  padding: 0 0.4rem;
+  font-family: var(--mono-ui);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.info-key-word {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.info-key-gloss {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+/* A phone: the control above its line, so the gloss gets the full width. */
+@media (max-width: 480px) {
+  .info-key-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
 }

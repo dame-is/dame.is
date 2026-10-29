@@ -1,10 +1,7 @@
 /* Interior of the search bottom sheet. BottomSheet owns positioning, the
-   surface, and the expand animation; only the field layout lives here. */
-.search-sheet-panel {
-  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
-     so the field lines up with the nav dock, breadcrumb, and bottom-bar
-     buttons at every breakpoint. */
-  padding: var(--space-4) var(--chrome-pad-x);
+   surface, the expand animation and the header; only the field layout lives
+   here, on the chrome's column like every sheet's body. */
+.search-sheet-content {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

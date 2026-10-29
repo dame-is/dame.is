@@ -328,8 +328,10 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 }
 
 /* Explicit metadata typography so stats never inherit the serif body
-   scale from a stretched grid/flex ancestor when min-width was wrong. */
-article.post-card > footer.post-card-stats {
+   scale from a stretched grid/flex ancestor when min-width was wrong. The
+   continuations of a thread on a post's page (Record.jsx) wear the same. */
+article.post-card > footer.post-card-stats,
+.record-thread-post > footer.post-card-stats {
   font-family: var(--mono);
   font-size: calc(var(--text-xs) * var(--mono-scale));
   font-weight: 400;
@@ -1008,11 +1010,10 @@ div.feed-empty > .feed-load-more-btn {
 }
 
 /* Live-refresh indicator. Rather than a separate banner above the feed,
-   the most recent day's summary line reads "Fetching latest activity…"
-   while a refresh confirms the latest, then cross-fades to that day's
-   real stats (see DayActivityMeta in Home.jsx). On a cold load — before
-   any day group exists — the same copy stands alone in the feed region.
-   Both stay in the quiet meta voice so the signal takes minimal space. */
+   the most recent day's header reads "Updating…" before its folio while a
+   refresh confirms the latest, then the note fades out (see DayActivityMeta
+   in Home.jsx). On a cold load, before any day group exists, the feed shows
+   a skeleton instead. */
 /* A generated verb index's filter line (/reposting, /liking, …): what's
    showing, and the way back to everything. */
 .verb-index-filter {
@@ -1099,25 +1100,48 @@ div.feed-empty > .feed-load-more-btn {
   margin-top: var(--space-5);
 }
 
+/* "Load more" and the empty feed's way out: the kit's quiet button
+   (controls.css .btn). FeedMore renders it as `btn feed-load-more-btn`;
+   Home's two still carry this class alone, so it repeats .btn's values,
+   token for token, until they take the `btn` class too. */
 .feed-load-more-btn {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-h-md);
+  padding: 0.3em 0.875rem;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
   background: transparent;
   border: 1px solid var(--rule);
   border-radius: 0;
-  padding: var(--space-2) var(--space-5);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  letter-spacing: 0.08em;
-  color: var(--ink-soft);
   cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.feed-load-more-btn:hover,
+@media (hover: hover) {
+  .feed-load-more-btn:hover {
+    color: var(--ink);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
+}
+
 .feed-load-more-btn:focus-visible {
-  color: var(--accent);
+  color: var(--ink);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  background: var(--wash-hover);
+}
+
+@media (pointer: coarse) {
+  .feed-load-more-btn {
+    min-height: var(--control-h-touch);
+  }
 }
 
 /* ReferenceCard ------------------------------------------------------- */
@@ -1915,15 +1939,15 @@ a.reference-card-profile:focus-visible {
   gap: 0;
 }
 
-/* Day header is a single line: the (short) date on the left — never
-   shrunk, so it can't wrap mid-date — the day's stats right-aligned,
-   and a full-strength rule anchoring the day's table of rows beneath
-   it. */
+/* The ledger's day header: the date on the left (never shrunk, so it can't
+   wrap mid-date), the day-of-life folio right-aligned, and a full-strength
+   rule anchoring the day's rows beneath it. */
 .feed-ledger .day-section-header {
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-1) var(--space-4);
   margin-bottom: 0;
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--rule);
@@ -1934,9 +1958,9 @@ a.reference-card-profile:focus-visible {
   font-size: var(--text-lg);
 }
 
-/* Day stats sit at the same scale as the rows' gerund/time labels. */
+/* The folio sits at the rows' label size, right-aligned. */
 .feed-ledger .day-header-meta {
-  font-family: var(--mono);
+  justify-content: flex-end;
   font-size: var(--text-meta);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
@@ -1958,6 +1982,61 @@ a.reference-card-profile:focus-visible {
   border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
 }
 
+/* A row says it's a link. On hover (pointer devices only, see the note in
+   typography.css) or while one of its links has keyboard focus, a 2px accent
+   bar marks it in the left margin like a reader's pencil, and its gerund and
+   time underline. No wash, no shadow; a tap still opens the row. X-ray draws
+   its own bracket there (::before, Xray.css), so this is the ::after. */
+.feed-ledger .feed-item-ledger {
+  position: relative;
+}
+
+.feed-ledger .feed-item-ledger::after {
+  content: '';
+  position: absolute;
+  left: -0.875rem;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.feed-ledger .feed-item-ledger:has(:focus-visible)::after {
+  opacity: 1;
+}
+
+:root[data-xray='on'] .feed-ledger .feed-item-ledger::after {
+  display: none;
+}
+
+.feed-item-ledger:has(> .ledger-verb:focus-visible) > .ledger-verb,
+.feed-item-ledger:has(> .ledger-time:focus-visible) > .ledger-time,
+.feed-item-ledger > .ledger-verb > a:focus-visible,
+.feed-item-ledger > .ledger-time > a:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .feed-ledger .feed-item-ledger:hover::after {
+    opacity: 1;
+  }
+
+  .feed-item-ledger:hover > a.ledger-verb,
+  .feed-item-ledger:hover > .ledger-verb > a,
+  .feed-item-ledger:hover > a.ledger-time,
+  .feed-item-ledger:hover > .ledger-time > a {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--accent-soft);
+  }
+}
+
 /* Self-thread continuations carry no verb label; instead the rule
    separating them from the post they continue goes dashed — i.e. the
    PREVIOUS row's bottom border. The rows are the list items themselves
@@ -1977,6 +2056,12 @@ a.reference-card-profile:focus-visible {
   border-bottom-style: dashed;
 }
 
+/* The margin's gerund links to its section; it keeps the column's ink. */
+.ledger-verb-link {
+  color: inherit;
+  text-decoration: none;
+}
+
 .ledger-verb {
   font-family: var(--mono);
   font-size: var(--text-meta);
@@ -1991,10 +2076,13 @@ a.reference-card-profile:focus-visible {
 }
 
 a.ledger-verb:hover,
-a.ledger-verb:focus-visible {
+a.ledger-verb:focus-visible,
+.ledger-verb a:hover,
+.ledger-verb a:focus-visible {
   color: var(--accent);
 }
 
+/* The time is the row's permalink, like a page number. */
 .ledger-time {
   font-family: var(--mono);
   font-size: var(--text-meta);
@@ -2004,11 +2092,31 @@ a.ledger-verb:focus-visible {
   text-transform: lowercase;
   text-align: right;
   white-space: nowrap;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+a.ledger-time:focus-visible,
+.ledger-time a:focus-visible,
+a.ledger-verb:focus-visible,
+.ledger-verb a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ledger-time a:hover {
+  color: var(--accent);
 }
 
 .ledger-body {
   min-width: 0;
   max-width: var(--measure);
+}
+
+/* The prose rule that indents a second paragraph doesn't belong in a row:
+   a session's "+ 15 more" and a blog row's summary are lines of their own. */
+.ledger-body p {
+  text-indent: 0;
 }
 
 .ledger-text {
@@ -2258,6 +2366,11 @@ a.ledger-verb:focus-visible {
   margin-left: 0.35em;
 }
 
+.ledger-listen-more {
+  margin: 1px 0 0;
+  line-height: var(--leading-tight);
+}
+
 /* Expanded tracks: one compact sub-row per play, spanning the summary +
    time columns (the verb column stays empty on the left). A thin dashed
    rule tops each one so the songs read as a tight ruled list rather than a
@@ -2409,17 +2522,26 @@ a.ledger-time:focus-visible {
   margin-top: var(--space-3);
 }
 
+/* Pictures share the 26rem measure of the quote box and link card below, so
+   a post's embeds end on one right edge (and fill a phone's column). */
 .ledger-embed .post-embed-images {
   gap: var(--space-1);
-  max-width: 20rem;
+  max-width: 26rem;
 }
 
 /* A lone image sizes its frame from --embed-image-max-h (see PostEmbed.css).
-   In the ledger the picture fills the 20rem column at its true ratio; the
-   height cap only bounds very tall images so a portrait can't run away (it
-   matches the 20rem column width, so images fit within a 20rem square). */
+   In the ledger the picture fills the measure at its true ratio, uncropped.
+   The height cap is four thirds of the width (the percentage resolves
+   against the measure), so a phone's 3:4 portrait still fills it and only a
+   taller picture, a screenshot say, comes out narrower. */
 .ledger-embed .post-embed-images[data-count='1'] {
-  --embed-image-max-h: 20rem;
+  --embed-image-max-h: calc(100% * 4 / 3);
+}
+
+/* A picture whose record has no ratio is capped by height alone, where a
+   percentage would resolve to nothing, so it gets a fixed cap instead. */
+.ledger-embed .post-embed-images[data-count='1'] .post-embed-image:not([data-sized='true']) img {
+  max-height: 34rem;
 }
 
 /* Multi-image grids get uniform landscape crops so two rows of images
@@ -2568,7 +2690,7 @@ a.ledger-time:focus-visible {
   }
 
   .feed-ledger .day-header {
-    font-size: var(--text-base);
+    font-size: 1.0625rem;
   }
 
   /* Side by side, a collapsed run leaves the species line about twenty
@@ -2580,4 +2702,196 @@ a.ledger-time:focus-visible {
     align-items: flex-start;
     gap: var(--space-2);
   }
+}
+
+/* /listening: the margin holds the session's cover, not the word
+   "listening" again, so it narrows to the cover's width. */
+.feed-ledger-covers {
+  --ledger-verb-col: 2.25rem;
+}
+
+.feed-ledger-covers .feed-item-ledger {
+  align-items: start;
+}
+
+.feed-ledger-covers .feed-item-ledger > .ledger-time {
+  padding-top: 0.2rem;
+}
+
+.ledger-cover .album-cover {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+/* The ledger's end (Home's LedgerColophon): a fleuron between hairlines, one
+   sentence saying how far back the ledger is whole, and the pages whose own
+   history goes further. Printed, not a button: there's no more to load. */
+.ledger-colophon {
+  margin-top: var(--space-7);
+  text-align: center;
+}
+
+.ledger-colophon p {
+  max-width: none;
+  margin: 0;
+  text-indent: 0;
+}
+
+.ledger-colophon-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  font-size: var(--text-2xl);
+  line-height: 1;
+  color: var(--accent);
+}
+
+.ledger-colophon-mark::before,
+.ledger-colophon-mark::after {
+  content: '';
+  flex: 1 1 0;
+  border-top: 1px solid var(--rule);
+}
+
+.ledger-colophon p.ledger-colophon-line {
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+  font-style: italic;
+  line-height: var(--leading-tight);
+  color: var(--ink);
+}
+
+.ledger-colophon p.ledger-colophon-earlier {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  color: var(--ink-soft);
+}
+
+.ledger-colophon-earlier a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.ledger-colophon-earlier a:focus-visible {
+  color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .ledger-colophon-earlier a:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+  }
+}
+
+/* A post's engagement counts (FeedLedgerRow's EngagementCounts). On a
+   desktop, a quiet line under the post in the record's column: only the
+   column is set, so auto-placement gives it the next free row there, under
+   the body, and under x-ray's own rows too. On a phone they close the
+   caption instead (below). */
+.feed-ledger .feed-item-ledger > .ledger-counts {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  margin-top: var(--space-1);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+/* On a phone the feed pages' ledgers (home, /posting, /logging, /listening:
+   `.feed-ledger-column`) are one column. Each record runs the full width,
+   then a caption under it: the gerund and the time on the left, read as one
+   line ("posting · 7:40 pm"), and a post's counts on the right. A single-kind
+   page prints no gerund, so its caption is the time, unless the row is an
+   exception ("replying · 3:17 pm"). X-ray keeps its own placement of these
+   cells (Xray.css), so the column applies only while it's off. */
+@media (max-width: 600px) {
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'body body body body'
+      'verb time . counts';
+    column-gap: 0;
+    row-gap: var(--space-2);
+    align-items: baseline;
+    padding: var(--space-3) 0 var(--space-2);
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-body {
+    grid-area: body;
+    max-width: none;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-verb {
+    grid-area: verb;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-time {
+    grid-area: time;
+    text-align: left;
+    padding-top: 0;
+  }
+
+  /* The dot that joins the gerund to the time. A row with no gerund (a
+     thread's follow-on, a single-kind page's ordinary row) has an empty
+     cell, so its caption is the time alone; a cover in that cell isn't a
+     gerund either. Inline-block so a hovered time's
+     underline doesn't run under it. */
+  :root:not([data-xray='on'])
+    .feed-ledger-column
+    .feed-item-ledger
+    > .ledger-verb:not(:empty, .ledger-cover)
+    ~ .ledger-time::before {
+    content: '·';
+    display: inline-block;
+    margin: 0 0.4em;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-counts {
+    grid-area: counts;
+    margin-top: 0;
+  }
+
+  /* An opened session's songs and a night's sightings span the column,
+     under the caption. */
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-track-row {
+    grid-column: 1 / -1;
+  }
+
+  /* /listening keeps each session's cover beside it, so the column is the
+     cover and the record: the song line, then its time under it. */
+  :root:not([data-xray='on']) .feed-ledger-covers.feed-ledger-column .feed-item-ledger {
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    grid-template-areas:
+      'verb body'
+      'verb time';
+    column-gap: var(--space-3);
+    row-gap: var(--space-1);
+    align-items: start;
+  }
+
+  :root:not([data-xray='on'])
+    .feed-ledger-covers.feed-ledger-column
+    .feed-item-ledger
+    > .ledger-track-row {
+    grid-column: 2;
+  }
+}
+
+.ledger-count-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.ledger-count-glyph {
+  width: 0.9em;
+  height: 0.9em;
+  color: var(--ink-faint);
 }

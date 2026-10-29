@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Check, Copy, Search } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import ExploringHome from '../components/ExploringHome.jsx';
+import SectionHead from '../components/SectionHead.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import BreakableId from '../components/BreakableId.jsx';
@@ -28,6 +29,7 @@ import {
   resolveRepoIdentity,
 } from '../lib/explorerIdentity.js';
 import { publicRecordPath } from '../lib/publicRecordPath.js';
+import { formatDateShort, formatTime, toIso } from '../lib/time.js';
 import './Exploring.css';
 
 /**
@@ -126,7 +128,7 @@ export default function Exploring() {
 
       {isOwnerHome && identity && (
         <section className="exploring-home-elsewhere">
-          <h2 className="exploring-home-section-title small-caps">Look inside another repo</h2>
+          <SectionHead title="Look inside another repo" />
           <SearchBox initial="" />
         </section>
       )}
@@ -569,7 +571,9 @@ function AuditEntry({ entry, prev }) {
     <li className="exploring-audit-entry">
       <div className="exploring-audit-head">
         <span className="exploring-audit-type small-caps">{type}</span>
-        <time className="exploring-audit-time">{formatPlcTime(created)}</time>
+        <time className="exploring-audit-time" dateTime={toIso(created) || undefined}>
+          {formatPlcTime(created)}
+        </time>
       </div>
       {changes.length > 0 && (
         <ul className="exploring-audit-changes">
@@ -607,14 +611,10 @@ function diffOps(prev, next) {
   return changes;
 }
 
+/** "Oct 26, 2026 · 5:36 pm", on Dame's clock like every other time here. */
 function formatPlcTime(iso) {
-  if (!iso) return '';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  } catch {
-    return iso;
-  }
+  const date = formatDateShort(iso);
+  return date ? `${date} · ${formatTime(iso)}` : iso || '';
 }
 
 /* ------------------------------------------------------------------ */

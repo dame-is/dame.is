@@ -6,11 +6,22 @@
 // The favicon and the OG cards reuse that same set of 24 hourly sky gradients
 // so the whole site drifts through the day in lockstep with the real avatar.
 //
-// We resolve the hour in `America/New_York` (not a fixed UTC offset) so it
-// follows EST/EDT across daylight-saving changes, exactly like the phone
-// automation that drives the live avatar.
+// The hour is read on Dame's clock, America/New_York (not a fixed UTC
+// offset), so it follows EST/EDT across daylight-saving changes, exactly like
+// the phone automation that drives the live avatar.
+//
+// That clock, and the day-of-life count below, live in src/lib (time.js and
+// dayOfLife.js) and are re-exported here rather than restated. The site's
+// chrome, its ledger headers and these cards print the same day number; when
+// this file kept a copy of the count, the chrome said 12,228 beside a card's
+// 12,227. Both modules are plain functions with no browser APIs, so the edge
+// middleware and the serverless card renderer run them as the page does.
 
-const ZONE = 'America/New_York';
+import { easternHour } from '../src/lib/time.js';
+import { dayOfLife } from '../src/lib/dayOfLife.js';
+
+export { easternHour, easternDate } from '../src/lib/time.js';
+export { dayOfLife } from '../src/lib/dayOfLife.js';
 
 // Avatar files are named on a 12-hour clock: 12am, 1am … 11am, 12pm, 1pm …
 // 11pm — matching images/sky-avatars/<key>.jpg and the embedded asset keys.
@@ -18,42 +29,6 @@ const KEYS = [
   '12am', '1am', '2am', '3am', '4am', '5am', '6am', '7am', '8am', '9am', '10am', '11am',
   '12pm', '1pm', '2pm', '3pm', '4pm', '5pm', '6pm', '7pm', '8pm', '9pm', '10pm', '11pm',
 ];
-
-// Built on first use and kept: constructing an Intl.DateTimeFormat costs far
-// more than formatting with one, and the hour is read on every favicon, every
-// card and every palette tick. Built lazily so that importing this file (the
-// site's entry chunk does) costs nothing.
-let hourFormat = null;
-let dateFormat = null;
-
-/** Current hour (0–23) in Eastern time, DST-aware. `now` overridable for tests. */
-export function easternHour(now = new Date()) {
-  if (!hourFormat) {
-    hourFormat = new Intl.DateTimeFormat('en-US', {
-      timeZone: ZONE,
-      hour: 'numeric',
-      hour12: false,
-    });
-  }
-  // Intl can emit "24" for midnight in hour12:false — normalise to 0.
-  return Number(hourFormat.format(now)) % 24;
-}
-
-/**
- * Today's date in Eastern time as 'YYYY-MM-DD', DST-aware. Same clock the
- * hour above reads, so "which night is this" and "which sky is this" agree.
- */
-export function easternDate(now = new Date()) {
-  if (!dateFormat) {
-    dateFormat = new Intl.DateTimeFormat('en-CA', {
-      timeZone: ZONE,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  }
-  return dateFormat.format(now);
-}
 
 /** The sky-avatar key ("6pm", "12am", …) for the current Eastern hour. */
 export function currentAvatarKey(now = new Date()) {
@@ -65,29 +40,14 @@ export function avatarKeys() {
   return KEYS.slice();
 }
 
-// Dame's birthdate: the calendar date src/config.js BIRTHDATE names, restated
-// rather than imported so this file stays free of the site's other modules.
 // The OG cards print a notebook "folio" — the current day-of-life — in the
 // bottom margin, so every card is quietly stamped with which day of the
-// life/project it was made on.
-const BIRTH_DAY = Date.UTC(1993, 4, 7);
-const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-/**
- * Day-of-life: whole days since the birthdate (day 1 = the birthday), counted
- * between Eastern calendar dates. An instant is read as the date it fell on in
- * Eastern time; a 'YYYY-MM-DD' string is the day it names (a night's date, for
- * one). Counted in UTC instead, the folio turned over at 8pm Eastern, and a
- * card made in the evening carried tomorrow's number while the site showed
- * today's.
- */
-export function dayOfLife(at = new Date()) {
-  const match = typeof at === 'string' && CALENDAR_DATE.exec(at);
-  const [y, m, d] = match
-    ? match.slice(1).map(Number)
-    : easternDate(at).split('-').map(Number);
-  return Math.round((Date.UTC(y, m - 1, d) - BIRTH_DAY) / 86_400_000) + 1;
-}
+// life/project it was made on. dayOfLife (src/lib/dayOfLife.js) counts
+// calendar days on Dame's clock: an instant is read as the date it fell on in
+// New York, a 'YYYY-MM-DD' string as the day it names (a night's date, for
+// one). Counted in UTC instead, the folio turned over at 8pm Eastern, and a
+// card made in the evening carried tomorrow's number while the site showed
+// today's.
 
 /** The folio string for the card margin, with thousands separators. */
 export function folio(at = new Date()) {

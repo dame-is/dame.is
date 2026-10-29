@@ -166,6 +166,7 @@ export function blueskyPostToFeedItem(item) {
       replyCount: post.replyCount || 0,
       repostCount: post.repostCount || 0,
       likeCount: post.likeCount || 0,
+      quoteCount: post.quoteCount || 0,
       embed: post.embed || null,
       embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
@@ -221,6 +222,7 @@ export function repostToFullPostItem(item, record) {
       replyCount: view.replyCount || 0,
       repostCount: view.repostCount || 0,
       likeCount: view.likeCount || 0,
+      quoteCount: view.quoteCount || 0,
       embed: view.embed || null,
       embedRecord: view.record?.embed || null,
       indexedAt: view.indexedAt,
@@ -268,6 +270,7 @@ export function condensePostView(view) {
     replyCount: view.replyCount || 0,
     repostCount: view.repostCount || 0,
     likeCount: view.likeCount || 0,
+    quoteCount: view.quoteCount || 0,
   };
 }
 
@@ -570,15 +573,16 @@ const OBSERVATION_VERBS = new Set(['mothing', 'observing']);
 /**
  * Observations store their local wall-clock pinned to `Z` (privacy: no tz
  * offset is ever persisted). That fake-UTC value sorts ~offset hours early
- * against real-UTC records and buckets into the wrong local day. Rebuild each
- * observation's ordering timestamp as a local instant so it interleaves and
- * day-groups correctly, then re-sort. Mutates and returns `items`.
+ * against real-UTC records and buckets into the wrong day. Rebuild each
+ * observation's ordering timestamp as a wall-clock instant on Dame's clock
+ * (see observationFeedInstant) so it interleaves and day-groups correctly,
+ * then re-sort. Mutates and returns `items`.
  *
- * A no-op in Node/UTC, which is why the static snapshot still carries the
- * fake-UTC values: anything that paints the snapshot in a browser has to run
- * it through here too, or late-night moths land under the previous evening
- * until the live feed replaces them. Both the mirrored and the live-augmented
- * items carry `observedDate`/`observedTime`.
+ * The result is the same in every zone, the build's included, so the static
+ * snapshot carries the rebuilt instants. A snapshot written before that
+ * carries the fake-UTC ones, and the rebuild is idempotent, so anything that
+ * paints a snapshot still runs it through here. Both the mirrored and the
+ * live-augmented items carry `observedDate`/`observedTime`.
  */
 export function localizeObservationInstants(items) {
   for (const item of items) {
@@ -763,7 +767,7 @@ export async function buildUnifiedFeed({
           // Measured on the raw page, before drafts, dedupe or the age cutoff
           // thin it: what matters is whether the fetch stopped at its cap.
           // On the clock the items end up on, so an observation's horizon is
-          // its local instant (see localizeObservationInstants), not the
+          // its rebuilt instant (see localizeObservationInstants), not the
           // fake-UTC one it's stored at.
           noteHorizon(
             verbConfig.verb,

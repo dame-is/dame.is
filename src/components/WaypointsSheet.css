@@ -1,89 +1,12 @@
 /* Interior of the "Open in…" picker. The <BottomSheet> shell owns
-   positioning, the surface, and the expand-up animation; only the layout of
-   the picker lives here. Structure + spacing follow the sibling InfoSheet so
-   every bottom sheet reads as one family. */
+   positioning, the surface, the expand-up animation and the header (title,
+   the link's own address as meta, and the ×); only the picker's layout lives
+   here, on the chrome's column as every sheet's body is. */
 
 .waypoints-sheet {
-  /* Track the chrome bars' shared column (--chrome-pad-x), like the other
-     bottom sheets, so the picker's content lines up with the nav dock,
-     breadcrumb, and the bottom-bar buttons that trigger them. */
-  padding: var(--space-4) var(--chrome-pad-x);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.waypoints-sheet-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.waypoints-sheet-heading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.waypoints-sheet-heading .small-caps {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  color: var(--ink-faint);
-}
-
-.waypoints-sheet-subtitle {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.waypoints-sheet-close {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: var(--page);
-  color: var(--ink-soft);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.waypoints-sheet-close:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 14%, var(--page));
-}
-
-@media (hover: hover) {
-  .waypoints-sheet-close:hover {
-    color: var(--accent);
-    border-color: var(--accent-soft);
-    background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  }
-}
-
-/* Touch target: 44px on a coarse pointer without growing the painted 28px
-   box, as the bottom bar's chips do (ChromeBar.css). */
-@media (pointer: coarse) {
-  .waypoints-sheet-close {
-    position: relative;
-  }
-  .waypoints-sheet-close::before {
-    content: '';
-    position: absolute;
-    inset: -8px;
-  }
 }
 
 .waypoints-sheet-body {

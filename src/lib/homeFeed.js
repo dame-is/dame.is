@@ -5,6 +5,7 @@
 import { DEFAULT_HOME_VERBS, nsidFromAtUri } from './verbRegistry.js';
 import { compareIsoDesc } from './time.js';
 import { isObservationBatch } from './observationBatches.js';
+import { isYearOnlyDate } from './ledger.js';
 
 const DEFAULT_VERBS = new Set(DEFAULT_HOME_VERBS);
 
@@ -135,6 +136,46 @@ function horizonMarker([verb, t], above) {
     createdAt: above?.createdAt || new Date(t).toISOString(),
     rowKey: `horizon:${verb}`,
   };
+}
+
+/**
+ * How far back the ledger is whole: the newest of the horizons of the verbs
+ * actually in `items` (the filtered feed), as an ISO instant, or null when no
+ * verb on show ran out. Each verb is complete from its own horizon on, so all
+ * of them are from the newest one; the first whole day after it is the one
+ * the closing colophon names. A verb the filter hides doesn't hold the
+ * ledger's answer back.
+ */
+export function completeSince(items, horizons) {
+  const limits = horizonLimits(horizons);
+  if (!limits.size || !items?.length) return null;
+  const present = new Set();
+  for (const item of items) if (item?.verb) present.add(item.verb);
+  let newest = null;
+  for (const [verb, t] of limits) {
+    if (present.has(verb) && (newest === null || t > newest)) newest = t;
+  }
+  return newest === null ? null : new Date(newest).toISOString();
+}
+
+/**
+ * Works known only by their year (see isYearOnlyDate) taken out of the
+ * dated timeline, so they don't each head a "January 1" of their own with a
+ * "12:00 am" beside them. They close the ledger instead, as a short list of
+ * earlier works with their years. Returns `{ dated, yearOnly }`; `dated` is
+ * `items` itself when there were none.
+ */
+export function splitYearOnlyWorks(items) {
+  if (!items?.length) return { dated: items || [], yearOnly: [] };
+  const yearOnly = [];
+  const dated = items.filter((item) => {
+    if (item?.verb === 'creating' && isYearOnlyDate(item.createdAt)) {
+      yearOnly.push(item);
+      return false;
+    }
+    return true;
+  });
+  return { dated: yearOnly.length ? dated : items, yearOnly };
 }
 
 /** The at:// URIs a row stands for: its members if it's a batch, else itself. */

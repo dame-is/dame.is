@@ -12,11 +12,16 @@ import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGri
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyMarkUrl } from '../lib/skyAvatars.js';
+import { SKY_BANDS, skyHourLabel } from '../lib/skyTheme.js';
 import { buildCrumbs, parentPathFor } from '../lib/breadcrumbs.js';
+import { crumbStamp } from '../lib/recordPlate.js';
+import { shortDayLabel } from '../lib/shortDayLabel.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
+import { useBarOverflow } from '../hooks/useBarOverflow.js';
 import {
   ADMIN_ACTIONS_PANEL,
   ADMIN_ACTIONS_PANEL_ID,
@@ -34,7 +39,7 @@ import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import VitalsPanel from './VitalsPanel.jsx';
 import DayOfLifeTicker from './DayOfLifeTicker.jsx';
-import LayoutToggle from './LayoutToggle.jsx';
+import LayoutToggle, { FEED_LAYOUT_PATHS } from './LayoutToggle.jsx';
 import PaperToggle from './PaperToggle.jsx';
 import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
 import SearchSheet from './SearchSheet.jsx';
@@ -47,6 +52,7 @@ import GuestbookSheet from './GuestbookSheet.jsx';
 import DebugSheet from './DebugSheet.jsx';
 import SkyHourSheet from './SkyHourSheet.jsx';
 import Footer from './Footer.jsx';
+import Time from './Time.jsx';
 import './ChromeBar.css';
 
 // The home handle is a router <Link>; wrap it so it can participate in the
@@ -62,35 +68,67 @@ const SEARCH_ENABLED = false;
 // is republished after a resize (see the effect that publishes it).
 const SIZE_SETTLE_MS = 120;
 
-// An element's viewport bottom without its own translateY. The breadcrumb
-// strip rides the expanded tier's slide on a transform, and the published
-// chrome height should be where the strip settles, not where it is mid-slide.
-function settledBottom(node) {
-  const bottom = node.getBoundingClientRect().bottom;
-  const transform = getComputedStyle(node).transform;
-  if (!transform || transform === 'none') return bottom;
-  return bottom - new DOMMatrixReadOnly(transform).m42;
+// How far the page can scroll under an atmosphere brought back over it (the
+// peek) before it folds away again. The peek is a look, not a setting: the
+// reader asked to see it, and scrolling on into the page is reading again.
+const PEEK_SCROLL_CLOSE_PX = 240;
+
+// The width the chrome changes shape at: on a phone Home leaves the bottom
+// bar (the wordmark goes home) and the record NSID moves to x-ray. The bar's
+// chips carry no words at any width; each says what it does in its title
+// and its accessible name.
+const PHONE_QUERY = '(max-width: 700px)';
+
+/** The sky band behind this hour's avatar frame, deep sky over horizon. */
+function skyBand(hour) {
+  const band = SKY_BANDS[((hour % 24) + 24) % 24];
+  return band ? `linear-gradient(to bottom, ${band.top}, ${band.bottom})` : undefined;
 }
 
 export default function ChromeBar() {
   const { expanded, toggle, crumb: pageCrumb } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
+  const { panel } = useChromePanel();
   const reduce = useReducedMotion();
+  const location = useLocation();
+  const topRef = useRef(null);
   const primaryRef = useRef(null);
+  const mastheadRef = useRef(null);
+  const trailRef = useRef(null);
   const tierWrapRef = useRef(null);
   const tierInnerRef = useRef(null);
+  const peekWrapRef = useRef(null);
+  const peekInnerRef = useRef(null);
+
+  // The atmosphere (LISTENING TO / FOLLOWED BY and the phone's vitals) is the
+  // masthead: it sits in the page under the running head and scrolls away
+  // with it, so while reading only the one pinned row is chrome. `expanded`
+  // is the reader's standing choice (open by default on a desktop) and opens
+  // or folds it in place at the top of the page.
   const tierMode = useTierSlide({
     expanded,
     reduce,
-    primaryRef,
     wrapRef: tierWrapRef,
     innerRef: tierInnerRef,
-    // Everything below the tier rides along with its edge: the page and the
-    // breadcrumb strip. (Called from an effect, after crumbRef exists.)
-    followers: () => [document.getElementById('main-content'), crumbRef.current],
+    // Everything below the masthead's atmosphere rides along with its edge:
+    // the trail strip under it and the page. (Called from an effect, after the
+    // refs exist.)
+    followers: () => [trailRef.current, document.getElementById('main-content')],
   });
   const tierSliding = tierMode === 'opening' || tierMode === 'closing';
-  const location = useLocation();
+
+  // Once it has scrolled away, the chevron brings the atmosphere back over the
+  // page (the peek) without moving the page or touching the standing choice.
+  const [peekOpen, setPeekOpen] = useState(false);
+  const peekMode = useTierSlide({
+    expanded: peekOpen,
+    reduce,
+    anchorRef: primaryRef,
+    wrapRef: peekWrapRef,
+    innerRef: peekInnerRef,
+    followers: () => [],
+  });
+
   // Brand mark: the bundled sky-avatar frame for the current Eastern
   // hour — the same art the live Bluesky avatar cycles through, served
   // locally instead of fetched from the profile, so the mark is always
@@ -114,11 +152,12 @@ export default function ChromeBar() {
   // instead of flashing an empty square while the next one loads. A URL
   // that fails to load is never committed; the old frame just stays.
   //
-  // The mark's box is drawn from the first paint, empty until the first frame
-  // decodes, so the site name beside it never moves. Only a frame that fails
-  // with nothing before it to hold takes the box away.
+  // The mark's box is drawn from the first paint and filled with this hour's
+  // sky band (SKY_BANDS, the frame's own deep sky over its horizon) until the
+  // first frame decodes, so the site name beside it never moves and the first
+  // frame already says "this hour's sky". A frame that fails leaves the band
+  // standing in for it rather than taking the box away.
   const [avatar, setAvatar] = useState(null);
-  const [avatarFailed, setAvatarFailed] = useState(false);
   useEffect(() => {
     if (!targetAvatar) {
       setAvatar(null);
@@ -127,72 +166,56 @@ export default function ChromeBar() {
     let cancelled = false;
     const img = new Image();
     const commit = () => {
-      if (cancelled) return;
-      setAvatar(targetAvatar);
-      setAvatarFailed(false);
+      if (!cancelled) setAvatar(targetAvatar);
     };
     // decode() resolves once the bitmap is paint-ready (not merely
     // fetched); onload is the fallback where decode isn't supported.
     // Committing twice is a harmless same-value setState.
     img.onload = commit;
-    img.onerror = () => {
-      if (!cancelled) setAvatarFailed(true);
-    };
     img.src = targetAvatar;
     if (img.decode) img.decode().then(commit).catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [targetAvatar]);
-  const showMarkBox = !!targetAvatar && (!!avatar || !avatarFailed);
 
-  const topRef = useRef(null);
-  const crumbRef = useRef(null);
-  const breadcrumbRef = useRef(null);
-  const nsidRef = useRef(null);
-
-  // Tertiary chrome: a breadcrumb that slides down out of the top bar once
-  // the page is scrolled away from its top, orienting you to where you are.
-  // On day-grouped feed pages (home included) the strip also carries the
-  // date header of the section currently scrolled under the chrome, so it
-  // reveals on the home page too once you're past the first day header.
-  // It folds back up on the way to the top.
-  // A crumb links only where a page answers (breadcrumbs.js), and the last
-  // one is the page's own human label when it gives one through PageShell's
-  // `crumb` ("Oct 26 · 5:36 pm" rather than a record's rkey).
-  const crumbs = withPageLabel(
-    buildCrumbs(location.pathname),
-    pageCrumb?.path === location.pathname ? pageCrumb.label : null,
-  );
-  const scrolledDown = useScrolledDown();
   // The path whose page is actually on screen, which for the length of the
-  // route transition's exit fade is still the one being left. The sweeps
-  // below read the page's DOM, so they follow this rather than the URL; see
-  // useMountedPathname.
-  const pinDetailRef = useRef(crumbs.length >= 2);
-  const applyChromeSizeRef = useRef(null);
-  const mountedPath = useMountedPathname((path) => {
-    pinDetailRef.current = buildCrumbs(path).length >= 2;
-    applyChromeSizeRef.current?.();
-  });
-  const dayLabel = useCurrentDayLabel(mountedPath);
+  // route transition's exit fade is still the one being left. The trail, the
+  // title it borrows and the DOM sweeps all follow this rather than the URL,
+  // so the masthead's trail doesn't change (and shove the page) under a page
+  // that's still fading out; see useMountedPathname.
+  const mountedPath = useMountedPathname();
+  const baseCrumbs = buildCrumbs(mountedPath);
   // Individual (detail) pages — anything two or more segments deep, e.g.
-  // /blogging/:slug, /creating/:slug, /curating/:slug, or a generic record —
-  // pin the breadcrumb open as their standing back-affordance (it replaces
-  // the old per-page "← Section" eyebrow), so the trail is always there and a
-  // dual-listed doc keeps whichever feed it was opened from as its parent
-  // crumb. Feed/index pages keep the scroll-triggered reveal.
-  const isDetailPage = crumbs.length >= 2;
-  const showBreadcrumb =
-    isDetailPage || (scrolledDown && (crumbs.length > 0 || !!dayLabel));
-  // On detail pages the trail and its record NSID share one row when they fit
-  // and the NSID drops to its own line beneath the trail when they don't (see
-  // the `.is-detail` wrap rules in ChromeBar.css). Tracked here so the strip
-  // can echo the mobile LISTENING TO / FOLLOWED BY stack — a dashed divider
-  // with matching spacing between the rows — but ONLY once the NSID has truly
-  // fallen to its own line, never while it rides the trail's line. Measured
-  // just below.
-  const [nsidWrapped, setNsidWrapped] = useState(false);
+  // /blogging/:slug, /creating/:slug, a generic record — carry their trail in
+  // the masthead, under the atmosphere, as their standing way up. Feed and
+  // index pages show theirs only in the running head, once scrolled.
+  const isDetailPage = baseCrumbs.length >= 2;
+  const inAdmin = location.pathname === '/admin';
+  // On /admin the masthead isn't drawn (below), so its atmosphere is never in view.
+  const head = useRunningHead({
+    mountedPath,
+    topRef,
+    tierWrapRef,
+    tierMode: inAdmin ? 'closed' : tierMode,
+  });
+  // The trail's last crumb names the page: its own label when it gives one
+  // through PageShell's `crumb` ("Oct 26 · 5:36 pm" rather than a record's
+  // rkey), else on a detail page the title it shows, rather than its slug.
+  const ownLabel = pageCrumb?.path === mountedPath ? pageCrumb.label : null;
+  // A post's date, at the right of the masthead's trail (PageShell's
+  // `crumbDate`): its page has no date line of its own.
+  const ownDate = pageCrumb?.path === mountedPath ? pageCrumb.date : null;
+  const titleLabel = !ownLabel && isDetailPage ? head.title : null;
+  const crumbs = withPageLabel(baseCrumbs, ownLabel || titleLabel);
+  const dayLabel = useCurrentDayLabel(mountedPath);
+  const scrolledDown = useScrolledDown();
+  // Reading: the page has scrolled past its title (or, on a feed with no
+  // title, past its first day, or simply well into the page). The trail then
+  // takes the status's place in the pinned row, and the record NSID joins it
+  // on a desktop.
+  const pastTop = head.hasTitle ? head.pastTitle : !!dayLabel || scrolledDown;
+  const reading = baseCrumbs.length > 0 && pastTop;
 
   // Right edge of the strip: the AT Protocol collection you're looking
   // at. On feed pages it tracks the record at the top of the scroll
@@ -222,157 +245,122 @@ export default function ChromeBar() {
     (pageRecordNsid && pageRecordNsid !== COLLECTIONS.page ? pageRecordNsid : routeVerbNsid) ||
     pageRecordNsid;
 
-  // Publish the top chrome's live occupied bottom as `--chrome-top-h` on
-  // <html> — the y-coordinate where the top chrome ends and the content
-  // region begins. It's the breadcrumb strip's bottom when the strip is
-  // shown (the strip sits below the header), else the header's own
-  // bottom. Consumer: the action-dock sheet (fills from here down to
-  // the bottom bar so it fully conceals the page and butts against the
-  // whole top chrome).
+  // The chevron. At the top of the page it opens or folds the masthead's
+  // atmosphere in place and remembers that (the reader's standing choice).
+  // Once the atmosphere has scrolled away it brings it back over the page
+  // instead, for a look, and leaves the choice alone.
+  const tierInView = !inAdmin && tierMode !== 'closed' && head.tierInView;
+  const atmosphereShown = peekOpen || (expanded && (tierInView || tierSliding));
+  function onAtmosphere() {
+    if (peekOpen) {
+      setPeekOpen(false);
+      return;
+    }
+    if (!inAdmin && expanded && (tierInView || tierSliding)) {
+      toggle();
+      return;
+    }
+    const header = topRef.current?.getBoundingClientRect();
+    const mast = mastheadRef.current?.getBoundingClientRect();
+    if (!inAdmin && !expanded && header && mast && mast.top >= header.bottom - 1) {
+      toggle();
+      return;
+    }
+    setPeekOpen(true);
+  }
+
+  // The peek folds away on Escape, on navigating, when a sheet or the menu
+  // opens over it, once the reader scrolls on, and when the masthead's own
+  // atmosphere comes back into view.
+  useEscapeLayer(peekOpen, () => setPeekOpen(false));
+  const [peekPath, setPeekPath] = useState(location.pathname);
+  if (peekPath !== location.pathname) {
+    setPeekPath(location.pathname);
+    if (peekOpen) setPeekOpen(false);
+  }
+  useEffect(() => {
+    if (peekOpen && (dockOpen || panel || tierInView)) setPeekOpen(false);
+  }, [peekOpen, dockOpen, panel, tierInView]);
+  useEffect(() => {
+    if (!peekOpen) return undefined;
+    const startY = window.scrollY || 0;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (Math.abs((window.scrollY || 0) - startY) > PEEK_SCROLL_CLOSE_PX) setPeekOpen(false);
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [peekOpen]);
+
+  // Publish the top chrome's bottom edge as `--chrome-top-h` on <html>: the
+  // y-coordinate where the pinned chrome ends and the page begins. Since the
+  // atmosphere and trail became the masthead, in the page, that's the running
+  // head's own bottom. Consumers: the dock and the bottom sheets (they fill
+  // from here down to the bottom bar), the page's scroll padding, and the
+  // sweeps below that ask what's just under the chrome.
   //
-  // Measured from getBoundingClientRect().bottom, not summed
-  // offsetHeights: the rect gives the real VIEWPORT position, so it
-  // absorbs any top inset (iOS safe area / URL bar) that a height sum
-  // would miss and leave as a gap. The breadcrumb WRAP is read (not the
-  // inner strip) because the wrap isn't transformed — only the strip
-  // slides inside it — so the wrap's rect is the settled bottom even
-  // mid-animation. Floor so any sub-pixel bias tucks the sheet a hair
-  // under the chrome rather than leaving a seam. Re-measures on
-  // showBreadcrumb change, scroll (the strip reveals on scroll and the iOS
-  // URL bar resizes there), rAF-throttled, and on size changes once they
-  // settle (see below).
+  // Measured from getBoundingClientRect().bottom, not offsetHeight: the rect
+  // gives the real viewport position, so it absorbs any top inset (iOS safe
+  // area / URL bar) that a height would miss. Floored so any sub-pixel bias
+  // tucks a sheet a hair under the chrome rather than leaving a seam.
   //
-  // Both values are custom properties on <html>, and changing one restyles
-  // every element on the page whether anything reads it or not. So they're
-  // only written when they actually change.
+  // It's a custom property on <html>, and changing one restyles every element
+  // on the page whether anything reads it or not, so it's only written when
+  // it actually changes, and a resize publishes once the header holds still.
   //
-  // A layout effect, so a hard load of a detail page lays out with the pinned
-  // strip's room already reserved; from a passive effect the first frame could
-  // paint with the title under the strip and then jump 38px (71 on a phone).
+  // A layout effect, so a hard load lays out with it already in place.
   useLayoutEffect(() => {
     const el = topRef.current;
     if (!el) return undefined;
     const rootStyle = document.documentElement.style;
-    const publish = (name, value) => {
-      if (rootStyle.getPropertyValue(name) !== value) rootStyle.setProperty(name, value);
-    };
     const apply = () => {
-      const crumb = crumbRef.current;
-      const bottom =
-        showBreadcrumb && crumb
-          ? settledBottom(crumb)
-          : el.getBoundingClientRect().bottom;
-      publish('--chrome-top-h', `${Math.max(0, Math.floor(bottom))}px`);
-      // On individual pages the breadcrumb is pinned open (not just revealed on
-      // scroll), so unlike the feed pages — where it slides over already-
-      // scrolled content — it would otherwise hang over the top of the page's
-      // own content (the title). Publish its height as `--chrome-crumb-pin-h`
-      // so the content column can reserve that much extra top padding; 0 on
-      // pages where the strip only rides over on scroll.
-      //
-      // Keyed to the page that's mounted (pinDetailRef), not to the URL: the
-      // padding is on `.main`, which also holds the page being faded out, and
-      // switching it at the click shoved that page down by the strip's height
-      // as it left. useMountedPathname calls back in here the moment the
-      // incoming page is in the DOM, before it paints.
-      const pinnedH =
-        pinDetailRef.current && crumb
-          ? crumb.getBoundingClientRect().height
-          : 0;
-      publish('--chrome-crumb-pin-h', `${Math.max(0, Math.ceil(pinnedH))}px`);
+      const value = `${Math.max(0, Math.floor(el.getBoundingClientRect().bottom))}px`;
+      if (rootStyle.getPropertyValue('--chrome-top-h') !== value) {
+        rootStyle.setProperty('--chrome-top-h', value);
+      }
     };
-    applyChromeSizeRef.current = apply;
     apply();
-    let raf = 0;
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(() => { raf = 0; apply(); });
-    };
-    // Size changes wait until the header stops resizing. Opening or closing
-    // the atmosphere row animates the header's height for ~360ms, and
-    // publishing every frame of that restyled the whole page each frame
-    // (~2,900 elements on the home feed): the stutter on expand/collapse.
-    // The sheets reading these only need where the chrome ends up.
+    // The trail strip used to be pinned over the page and reserved its height
+    // on `.main` through this; it's in the page now and needs no room kept.
+    rootStyle.removeProperty('--chrome-crumb-pin-h');
     let settle = 0;
     const scheduleSettled = () => {
       clearTimeout(settle);
       settle = setTimeout(apply, SIZE_SETTLE_MS);
     };
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSettled) : null;
-    if (ro) {
-      ro.observe(el);
-      if (crumbRef.current) ro.observe(crumbRef.current);
-    }
-    window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
+    if (ro) ro.observe(el);
+    window.addEventListener('resize', scheduleSettled);
     return () => {
       if (ro) ro.disconnect();
-      window.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
-      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('resize', scheduleSettled);
       clearTimeout(settle);
-      if (applyChromeSizeRef.current === apply) {
-        applyChromeSizeRef.current = null;
-      }
     };
-  }, [showBreadcrumb, isDetailPage]);
+  }, []);
 
-  // Detect whether the detail-page NSID has wrapped onto its own line beneath
-  // the trail (vs. riding the trail's line), so the wrapped strip can pick up
-  // the same dashed divider + tightened spacing as the LISTENING TO / FOLLOWED
-  // BY stack. CSS can't select on flex-wrap, so we read it: the NSID is on its
-  // own line once its top edge sits at/below the trail's vertical midpoint (on
-  // a shared, center-aligned line the two boxes straddle the same midline).
-  // Critically, the wrapped divider is drawn as the TRAIL's border-bottom (it
-  // spans the full column, since the trail grows to fill the row once alone on
-  // its line) — nothing here forces the wrap, so this stays a faithful read of
-  // the natural layout and flips back when the trail + NSID fit again.
-  useEffect(() => {
-    if (!isDetailPage) {
-      setNsidWrapped(false);
-      return undefined;
-    }
-    let raf = 0;
-    const measure = () => {
-      raf = 0;
-      const trail = breadcrumbRef.current;
-      const nsid = nsidRef.current;
-      if (!trail || !nsid) {
-        setNsidWrapped(false);
-        return;
-      }
-      const t = trail.getBoundingClientRect();
-      const n = nsid.getBoundingClientRect();
-      setNsidWrapped(n.top >= (t.top + t.bottom) / 2);
-    };
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(measure);
-    };
-    schedule();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
-    if (ro) {
-      if (breadcrumbRef.current) ro.observe(breadcrumbRef.current);
-      if (nsidRef.current) ro.observe(nsidRef.current);
-    }
-    window.addEventListener('resize', schedule);
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-      if (ro) ro.disconnect();
-      window.removeEventListener('resize', schedule);
-    };
-  }, [isDetailPage, stripNsid, location.pathname]);
-
+  const peekShown = peekMode !== 'closed';
   return (
     <>
       <header
         ref={topRef}
-        className={`chrome-bar chrome-bar-top ${expanded ? 'is-expanded' : 'is-collapsed'}`}
+        className={`chrome-bar chrome-bar-top${reading ? ' is-reading' : ''}${pastTop ? ' is-past-top' : ''}`}
         role="banner"
       >
         <div ref={primaryRef} className="chrome-bar-row chrome-bar-primary">
           <div className="chrome-cluster">
             <Link to="/" className="chrome-title">
-              {showMarkBox && (
-                <span className="chrome-mark chrome-mark-avatar" aria-hidden="true">
+              {targetAvatar && (
+                <span
+                  className="chrome-mark chrome-mark-avatar"
+                  style={{ backgroundImage: skyBand(skyDisplayHour) }}
+                  aria-hidden="true"
+                >
                   {/* No key: the element persists across src swaps so the
                       old frame stays painted right up to the instant the
                       pre-decoded next frame replaces it. */}
@@ -381,20 +369,42 @@ export default function ChromeBar() {
                       className="chrome-mark-img"
                       src={avatar}
                       alt=""
-                      onError={() => {
-                        setAvatar(null);
-                        setAvatarFailed(true);
-                      }}
+                      onError={() => setAvatar(null)}
                     />
                   )}
                 </span>
               )}
               <span className="chrome-name">dame.is</span>
             </Link>
-            <div className="chrome-signals chrome-signals-primary">
-              <NowStatus />
+            {/* The running head: the status at the top of the page, the trail
+                once reading. Both sit in one grid cell and cross-fade (CSS,
+                instant under reduced motion), so the row never changes size.
+                Only the one showing is live to a pointer, keyboard or reader. */}
+            <div className="chrome-head">
+              <div
+                className="chrome-signals chrome-signals-primary chrome-head-status"
+                inert={reading ? '' : undefined}
+                aria-hidden={reading ? true : undefined}
+              >
+                <NowStatus />
+              </div>
+              {crumbs.length > 0 && (
+                <nav
+                  className="chrome-breadcrumb chrome-head-trail"
+                  aria-label="Breadcrumb"
+                  inert={reading ? undefined : ''}
+                  aria-hidden={reading ? undefined : true}
+                >
+                  <Trail crumbs={crumbs} titled={!!titleLabel} />
+                </nav>
+              )}
             </div>
           </div>
+          {stripNsid && (
+            <span className="chrome-crumb-nsid chrome-head-nsid" aria-hidden={pastTop ? undefined : true}>
+              {stripNsid}
+            </span>
+          )}
           <button
             type="button"
             className={`chrome-nav chrome-nav-top ${dockOpen ? 'is-open' : ''}`}
@@ -407,32 +417,70 @@ export default function ChromeBar() {
           </button>
           <button
             type="button"
-            className="chrome-expand"
-            onClick={toggle}
-            aria-expanded={expanded}
-            aria-controls="chrome-bar-secondary"
-            aria-label={expanded ? 'Collapse atmosphere bar' : 'Expand atmosphere bar'}
+            className={`chrome-expand${atmosphereShown ? ' is-open' : ''}`}
+            onClick={onAtmosphere}
+            aria-expanded={atmosphereShown}
+            aria-controls={peekShown ? 'chrome-atmosphere-peek' : 'chrome-bar-secondary'}
+            aria-label={atmosphereShown ? 'Hide the atmosphere' : 'Show the atmosphere'}
+            title={
+              atmosphereShown
+                ? 'Hide the atmosphere'
+                : 'Atmosphere: what Dame is doing, listening to, and their phone'
+            }
           >
-            {/* Rotation is a CSS transition keyed to the header's
-                is-expanded class, so it runs on the compositor. */}
-            <svg className="chrome-expand-glyph" aria-hidden="true" viewBox="0 0 12 12">
-              <path
-                d="M2.5 4.5 L6 8 L9.5 4.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <span className="chrome-expand-face">
+              {/* Rotation is a CSS transition keyed to is-open, so it runs on
+                  the compositor. */}
+              <svg className="chrome-expand-glyph" aria-hidden="true" viewBox="0 0 12 12">
+                <path
+                  d="M2.5 4.5 L6 8 L9.5 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
           </button>
         </div>
 
-        {/* The expanded tier. It opens and closes with compositor-only
-            animations (see useTierSlide): while sliding it rides over the
-            page as an overlay pinned under the primary row, and only joins
-            the header's flow once it's fully open. */}
-        {tierMode !== 'closed' && (
+        {/* The atmosphere brought back over the page once the masthead has
+            scrolled away: an overlay pinned under the running head, slid open
+            and shut on the compositor (useTierSlide) and never joining the
+            flow, so the page doesn't move under the reader. */}
+        {peekShown && (
+          <div
+            ref={peekWrapRef}
+            id="chrome-atmosphere-peek"
+            className="chrome-bar-secondary-wrap chrome-peek is-sliding"
+            inert={peekMode === 'closing' ? '' : undefined}
+            aria-hidden={peekMode === 'closing' ? true : undefined}
+          >
+            <div ref={peekInnerRef} className="chrome-bar-secondary-inner">
+              <AtmosphereRows />
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* The masthead: the atmosphere and, on a detail page, the trail, in the
+          page under the running head. Nothing is lost at the top; reading on,
+          they scroll away under it. The atmosphere opens and closes with
+          compositor-only animations (useTierSlide): while sliding it rides
+          over the page as an overlay, and only joins the flow once fully
+          open, moving the page once rather than every frame. A `.chrome-bar`
+          like the running head, so it wears the inks tuned for the chrome's
+          surfaces (theme.css) and leaves print with the rest.
+
+          Not on /admin, whose workbench is a fixed frame from the running
+          head down: a masthead in the flow would sit behind it. There the
+          chevron brings the atmosphere over the frame as a peek. */}
+      <div
+        ref={mastheadRef}
+        className={`chrome-bar chrome-masthead${!inAdmin && (tierMode === 'open' || isDetailPage) ? ' has-flow' : ''}`}
+      >
+        {!inAdmin && tierMode !== 'closed' && (
           <div
             ref={tierWrapRef}
             id="chrome-bar-secondary"
@@ -441,123 +489,183 @@ export default function ChromeBar() {
             aria-hidden={tierMode === 'closing' ? true : undefined}
           >
             <div ref={tierInnerRef} className="chrome-bar-secondary-inner">
-              <div className="chrome-bar-row chrome-bar-secondary">
-                <div className="chrome-signals chrome-signals-secondary">
-                  <NowPlaying />
-                  <ProfileStats />
-                  {/* Day of life joins the LISTENING TO / FOLLOWED BY stack —
-                      but only on mobile. On desktop it lives at the right edge
-                      of the vitals bar below instead; this copy is hidden there
-                      via CSS (and the vitals-bar copy is hidden on mobile). */}
-                  <DayOfLifeTicker />
-                </div>
-              </div>
-              {/* Second expanded tier: the iPhone state / vitals bar. It
-                  reveals together with the LISTENING TO / FOLLOWED BY row
-                  above; its own top hairline and deep surface make it read as
-                  a distinct bar rather than a wrapped continuation of that
-                  row. */}
-              <div className="chrome-bar-row chrome-bar-state">
-                <div className="chrome-signals chrome-signals-state">
-                  <VitalsPanel />
-                </div>
-              </div>
+              <AtmosphereRows />
             </div>
           </div>
         )}
-
-        {/* Breadcrumb strip stays mounted on every page (home shows just
-            the root crumb plus the current day), and the reveal animates
-            ONLY transform + opacity — never height. A height:auto animation
-            forces a layout measurement/reflow on the frame it starts, and a
-            reflow mid-scroll hands scrolling back to the main thread and
-            stalls the momentum. transform/opacity run on the compositor and
-            can't interrupt the scroll. The strip slides down from behind
-            the bar inside a fixed clip (`overflow: hidden` on the wrap)
-            instead of growing the box. */}
-        <div
-          ref={crumbRef}
-          id="chrome-bar-tertiary"
-          className="chrome-bar-tertiary-wrap"
-          inert={showBreadcrumb ? undefined : ''}
-          aria-hidden={showBreadcrumb ? undefined : true}
-          style={{ pointerEvents: showBreadcrumb ? 'auto' : 'none' }}
-        >
-          <motion.div
-            className={`chrome-bar-row chrome-bar-tertiary ${isDetailPage ? 'is-detail' : ''} ${nsidWrapped ? 'is-nsid-wrapped' : ''}`}
-            initial={false}
-            animate={{ y: showBreadcrumb ? '0%' : '-100%', opacity: showBreadcrumb ? 1 : 0 }}
-            transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
+        {!inAdmin && isDetailPage && (
+          // While reading, the running head carries the trail and this copy
+          // has scrolled away under it; only one is live at a time.
+          <div
+            ref={trailRef}
+            className="chrome-bar-row chrome-masthead-trail"
+            inert={reading ? '' : undefined}
+            aria-hidden={reading ? true : undefined}
           >
-            {/* On the home page (no crumbs) the day label stands alone in
-                the crumb spot; on sub-pages it follows the trail, all
-                left-aligned. */}
-            {crumbs.length > 0 && (
-              <nav className="chrome-breadcrumb" aria-label="Breadcrumb" ref={breadcrumbRef}>
-                <ol className="chrome-crumbs">
-                  <li className="chrome-crumb">
-                    <Link to="/" className="chrome-crumb-link chrome-crumb-root" aria-label="Home">
-                      /
-                    </Link>
-                  </li>
-                  {crumbs.map((c, i) => {
-                    const last = i === crumbs.length - 1;
-                    return (
-                      <li key={c.path} className="chrome-crumb">
-                        {i > 0 && (
-                          <span className="chrome-crumb-sep" aria-hidden="true">
-                            /
-                          </span>
-                        )}
-                        {last ? (
-                          <span className="chrome-crumb-current" aria-current="page">
-                            {c.label}
-                          </span>
-                        ) : c.to ? (
-                          <Link to={c.to} className="chrome-crumb-link">
-                            {c.label}
-                          </Link>
-                        ) : (
-                          // A segment no page answers (see breadcrumbs.js):
-                          // still part of where you are, just not somewhere to go.
-                          <span className="chrome-crumb-text">{c.label}</span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </nav>
+            <nav className="chrome-breadcrumb" aria-label="Breadcrumb">
+              <Trail crumbs={crumbs} titled={!!titleLabel} withRoot />
+            </nav>
+            {ownDate && (
+              <Time value={ownDate} variant="clock" className="chrome-crumb-date">
+                {crumbStamp(ownDate)}
+              </Time>
             )}
-            {dayLabel && <span className="chrome-crumb-day">{dayLabel}</span>}
-            {stripNsid && (
-              <span className="chrome-crumb-nsid" ref={nsidRef}>
-                {stripNsid}
-              </span>
-            )}
-          </motion.div>
-        </div>
-      </header>
+            {stripNsid && <span className="chrome-crumb-nsid">{stripNsid}</span>}
+          </div>
+        )}
+      </div>
 
       <ChromeBarBottom
         dockOpen={dockOpen}
         toggleDock={toggleDock}
         mountedPath={mountedPath}
+        dayLabel={dayLabel}
       />
     </>
   );
 }
 
-// Memoised: ChromeBar re-renders as the page scrolls (the breadcrumb's day
-// label and record NSID track the scroll), and none of that reaches down here.
+/** The atmosphere's two rows. Drawn in the masthead, and again in the peek
+ *  while that's open. Memoised: it takes no props, and the chrome around it
+ *  re-renders as the page scrolls. */
+const AtmosphereRows = memo(function AtmosphereRows() {
+  return (
+    <>
+      <div className="chrome-bar-row chrome-bar-secondary">
+        <div className="chrome-signals chrome-signals-secondary">
+          <NowPlaying />
+          <ProfileStats />
+          {/* Day of life joins the LISTENING TO / FOLLOWED BY stack — but only
+              on mobile. On desktop it lives at the right edge of the vitals
+              bar below instead; this copy is hidden there via CSS (and the
+              vitals-bar copy is hidden on mobile). */}
+          <DayOfLifeTicker />
+        </div>
+      </div>
+      {/* Second row: the phone's state, its own bar under the first, with its
+          own top hairline and deep surface. */}
+      <div className="chrome-bar-row chrome-bar-state">
+        <div className="chrome-signals chrome-signals-state">
+          <VitalsPanel />
+        </div>
+      </div>
+    </>
+  );
+});
+
+/** The trail. In the masthead it opens with the root crumb, a link home; in
+ *  the running head the wordmark beside it already goes home, so the slash is
+ *  only a separator there. A crumb links only where a page answers
+ *  (breadcrumbs.js). `titled` sets the last crumb as a title, in italic. */
+function Trail({ crumbs, titled, withRoot = false }) {
+  return (
+    <ol className="chrome-crumbs">
+      {withRoot && (
+        <li className="chrome-crumb">
+          <Link to="/" className="chrome-crumb-link chrome-crumb-root" aria-label="Home">
+            /
+          </Link>
+        </li>
+      )}
+      {crumbs.map((c, i) => {
+        const last = i === crumbs.length - 1;
+        return (
+          <li key={c.path} className="chrome-crumb">
+            {(i > 0 || !withRoot) && (
+              <span className="chrome-crumb-sep" aria-hidden="true">
+                /
+              </span>
+            )}
+            {last ? (
+              <span
+                className={`chrome-crumb-current${titled ? ' is-title' : ''}`}
+                aria-current="page"
+              >
+                {c.label}
+              </span>
+            ) : c.to ? (
+              <Link to={c.to} className="chrome-crumb-link">
+                {c.label}
+              </Link>
+            ) : (
+              // A segment no page answers (see breadcrumbs.js): still part of
+              // where you are, just not somewhere to go.
+              <span className="chrome-crumb-text">{c.label}</span>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** A `matchMedia` query as state, following changes. */
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches,
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, [query]);
+  return matches;
+}
+
+/** A bar chip's insides: its face (the hairline square, or the text box on
+ *  the hour chip). While the sheet a chip opens is up, the sheet's × is drawn
+ *  over the face, the face's own content hidden but still holding its width,
+ *  so open and closed differ by shape, not just tint, and nothing beside it
+ *  moves. Each chip's accessible name is its aria-label. */
+function ChipBody({ glyph: Glyph, sheetOpen = false, children }) {
+  return (
+    <>
+      <span className={`chrome-nav-face${sheetOpen ? ' is-sheet-open' : ''}`}>
+        {children ?? <Glyph className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />}
+        {sheetOpen && (
+          <X className="chrome-nav-glyph chrome-nav-close" aria-hidden="true" strokeWidth={1.75} />
+        )}
+      </span>
+    </>
+  );
+}
+
+// The chips the bar can move into the compass sheet, with how the sheet
+// draws them. Their actions stay with the bar (ChromeBarBottom), which
+// publishes the current set through the dock context.
+const TOOL_META = {
+  sky: { word: 'sky', title: 'Sky: pick an hour of Dame’s sky to see the site in' },
+  filter: { word: 'filter', glyph: ListFilterPlus, title: 'Filter: choose what this feed shows' },
+  search: { word: 'search', glyph: Search, title: 'Search this feed' },
+  info: { word: 'about', glyph: Info, title: 'About this site, and a key to these buttons' },
+  inspect: { word: 'inspect', glyph: Microscope, title: 'Inspect: show the AT Protocol records under the page' },
+  print: { word: 'print', glyph: Printer, title: 'Print or save this resume as a PDF' },
+  edit: { word: 'edit', glyph: Pencil, title: 'Edit mode' },
+  back: { word: 'back', glyph: ArrowLeft, title: 'Back to the page before' },
+  scroll: { word: 'top', glyph: ArrowUp, title: 'Back to the top' },
+  home: { word: 'home', glyph: Home, title: 'Home' },
+  // The menu's own two, when the open bar has no room for them. The sheet
+  // draws the layout as the same words it wears in the bar.
+  account: { word: 'account', glyph: User, title: 'Account: sign in with your Bluesky or AT Protocol handle' },
+  layout: { word: 'layout', title: 'The feeds’ layout' },
+};
+
+// Memoised: ChromeBar re-renders as the page scrolls (the trail's state and
+// the record NSID track the scroll), and none of that reaches down here
+// except the day in view, which changes once a day section.
 const ChromeBarBottom = memo(function ChromeBarBottom({
   dockOpen,
   toggleDock,
   mountedPath,
+  dayLabel,
 }) {
   const [params] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { view, setView } = useActionDock();
+  const { view, setView, closeDock, setOverflowTools } = useActionDock();
   // Search / filter / info all expand up out of this bar as mutually
   // exclusive panels coordinated by useChromePanel (which also folds the
   // nav dock away, and vice versa) — see BottomSheet + useChromePanel.
@@ -575,8 +683,10 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   // `short` is a page with nothing to scroll, settled as such.
   const { near: nearBottom, short: pageTooShort } = useNearPageBottom();
   const footerRef = useRef(null);
+  const rowRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
-  const { skyHourKey, advanceSkyHour, skyOverridden } = useTheme();
+  const { skyHour, advanceSkyHour, skyOverridden } = useTheme();
+  const hourLabel = skyHourLabel(skyHour);
   const { serifOnly, toggle: toggleFont } = useFont();
   // The edit-mode toggle only exists for the site owner. It sits beside the
   // Info button and flips the site into a selectable "edit mode" (see
@@ -646,6 +756,26 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   // and only shows while a resume is on screen.
   const onResumePage =
     location.pathname === '/available' || location.pathname.startsWith('/available/');
+  // The feed layout (ledger or cards) is a setting of the feeds that read it,
+  // so its words only appear, with the menu open, on those.
+  const onLayoutFeed = FEED_LAYOUT_PATHS.includes(location.pathname);
+
+  const phone = useMediaQuery(PHONE_QUERY);
+
+  // The day in view rides beside ↑ (useCurrentDayLabel); on a feed without
+  // day sections, the count of entries scrolled past does instead.
+  const showScrollJump = !inAdmin && !pageTooShort;
+  const dayText = atTop ? null : dayLabel?.short || (scrolledPastDigits > 0 ? 'count' : null);
+
+  // What fits. The compass is never moved; everything else gives way in
+  // BAR_PRIORITY order and is drawn in the compass sheet instead. Home always
+  // leaves a phone's bar: the wordmark goes home.
+  const plan = useBarOverflow(rowRef, {
+    forced: phone ? ['home'] : [],
+    dayPresent: !!dayText && showScrollJump && !dockOpen,
+  });
+  const out = (key) => (plan.hidden.has(key) ? ' is-out' : '');
+  const showDay = !!dayText && plan.day && !dockOpen;
 
   // If the route stops exposing filters while the filter panel is open
   // (e.g. navigating away from a feed), fold it away — the trigger button
@@ -712,11 +842,109 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
     window.scrollTo({ top: h, behavior: reduce ? 'auto' : 'smooth' });
   }
 
+  function onEdit() {
+    // Entering/leaving edit mode owns the bottom chrome — fold any open
+    // search/filter/info panel away first, and leave x-ray (the two modes
+    // compete for the same rows).
+    closePanel();
+    if (xrayActive) exitXray();
+    if (editActive) {
+      // In select / moderation mode → leave it.
+      toggleEdit();
+    } else if (editSheet) {
+      // A page editor the pencil opened is showing → close it.
+      closeEditSheet();
+    } else if (pageEditUri && !selectionPage) {
+      // Nothing to select on this page, but it has its own editable record —
+      // jump straight into its page editor instead of an empty "tap items to
+      // select" bar.
+      openEditSheet(pageEditUri);
+    } else {
+      // Feeds / guestbook (or a page with no record): the usual selectable
+      // edit mode.
+      toggleEdit();
+    }
+  }
+
+  function onInspect() {
+    // Entering it folds away any open panel and the owner's edit mode (they
+    // compete for the same surface).
+    closePanel();
+    if (editActive) exitEdit();
+    toggleXray();
+  }
+
+  // What each chip does, for the copies of them the compass sheet draws when
+  // they don't fit here. Read through a ref, so the sheet always runs today's
+  // version (Back's fallback follows the route) without republishing.
+  const actionsRef = useRef({});
+  actionsRef.current = {
+    sky: inSkyStudio ? advanceSkyHour : () => togglePanel('sky'),
+    filter: () => togglePanel('filter'),
+    search: () => togglePanel('search'),
+    info: () => togglePanel('info'),
+    inspect: () => {
+      closeDock();
+      onInspect();
+    },
+    print: () => {
+      closeDock();
+      window.print();
+    },
+    edit: () => {
+      closeDock();
+      onEdit();
+    },
+    back: goBack,
+    scroll: () => {
+      closeDock();
+      if (atTop) scrollToBottom();
+      else scrollToTop();
+    },
+    home: () => navigate('/'),
+    account: () => setView(view === 'account' ? 'menu' : 'account'),
+  };
+
+  // Which chips the compass sheet draws: the ones that didn't fit the bar at
+  // rest. While the menu is open the bar wears different tools (the layout
+  // words, Account) and is measured afresh, but the sheet keeps listing what
+  // the resting bar couldn't hold, less anything the open bar does show, plus
+  // any of the menu's own controls the open bar had no room for.
+  const restingOutRef = useRef([]);
+  if (!dockOpen) restingOutRef.current = [...plan.hidden].filter((k) => TOOL_META[k]);
+  const openBarShows = new Set(
+    dockOpen
+      ? [
+          !onHomePage && !plan.hidden.has('back') && 'back',
+          showScrollJump && !plan.hidden.has('scroll') && 'scroll',
+          !onHomePage && !phone && !plan.hidden.has('home') && 'home',
+        ].filter(Boolean)
+      : [],
+  );
+  const openOut = dockOpen ? ['account', 'layout'].filter((k) => plan.hidden.has(k)) : [];
+  const sheetTools = [...restingOutRef.current.filter((k) => !openBarShows.has(k)), ...openOut];
+  const sheetToolsKey = `${sheetTools.join(',')}|${atTop}|${hourLabel}`;
+  useEffect(() => {
+    setOverflowTools(
+      sheetTools.map((key) => ({
+        key,
+        ...TOOL_META[key],
+        word: key === 'scroll' && atTop ? 'end' : TOOL_META[key].word,
+        glyph: key === 'scroll' && atTop ? ArrowDown : TOOL_META[key].glyph,
+        face: key === 'sky' ? hourLabel : null,
+        run: () => actionsRef.current[key]?.(),
+      })),
+    );
+    // sheetToolsKey covers everything the list is built from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetToolsKey, setOverflowTools]);
+  useEffect(() => () => setOverflowTools([]), [setOverflowTools]);
+
   // Shared enter/exit for the bottom bar's on-demand controls (back, home,
-  // the scrolled-past count). They cross-fade rather than sliding in on a
-  // transform, and `layout` on the whole right cluster eases the persistent
-  // buttons (scroll-jump, menu) over to fill the gap instead of letting them
-  // jump — so a control never just pops in or out. `layout` is dropped under
+  // account). They cross-fade rather than sliding in on a transform, and
+  // `layout` on the whole right cluster eases the persistent buttons
+  // (scroll-jump, menu) over to fill the gap instead of letting them jump —
+  // so a control never just pops in or out. `layout` is dropped under
   // reduced-motion so nothing translates.
   const controlFade = {
     initial: reduce ? false : { opacity: 0 },
@@ -725,20 +953,21 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
     transition: { duration: reduce ? 0 : 0.2, ease: [0.22, 0.61, 0.36, 1] },
   };
   const layoutProp = reduce ? undefined : true;
-  // The scroll-jump arrow on a page with nothing to scroll did nothing when
-  // pressed, which the /admin rule below calls worse than absent.
-  const showScrollJump = !inAdmin && !pageTooShort;
   // What can move the right cluster's buttons: one of its controls coming or
-  // going, or the count gaining a digit. Motion measures a `layout` element on
-  // every render unless told what its layout depends on, and this bar renders
-  // whenever the page scrolls past a feed item.
+  // going, the day beside ↑ changing, or the chips that fit.
+  // Motion measures a `layout` element on every render unless told what its
+  // layout depends on, and this bar renders whenever the page scrolls past a
+  // feed item.
   const layoutDependency = [
     onHomePage,
     scrolledPastDigits,
+    showDay && dayText,
     showScrollJump,
     dockOpen,
     isOwner,
+    [...plan.hidden].join(','),
   ].join('|');
+
 
   return (
     // `layoutScroll layoutRoot` — the bar is `position: fixed`, and its right-
@@ -758,13 +987,13 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
       layoutScroll
       layoutRoot
     >
-      <div className="chrome-bottom-row">
+      <div className="chrome-bottom-row" ref={rowRef}>
         {/* Left cluster. While the nav dock is open, the page-level controls
             (theme / filter / search / info / inspect) hand off to the dock's
-            density tools (layout) — they cross-fade in and temporarily take the
-            same spot, then swap back when the dock closes. (Account lives in the
-            right cluster now; the atmosphere-debug readout is its own sheet,
-            reached from the inspect HUD.) */}
+            tools (the feed layout, in words) — they cross-fade in and
+            temporarily take the same spot, then swap back when the dock
+            closes. (Account lives in the right cluster; the atmosphere-debug
+            readout is its own sheet, reached from the inspect HUD.) */}
         <div className="chrome-bottom-left">
           <AnimatePresence mode="wait" initial={false}>
             {dockOpen ? (
@@ -776,7 +1005,11 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                 exit={{ opacity: 0 }}
                 transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
               >
-                <LayoutToggle />
+                {onLayoutFeed && (
+                  <div data-tool="layout" className={`chrome-bar-layout${out('layout')}`}>
+                    <LayoutToggle />
+                  </div>
+                )}
                 {PAPER_ENABLED && <PaperToggle />}
               </motion.div>
             ) : (
@@ -788,25 +1021,32 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                 exit={{ opacity: 0 }}
                 transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
               >
-                {/* Time switcher. The site always runs the hour-tracking
-                    sky theme; this chip shows the hour whose palette is on
-                    screen. Outside the admin SkyThemeStudio, tapping it
-                    opens the SkyHourSheet — a 24-cell arc that expands up
-                    out of the bottom chrome so any visitor can sample the
-                    palette at any hour. Inside the studio, each tap
-                    advances one hour (the studio has its own arc for
-                    jumping). */}
+                {/* The sky chip. The site always runs the hour-tracking sky
+                    theme; this chip shows the hour whose palette is on screen,
+                    "1 pm", the hour in Eastern time (its label and tooltip
+                    say so). Outside the admin
+                    SkyThemeStudio, tapping it opens the SkyHourSheet, where
+                    any visitor can sample the palette at any hour. Inside the
+                    studio, each tap advances one hour (the studio has its own
+                    arc for jumping). */}
                 <button
                   type="button"
-                  className={`chrome-nav chrome-sky-hour ${skyPanelOpen ? 'is-open' : ''}`}
+                  data-tool="sky"
+                  className={`chrome-nav chrome-sky-hour ${skyPanelOpen ? 'is-open' : ''}${out('sky')}`}
                   data-held={skyOverridden && !inSkyStudio ? '' : undefined}
                   onClick={inSkyStudio ? advanceSkyHour : () => togglePanel('sky')}
                   aria-expanded={inSkyStudio ? undefined : skyPanelOpen}
                   aria-controls={inSkyStudio ? undefined : 'chrome-sky-sheet'}
-                  aria-label={`Time of day — ${skyOverridden ? 'held at' : 'showing'} ${skyHourKey}`}
-                  title={`Time of day — tap to ${inSkyStudio ? 'advance the sky one hour' : 'pick an hour'} (showing ${skyHourKey})`}
+                  aria-label={`Sky: ${skyOverridden ? 'held at' : 'showing'} ${hourLabel} Eastern time`}
+                  title={
+                    inSkyStudio
+                      ? `Sky: ${hourLabel} Eastern time. Tap to advance an hour`
+                      : `Sky: the site is coloured like Dame’s sky at ${hourLabel} Eastern time. Tap to pick an hour`
+                  }
                 >
-                  {skyHourKey}
+                  <ChipBody sheetOpen={skyPanelOpen}>
+                    <span className="chrome-sky-time">{hourLabel}</span>
+                  </ChipBody>
                 </button>
                 {/* Font switcher. Hidden for now — the site runs serif-only
                     (see FONT_SWITCHER_ENABLED in useFont.jsx). Flip that flag
@@ -821,13 +1061,14 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     aria-label={serifOnly ? 'Use the default serif + monospace type' : 'Use serif-only type'}
                     title={serifOnly ? 'Serif-only type — tap to restore mono accents' : 'Mono accents — tap for serif-only type'}
                   >
-                    <Type className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={Type} />
                   </button>
                 )}
                 {filterAvailable && (
                   <button
                     type="button"
-                    className={`chrome-nav chrome-filter ${filterPanelOpen || filterCustomized ? 'is-open' : ''}`}
+                    data-tool="filter"
+                    className={`chrome-nav chrome-filter ${filterPanelOpen || filterCustomized ? 'is-open' : ''}${out('filter')}`}
                     onClick={() => togglePanel('filter')}
                     aria-expanded={filterPanelOpen}
                     aria-controls="chrome-filter-sheet"
@@ -838,8 +1079,9 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                           ? 'Open filters (filtered)'
                           : 'Open filters'
                     }
+                    title={filterCustomized ? 'Filter: this feed is filtered' : TOOL_META.filter.title}
                   >
-                    <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={ListFilterPlus} sheetOpen={filterPanelOpen} />
                   </button>
                 )}
                 {/* Shown while a query is active even with search switched
@@ -848,13 +1090,15 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                 {(SEARCH_ENABLED || searchActive) && (
                   <button
                     type="button"
-                    className={`chrome-nav chrome-search-btn ${searchPanelOpen || searchActive ? 'is-open' : ''}`}
+                    data-tool="search"
+                    className={`chrome-nav chrome-search-btn ${searchPanelOpen || searchActive ? 'is-open' : ''}${out('search')}`}
                     onClick={() => togglePanel('search')}
                     aria-expanded={searchPanelOpen}
                     aria-controls="chrome-search-sheet"
                     aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
+                    title={searchActive ? `Search: “${params.get('q')}”` : TOOL_META.search.title}
                   >
-                    <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={Search} sheetOpen={searchPanelOpen} />
                   </button>
                 )}
                 {/* Withheld on /admin, and this one is about ROOM rather than
@@ -868,13 +1112,15 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                 {!inAdmin && (
                   <button
                     type="button"
-                    className={`chrome-nav chrome-info-btn ${infoPanelOpen ? 'is-open' : ''}`}
+                    data-tool="info"
+                    className={`chrome-nav chrome-info-btn ${infoPanelOpen ? 'is-open' : ''}${out('info')}`}
                     onClick={() => togglePanel('info')}
                     aria-expanded={infoPanelOpen}
                     aria-controls="chrome-info-sheet"
                     aria-label="About this site"
+                    title={TOOL_META.info.title}
                   >
-                    <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={Info} sheetOpen={infoPanelOpen} />
                   </button>
                 )}
                 {/* The admin's surface-level pair: what is happening, what do
@@ -884,6 +1130,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                 {showAdminState && (
                   <button
                     type="button"
+                    data-tool="more"
                     className={`chrome-nav chrome-admin-state ${adminActionsOpen ? 'is-open' : ''}`}
                     data-dirty={adminState?.dirty ? '' : undefined}
                     data-error={adminState?.error ? '' : undefined}
@@ -906,7 +1153,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                         things it does. The dirty state is still here — it moved
                         into the glyph's own colour (ChromeBar.css), which is how
                         every other control in this bar carries a state. */}
-                    <Ellipsis className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={Ellipsis} sheetOpen={adminActionsOpen} />
                   </button>
                 )}
                 {adminPrimary && (
@@ -920,94 +1167,70 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     disabled={adminPrimary.disabled}
                     aria-busy={adminPrimary.busy ? 'true' : undefined}
                     onClick={adminPrimary.run}
+                    title={adminPrimary.label}
                   >
-                    {adminPrimary.label}
+                    <ChipBody>{adminPrimary.label}</ChipBody>
                   </button>
                 )}
                 {/* Atmosphere inspect — the marquee "turn the page inside out"
                     mode. Toggling it reveals the AT Protocol records beneath
-                    the page; entering it folds away any open panel and the
-                    owner's edit mode (they compete for the same surface).
-                    Withheld on /admin: x-ray annotates public record markup and
-                    the workbench has none. */}
+                    the page. Withheld on /admin: x-ray annotates public record
+                    markup and the workbench has none. A mode, not a sheet, so
+                    it keeps its glyph while on. */}
                 {!inAdmin && (
                   <button
                     type="button"
-                    className={`chrome-nav chrome-xray ${xrayActive ? 'is-open' : ''}`}
-                    onClick={() => {
-                      closePanel();
-                      if (editActive) exitEdit();
-                      toggleXray();
-                    }}
+                    data-tool="inspect"
+                    className={`chrome-nav chrome-xray ${xrayActive ? 'is-open' : ''}${out('inspect')}`}
+                    onClick={onInspect}
                     aria-pressed={xrayActive}
                     aria-label={xrayActive ? 'Stop inspecting' : 'Inspect this page'}
-                    title="Inspect — reveal the records under the page"
+                    title={xrayActive ? 'Stop inspecting' : TOOL_META.inspect.title}
                   >
-                    <Microscope className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={Microscope} />
                   </button>
                 )}
                 {onResumePage && (
                   <button
                     type="button"
-                    className="chrome-nav chrome-print-btn"
+                    data-tool="print"
+                    className={`chrome-nav chrome-print-btn${out('print')}`}
                     onClick={() => window.print()}
                     aria-label="Print or save this resume as PDF"
-                    title="Print / save as PDF"
+                    title={TOOL_META.print.title}
                   >
-                    <Printer className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={Printer} />
                   </button>
                 )}
                 {/* Withheld on /admin: the shell's PageShell registers no
-                    atUri and no selection page, so every branch below would
-                    fall through to toggleEdit() and open an empty "Tap items to
-                    select" bar over the workbench. The X below is gated on
-                    `chromeEditOpen` alone, so nobody can be trapped in edit mode
-                    by this guard. */}
+                    atUri and no selection page, so every branch of onEdit
+                    would fall through to toggleEdit() and open an empty "Tap
+                    items to select" bar over the workbench. The X below is
+                    gated on `chromeEditOpen` alone, so nobody can be trapped
+                    in edit mode by this guard. */}
                 {isOwner && !inAdmin && (
                   <button
                     type="button"
-                    className={`chrome-nav chrome-edit-btn ${chromeEditOpen ? 'is-open' : ''}`}
-                    onClick={() => {
-                      // Entering/leaving edit mode owns the bottom chrome —
-                      // fold any open search/filter/info panel away first, and
-                      // leave x-ray (the two modes compete for the same rows).
-                      closePanel();
-                      // Edit mode and x-ray compete for the same rows — leave
-                      // x-ray before entering any edit flow.
-                      if (xrayActive) exitXray();
-                      if (editActive) {
-                        // In select / moderation mode → leave it.
-                        toggleEdit();
-                      } else if (editSheet) {
-                        // A page editor the pencil opened is showing → close it.
-                        closeEditSheet();
-                      } else if (pageEditUri && !selectionPage) {
-                        // Nothing to select on this page, but it has its own
-                        // editable record — jump straight into its page editor
-                        // instead of an empty "tap items to select" bar.
-                        openEditSheet(pageEditUri);
-                      } else {
-                        // Feeds / guestbook (or a page with no record): the
-                        // usual selectable edit mode.
-                        toggleEdit();
-                      }
-                    }}
+                    data-tool="edit"
+                    className={`chrome-nav chrome-edit-btn ${chromeEditOpen ? 'is-open' : ''}${out('edit')}`}
+                    onClick={onEdit}
                     aria-pressed={chromeEditOpen}
                     aria-label={chromeEditOpen ? 'Exit edit mode' : 'Enter edit mode'}
                     title={chromeEditOpen ? 'Exit edit mode' : 'Edit mode'}
                   >
-                    <Pencil className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={Pencil} />
                   </button>
                 )}
                 {isOwner && chromeEditOpen && (
                   <button
                     type="button"
+                    data-tool="discard"
                     className="chrome-nav chrome-edit-exit"
                     onClick={exitEdit}
                     aria-label="Close edit mode without saving"
-                    title="Close edit mode"
+                    title="Close edit mode without saving"
                   >
-                    <X className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                    <ChipBody glyph={X} />
                   </button>
                 )}
               </motion.div>
@@ -1015,37 +1238,25 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
           </AnimatePresence>
         </div>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
-        {/* Right cluster. The on-demand controls (count, back, home) fade in
-            and out inside a popLayout presence; the persistent scroll-jump and
-            menu buttons carry `layout` so they slide over to fill the freed
-            space rather than jumping when a control comes or goes. The
-            scrolled-past count sits to the LEFT of the back button so the back
-            button always lands directly beside the scroll-jump arrow instead
-            of being pushed away by the count. */}
+        {/* Right cluster. The on-demand controls (back, home, account) fade
+            in and out inside a popLayout presence; the persistent scroll-jump
+            and menu buttons carry `layout` so they slide over to fill the
+            freed space rather than jumping when a control comes or goes. */}
         <AnimatePresence mode="popLayout" initial={false}>
-          {scrolledPastDigits > 0 && (
-            <motion.span
-              key="scroll-count"
-              layout={layoutProp}
-              layoutDependency={layoutDependency}
-              className="chrome-scroll-count gutter"
-              {...controlFade}
-            >
-              <ScrollCount store={scrolledPastStore} />
-            </motion.span>
-          )}
           {!onHomePage && (
             <motion.button
               key="back"
               layout={layoutProp}
               layoutDependency={layoutDependency}
               type="button"
-              className="chrome-nav chrome-back-btn"
+              data-tool="back"
+              className={`chrome-nav chrome-back-btn${out('back')}`}
               onClick={goBack}
               aria-label="Go back"
+              title={TOOL_META.back.title}
               {...controlFade}
             >
-              <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+              <ChipBody glyph={ArrowLeft} />
             </motion.button>
           )}
         </AnimatePresence>
@@ -1054,7 +1265,13 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
             and each of its panes is its own scrollport. `window.scrollTo` has
             nothing to move. A button that does nothing when pressed is worse
             than an absent one, and its 36px is exactly what the admin's own
-            three controls need at 320. */}
+            three controls need at 320.
+
+            Scrolled into a feed, it also says where you are: the day in view
+            ("Oct 25"), or on a feed without days the count of entries above.
+            Both used to be a bare number beside it that couldn't be hovered.
+            Its name is built from its content, so a reader hears the count
+            ("7 entries above") without the button re-rendering per row. */}
         <AnimatePresence mode="popLayout" initial={false}>
           {showScrollJump && (
             <motion.button
@@ -1062,24 +1279,41 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               layout={layoutProp}
               layoutDependency={layoutDependency}
               type="button"
-              className="chrome-nav chrome-scroll-jump"
+              data-tool="scroll"
+              className={`chrome-nav chrome-scroll-jump${out('scroll')}`}
               onClick={atTop ? scrollToBottom : scrollToTop}
-              aria-label={atTop ? 'Scroll to bottom' : 'Scroll to top'}
+              title={
+                atTop
+                  ? 'To the end of the page'
+                  : dayLabel?.full
+                    ? `Back to the top. You’re reading ${dayLabel.full}`
+                    : TOOL_META.scroll.title
+              }
               {...controlFade}
             >
-              {atTop ? (
-                <ArrowDown
-                  className="chrome-nav-glyph"
-                  aria-hidden="true"
-                  strokeWidth={1.75}
-                />
-              ) : (
-                <ArrowUp
-                  className="chrome-nav-glyph"
-                  aria-hidden="true"
-                  strokeWidth={1.75}
-                />
-              )}
+              <span className="visually-hidden">
+                {atTop ? 'Scroll to the end' : 'Scroll to the top'}
+              </span>
+              <ChipBody>
+                {atTop ? (
+                  <ArrowDown className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                ) : (
+                  <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                )}
+                {showDay && (
+                  <span className="chrome-scroll-day">
+                    {dayLabel?.short ? (
+                      <>
+                        <span className="visually-hidden">, reading </span>
+                        {dayLabel.short}
+                      </>
+                    ) : (
+                      <ScrollCount store={scrolledPastStore} />
+                    )}
+                  </span>
+                )}
+              </ChipBody>
+              {!atTop && scrolledPastDigits > 0 && <ScrollCount store={scrolledPastStore} spoken />}
             </motion.button>
           )}
         </AnimatePresence>
@@ -1090,8 +1324,10 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               layout={layoutProp}
               layoutDependency={layoutDependency}
               to="/"
-              className="chrome-nav chrome-home-btn"
+              data-tool="home"
+              className={`chrome-nav chrome-home-btn${out('home')}`}
               aria-label="Go home"
+              title={TOOL_META.home.title}
               onClick={() => {
                 // Collapse the open menu on the way home so it animates
                 // out (via the dock's AnimatePresence exit) instead of
@@ -1100,7 +1336,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               }}
               {...controlFade}
             >
-              <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+              <ChipBody glyph={Home} />
             </MotionLink>
           )}
         </AnimatePresence>
@@ -1115,14 +1351,15 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               layout={layoutProp}
               layoutDependency={layoutDependency}
               type="button"
-              className={`chrome-nav chrome-tool-account ${view === 'account' ? 'is-open' : ''}`}
+              data-tool="account"
+              className={`chrome-nav chrome-tool-account ${view === 'account' ? 'is-open' : ''}${out('account')}`}
               onClick={() => setView(view === 'account' ? 'menu' : 'account')}
               aria-pressed={view === 'account'}
               aria-label="Account"
-              title="Account"
+              title={TOOL_META.account.title}
               {...controlFade}
             >
-              <User className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+              <ChipBody glyph={User} />
             </motion.button>
           )}
         </AnimatePresence>
@@ -1140,6 +1377,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
             layout={layoutProp}
             layoutDependency={layoutDependency}
             type="button"
+            data-tool="admin"
             className={`chrome-nav chrome-admin-nav ${adminNavOpen || adminDirectoryOpen ? 'is-open' : ''}`}
             onClick={() => togglePanel(adminSurface ? ADMIN_NAV_PANEL : ADMIN_DIRECTORY_PANEL)}
             aria-expanded={adminNavOpen || adminDirectoryOpen}
@@ -1149,20 +1387,25 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
             }
             title={adminSurface ? `${adminSurface.label} — change surface` : 'Admin'}
           >
-            <LayoutGrid className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+            <ChipBody glyph={LayoutGrid} sheetOpen={adminNavOpen || adminDirectoryOpen} />
           </motion.button>
         )}
+        {/* The compass: the menu, and the one chip that never leaves the bar
+            or shrinks. Open, it wears the bar's "on" look with the sheet's ×,
+            like every chip whose sheet is up. */}
         <motion.button
           layout={layoutProp}
           layoutDependency={layoutDependency}
           type="button"
+          data-tool="menu"
           className={`chrome-nav chrome-nav-bottom ${dockOpen ? 'is-open' : ''}`}
           onClick={toggleDock}
           aria-expanded={dockOpen}
           aria-controls="action-dock-panel"
           aria-label={dockOpen ? 'Close menu' : 'Open menu'}
+          title={dockOpen ? 'Close the menu' : 'Menu: every page Dame is'}
         >
-          <Compass className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          <ChipBody glyph={Compass} sheetOpen={dockOpen} />
         </motion.button>
       </div>
 
@@ -1211,37 +1454,47 @@ function withPageLabel(crumbs, label) {
 // them present means the list on screen is filtered.
 const FILTER_PARAMS = ['verbs', 'postTypes', 'kinds'];
 
-/** True once the window is scrolled past `threshold` px from the top.
- *  Drives the tertiary breadcrumb: it slides down as you leave the top of
- *  the page and folds back up on return. The threshold is a few hundred px
- *  so the crumb only appears once you've deliberately scrolled into the
- *  page, not on the first small nudge away from the top. */
-/** Text of the day header whose section is currently scrolled under the
- *  top chrome, or null while above the first day header (and on pages
- *  without day-grouped feeds). Reads the DOM directly — day headers carry
- *  stable classes on every feed page (home, listening, posting, logging)
- *  — so no page-side wiring is needed. The headers are re-queried on each
- *  scroll frame; a feed renders at most a few dozen of them, and querying
- *  live keeps freshly-loaded groups ("Load more", background refresh)
- *  accurate without observers. */
+/** The day section currently scrolled under the top chrome, as
+ *  `{ short, full }` (shortDayLabel, and the header's full name), or null
+ *  while above the first day header and on pages without day sections.
+ *
+ *  Reads the DOM directly, so no page-side wiring is needed. A day header is
+ *  the `.day-header` in a `.day-section-header` (DayOfLifeHeader, /mothing),
+ *  or any element carrying `data-day-label`, whose value is then the label as
+ *  it should be said (a page with its own day markup can opt in that way).
+ *  The full name is the header's aria-label or title when it has a short
+ *  visible one. The headers are re-queried on each scroll frame; a feed
+ *  renders at most a few dozen of them, and querying live keeps freshly
+ *  loaded groups ("Load more", background refresh) accurate without
+ *  observers. */
 function useCurrentDayLabel(mountedPath) {
   const [label, setLabel] = useState(null);
   useEffect(() => {
     let frame = 0;
     const apply = () => {
-      const headers = document.querySelectorAll('.day-section-header .day-header');
+      const headers = document.querySelectorAll(
+        '.day-section-header .day-header, [data-day-label]',
+      );
       let current = null;
       if (headers.length) {
-        // The strip's own reveal grows --chrome-top-h, which nudges this
-        // threshold down a touch once shown — harmless hysteresis at the
-        // section boundary.
         const chromeBottom = chromeTopPx();
         for (const h of headers) {
           if (h.getBoundingClientRect().top < chromeBottom + 12) current = h;
           else break;
         }
       }
-      setLabel(current ? current.textContent : null);
+      if (!current) {
+        setLabel((prev) => (prev === null ? prev : null));
+        return;
+      }
+      const given = current.getAttribute('data-day-label');
+      const text = (given || current.textContent || '').trim();
+      const full =
+        current.getAttribute('aria-label') || current.getAttribute('title') || text;
+      // Shortened from what the header shows ("Today", "October 21, 2026"),
+      // not its fuller name, which can lead with "1 week ago".
+      const short = given ? text : shortDayLabel(text);
+      setLabel((prev) => (prev && prev.short === short && prev.full === full ? prev : { short, full }));
     };
     const schedule = () => {
       cancelAnimationFrame(frame);
@@ -1261,6 +1514,113 @@ function useCurrentDayLabel(mountedPath) {
   return label;
 }
 
+/** Where the reader is against the page's title and the masthead.
+ *
+ *  - `title`: the page's own title, the first `h1` in the page on screen, as
+ *    the trail's last crumb on a detail page ("Why I started posting like it's
+ *    the 2000s again" rather than its slug). Read when the page mounts, and
+ *    again when it changes size, which is how a title that arrives with the
+ *    content is noticed.
+ *  - `pastTitle`: that title has scrolled up under the running head.
+ *  - `tierInView`: some of the masthead's atmosphere is still on screen.
+ *
+ *  IntersectionObservers rather than a scroll sweep: the browser tells us when
+ *  either edge crosses the running head's bottom, and nothing is read per
+ *  frame. The observers' top margin is the running head's height, measured. */
+function useRunningHead({ mountedPath, topRef, tierWrapRef, tierMode }) {
+  // What was found, and on which page: on the render a new page mounts, the
+  // last page's title is still in state, and the trail named the new post
+  // after the index it was opened from for a frame.
+  const [found, setFound] = useState({ path: null, el: null, text: null });
+  const titleEl = found.path === mountedPath ? found.el : null;
+  const title = found.path === mountedPath ? found.text : null;
+  const [pastTitle, setPastTitle] = useState(false);
+  const [tierInView, setTierInView] = useState(true);
+  const [headH, setHeadH] = useState(0);
+
+  // The running head's height, for the observers' margin.
+  useLayoutEffect(() => {
+    const el = topRef.current;
+    if (!el) return undefined;
+    const measure = () => setHeadH(Math.round(el.getBoundingClientRect().height));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [topRef]);
+
+  // Find the page's title, and keep it current as the page fills in.
+  useEffect(() => {
+    const main = document.getElementById('main-content');
+    if (!main) return undefined;
+    let frame = 0;
+    const find = () => {
+      frame = 0;
+      const page = main.querySelector('.route-transition') || main;
+      // A title that isn't drawn (display: none) can't be scrolled past.
+      const h1 = [...page.querySelectorAll('h1')].find((el) => el.getClientRects().length > 0) || null;
+      const text = (h1 ? h1.textContent.replace(/\s+/g, ' ').trim() : '') || null;
+      setFound((prev) =>
+        prev.path === mountedPath && prev.el === h1 && prev.text === text
+          ? prev
+          : { path: mountedPath, el: h1, text },
+      );
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(find);
+    };
+    find();
+    const page = main.querySelector('.route-transition') || main;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    if (ro) ro.observe(page);
+    window.addEventListener(ROUTE_SETTLED, schedule);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      if (ro) ro.disconnect();
+      window.removeEventListener(ROUTE_SETTLED, schedule);
+    };
+  }, [mountedPath]);
+
+  // Past the title: its bottom edge is above the running head's bottom.
+  useEffect(() => {
+    if (!titleEl || typeof IntersectionObserver === 'undefined') {
+      setPastTitle(false);
+      return undefined;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        const top = entry.rootBounds ? entry.rootBounds.top : headH;
+        setPastTitle(!entry.isIntersecting && entry.boundingClientRect.bottom <= top + 1);
+      },
+      { rootMargin: `-${headH}px 0px 0px 0px`, threshold: 0 },
+    );
+    io.observe(titleEl);
+    return () => io.disconnect();
+  }, [titleEl, headH]);
+
+  // The masthead's atmosphere: is any of it below the running head?
+  const tierPresent = tierMode !== 'closed';
+  useEffect(() => {
+    const el = tierWrapRef.current;
+    if (!tierPresent || !el || typeof IntersectionObserver === 'undefined') {
+      // Not drawn (on /admin) is not in view.
+      setTierInView(tierPresent && !!el);
+      return undefined;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry) setTierInView(entry.isIntersecting);
+      },
+      { rootMargin: `-${headH}px 0px 0px 0px`, threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [tierPresent, tierWrapRef, headH]);
+
+  return { title, hasTitle: !!titleEl, pastTitle, tierInView };
+}
 /** NSID of the record at the top of the scroll position — the first
  *  record entry still (partly) visible below the chrome — or null on
  *  pages without record lists. Same DOM-driven, rAF-throttled sweep as
@@ -1397,14 +1757,17 @@ function useMountedPathname(onMount) {
   return mounted;
 }
 
+/** True once the window is scrolled past `threshold` px from the top. On a
+ *  page with neither a title nor day sections, this is what counts as
+ *  "reading": the trail takes the status's place in the running head once
+ *  you've deliberately scrolled into the page, not on the first nudge. */
 function useScrolledDown(threshold = 220) {
   const [down, setDown] = useState(false);
   useEffect(() => {
     let frame = 0;
     function onScroll() {
-      // Coalesce through rAF so the state flip (and the height animation it
-      // drives) never runs synchronously inside the scroll event, keeping
-      // momentum scrolling smooth as the breadcrumb expands/collapses.
+      // Coalesce through rAF so the state flip never runs synchronously
+      // inside the scroll event, keeping momentum scrolling smooth.
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => setDown((window.scrollY || 0) > threshold));
     }
@@ -1424,41 +1787,44 @@ function useScrolledDown(threshold = 220) {
 // after it is a genuinely short page whose footer should sit revealed.
 const SHORT_PAGE_SETTLE_MS = 500;
 
-// Open/close timing for the top chrome's expanded tier. Same curve and
-// length the old height animation used, so the motion reads the same.
+// Open/close timing for the atmosphere rows. Same curve and length the old
+// height animation used, so the motion reads the same.
 const TIER_SLIDE = { duration: 360, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' };
 const TIER_ROW_FADE = { duration: 280, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' };
 const TIER_ROW_DELAYS = [60, 100];
 
-/** Opens and closes the top chrome's expanded tier (LISTENING TO /
- *  FOLLOWED BY and the vitals bar) without changing the page's layout
- *  mid-animation.
+/** Opens and closes the atmosphere rows (LISTENING TO / FOLLOWED BY and the
+ *  vitals bar) without changing the page's layout mid-animation. Used twice:
+ *  for the masthead's rows, in the page, and for the peek, which brings them
+ *  back over the page once the masthead has scrolled away.
  *
- *  It used to animate the tier's height. That moved everything below the
- *  header every frame, so each frame was a layout, and in Safari a repaint
- *  of the whole visible page, all of it driven from JavaScript on the main
- *  thread (which iOS Safari can also run at a lower frame rate than the
- *  screen). Fast phones still stuttered.
+ *  It used to animate the rows' height. That moved everything below every
+ *  frame, so each frame was a layout, and in Safari a repaint of the whole
+ *  visible page, all of it driven from JavaScript on the main thread (which
+ *  iOS Safari can also run at a lower frame rate than the screen). Fast
+ *  phones still stuttered.
  *
  *  Now the layout changes once per toggle and everything that moves is a
  *  transform or opacity animation, which the browser runs on its
  *  compositor:
  *
- *  - While sliding, the tier is an overlay pinned under the primary row
- *    (`.is-sliding`), so the header keeps its collapsed size. Its wrap
- *    slides down while its content counter-slides up by the same amount:
- *    the content stays put and is uncovered from the top, the same reveal
- *    the height animation gave. The wrap carries the header's bottom rule
- *    while sliding, so the line travels with the edge.
- *  - The followers (the page and the breadcrumb strip) translate by exactly
- *    how much of the tier is showing, so they stay butted against its edge.
- *  - Fully open, the tier joins the header's flow and the transforms are
- *    dropped in the same commit, so nothing visibly moves. Fully closed, it
- *    unmounts.
+ *  - While sliding, the rows are an overlay (`.is-sliding`): in the masthead,
+ *    pinned at its top, so the page under it never changes size mid-slide;
+ *    for the peek, pinned under `anchorRef` (the running head's row). The
+ *    wrap slides down while its content counter-slides up by the same
+ *    amount: the content stays put and is uncovered from the top, the same
+ *    reveal the height animation gave. The wrap carries a bottom rule while
+ *    sliding, so the line travels with the edge.
+ *  - The followers (in the masthead: the trail strip under the rows and the
+ *    page) translate by exactly how much of the rows is showing, so they stay
+ *    butted against its edge. The peek has none; it covers the page.
+ *  - Fully open, the masthead's rows join the flow and the transforms are
+ *    dropped in the same commit, so nothing visibly moves. (The peek stays
+ *    an overlay.) Fully closed, they unmount.
  *
- *  A toggle mid-slide starts from wherever the tier is. Returns the mode:
+ *  A toggle mid-slide starts from wherever the rows are. Returns the mode:
  *  'closed' | 'opening' | 'open' | 'closing'. */
-function useTierSlide({ expanded, reduce, primaryRef, wrapRef, innerRef, followers }) {
+function useTierSlide({ expanded, reduce, anchorRef = null, wrapRef, innerRef, followers }) {
   const [mode, setMode] = useState(expanded ? 'open' : 'closed');
   const [prevExpanded, setPrevExpanded] = useState(expanded);
   if (expanded !== prevExpanded) {
@@ -1476,6 +1842,18 @@ function useTierSlide({ expanded, reduce, primaryRef, wrapRef, innerRef, followe
     const inner = innerRef.current;
     const running = animsRef.current;
 
+    // Pin an anchored overlay right under its anchor, relative to the
+    // containing block's padding box (what `top` resolves against).
+    const anchor = anchorRef?.current;
+    if (anchor && wrap) {
+      const parent = wrap.parentElement;
+      if (parent) {
+        const top =
+          anchor.getBoundingClientRect().bottom - parent.getBoundingClientRect().top - parent.clientTop;
+        wrap.style.setProperty('--tier-top', `${top}px`);
+      }
+    }
+
     if (mode === 'open' || mode === 'closed') {
       // At rest, the layout now matches where the slide ended, so the held
       // end frames can go in this same commit.
@@ -1489,9 +1867,9 @@ function useTierSlide({ expanded, reduce, primaryRef, wrapRef, innerRef, followe
     }
 
     // Fractional on purpose: offsetHeight rounds, and a rounded slide ends
-    // half a pixel off from where the tier's real height puts the page.
+    // half a pixel off from where the rows' real height puts the page.
     const height = inner.getBoundingClientRect().height;
-    // How much of the tier is showing right now: read off the wrap's live
+    // How much of the rows is showing right now: read off the wrap's live
     // transform when a slide is mid-flight, otherwise all or nothing.
     let shown = prevMode === 'open' ? height : 0;
     if (running.length) {
@@ -1500,15 +1878,6 @@ function useTierSlide({ expanded, reduce, primaryRef, wrapRef, innerRef, followe
     }
     for (const a of running) a.cancel();
 
-    // Pin the overlay right under the primary row, relative to the header's
-    // padding box (what `top` resolves against).
-    const primary = primaryRef.current;
-    const header = wrap.parentElement;
-    if (primary && header) {
-      const top =
-        primary.getBoundingClientRect().bottom - header.getBoundingClientRect().top - header.clientTop;
-      wrap.style.setProperty('--tier-top', `${top}px`);
-    }
     const target = mode === 'opening' ? height : 0;
     const hold = { ...TIER_SLIDE, fill: 'forwards' };
     const slide = (el, from, to) =>
@@ -1751,8 +2120,13 @@ function createCountStore() {
   };
 }
 
-/** The scrolled-past number, the only thing that re-renders per row. */
-function ScrollCount({ store }) {
+/** The scrolled-past count, the only thing that re-renders per row: the
+ *  number beside ↑ on a feed without day sections, or (`spoken`) the words a
+ *  screen reader hears as part of the ↑ chip's name, "7 entries above". */
+function ScrollCount({ store, spoken = false }) {
   const n = useSyncExternalStore(store.subscribe, store.get);
-  return <span aria-label={`${n} items scrolled past`}>{n}</span>;
+  if (spoken) {
+    return <span className="visually-hidden">{`, ${n} ${n === 1 ? 'entry' : 'entries'} above`}</span>;
+  }
+  return <span aria-hidden="true">{n}</span>;
 }

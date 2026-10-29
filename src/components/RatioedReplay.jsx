@@ -25,6 +25,7 @@ import { fmtDuration, fmtElapsed } from '../lib/ratioed.js';
 import { tallyWitness } from '../lib/ratioedLive.js';
 import { ME_DID } from '../config.js';
 import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
+import Segmented from './Segmented.jsx';
 import './RatioedReplay.css';
 
 const KIND_VERB = { like: 'liked it', repost: 'reposted it', quote: 'quoted it', reply: 'replied' };
@@ -266,23 +267,20 @@ export default function RatioedReplay({ piece, events, profiles = {}, parent }) 
             at a phone width — and the one they were there to tell you, how
             long real time takes, is already under the track in the legend.
             They stay in the labels a screen reader and a tooltip read. */}
-        <div className="ratioed-seg" role="group" aria-label="Playback speed">
-          {[
+        <Segmented
+          label="Playback speed"
+          value={realTime}
+          onChange={setRealTime}
+          options={[
             [true, 'Real', `the piece's own ${fmtDuration(piece?.lifespanMs)}`],
             [false, 'Quick', `a ${fmtDuration(FAST_ALIVE_MS)} sweep`],
-          ].map(([v, label, cost]) => (
-            <button
-              key={label}
-              type="button"
-              aria-pressed={realTime === v}
-              aria-label={`${label} — ${cost}`}
-              title={cost}
-              onClick={() => setRealTime(v)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+          ].map(([v, label, cost]) => ({
+            value: v,
+            label,
+            title: cost,
+            ariaLabel: `${label} — ${cost}`,
+          }))}
+        />
         <span className="ratioed-replay-clock">{clock}</span>
       </div>
 

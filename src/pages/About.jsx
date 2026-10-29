@@ -5,6 +5,7 @@ import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import { Skeleton } from '../components/Skeleton.jsx';
+import Time from '../components/Time.jsx';
 import { useProfile } from '../hooks/useProfile.js';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, getRecord, listRecordsPage } from '../lib/atproto.js';
@@ -14,7 +15,7 @@ import { hasLeafletContent } from '../lib/lexicons.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { pickDefaultResume } from '../lib/resumeHelpers.js';
 import { fetchGuestbookEntries } from '../lib/guestbook.js';
-import { relativeTime } from '../lib/time.js';
+import { isRecent } from '../lib/time.js';
 import { pageDefault } from '../lib/pageRegistry.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useNavRoutes } from '../hooks/useNavRoutes.js';
@@ -275,7 +276,12 @@ function FindDame({ profile }) {
             {book?.total ? (
               <span className="about-ledger-note">
                 {book.total} {book.total === 1 ? 'signature' : 'signatures'}
-                {book.latest ? `, the latest ${relativeTime(book.latest)}` : ''}
+                {book.latest ? (
+                  <>
+                    , the latest {isRecent(book.latest) ? '' : 'on '}
+                    <Time value={book.latest} variant="relative" />
+                  </>
+                ) : null}
               </span>
             ) : null}
           </dd>
@@ -355,7 +361,7 @@ function AlsoRow({ route, latest }) {
         {route.label}
       </Link>
       <span className="about-also-gloss">{gloss}</span>
-      <span className="about-also-latest">{latest ? relativeTime(latest) : ''}</span>
+      <span className="about-also-latest">{latest ? <Time value={latest} variant="relative" /> : ''}</span>
     </li>
   );
 }

@@ -152,7 +152,7 @@
 
 /* Hover-capable pointers only — a tap that repaints the row under the finger
    costs iOS the click that should have followed it. See typography.css. */
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .dock-route:hover {
     background: transparent;
     color: var(--accent);
@@ -195,7 +195,7 @@
   transition: color 120ms ease;
 }
 
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .dock-tool:hover {
     background: transparent;
     color: var(--accent);
@@ -243,7 +243,7 @@
   border-color: var(--accent-soft);
 }
 
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .dock-tool-icon:hover {
     color: var(--accent);
     border-color: var(--accent-soft);
@@ -253,6 +253,94 @@
 .dock-tool-icon svg {
   width: 16px;
   height: 16px;
+}
+
+/* The bottom bar's chips that didn't fit it, at the sheet's foot, nearest
+   the thumb: each a hairline square with its glyph and its word, one
+   target. They wrap rather than scroll, so every one stays in view. */
+.dock-overflow {
+  margin-top: var(--space-4);
+}
+
+.dock-overflow-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* The feed layout, when the open bar had no room for it: its words on a
+   line of their own. */
+.dock-overflow-layout {
+  flex: 1 0 100%;
+  display: flex;
+}
+
+.dock-overflow-tool {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dock-overflow-face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  font-family: var(--mono-ui);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.dock-overflow-face svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.dock-overflow-word {
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+}
+
+.dock-overflow-tool:focus-visible .dock-overflow-face {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dock-overflow-tool:hover .dock-overflow-face {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
+  .dock-overflow-tool:hover .dock-overflow-word {
+    color: var(--accent);
+  }
+}
+
+/* 44px tall on a coarse pointer without growing the painted square. */
+@media (pointer: coarse) {
+  .dock-overflow-tool::before {
+    content: '';
+    position: absolute;
+    inset: -8px -6px;
+  }
 }
 
 /* Sheet-replace navigation: the menu and account views slide

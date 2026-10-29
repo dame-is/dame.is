@@ -10,6 +10,7 @@
   gap: var(--space-4);
 }
 
+/* The copy buttons are the kit's small tier (controls.css .btn--sm). */
 .record-fallback-actions {
   display: flex;
   flex-wrap: wrap;
@@ -17,79 +18,15 @@
   align-items: center;
 }
 
-.record-fallback-actions a,
-.record-fallback-actions button {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  padding: 0.4em 0.85em;
-  border: 1px solid var(--rule);
-  background: var(--page);
-  color: var(--ink-soft);
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.record-fallback-actions a:focus-visible,
-.record-fallback-actions button:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-@media (hover: hover) {
-  .record-fallback-actions a:hover,
-  .record-fallback-actions button:hover {
-    color: var(--accent);
-    border-color: var(--accent-soft);
-  }
-}
-
-/* aturi.to hand-off links under a record (Open in… / Inspect Data). */
+/* aturi.to hand-off links under a record (Open in… / Inspect record), and a
+   play's Apple Music and Spotify links before them: one row of the kit's
+   small text buttons (controls.css .btn--text). */
 .record-aturi-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
   align-items: center;
   margin-top: var(--space-4);
-}
-
-/* Quiet text actions, no boxes: one row, one style, for every record. */
-.record-aturi-actions a,
-.record-aturi-actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35em;
-  font-family: var(--sans);
-  font-size: var(--text-meta);
-  padding: 0.3em 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  color: var(--ink-soft);
-  text-decoration: underline;
-  text-decoration-color: var(--rule);
-  text-underline-offset: 3px;
-  cursor: pointer;
-  transition: color 120ms ease, text-decoration-color 120ms ease;
-}
-
-.record-aturi-actions a:focus-visible,
-.record-aturi-actions button:focus-visible {
-  color: var(--accent);
-  text-decoration-color: var(--accent-soft);
-}
-
-.record-aturi-actions button[aria-pressed='true'] {
-  color: var(--accent);
-}
-
-@media (hover: hover) {
-  .record-aturi-actions a:hover,
-  .record-aturi-actions button:hover {
-    color: var(--accent);
-    border-color: var(--accent-soft);
-  }
 }
 
 .record-fallback-json {

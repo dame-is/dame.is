@@ -25,7 +25,7 @@ import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import BreakableId from '../components/BreakableId.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
-import RatioedStats from '../components/RatioedStats.jsx';
+import Figures from '../components/Figures.jsx';
 import {
   SEED_PIECES,
   SEED_PEOPLE,
@@ -434,8 +434,8 @@ export default function RatioedParticipant() {
           )}
         </p>
 
-        <RatioedStats cells={headline} />
-        <RatioedStats cells={texture} dense />
+        <Figures items={headline} columns={4} label="Headline figures" />
+        <Figures items={texture} columns={4} dense label="More figures" />
 
         <section className="ratioed-piece-section">
           <h2>Every piece they were in</h2>

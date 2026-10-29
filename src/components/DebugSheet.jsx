@@ -1,5 +1,4 @@
 import { memo, useEffect } from 'react';
-import { X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import DebugPane from './DebugPane.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
@@ -52,23 +51,13 @@ function DebugSheet() {
     <BottomSheet
       open={open}
       onClose={closePanel}
-      label="atmosphere · this page"
+      title="atmosphere · this page"
       id="chrome-debug-sheet"
       size="fill"
       className="debug-sheet-panel"
+      bodyClassName="debug-sheet-content"
       restoreFocusTo={detailsTrigger}
     >
-      <div className="debug-sheet-header">
-        <span className="small-caps">atmosphere · this page</span>
-        <button
-          type="button"
-          className="debug-sheet-close"
-          onClick={closePanel}
-          aria-label="Close"
-        >
-          <X size={16} aria-hidden="true" />
-        </button>
-      </div>
       <DebugPane onClose={closePanel} />
     </BottomSheet>
   );

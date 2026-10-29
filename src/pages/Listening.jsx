@@ -15,7 +15,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
-import { groupByDay } from '../lib/time.js';
+import { formatTime, groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
 import { dropGhostPlays } from '../lib/ghostPlays.js';
 import { resolvePds, getLatestCommit } from '../lib/atproto.js';
@@ -137,15 +137,13 @@ export default function Listening() {
           {q ? 'No songs match that search.' : 'No plays yet.'}
         </p>
       ) : (
-        <div className={ledger ? 'feed-ledger' : undefined}>
+        // The ledger's margin holds each session's cover here, not the word
+        // "listening" on every row.
+        <div className={ledger ? 'feed-ledger feed-ledger-column feed-ledger-covers' : undefined}>
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader
-                  date={group.date}
-                  variant={ledger ? 'ledger' : 'default'}
-                  meta={listeningDayMeta(group.items)}
-                />
+                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
                 <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
                   {group.items.map((item) => {
                     // FeedItem is the list item itself, and memoized, as on the
@@ -182,39 +180,12 @@ export default function Listening() {
       {!loading && refreshedAt && (
         <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
           {status === 'stale'
-            ? `live refresh failed · snapshot from ${refreshedAt.toLocaleTimeString()}`
-            : `refreshed ${refreshedAt.toLocaleTimeString()}`}
+            ? `live refresh failed · snapshot from ${formatTime(refreshedAt)}`
+            : `refreshed ${formatTime(refreshedAt)}`}
         </p>
       )}
     </PageShell>
   );
-}
-
-/**
- * Per-day summary for the listening ledger's day header — replaces the
- * generic "day of life" count with what was actually played that day:
- * songs, minutes, and unique artists. `sessions` are the collapsed
- * listening batches shown under the header; each carries its underlying
- * `plays`, so the numbers stay in step with the (possibly search-filtered)
- * rows below. Durations are stored in seconds.
- */
-function listeningDayMeta(sessions) {
-  let songs = 0;
-  let seconds = 0;
-  const artists = new Set();
-  for (const session of sessions) {
-    const plays = session.plays || [session];
-    for (const play of plays) {
-      const p = play.payload || {};
-      songs += 1;
-      const dur = Number(p.duration);
-      if (Number.isFinite(dur) && dur > 0) seconds += dur;
-      for (const name of playArtistNames(p)) artists.add(name.toLowerCase());
-    }
-  }
-  const minutes = Math.round(seconds / 60);
-  const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
-  return `${plural(songs, 'song')}, ${minutes.toLocaleString()} min, ${plural(artists.size, 'artist')}`;
 }
 
 // Ghost plays (see src/lib/ghostPlays.js) are dropped here, ahead of both the

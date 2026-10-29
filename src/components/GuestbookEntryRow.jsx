@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import { registerDate } from '../lib/guestbookRegister.js';
-import { clockTime, longDate } from '../lib/recordPlate.js';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from './XraySubstrate.jsx';
+import Time from './Time.jsx';
 import '../pages/Guestbook.css';
 
 /**
@@ -55,9 +55,12 @@ export default function GuestbookEntryRow({
   const explorerPath = explorerPathFromAtUri(entry.uri);
   // Legacy signatures often lack a createdAt (recovered from the TID rkey where
   // possible); when even that isn't available, skip the date rather than
-  // rendering an empty permalink.
-  const when = registerDate(value.createdAt);
-  const whenFull = value.createdAt ? `${longDate(value.createdAt)} · ${clockTime(value.createdAt)}` : undefined;
+  // rendering an empty permalink. Dated on Dame's calendar like the rest of
+  // the site; the tooltip gives the moment in full, and the reader's own
+  // clock when it reads differently.
+  const when = registerDate(value.createdAt) ? (
+    <Time value={value.createdAt} variant="dateShort" />
+  ) : null;
   const hasControls = mine || moderating;
   // Flagged by the language filter (or on the host's hidden list): benched from
   // the public view. Both only ever render here in moderation, dimmed.
@@ -139,13 +142,7 @@ export default function GuestbookEntryRow({
           {value.location && <span className="guestbook-entry-location">{value.location}</span>}
           {when && (
             <span className="guestbook-entry-time">
-              {explorerPath ? (
-                <Link to={explorerPath} title={whenFull}>
-                  <time dateTime={value.createdAt}>{when}</time>
-                </Link>
-              ) : (
-                <time dateTime={value.createdAt}>{when}</time>
-              )}
+              {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
             </span>
           )}
           {hasControls && (

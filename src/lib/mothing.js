@@ -49,15 +49,6 @@ export function formatNightDate(d) {
   return `${MONTHS[Number(mo) - 1]} ${Number(day)}, ${y}`;
 }
 
-/**
- * Local 'HH:MM' → '8:47 pm'. Wall-clock only; carries no location. The feed's
- * own reading of an observation's time, so a night's hours on /mothing (and on
- * its card) match the times the same moths carry in the home feed.
- */
-export function formatObservedTime(hhmm) {
-  return formatWallClockTime(hhmm);
-}
-
 /** The name a moth is shown under — its common name, else the binomial. */
 export const mothName = (obs) => obs?.taxon?.commonName || obs?.taxon?.name || 'Unidentified moth';
 
@@ -113,11 +104,16 @@ export function nightBeyondReach(observations, date) {
   return !latest || date >= latest;
 }
 
-/** '11:43 pm – 1:47 am', or a single time when a night holds only one, or ''. */
+/**
+ * '11:43 pm – 1:47 am', or a single time when a night holds only one, or ''.
+ * Wall-clock only (formatWallClockTime, the feed's own reading of an
+ * observation's time), so a night's hours on /mothing and on its card match
+ * the times the same moths carry in the home feed, and carry no location.
+ */
 export function nightSpan(session) {
-  const first = formatObservedTime(session?.firstTime);
+  const first = formatWallClockTime(session?.firstTime);
   if (!first) return '';
-  const last = formatObservedTime(session?.lastTime);
+  const last = formatWallClockTime(session?.lastTime);
   return last && last !== first ? `${first} – ${last}` : first;
 }
 

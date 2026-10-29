@@ -35,9 +35,11 @@ import { projectStats } from '../../lib/ratioedStats.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
 import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
 import { participantPath } from '../../lib/ratioedParticipant.js';
+import { formatDateShort } from '../../lib/time.js';
 import { useTheme } from '../../hooks/useTheme.jsx';
 import ScrollFrame from '../ScrollFrame.jsx';
 import RatioedHandle from '../RatioedHandle.jsx';
+import Segmented from '../Segmented.jsx';
 import { RATIOED_PATH } from '../../config.js';
 import './RatioedBlock.css';
 
@@ -109,7 +111,7 @@ const DEFAULT_CAPTIONS = {
   participants: ({ roster, audience }) =>
     `The ${roster.rows.length} accounts present while a piece was alive, ${roster.breakers} of them breakers.${
       audience?.measuredAt
-        ? ` Audience is their follower count, read at the seal on a piece whose log recorded one and otherwise as of ${audience.measuredAt.slice(0, 10)}; a dot means nothing could price the account at all.`
+        ? ` Audience is their follower count, read at the seal on a piece whose log recorded one and otherwise as of ${formatDateShort(audience.measuredAt)}; a dot means nothing could price the account at all.`
         : ''
     }`,
   reach: ({ reach }) => {
@@ -936,7 +938,7 @@ function Participants({ rows: roster, audiences, parent }) {
         {(hidden > 0 || expanded) && (
           <button
             type="button"
-            className="ratioed-more"
+            className="btn btn--sm ratioed-more"
             aria-expanded={expanded}
             onClick={() => setExpanded(!expanded)}
           >
@@ -990,21 +992,15 @@ function Lifelines({ pieces, events, failed, stats, deltas, parent }) {
   return (
     <div className="ratioed-lifelines">
       <div className="ratioed-controls">
-        <div className="ratioed-seg" role="group" aria-label="Time scale">
-          {[
-            ['true', 'True'],
-            ['norm', 'Stretched'],
-          ].map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={scale === v}
-              onClick={() => setScale(v)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Time scale"
+          value={scale}
+          onChange={setScale}
+          options={[
+            { value: 'true', label: 'True' },
+            { value: 'norm', label: 'Stretched' },
+          ]}
+        />
         <div className="ratioed-chips">
           {KINDS.map((k) => (
             <button
@@ -1229,7 +1225,7 @@ function PieceDetail({ piece, delta, parent }) {
             {/* Label only. An arrow — text or icon — reads as a stray gap at
                 this size, and the button is already the only link in the
                 card. */}
-            <Link className="ratioed-through-btn" to={piecePath(piece, parent)}>
+            <Link className="btn ratioed-through-btn" to={piecePath(piece, parent)}>
               View take {String(piece.take).padStart(2, '0')}
             </Link>
           </p>

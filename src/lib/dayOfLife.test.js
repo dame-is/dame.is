@@ -6,138 +6,153 @@ import {
   daysInYearOfLife,
   dayOfLifeSnapshot,
 } from './dayOfLife.js';
+import { dayOfLife as ogDayOfLife, folio } from '../../og/time.js';
 
-// Everything here is anchored to LOCAL midnight (see the module header), so the
-// tests build dates with the local `new Date(y, m, d, ...)` constructor rather
-// than ISO 'Z' strings — that keeps the expected day numbers identical in any
-// timezone the test runner happens to sit in.
+// Everything here is counted on the New York calendar (see the module
+// header), so instants are written with New York offsets and birthdates as
+// calendar-date strings; the expected day numbers then hold in any zone the
+// runner sits in. dayOfLife.tz.test.js runs them from other zones.
+
+/** Noon in New York on a calendar day (m 1-based), whatever the season. */
+const noon = (y, m, d) => new Date(Date.UTC(y, m - 1, d, 16));
 
 describe('dayOfLife', () => {
-  const birth = new Date(1993, 4, 7); // May 7, 1993, local midnight
+  const birth = '1993-05-07';
 
   it('counts the birthday itself as Day 1 (1-indexed)', () => {
-    expect(dayOfLife(birth, birth)).toBe(1);
+    expect(dayOfLife(noon(1993, 5, 7), birth)).toBe(1);
+    expect(dayOfLife('1993-05-07', birth)).toBe(1);
   });
 
-  it('advances one day per local calendar day', () => {
-    expect(dayOfLife(new Date(1993, 4, 8), birth)).toBe(2);
-    expect(dayOfLife(new Date(1993, 4, 9), birth)).toBe(3);
+  it('advances one day per calendar day', () => {
+    expect(dayOfLife(noon(1993, 5, 8), birth)).toBe(2);
+    expect(dayOfLife(noon(1993, 5, 9), birth)).toBe(3);
   });
 
-  it('ignores the time of day — the count flips only at local midnight', () => {
-    // A post at 00:01 and one at 23:59 on the same local date are the same day.
-    expect(dayOfLife(new Date(1993, 4, 7, 0, 1), birth)).toBe(1);
-    expect(dayOfLife(new Date(1993, 4, 7, 23, 59), birth)).toBe(1);
-    // First minute of the next local day is already Day 2.
-    expect(dayOfLife(new Date(1993, 4, 8, 0, 1), birth)).toBe(2);
+  it('flips at midnight in New York, not at midnight UTC or the reader’s', () => {
+    expect(dayOfLife('1993-05-07T00:01:00-04:00', birth)).toBe(1);
+    expect(dayOfLife('1993-05-07T23:59:00-04:00', birth)).toBe(1);
+    // 03:59 UTC on the 8th is 11:59 pm on the 7th in New York.
+    expect(dayOfLife('1993-05-08T03:59:00Z', birth)).toBe(1);
+    expect(dayOfLife('1993-05-08T00:01:00-04:00', birth)).toBe(2);
   });
 
   it('clamps to Day 1 for dates on or before the birthdate', () => {
-    expect(dayOfLife(new Date(1993, 4, 6), birth)).toBe(1);
-    expect(dayOfLife(new Date(1990, 0, 1), birth)).toBe(1);
+    expect(dayOfLife(noon(1993, 5, 6), birth)).toBe(1);
+    expect(dayOfLife(noon(1990, 1, 1), birth)).toBe(1);
   });
 
-  it('stays exact across a spring-forward DST day (23h) — Math.round, not floor', () => {
-    // US spring-forward is 2023-03-12 (a 23-hour local day in DST zones). The
-    // day number must still increment by exactly one per calendar day; a floor
-    // of 47h/24h would wrongly report Day 2 for 3/13. Correct in UTC too.
-    const b = new Date(2023, 2, 11); // Mar 11
-    expect(dayOfLife(new Date(2023, 2, 11), b)).toBe(1);
-    expect(dayOfLife(new Date(2023, 2, 12), b)).toBe(2);
-    expect(dayOfLife(new Date(2023, 2, 13), b)).toBe(3);
+  it('stays exact across the 23-hour spring-forward day', () => {
+    // Mar 8 2026 has 23 hours in New York. 11:59 pm on the 7th to 12:01 am
+    // on the 9th is 47 hours and two calendar days.
+    const b = '2026-03-07';
+    expect(dayOfLife('2026-03-07T23:59:00-05:00', b)).toBe(1);
+    expect(dayOfLife('2026-03-08T12:00:00-04:00', b)).toBe(2);
+    expect(dayOfLife('2026-03-09T00:01:00-04:00', b)).toBe(3);
   });
 
-  it('stays exact across a fall-back DST day (25h)', () => {
-    // US fall-back is 2023-11-05 (a 25-hour local day in DST zones).
-    const b = new Date(2023, 10, 4); // Nov 4
-    expect(dayOfLife(new Date(2023, 10, 5), b)).toBe(2);
-    expect(dayOfLife(new Date(2023, 10, 6), b)).toBe(3);
+  it('stays exact across the 25-hour fall-back day', () => {
+    // Nov 1 2026 has 25 hours in New York; 12:10 am to 11:50 pm is one day.
+    const b = '2026-10-31';
+    expect(dayOfLife('2026-11-01T00:10:00-04:00', b)).toBe(2);
+    expect(dayOfLife('2026-11-01T23:50:00-05:00', b)).toBe(2);
+    expect(dayOfLife('2026-11-02T00:10:00-05:00', b)).toBe(3);
+  });
+
+  it('is NaN for a date that won’t parse', () => {
+    expect(dayOfLife('nope', birth)).toBeNaN();
   });
 });
 
 describe('yearOfLife', () => {
-  const birth = new Date(1993, 4, 7); // May 7, 1993
+  const birth = '1993-05-07';
 
   it('is Year 1 on the birthdate (currently in your 1st year of life)', () => {
-    expect(yearOfLife(birth, birth)).toBe(1);
+    expect(yearOfLife(noon(1993, 5, 7), birth)).toBe(1);
   });
 
   it('turns over on the birthday, not on Jan 1', () => {
-    // The day before the 1st birthday is still Year 1; the 1st birthday is Year 2.
-    expect(yearOfLife(new Date(1994, 4, 6), birth)).toBe(1);
-    expect(yearOfLife(new Date(1994, 4, 7), birth)).toBe(2);
+    expect(yearOfLife(noon(1994, 5, 6), birth)).toBe(1);
+    expect(yearOfLife(noon(1994, 5, 7), birth)).toBe(2);
   });
 
   it('expresses age as "Year N" = one past completed years', () => {
-    // Day before the 33rd birthday: 32 completed years -> Year 33.
-    expect(yearOfLife(new Date(2026, 4, 6), birth)).toBe(33);
-    // On the 33rd birthday: 33 completed years -> Year 34.
-    expect(yearOfLife(new Date(2026, 4, 7), birth)).toBe(34);
+    expect(yearOfLife(noon(2026, 5, 6), birth)).toBe(33);
+    expect(yearOfLife(noon(2026, 5, 7), birth)).toBe(34);
   });
 });
 
 describe('dayOfYearOfLife', () => {
-  const birth = new Date(1990, 0, 1); // Jan 1 for clean arithmetic
+  const birth = '1990-01-01'; // Jan 1 for clean arithmetic
 
   it('is Day 1 on the birthday', () => {
-    expect(dayOfYearOfLife(new Date(2020, 0, 1), birth)).toBe(1);
-    expect(dayOfYearOfLife(new Date(2020, 0, 2), birth)).toBe(2);
+    expect(dayOfYearOfLife(noon(2020, 1, 1), birth)).toBe(1);
+    expect(dayOfYearOfLife(noon(2020, 1, 2), birth)).toBe(2);
   });
 
   it('counts up to the full year on the day before the next birthday', () => {
-    // Dec 31, 2019 is 364 days after Jan 1, 2019 -> day 365 of that year of life.
-    expect(dayOfYearOfLife(new Date(2019, 11, 31), birth)).toBe(365);
+    expect(dayOfYearOfLife(noon(2019, 12, 31), birth)).toBe(365);
   });
 
   it('resets after the most recent birthday, not the calendar new year', () => {
-    // Feb 1 is the 32nd day since the Jan 1 birthday.
-    expect(dayOfYearOfLife(new Date(2021, 1, 1), birth)).toBe(32);
+    expect(dayOfYearOfLife(noon(2021, 2, 1), birth)).toBe(32);
   });
 });
 
 describe('daysInYearOfLife', () => {
-  const birth = new Date(1993, 4, 7);
+  const birth = '1993-05-07';
 
   it('is 365 in a year of life with no Feb 29 in it', () => {
-    expect(daysInYearOfLife(new Date(2026, 9, 27), birth)).toBe(365);
+    expect(daysInYearOfLife(noon(2026, 10, 27), birth)).toBe(365);
   });
 
   it('is 366 when a Feb 29 falls between the two birthdays', () => {
     // May 7 2027 → May 7 2028 spans Feb 29 2028, and its last day is day 366.
-    expect(daysInYearOfLife(new Date(2028, 2, 1), birth)).toBe(366);
-    expect(dayOfYearOfLife(new Date(2028, 4, 6), birth)).toBe(366);
+    expect(daysInYearOfLife(noon(2028, 3, 1), birth)).toBe(366);
+    expect(dayOfYearOfLife(noon(2028, 5, 6), birth)).toBe(366);
   });
 });
 
 describe('the real birthdate', () => {
-  // Built with the config's own string rather than a local Date, which is how
-  // the shipped code calls these — and what the tests above, passing local
-  // Dates, could never catch going wrong.
-
-  it('is a calendar date: Oct 27 2026 is Day 12,227 in the local calendar', () => {
+  it('is a calendar date: Oct 27 2026 is Day 12,227', () => {
     // (date(2026, 10, 27) - date(1993, 5, 7)).days + 1
-    expect(dayOfLife(new Date(2026, 9, 27, 12))).toBe(12227);
+    expect(dayOfLife(noon(2026, 10, 27))).toBe(12227);
   });
 
   it('turns the year over on May 7, not the evening before', () => {
-    expect(yearOfLife(new Date(2026, 4, 6, 12))).toBe(33);
-    expect(dayOfYearOfLife(new Date(2026, 4, 6, 12))).toBe(365);
-    expect(yearOfLife(new Date(2026, 4, 7, 12))).toBe(34);
-    expect(dayOfYearOfLife(new Date(2026, 4, 7, 12))).toBe(1);
+    expect(yearOfLife(noon(2026, 5, 6))).toBe(33);
+    expect(dayOfYearOfLife(noon(2026, 5, 6))).toBe(365);
+    expect(yearOfLife(noon(2026, 5, 7))).toBe(34);
+    expect(dayOfYearOfLife(noon(2026, 5, 7))).toBe(1);
   });
 
-  it('reads an ISO instant as the day it names, not the moment', () => {
-    const at = new Date(2026, 9, 27, 12);
-    expect(dayOfLife(at, '1993-05-07T00:00:00Z')).toBe(
-      dayOfLife(at, '1993-05-07'),
-    );
+  it('reads an ISO birthdate as the day it names, not the moment', () => {
+    const at = noon(2026, 10, 27);
+    expect(dayOfLife(at, '1993-05-07T00:00:00Z')).toBe(dayOfLife(at, '1993-05-07'));
+  });
+});
+
+describe('one count for the chrome and the cards', () => {
+  // og/time.js re-exports this module's dayOfLife; the share card's folio and
+  // the chrome's "on day N" used to be two implementations a day apart.
+  it('is the same function og/time.js stamps the folio with', () => {
+    expect(ogDayOfLife).toBe(dayOfLife);
+  });
+
+  it('agrees with the folio through the evening and over midnight', () => {
+    // 8:30 pm is already the 28th in UTC, where the folio used to turn over.
+    expect(folio(new Date('2026-10-27T20:30:00-04:00'))).toBe('12,227');
+    expect(dayOfLife('2026-10-27T20:30:00-04:00')).toBe(12227);
+    expect(folio(new Date('2026-10-27T23:59:00-04:00'))).toBe('12,227');
+    expect(dayOfLife('2026-10-28T00:01:00-04:00')).toBe(12228);
+    expect(folio('2026-10-28')).toBe('12,228');
   });
 });
 
 describe('dayOfLifeSnapshot', () => {
   it('bundles the values consistently with the individual functions', () => {
-    const birth = new Date(1993, 4, 7);
-    const at = new Date(2026, 6, 17);
+    const birth = '1993-05-07';
+    const at = noon(2026, 7, 17);
     expect(dayOfLifeSnapshot(at, birth)).toEqual({
       day: dayOfLife(at, birth),
       year: yearOfLife(at, birth),

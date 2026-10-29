@@ -13,12 +13,12 @@ import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import FirstSightingChip from '../components/FirstSightingChip.jsx';
 import FeedMore from '../components/FeedMore.jsx';
+import Fleuron from '../components/Fleuron.jsx';
 import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
 import { firstSightingIds } from '../lib/firstSightings.js';
 import {
   formatNightDate,
   formatNightDay,
-  formatObservedTime,
   mothLightboxImages,
   mothName,
   nightPath,
@@ -29,6 +29,7 @@ import {
   weekdayOf,
 } from '../lib/mothing.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
+import { formatWallClockTime } from '../lib/time.js';
 import { ME_DID, INATURALIST_USER, INATURALIST_URL, MOTHING_OBSERVATION_NSID } from '../config.js';
 import '../components/Feed.css';
 import './Mothing.css';
@@ -156,7 +157,7 @@ function MothLedgerRow({ obs, onOpen, first = false }) {
   const sci = obs.taxon?.name;
   const showSci = sci && sci !== name;
   const time = obs.observedTime
-    ? formatObservedTime(obs.observedTime)
+    ? formatWallClockTime(obs.observedTime)
     : formatNightDate(obs.observedDate);
   const inner = (
     <>
@@ -164,7 +165,7 @@ function MothLedgerRow({ obs, onOpen, first = false }) {
         <img className="mothing-ledger-thumb" src={thumb} alt="" loading="lazy" decoding="async" />
       ) : (
         <span className="mothing-ledger-thumb mothing-ledger-thumb-empty" aria-hidden="true">
-          &#x1F98B;
+          <Fleuron />
         </span>
       )}
       <span className="mothing-ledger-names">
@@ -310,6 +311,7 @@ export default function Mothing() {
     >
       {stats && (
         <Figures
+          layout="inline"
           label="Mothing in figures"
           items={[
             {

@@ -75,7 +75,11 @@ describe("Dame's clock", () => {
   const iso = '2026-10-26T21:36:37.000Z';
 
   it('stamps the crumb in Eastern time whatever the reader\'s zone', () => {
-    expect(crumbStamp(iso)).toBe('Oct 26 · 5:36 pm');
+    expect(crumbStamp(iso, new Date('2026-10-29T12:00:00Z'))).toBe('Oct 26 · 5:36 pm');
+  });
+
+  it('adds the year to a crumb from another year', () => {
+    expect(crumbStamp(iso, new Date('2027-01-02T12:00:00Z'))).toBe('Oct 26, 2026 · 5:36 pm');
   });
 
   it('writes the colophon with the past tense and the day of life', () => {

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useLiveDayOfLife } from '../hooks/useLiveDayOfLife.js';
 import TickerText from './TickerText.jsx';
 import { xrayNotARecord } from '../lib/xray.js';
@@ -13,11 +14,12 @@ export default function DayOfLifeTicker() {
           gap on every other chrome row (.chrome-signal's 0.45em), rather than a
           tighter plain word-space. */}
       <TickerText className="chrome-signal-value" title={tooltip}>
-        <span className="chrome-signal-day-phrase">
+        {/* Whose life: the day leads to /themself, the page about Dame. */}
+        <Link to="/themself" className="chrome-signal-link chrome-signal-day-phrase">
           <span className="chrome-signal-label">on day</span>
           <strong>{day.toLocaleString()}</strong>
           <span className="chrome-signal-label">of their life</span>
-        </span>
+        </Link>
       </TickerText>
     </span>
   );

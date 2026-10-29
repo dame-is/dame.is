@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
-import { useAlbumArt } from '../hooks/useAlbumArt.js';
+import AlbumCover from './AlbumCover.jsx';
 import { albumIdentity, albumIdentityResolver, albumPath } from '../lib/albums.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
+import Figures from './Figures.jsx';
+import SectionHead from './SectionHead.jsx';
+import Segmented from './Segmented.jsx';
 import './ListeningStats.css';
 
 /**
@@ -16,8 +19,8 @@ import './ListeningStats.css';
  */
 
 const WINDOWS = [
-  { days: 7, label: '7 days' },
-  { days: 30, label: '30 days' },
+  { value: 7, label: '7 days' },
+  { value: 30, label: '30 days' },
 ];
 
 const TOP_N = 5;
@@ -31,34 +34,25 @@ export default function ListeningStats({ items }) {
 
   return (
     <section className="listen-stats" aria-label="Listening statistics">
-      <div className="listen-stats-head">
-        <h2 className="listen-stats-title">Recent listening</h2>
-        <div className="listen-stats-toggle" role="group" aria-label="Time window">
-          {WINDOWS.map((w) => (
-            <button
-              key={w.days}
-              type="button"
-              aria-pressed={days === w.days}
-              className={`listen-stats-tab ${days === w.days ? 'is-active' : ''}`}
-              onClick={() => setDays(w.days)}
-            >
-              {w.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SectionHead
+        title="Recent listening"
+        meta={<Segmented options={WINDOWS} value={days} onChange={setDays} label="Time window" />}
+      />
 
       {stats.totalPlays === 0 ? (
         <p className="listen-stats-empty">No plays in the last {days} days.</p>
       ) : (
         <>
-          <div className="listen-stats-tiles">
-            <Tile value={stats.totalPlays} label={stats.totalPlays === 1 ? 'play' : 'plays'} />
-            <Tile value={stats.minutes} label="minutes" sub={stats.hoursSub} />
-            <Tile value={stats.uniqueTracks} label={stats.uniqueTracks === 1 ? 'track' : 'tracks'} />
-            <Tile value={stats.uniqueArtists} label={stats.uniqueArtists === 1 ? 'artist' : 'artists'} />
-            <Tile value={stats.uniqueAlbums} label={stats.uniqueAlbums === 1 ? 'album' : 'albums'} />
-          </div>
+          <Figures
+            label="Listening in figures"
+            items={[
+              { key: 'plays', value: <CountUp value={stats.totalPlays} />, label: stats.totalPlays === 1 ? 'play' : 'plays' },
+              { key: 'minutes', value: <CountUp value={stats.minutes} />, label: 'minutes', note: stats.hoursSub },
+              { key: 'tracks', value: <CountUp value={stats.uniqueTracks} />, label: stats.uniqueTracks === 1 ? 'track' : 'tracks' },
+              { key: 'artists', value: <CountUp value={stats.uniqueArtists} />, label: stats.uniqueArtists === 1 ? 'artist' : 'artists' },
+              { key: 'albums', value: <CountUp value={stats.uniqueAlbums} />, label: stats.uniqueAlbums === 1 ? 'album' : 'albums' },
+            ]}
+          />
 
           <div className="listen-stats-cols">
             <RankList title="Top tracks" rows={stats.topTracks} kind="track" />
@@ -80,18 +74,13 @@ export default function ListeningStats({ items }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Tiles                                                               */
+/* Figures                                                             */
 /* ------------------------------------------------------------------ */
 
-function Tile({ value, label, sub }) {
+/** A figure's numeral, counting up to its value when the window changes. */
+function CountUp({ value }) {
   const n = useCountUp(value);
-  return (
-    <div className="listen-stat-tile">
-      <span className="listen-stat-value">{n.toLocaleString()}</span>
-      <span className="listen-stat-label">{label}</span>
-      {sub && <span className="listen-stat-sub">{sub}</span>}
-    </div>
-  );
+  return n.toLocaleString('en-US');
 }
 
 /**
@@ -136,7 +125,7 @@ function useCountUp(target, ms = 650) {
 function RankList({ title, rows, kind, more = null }) {
   return (
     <div className="listen-rank">
-      <h3 className="listen-rank-title">
+      <h3 className="listen-rank-title eyebrow">
         {title}
         {more && (
           <Link className="listen-rank-more" to={more.to}>
@@ -183,14 +172,13 @@ function RankLabel({ row, kind }) {
   return inner;
 }
 
-/** Small album-art thumbnail, resolved lazily from the sample play. */
+/**
+ * Small album-art thumbnail, resolved lazily from the sample play. AlbumCover,
+ * so art that resolves but won't load falls back to the empty plate rather
+ * than the browser's broken-image glyph.
+ */
 function Cover({ payload }) {
-  const state = useAlbumArt(payload, { size: 100 });
-  const url = state.status === 'hit' ? state.art?.thumbUrl : null;
-  if (url) {
-    return <img className="listen-rank-cover" src={url} alt="" loading="lazy" decoding="async" />;
-  }
-  return <span className="listen-rank-cover listen-rank-cover-empty" aria-hidden="true" />;
+  return <AlbumCover payload={payload} size={100} className="listen-rank-cover" />;
 }
 
 /* ------------------------------------------------------------------ */

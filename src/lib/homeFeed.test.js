@@ -3,9 +3,11 @@ import {
   assignRowKeys,
   carryOverFailedSources,
   classifyBuild,
+  completeSince,
   insertHorizonMarkers,
   isHorizonMarker,
   rebuildVerbs,
+  splitYearOnlyWorks,
   trimToHorizons,
 } from './homeFeed.js';
 import { collapseListens } from './listenSessions.js';
@@ -216,5 +218,50 @@ describe('assignRowKeys', () => {
     const keys = assignRowKeys(rows, previous).rows.map((r) => r.rowKey);
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys[0]).toBe('old');
+  });
+});
+
+describe('completeSince', () => {
+  const feed = [
+    item('posting', 'app.bsky.feed.post', 'p1', '2026-10-27T10:00:00Z'),
+    item('listening', 'fm.teal.alpha.feed.play', 'l1', '2026-10-27T09:00:00Z'),
+    item('logging', 'is.dame.now', 's1', '2026-10-20T09:00:00Z'),
+  ];
+
+  it('is the newest horizon of the verbs on show', () => {
+    const horizons = {
+      posting: '2026-10-24T17:31:00Z',
+      listening: '2026-10-22T08:00:00Z',
+    };
+    expect(completeSince(feed, horizons)).toBe('2026-10-24T17:31:00.000Z');
+  });
+
+  it("ignores a verb the filter hides, and is null when nothing ran out", () => {
+    const horizons = { reposting: '2026-10-26T00:00:00Z', listening: '2026-10-22T08:00:00Z' };
+    expect(completeSince(feed, horizons)).toBe('2026-10-22T08:00:00.000Z');
+    expect(completeSince(feed, { reposting: '2026-10-26T00:00:00Z' })).toBeNull();
+    expect(completeSince(feed, null)).toBeNull();
+    expect(completeSince([], { posting: '2026-10-26T00:00:00Z' })).toBeNull();
+  });
+});
+
+describe('splitYearOnlyWorks', () => {
+  it('takes works dated by their year out of the timeline', () => {
+    const feed = [
+      item('creating', 'is.dame.creating.work', 'w2', '2026-03-04T15:00:00Z'),
+      item('logging', 'is.dame.now', 's1', '2026-01-01T00:00:00.000Z'),
+      item('creating', 'is.dame.creating.work', 'w1', '2014-01-01T00:00:00.000Z'),
+      item('creating', 'is.dame.creating.work', 'w0', '2011-01-01T00:00:00.000Z'),
+    ];
+    const { dated, yearOnly } = splitYearOnlyWorks(feed);
+    // Only works: a status logged at that instant is a real time.
+    expect(dated.map((i) => i.atUri.split('/').pop())).toEqual(['w2', 's1']);
+    expect(yearOnly.map((i) => i.atUri.split('/').pop())).toEqual(['w1', 'w0']);
+  });
+
+  it('hands the timeline back as it was when there are none', () => {
+    const feed = [item('posting', 'app.bsky.feed.post', 'p1', '2026-10-27T10:00:00Z')];
+    expect(splitYearOnlyWorks(feed).dated).toBe(feed);
+    expect(splitYearOnlyWorks(null)).toEqual({ dated: [], yearOnly: [] });
   });
 });

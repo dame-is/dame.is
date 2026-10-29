@@ -2,15 +2,17 @@
    mirror the nav dock (ActionDock.css) and edit sheet (EditSheet.css) so
    every upward-expanding chrome surface reads as one system.
 
-   .bottom-sheet-backdrop: a transparent, non-dimming click-catcher below the
-   chrome bars (z 29 < bars' 30) so tapping the page closes the panel while
-   the toolbar buttons stay live. No visual tint — the panel reads as part of
-   the chrome, like the top-bar expansions do. */
+   .bottom-sheet-backdrop: the click-catcher below the chrome bars (z 29 <
+   bars' 30), so tapping the page closes the panel while the toolbar buttons
+   stay live. A quiet veil of the page's own colour: the page above an open
+   sheet reads as set aside for the moment, not as live, which is what it is
+   (a tap there closes the sheet). Not a dark scrim; the sheet is still part
+   of the chrome, and the bars, above the veil, stay as bright as ever. */
 .bottom-sheet-backdrop {
   position: fixed;
   inset: 0;
   z-index: 29;
-  background: transparent;
+  background: color-mix(in srgb, var(--page) 45%, transparent);
 }
 
 /* The clip box, pinned directly on top of the bottom bar — and above the
@@ -74,5 +76,140 @@
   height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--sheet-bottom) + 1px);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* ---- The shared header (SheetHeader in BottomSheet.jsx) -----------
+
+   One 44px row on the chrome's column (--chrome-pad-x): the title as an
+   eyebrow at the gutter, quiet meta and text actions after it, and the 28px
+   hairline × last, whose right edge is the gutter's, so it sits straight over
+   the compass chip at the end of the bar below. It stays put while a tall
+   sheet scrolls beneath it. */
+.sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: 'title meta actions close';
+  align-items: center;
+  gap: 0 var(--space-3);
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--chrome-pad-x);
+  background: var(--surface-deep);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.sheet-head-title {
+  grid-area: title;
+  margin: 0;
+  white-space: nowrap;
+  /* The eyebrow voice (typography.css); a dialog's title, so a heading. */
+  color: var(--ink-muted);
+}
+
+.sheet-head-meta {
+  grid-area: meta;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.sheet-head-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+}
+
+/* On a phone the actions take a line of their own under the title, so the
+   × keeps its place at the top right. */
+@media (max-width: 560px) {
+  .sheet-head:has(.sheet-head-actions) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'title meta close'
+      'actions actions actions';
+  }
+}
+
+/* The ×: the bar's own chip, 28px on a 1px hairline. */
+.sheet-close {
+  grid-area: close;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--page);
+  color: var(--ink-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.sheet-close:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--wash-hover);
+}
+
+@media (hover: hover) {
+  .sheet-close:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
+}
+
+/* 44px under a finger without growing the painted 28px, as the bar's chips
+   do (ChromeBar.css). */
+@media (pointer: coarse) {
+  .sheet-close {
+    position: relative;
+  }
+  .sheet-close::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+}
+
+/* The body under the header; each sheet sets its own layout through
+   `bodyClassName`, on the chrome's column. */
+.bottom-sheet-body {
+  padding: var(--space-4) var(--chrome-pad-x);
+}
+
+/* ---- The thumb's Close --------------------------------------------
+
+   A full-height sheet puts its × at the top of a phone, out of the thumb's
+   reach. Under a finger, a second Close sits at the foot, on the same right
+   edge as the ×, stuck to the bottom of the sheet while it scrolls. Not drawn
+   for a mouse. */
+.bottom-sheet-foot {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .bottom-sheet-foot {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 var(--chrome-pad-x);
+    background: var(--surface-deep);
+    border-top: 1px solid var(--rule-soft);
+  }
 }
 

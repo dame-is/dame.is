@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CornerDownRight } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
-import PostCard from '../components/PostCard.jsx';
+import PostCard, { postStatsLine } from '../components/PostCard.jsx';
 import ListenRow from '../components/ListenRow.jsx';
 import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
@@ -12,10 +11,11 @@ import FlushCard from '../components/cards/FlushCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
-import AturiActions from '../components/AturiActions.jsx';
+import AturiActions, { OpenInButton } from '../components/AturiActions.jsx';
 import SequenceFoot from '../components/SequenceFoot.jsx';
 import VitalsChip from '../components/VitalsChip.jsx';
 import VerbIcon from '../components/VerbIcon.jsx';
+import Time from '../components/Time.jsx';
 import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
 import {
   colophon,
@@ -37,7 +37,6 @@ import { createSubjectResolver } from '../lib/subjectResolver.js';
 import { isDraft } from '../lib/publications.js';
 import { ME_DID, ME_HANDLE } from '../config.js';
 import { flushBody } from '../lib/flushText.js';
-import { relativeTime } from '../lib/time.js';
 import {
   VERB_TO_COLLECTION,
   VERB_LABELS,
@@ -314,19 +313,31 @@ export default function Record({ verb, nsid, source }) {
   const createdAt = item?.createdAt;
   const sentence = item ? recordSentence(verb, item.payload || {}, { subject: subjectName }) : null;
   const all = allInSection(verb);
+  // A post is its own words, so its page opens on them: no title restating
+  // the post, no date line. The trail names it by rkey and carries its date
+  // at the right; the sentence stays the page's heading for a screen reader.
+  const isPost = verb === 'posting';
+  // No replies section under a repost whose post is gone: there is no thread
+  // to read, and "No replies yet" would claim there is.
+  const hasReplies = Boolean(threadMode && item?.atUri && !item.payload?.subjectMissing);
+  // A post's "Open in…" sits at the right of its Replies heading, in place of
+  // the row of actions under the record.
+  const openInReplies = isPost && hasReplies;
 
   return (
     <PageShell
-      title={sentence ? <RecordTitle sentence={sentence} /> : null}
+      title={sentence && !isPost ? <RecordTitle sentence={sentence} /> : null}
       atUri={atUri}
       cid={cid}
       headTitle={headTitleFor(verb, item, sentence)}
-      crumb={item ? crumbFor(verb, item) : null}
+      crumb={isPost ? rkey : item ? crumbFor(verb, item) : null}
+      crumbDate={isPost ? createdAt : null}
     >
       <article className="record-page">
+        {isPost && sentence && <h1 className="visually-hidden">{sentenceText(sentence)}</h1>}
         {/* One line in Dame's clock: the verb's past tense, the day, the time
             and the day of life. The relative age stays in the footer. */}
-        {item && createdAt && (
+        {item && createdAt && !isPost && (
           <p className="record-colophon">
             <VerbIcon verb={verb} size={13} aria-hidden="true" />
             {colophon(verb, createdAt)}
@@ -353,24 +364,23 @@ export default function Record({ verb, nsid, source }) {
           </div>
         )}
 
-        {item && (
+        {item && !openInReplies && (
           <AturiActions atUri={atUri}>
             {verb === 'listening' &&
               musicLinksFor(item.payload).map((l) => (
-                <a key={l.service} href={l.url} target="_blank" rel="noreferrer noopener">
+                <a key={l.service} className="btn btn--text btn--sm" href={l.url} target="_blank" rel="noreferrer noopener">
                   {l.kind === 'direct' ? `Open in ${l.label}` : `Search on ${l.label}`}
                 </a>
               ))}
           </AturiActions>
         )}
 
-        {/* No replies section under a repost whose post is gone: there is no
-            thread to read, and "No replies yet" would claim there is. */}
-        {threadMode && item?.atUri && !item.payload?.subjectMissing && (
+        {hasReplies && (
           <Comments
             atUri={item?.payload?.subjectUri || item.atUri}
             replies={replies}
             status={repliesStatus}
+            action={openInReplies ? <OpenInButton atUri={atUri} /> : null}
           />
         )}
 
@@ -684,12 +694,12 @@ function RecordCopyRow({ atUri, recordJson }) {
   return (
     <div className="record-fallback-actions">
       {atUri && (
-        <button type="button" onClick={() => copy(atUri, 'uri')}>
+        <button type="button" className="btn btn--sm" onClick={() => copy(atUri, 'uri')}>
           {copied === 'uri' ? 'AT URI copied' : 'Copy AT URI'}
         </button>
       )}
       {recordJson && (
-        <button type="button" onClick={() => copy(recordJson, 'json')}>
+        <button type="button" className="btn btn--sm" onClick={() => copy(recordJson, 'json')}>
           {copied === 'json' ? 'Record JSON copied' : 'Copy record JSON'}
         </button>
       )}
@@ -807,11 +817,11 @@ function ParentPostCard({ parent, isRoot }) {
         {ts && (
           <span className="gutter record-parent-time">
             {localHref ? (
-              <Link to={localHref}>{relativeTime(ts)}</Link>
+              <Link to={localHref}><Time value={ts} variant="relative" /></Link>
             ) : externalHref ? (
-              <a href={externalHref} target="_blank" rel="noreferrer noopener">{relativeTime(ts)}</a>
+              <a href={externalHref} target="_blank" rel="noreferrer noopener"><Time value={ts} variant="relative" /></a>
             ) : (
-              relativeTime(ts)
+              <Time value={ts} variant="relative" />
             )}
           </span>
         )}
@@ -877,46 +887,21 @@ function splitSelfThread(rootNode, authorDid) {
 
 /**
  * One continuation post in the author's self-reply thread, rendered as a
- * full-size post in the main area (not a nested reply). A dotted rule and a
- * "↳ continued" marker tie it to the post above; the timestamp links to the
- * post's own record page.
+ * full-size post in the main area (not a nested reply), tied to the post
+ * above by a dotted rule and nothing else: it reads on as the same post,
+ * with its own engagement under it, as the post's card has.
  */
 function SelfThreadPost({ item }) {
   const text = item.payload?.text || '';
   const facets = item.payload?.facets || null;
   const embed = item.payload?.embed || item.payload?.embedRecord || null;
-  const author = item.payload?.author || null;
-  const authorDid = author?.did;
-  const ts = item.createdAt || item.payload?.indexedAt;
-  // Local permalink only for the author's own posts (the only records this
-  // site hosts); a reposted foreign thread links its continuations out to
-  // bsky.app instead, matching the parent-chain treatment above.
-  const isMine = authorDid === ME_DID;
-  const localHref = isMine ? recordPathFromAtUri(item.atUri) : null;
-  const externalHref = !isMine && author?.handle && item.atUri
-    ? `https://bsky.app/profile/${author.handle}/post/${item.atUri.split('/').pop()}`
-    : null;
+  const authorDid = item.payload?.author?.did;
+  const stats = postStatsLine(item.payload);
   return (
     <article className="record-thread-post" data-at-uri={item.atUri}>
-      <header className="record-thread-head">
-        <span className="record-thread-cont small-caps">
-          <CornerDownRight size={12} strokeWidth={1.75} aria-hidden="true" />
-          continued
-        </span>
-        {ts && (
-          <span className="gutter record-thread-time">
-            {localHref ? (
-              <Link to={localHref}>{relativeTime(ts)}</Link>
-            ) : externalHref ? (
-              <a href={externalHref} target="_blank" rel="noreferrer noopener">{relativeTime(ts)}</a>
-            ) : (
-              relativeTime(ts)
-            )}
-          </span>
-        )}
-      </header>
       {text && <p className="record-thread-text">{renderPostText(text, facets)}</p>}
       {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
+      {stats && <footer className="post-card-stats">{stats}</footer>}
     </article>
   );
 }

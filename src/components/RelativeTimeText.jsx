@@ -1,25 +1,12 @@
-import { relativeTime } from '../lib/time.js';
-import { useNow } from '../hooks/useNow.js';
+import Time from './Time.jsx';
 
 /**
- * Renders a relative-time string with the trailing " ago" wrapped in
- * a `.time-ago-suffix` span. CSS hides that span on narrow viewports
- * so feed-item timestamps read "33m" on mobile but "33m ago" on
- * wider screens — the "ago" is implicit when space is tight.
- *
- * Reads the shared minute clock (useNow), so "2m ago" keeps counting while
- * the page sits open instead of freezing at whatever it said on render.
+ * A feed row's relative time: `<Time variant="relative" compact>`, kept under
+ * its old name for the rows that import it. The trailing " ago" sits in a
+ * `.time-ago-suffix` span that CSS hides on narrow viewports, so a timestamp
+ * reads "33m" on a phone and "33m ago" on a wider screen. Past 30 days it's
+ * the date instead, and it keeps counting on a page left open (useNow).
  */
 export default function RelativeTimeText({ value }) {
-  const now = useNow();
-  const text = relativeTime(value, now);
-  if (!text) return null;
-  const m = text.match(/^(.+) ago$/);
-  if (!m) return text;
-  return (
-    <>
-      {m[1]}
-      <span className="time-ago-suffix"> ago</span>
-    </>
-  );
+  return <Time value={value} variant="relative" compact />;
 }

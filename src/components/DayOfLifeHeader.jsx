@@ -1,30 +1,43 @@
 import { dayOfLife } from '../lib/dayOfLife.js';
-import { formatDayLabel, formatDayShortLabel } from '../lib/time.js';
+import { formatDayShortLabel } from '../lib/time.js';
+import { longDay, shortDay } from '../lib/ledger.js';
 import { useNow } from '../hooks/useNow.js';
 import './DayOfLifeHeader.css';
 
 /**
- * The header's visible label, and the fuller one it's announced and hovered
- * by when the visible one is short. Both come from the same local date parts
- * groupByDay buckets by: `date` is the day's newest record, and in the
- * evening that instant is already tomorrow in UTC, so a UTC-built label named
- * the wrong day for anyone west of Greenwich.
+ * What a day header says: the day's date ("Wednesday, Oct 28", the year only
+ * when it isn't this one), the relative name it also goes by
+ * ("Today", "Yesterday", else null), and `short`, the strip's compact form
+ * ("Today", "Oct 25").
+ *
+ * Every part comes from time.js's own calendar (the day groupByDay files the
+ * rows under): `date` is the day's newest record, and in the evening that
+ * instant is already tomorrow in UTC, so a UTC-built label named the wrong day
+ * for anyone west of Greenwich.
  */
-export function dayHeaderLabels(date, variant = 'default', now = new Date()) {
-  const full = formatDayLabel(date, now);
-  const label = variant === 'ledger' ? formatDayShortLabel(date, now) : full;
-  return { label, full };
+export function dayHeaderLabels(date, now = new Date()) {
+  const rel = formatDayShortLabel(date, now);
+  const relative = rel === 'Today' || rel === 'Yesterday' ? rel : null;
+  const full = longDay(date, now, { shortMonth: true });
+  if (!full) return { date: rel, relative, short: rel };
+  return { date: full, relative, short: relative || shortDay(date, now) };
 }
 
 /**
- * `variant="ledger"` swaps the long combined label ("Today, July 10,
- * 2026") for the short form ("Today" / a bare date) — the ledger feed
- * layout sets the meta on the same line, so the two have to share the
- * width. The short form keeps the long one as its tooltip and accessible
- * name; the long form needs neither, it already says everything.
+ * The head of a day in a feed, set like a book's running head: the day on
+ * the left and the day-of-life folio on the right, like a page number
+ * ("Today … day 12,229", "Wednesday, Oct 28 … day 12,228"). The two most
+ * recent days go by their names, older ones by their date. Nothing else:
+ * what the day holds is in the rows beneath it. `meta` is only for a passing
+ * note about the feed itself (the home ledger's "Updating…"), set before the
+ * folio. `variant="ledger"` rules it under for the ledger's rows (Feed.css).
  *
- * "Today" / "Yesterday" are relative to a clock that keeps running (useNow),
- * so a page left open past midnight moves them along.
+ * A named day keeps its date in reach: a screen reader hears "Today,
+ * Wednesday, Oct 28", and a pointer finds it in the tooltip. The chrome, which
+ * reads the day in view from `.day-section-header .day-header`, takes
+ * `data-day-label` ("Today", "Oct 25") for the ↑ beside it. All of it follows
+ * a clock that keeps running (useNow), so a page left open past midnight
+ * moves the names along.
  */
 export default function DayOfLifeHeader({
   date,
@@ -33,19 +46,20 @@ export default function DayOfLifeHeader({
 }) {
   const now = useNow();
   const day = dayOfLife(date);
-  const { label, full } = dayHeaderLabels(date, variant, now);
-  const short = label !== full;
+  const { date: dateText, relative, short } = dayHeaderLabels(date, now);
   return (
-    <header className="day-section-header">
+    <header className={`day-section-header day-section-header-${variant}`}>
       <h3
         className="day-header"
-        title={short ? full : undefined}
-        aria-label={short ? full : undefined}
+        data-day-label={short}
+        aria-label={relative ? `${relative}, ${dateText}` : undefined}
+        title={relative ? dateText : undefined}
       >
-        {label}
+        {relative || dateText}
       </h3>
       <p className="day-header-meta">
-        {meta ? meta : `Day ${day.toLocaleString()}`}
+        {meta && <span className="day-header-note">{meta}</span>}
+        <span className="day-header-folio">day {day.toLocaleString('en-US')}</span>
       </p>
     </header>
   );

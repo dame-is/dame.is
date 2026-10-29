@@ -13,7 +13,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
-import { groupByDay } from '../lib/time.js';
+import { formatTime, groupByDay } from '../lib/time.js';
 import { getAuthorFeed } from '../lib/atproto.js';
 import { blueskyPostToFeedItem } from '../lib/feedBuilder.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
@@ -80,7 +80,7 @@ export default function Posting() {
       ) : groups.length === 0 ? (
         <p className="feed-empty">{params.get('q') ? 'No posts match that search.' : 'No posts match these filters.'}</p>
       ) : (
-        <div className={ledger ? 'feed-ledger' : undefined}>
+        <div className={ledger ? 'feed-ledger feed-ledger-column' : undefined}>
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
@@ -104,8 +104,8 @@ export default function Posting() {
       {!loading && refreshedAt && (
         <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
           {status === 'stale'
-            ? `live refresh failed · snapshot from ${refreshedAt.toLocaleTimeString()}`
-            : `refreshed ${refreshedAt.toLocaleTimeString()}`}
+            ? `live refresh failed · snapshot from ${formatTime(refreshedAt)}`
+            : `refreshed ${formatTime(refreshedAt)}`}
         </p>
       )}
     </PageShell>

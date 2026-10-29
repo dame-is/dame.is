@@ -12,7 +12,7 @@ import { useSectionView } from '../hooks/useFeedLayout.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { compareIsoDesc } from '../lib/time.js';
+import { compareIsoDesc, formatYear } from '../lib/time.js';
 import { smartenText } from '../lib/smartPunctuation.js';
 import { coverThumb, swapToOriginal } from '../lib/creatingHelpers.js';
 import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
@@ -24,10 +24,12 @@ import './Creating.css';
 const STANDARD_DOC = 'site.standard.document';
 
 /** A work's year, the portfolio's folio. Ages ("1y ago") went stale and
- *  rounded the same record two ways on two pages. */
+ *  rounded the same record two ways on two pages. Read through lib/time.js:
+ *  a back-filled work dated '2019-01-01T00:00:00.000Z' is a piece from 2019,
+ *  where the reader's own calendar put it in 2018 anywhere west of London. */
 function yearOf(v) {
-  const y = v?.createdAt ? new Date(v.createdAt).getFullYear() : null;
-  return Number.isFinite(y) ? y : null;
+  const y = Number(formatYear(v?.createdAt));
+  return y ? y : null;
 }
 
 /**

@@ -213,7 +213,7 @@
 }
 
 /* The essay's end: a fleuron centred on the text block, the site's one
-   ornament (the same ❧ /creating uses for a work with no cover). */
+   ornament (the same ❧ that stands in for a missing moth photograph). */
 .blog-end {
   margin-top: var(--space-7);
 }
@@ -620,6 +620,10 @@
     color-mix(in srgb, var(--ink) 14%, transparent) calc(1.2em - 1px),
     color-mix(in srgb, var(--ink) 14%, transparent) 1.2em
   );
+  /* The gradient stops a pixel short, so the last line's rule is the border
+     alone; drawn under it as well, the two read as one rule twice as thick. */
+  background-size: 100% calc(100% - 1px);
+  background-repeat: no-repeat;
   border-bottom: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
   text-wrap: balance;
 }
@@ -772,12 +776,11 @@
 
 /* Author's own self-reply continuation, lifted into the main post area and
    stacked below the focused post as one linear thread. Full-size posts (not
-   nested replies); each is tied to the one above by a dotted rule and a
-   quiet "↳ continued" marker. */
+   nested replies), each tied to the one above by a dotted rule alone, with
+   the same space either side of it. */
 .record-self-thread {
   display: flex;
   flex-direction: column;
-  margin-top: var(--space-5);
 }
 
 .record-thread-post {
@@ -789,36 +792,6 @@
   border-top: 1px dotted var(--rule);
 }
 
-.record-thread-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-}
-
-.record-thread-cont {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-}
-
-.record-thread-time {
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-.record-thread-time a {
-  color: var(--ink-faint);
-  text-decoration: none;
-  border-bottom: 1px dotted transparent;
-}
-
-.record-thread-time a:hover,
-.record-thread-time a:focus-visible {
-  border-bottom-color: var(--ink-faint);
-}
-
 .record-thread-text {
   font-family: var(--serif);
   font-size: var(--text-base);
@@ -827,4 +800,103 @@
   color: var(--ink);
   max-width: var(--measure);
   overflow-wrap: anywhere;
+}
+
+/* The printed colophon (BlogPost.jsx PrintColophon) exists only on paper. */
+.blog-print-colophon {
+  display: none;
+}
+
+/* Print (GAP-08). theme.css already re-grounds the palette to black on
+   white; this sets the essay itself for paper. The text block takes the
+   sheet's width, the colophon band keeps only what stays true once printed
+   (the published date, never "2 years ago"), and the screen's furniture
+   (the CID's inspect switch, the earlier/later essays, the replies, embedded
+   players) gives way to a printed colophon that says where the essay lives
+   and which record it was set from. */
+@media print {
+  @page {
+    margin: 18mm 20mm;
+  }
+
+  /* No margin to pull into on paper, so widened figures and cards stay on
+     the text block instead of running off the sheet's right edge. */
+  .blog-article.blog-book {
+    display: block;
+    max-width: none;
+    --doc-overhang-start: 0px;
+    --doc-overhang-end: 0px;
+  }
+
+  .leaflet-doc {
+    font-size: 11.5pt;
+    line-height: 1.5;
+  }
+
+  .blog-title {
+    break-after: avoid;
+  }
+
+  .blog-margin .document-meta,
+  .blog-margin .document-meta[data-columns] {
+    grid-template-columns: repeat(2, max-content);
+    column-gap: var(--space-6);
+    margin-bottom: var(--space-5);
+  }
+
+  .blog-margin .document-meta-elapsed,
+  .blog-margin .document-meta-edition {
+    display: none;
+  }
+
+  .leaflet-doc h2,
+  .leaflet-doc h3,
+  .leaflet-doc h4 {
+    break-after: avoid;
+  }
+
+  .leaflet-image,
+  .leaflet-gallery,
+  .leaflet-website {
+    break-inside: avoid;
+  }
+
+  /* A player can't play on paper; its caption still names it. */
+  .leaflet-embed-frame {
+    display: none;
+  }
+
+  .blog-end {
+    margin-top: var(--space-5);
+  }
+
+  .blog-end-mark {
+    margin-bottom: var(--space-4);
+  }
+
+  .blog-end .sequence-foot,
+  .blog-article .comments-section,
+  .blog-article .comments-empty-line {
+    display: none;
+  }
+
+  .blog-print-colophon {
+    display: block;
+    break-inside: avoid;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--rule);
+    font-size: 9pt;
+    color: var(--ink-muted);
+  }
+
+  .blog-print-colophon p {
+    margin: 0;
+    max-width: none;
+    text-indent: 0;
+  }
+
+  .blog-print-colophon code {
+    font-size: 8pt;
+    overflow-wrap: anywhere;
+  }
 }

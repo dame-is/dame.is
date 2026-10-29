@@ -13,6 +13,7 @@ import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { rereadWork } from '../lib/workRecord.js';
 import { renderMarkdown } from '../lib/markdown.js';
+import { formatYear } from '../lib/time.js';
 import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
@@ -220,7 +221,7 @@ function WorkFoot({ record, works }) {
       ? {
           to: `/creating/${workSlug(r.value) || rkeyFromAtUri(r.uri)}`,
           title: smartenText(r.value?.title || rkeyFromAtUri(r.uri)),
-          meta: [workCategory(r.value), r.value?.createdAt ? new Date(r.value.createdAt).getFullYear() : null]
+          meta: [workCategory(r.value), formatYear(r.value?.createdAt)]
             .filter(Boolean)
             .join(' · '),
         }

@@ -23,6 +23,7 @@
 
 import {
   ME_DID,
+  APPVIEW,
   COLLECTIONS,
   MOTHING_OBSERVATION_NSID,
   OBSERVING_OBSERVATION_NSID,
@@ -71,6 +72,10 @@ const SNAPSHOT_TIMEOUT_MS = 2000;
 const PDS_TIMEOUT_MS = 2500;
 const INAT_TIMEOUT_MS = 3000;
 const ARENA_TIMEOUT_MS = 2500;
+// The AppView read that names whose post a repost or a like points at. Shorter
+// than the PDS box because it comes after it, on the same request: a slow one
+// costs the card its author, never the page its 200.
+const APPVIEW_TIMEOUT_MS = 2000;
 
 // Sections whose leaves are addressed by something other than an rkey in a
 // verb's own collections, and so resolve through a function of their own below:
@@ -169,8 +174,8 @@ const humanizeSlug = (slug) =>
 // own, so the card renders their text as body copy and the section name (not
 // the text) becomes the <title>.
 const CARD_EXTRACTORS = {
-  'app.bsky.feed.post': (v) => ({ title: firstText(v.text), description: '', textOnly: true }),
-  'net.anisota.feed.post': (v) => ({ title: firstText(v.text), description: '', textOnly: true }),
+  'app.bsky.feed.post': (v) => ({ title: postTitle(v), description: '', textOnly: true }),
+  'net.anisota.feed.post': (v) => ({ title: postTitle(v), description: '', textOnly: true }),
   'is.dame.now': (v) => ({ title: firstText(v.status, v.text), description: '', textOnly: true }),
   [MOTHING_OBSERVATION_NSID]: (v) => {
     const common = firstText(v.taxon?.commonName);
@@ -452,6 +457,321 @@ function fallbackTitle(section, value) {
   return firstText(embedLine(value?.embed), sentenceCase(VERB_LABELS[section]));
 }
 
+/* ── photos, and the posts they ride on ───────────────────────────────────── */
+
+// Bluesky's image CDN serves any blob in a repo by DID and CID, resized. A card
+// asks for the feed thumbnail, which fits inside 1000px: a comfortable 2x for
+// the largest plate a card draws, where the original upload can run to several
+// MB. Always as JPEG, for two reasons. Satori can't decode WebP, so a WebP plate
+// would throw and take the whole card down. And asking the CDN for a raster
+// means an SVG blob never reaches the renderer as an SVG, which is the rule the
+// image proxy enforces too (api/image-proxy.js).
+const BSKY_CDN = 'https://cdn.bsky.app/img';
+const DID_RE = /^did:(plc|web):[a-zA-Z0-9._:%-]+$/;
+const CID_RE = /^[a-z0-9]{16,}$/i;
+
+/** A CDN URL for one blob, or null if either half of the address looks wrong.
+ *  Both halves come off records other people write, so they are checked
+ *  rather than pasted into a URL the renderer will fetch. */
+export function bskyImageUrl(did, cid, preset = 'feed_thumbnail') {
+  if (!DID_RE.test(String(did || '')) || !CID_RE.test(String(cid || ''))) return null;
+  return `${BSKY_CDN}/${preset}/plain/${did}/${cid}@jpeg`;
+}
+
+/**
+ * The thumbnail-sized copy of an avatar the AppView hands back, or null. Only a
+ * CDN avatar URL is taken (the AppView's own shape, `…/img/avatar/plain/{did}/
+ * {cid}`), rebuilt from its parts, so whatever else might sit in that field is
+ * never fetched. The thumbnail is 128px, about twice the square a card draws.
+ */
+export function avatarThumbUrl(url) {
+  const m = String(url || '').match(
+    /^https:\/\/cdn\.bsky\.app\/img\/avatar(?:_thumbnail)?\/plain\/([^/]+)\/([a-z0-9]+)(?:@[a-z]+)?$/i,
+  );
+  return m ? bskyImageUrl(m[1], m[2], 'avatar_thumbnail') : null;
+}
+
+const oneLine = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+
+/** Cut to `max` characters on a word boundary, with an ellipsis if cut. */
+function clipWords(text, max) {
+  const s = oneLine(text);
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max - 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
+
+// How long a line of alt text may run in a head or a title. Post text is
+// capped at 300 by Bluesky; alt text can run to 2,000, and a screenshot's is
+// often a transcript of the whole thing.
+const ALT_MAX = 280;
+
+/**
+ * The photos a post carries, in order: a plain image embed, or the media half
+ * of a quote-with-media. Each is `{ cid, alt, aspect }`, where `aspect` is
+ * width over height when the record says (null when it doesn't).
+ */
+export function postImages(value) {
+  const embed = value?.embed || {};
+  const media =
+    embed.$type === 'app.bsky.embed.images'
+      ? embed
+      : embed.media?.$type === 'app.bsky.embed.images'
+        ? embed.media
+        : null;
+  const list = Array.isArray(media?.images) ? media.images : [];
+  return list
+    .map((img) => {
+      // `ref.$link` is the blob ref as JSON; `cid` is the legacy blob shape
+      // some early records still carry.
+      const cid = String(img?.image?.ref?.$link || img?.image?.cid || '');
+      const w = Number(img?.aspectRatio?.width);
+      const h = Number(img?.aspectRatio?.height);
+      return { cid, alt: oneLine(img?.alt), aspect: w > 0 && h > 0 ? w / h : null };
+    })
+    .filter((im) => CID_RE.test(im.cid));
+}
+
+// The labels that keep a photo off a share card: a card is drawn for anybody
+// who sees the link, signed in or not, with none of the click-through an app
+// puts in front of these. The post's text still cards; only the plate goes.
+const SENSITIVE_LABELS = new Set(['porn', 'sexual', 'nudity', 'graphic-media', 'gore']);
+
+function labelValues(...sources) {
+  const vals = [];
+  for (const src of sources) {
+    // Self-labels on a record: `{ $type: …#selfLabels, values: [{ val }] }`.
+    // Labels on an AppView view: `[{ val, … }]`.
+    const list = Array.isArray(src) ? src : Array.isArray(src?.values) ? src.values : [];
+    for (const l of list) if (l?.val) vals.push(String(l.val));
+  }
+  return vals;
+}
+
+/** True when a post, or the view of it, carries a label that keeps its photos
+ *  off a card. */
+export function hidesPhotos(value, viewLabels) {
+  return labelValues(value?.labels, viewLabels).some((v) => SENSITIVE_LABELS.has(v));
+}
+
+// Bluesky allows four photos to a post, so the words run out where it does.
+const COUNT_WORDS = ['A photo', 'Two photos', 'Three photos', 'Four photos'];
+
+/** `1` → "A photo", `3` → "Three photos". */
+export function photosLabel(n) {
+  return COUNT_WORDS[n - 1] || `${n} photos`;
+}
+
+/** The first alt text a post's photos carry, or ''. */
+const firstAlt = (photos) => (photos.find((p) => p.alt) || {}).alt || '';
+
+/**
+ * What a post of Dame's is called in a head: its text, and when it has none,
+ * its first photo's alt text (the author's own description of the picture),
+ * and failing that a plain count. All three beat the embed-kind stand-in
+ * ("A photo post") now that the card draws the photo itself.
+ */
+function postTitle(value) {
+  const photos = postImages(value);
+  return firstText(
+    value?.text,
+    clipWords(firstAlt(photos), ALT_MAX),
+    photos.length ? `${photosLabel(photos.length)} by Dame` : '',
+  );
+}
+
+/**
+ * How many photos fit on a card. All of a post's, since Bluesky stops at four
+ * and the plate lays four out the way the app does.
+ */
+const MAX_PLATES = 4;
+
+/**
+ * Everything a post's card says, minus the pixels: what api/og.js draws, read
+ * off the record (and for somebody else's post, the AppView's view of its
+ * author), so the head and the card are worded by one function.
+ *
+ *   text     the post's own words, as written
+ *   caption  when there are none: the first photo's alt text, set in italic
+ *            on the card, because it describes the picture rather than saying
+ *            anything of its own
+ *   standIn  when there is neither: "A photo", or what kind of post it is
+ *   alt      the first photo's alt text, whatever else there is
+ *   photos   `[{ url, alt, aspect }]`, CDN thumbnails, at most four, none when
+ *            a label keeps them off (hidesPhotos)
+ *   total    how many photos the post has, whether or not they are drawn
+ *   author   `{ name, handle, did, avatar }` for somebody else's post, else null
+ */
+export function postCardCopy(value, { did = ME_DID, author = null, labels = null } = {}) {
+  const all = postImages(value);
+  const photos = hidesPhotos(value, labels)
+    ? []
+    : all
+        .slice(0, MAX_PLATES)
+        .map((p) => ({ url: bskyImageUrl(did, p.cid), alt: p.alt, aspect: p.aspect }))
+        .filter((p) => p.url);
+  const text = firstText(value?.text);
+  const alt = firstAlt(all);
+  const caption = text ? '' : alt;
+  const standIn =
+    text || caption ? '' : all.length ? photosLabel(all.length) : embedLine(value?.embed);
+  return { text, alt, caption, standIn, photos, total: all.length, author };
+}
+
+const lowerFirst = (s) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+
+/**
+ * The words that describe a post's card to somebody who can't see it. The card
+ * is the text beside a photo, so it says both:
+ *
+ *   Dame's, with text   gm from cooper (a photo: A small tan chihuahua…)
+ *   Dame's, photo only  A photo by Dame: dril tweet about spending 3,600…
+ *   somebody else's     A post by Poe (@poe.atpota.to): “new dispatch!…”
+ *
+ * `by` is the author's label when the post isn't Dame's. Dame's own words are
+ * left unquoted, as a text post's card alt always has been; somebody else's are
+ * quoted, because the card is quoting them.
+ */
+function postImageAlt({ text, alt, standIn, total }, { by = '' } = {}) {
+  // The alt text is the first photo's, so with more than one it says so.
+  const described = alt ? `${total > 1 ? ', the first' : ''}: ${alt}` : '';
+  const photos = total
+    ? `${photosLabel(total)}${text ? '' : ` by ${by || 'Dame'}`}${described}`
+    : '';
+  if (!text) return photos || (by ? `A post by ${by}: ${lowerFirst(standIn)}` : standIn);
+  const said = by ? `A post by ${by}: “${oneLine(text)}”` : oneLine(text);
+  return photos ? `${said} (${lowerFirst(photos)})` : said;
+}
+
+/* ── reposts and likes: somebody else's post ──────────────────────────────── */
+
+// The verbs whose records point at a post rather than being one. Their card is
+// the post they point at, credited to whoever wrote it: carded as Dame's own
+// words, a repost put somebody else's sentence under Dame's name.
+const SUBJECT_SECTIONS = {
+  reposting: 'repost',
+  liking: 'like',
+};
+
+/** The `/api/og` query key a subject section's card goes by. */
+export const SUBJECT_CARD_KEYS = Object.fromEntries(
+  Object.entries(SUBJECT_SECTIONS).map(([section, key]) => [key, section]),
+);
+
+const POST_URI_RE = /^at:\/\/(did:[a-z]+:[a-zA-Z0-9._:%-]+)\/app\.bsky\.feed\.post\/[a-zA-Z0-9._~:-]+$/;
+
+/**
+ * One post as the public AppView sees it: author profile, record, labels. Null
+ * on any failure, or when the author has asked not to be shown to signed-out
+ * readers (`!no-unauthenticated`), which is what a share card is drawn for.
+ */
+async function postView(uri) {
+  if (!POST_URI_RE.test(String(uri || ''))) return null;
+  const json = await fetchJson(
+    `${APPVIEW}/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(uri)}`,
+    APPVIEW_TIMEOUT_MS,
+  );
+  const view = Array.isArray(json?.posts) ? json.posts.find((p) => p?.uri === uri) : null;
+  if (!view?.author?.did || !view?.record) return null;
+  if (labelValues(view.author.labels).includes('!no-unauthenticated')) return null;
+  return view;
+}
+
+/** `{ name, handle, did, self, label }` for a post view's author. `label` is
+ *  how a head names them: "Poe (@poe.atpota.to)", or the handle alone when
+ *  there is no display name worth adding. */
+function authorOf(view) {
+  const a = view?.author || {};
+  const handle = oneLine(a.handle);
+  const name = oneLine(a.displayName);
+  const at = handle && handle !== 'handle.invalid' ? `@${handle}` : '';
+  const label =
+    name && name !== handle && at ? `${name} (${at})` : at || name || 'somebody';
+  return {
+    name: name && name !== handle ? name : '',
+    handle: at ? handle : '',
+    did: a.did,
+    self: a.did === ME_DID,
+    label,
+    avatar: avatarThumbUrl(a.avatar),
+  };
+}
+
+/**
+ * The reference record a `/reposting/:rkey` or `/liking/:rkey` path names, and
+ * the post it points at, or null. Shared by the head (below) and the card
+ * renderer (api/og.js), so the two can't disagree about whose post it is. A
+ * subject that isn't a Bluesky post (a Grain favorite, a Tangled star, an
+ * Anisota repost) answers with no view, and those keep the plain verb card.
+ */
+export async function subjectPost(section, rkey) {
+  const collections = SUBJECT_SECTIONS[section] ? SECTION_COLLECTIONS[section] : null;
+  const want = String(rkey ?? '').trim();
+  if (!collections || !want) return null;
+  const record = await withTimeout(liveByRkey(want, collections), PDS_TIMEOUT_MS);
+  if (!record) return null;
+  const view = await withTimeout(postView(record.value?.subject?.uri), APPVIEW_TIMEOUT_MS);
+  return { record, view: view || null };
+}
+
+/**
+ * Everything a repost's or a like's card draws, minus the pixels: the post it
+ * points at, under its author's name, avatar and handle. Null when the AppView
+ * couldn't name the post, which leaves the renderer to draw the section card.
+ */
+export function subjectCardCopy(found) {
+  if (!found?.view) return null;
+  const author = authorOf(found.view);
+  return postCardCopy(found.view.record, {
+    did: author.did,
+    labels: found.view.labels,
+    author: { name: author.name, handle: author.handle, avatar: author.avatar },
+  });
+}
+
+/**
+ * A post of Dame's by record key, as /posting/:rkey resolves it. Exported for
+ * the card renderer, which reads the text and the photos back off the record
+ * rather than taking either on the query string.
+ */
+export async function postRecord(rkey) {
+  const want = String(rkey ?? '').trim();
+  if (!want) return null;
+  return withTimeout(liveByRkey(want, SECTION_COLLECTIONS.posting), PDS_TIMEOUT_MS);
+}
+
+/**
+ * Meta for a repost or a like whose post the AppView could name. The head says
+ * who wrote it and quotes it, rather than presenting it as Dame's words: the
+ * title is "Dame reposted a post by Poe (@poe.atpota.to)", the description the
+ * post itself, in quotation marks.
+ */
+function subjectMeta(record, view, section, slug) {
+  const base = shapeMeta(record, section, slug);
+  if (!base) return null;
+  const author = authorOf(view);
+  const copy = postCardCopy(view.record, { did: author.did, labels: view.labels });
+  const past = VERB_REGISTRY.find((v) => v.verb === section)?.pastTense || section;
+  const whose = author.self ? 'their own post' : `a post by ${author.label}`;
+  // The post itself, quoted. With no words of its own, the photo's alt text
+  // (not quoted: it describes the picture, it isn't the post saying anything),
+  // and failing that what kind of post it is. The title has already named the
+  // author, so none of these repeats them.
+  const description = copy.text
+    ? `“${clipWords(copy.text, ALT_MAX)}”`
+    : clipWords(copy.caption, ALT_MAX) || copy.standIn || '';
+  const rkey = rkeyFromAtUri(record.uri);
+  return {
+    ...base,
+    title: `Dame ${past} ${whose}`,
+    description,
+    textOnly: false,
+    imageAlt: postImageAlt(copy, { by: author.self ? 'Dame' : author.label }),
+    ...(rkey ? { ogQuery: `${SUBJECT_SECTIONS[section]}=${encodeURIComponent(rkey)}` } : {}),
+  };
+}
+
 function shapeMeta(record, section, slug) {
   const v = (record && record.value) || {};
   const atUri = record.uri || null;
@@ -474,8 +794,18 @@ function shapeMeta(record, section, slug) {
   // reaches the renderer, which reads the track, the artist, the album and the
   // artwork back off the record itself.
   const rkey = rkeyFromAtUri(atUri);
+  // A post of Dame's with a photo the card may show gets the photo card: the
+  // picture as a plate, the words beside it. Only the record key reaches the
+  // renderer, which reads the text and the photos back off the record, so no
+  // free text and no image URL ever rides on the query string.
+  const isPost = collection === 'app.bsky.feed.post' || collection === 'net.anisota.feed.post';
+  const postCopy = isPost && section === 'posting' ? postCardCopy(v) : null;
   const ogQuery =
-    TEAL_PLAY_NSIDS.includes(collection) && rkey ? `play=${encodeURIComponent(rkey)}` : null;
+    TEAL_PLAY_NSIDS.includes(collection) && rkey
+      ? `play=${encodeURIComponent(rkey)}`
+      : postCopy?.photos.length && rkey
+        ? `post=${encodeURIComponent(rkey)}`
+        : null;
   return {
     title: cleanTitle,
     description: firstText(description),
@@ -487,6 +817,9 @@ function shapeMeta(record, section, slug) {
     publication,
     date,
     canonicalPath: canonicalPathFor(section, record, slug),
+    // What the card shows, for a reader who can't see it. Only a post with
+    // photos says more than its title: the card is the text and the picture.
+    ...(postCopy?.total ? { imageAlt: postImageAlt(postCopy) } : {}),
     ...(ogQuery ? { ogQuery } : {}),
   };
 }
@@ -821,6 +1154,9 @@ async function livePieces() {
  * `publication` is the parent site.standard.publication at:// URI (or null);
  * `date` is when it was made; `canonicalPath` is the one on-site address it
  * should be indexed under, which is not always the one that was requested.
+ * Two optional fields: `ogQuery`, when the record has a card of its own, and
+ * `imageAlt`, when that card shows more than the title says (a photo beside a
+ * post's text, somebody else's name over theirs).
  */
 export async function recordMeta(pathname, origin) {
   const segs = (pathname || '').split('/').filter(Boolean);
@@ -846,7 +1182,24 @@ export async function recordMeta(pathname, origin) {
     // and so a play already in the build's merged archive costs no PDS round
     // trip at the edge.
     else if (section === 'listening') record = await playRecord(slug, origin);
-    else if (SECTION_COLLECTIONS[section]) {
+    // A repost or a like is a pointer, and what it points at is the page's
+    // real subject: somebody's post. When the AppView can name its author the
+    // head credits them; when it can't (a slow read, a deleted post, a Grain
+    // favorite) the record still resolves and keeps the plain verb card.
+    else if (SUBJECT_SECTIONS[section]) {
+      const found = await subjectPost(section, slug);
+      record = found?.record || null;
+      if (found?.view) {
+        // Its own catch: an odd view must cost the card its author, not send
+        // a record that exists to the 404 the outer catch would.
+        try {
+          const meta = subjectMeta(found.record, found.view, section, slug);
+          if (meta) return meta;
+        } catch {
+          /* the plain verb card, below */
+        }
+      }
+    } else if (SECTION_COLLECTIONS[section]) {
       record = await withTimeout(liveByRkey(slug, SECTION_COLLECTIONS[section]), PDS_TIMEOUT_MS);
     }
   } catch {

@@ -16,7 +16,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
-import { groupByDay } from '../lib/time.js';
+import { formatTime, groupByDay } from '../lib/time.js';
 import { resolvePds, listRecords, getLatestCommit } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
@@ -137,7 +137,7 @@ export default function Logging() {
           {q ? 'No status records match that search.' : 'No status records yet.'}
         </p>
       ) : (
-        <div className={ledger ? 'feed-ledger' : undefined}>
+        <div className={ledger ? 'feed-ledger feed-ledger-column' : undefined}>
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
@@ -161,6 +161,7 @@ export default function Logging() {
                       <FeedItem
                         key={uri}
                         item={item}
+                        showVerb={!ledger}
                         layout={ledger ? 'ledger' : 'cards'}
                         arriving={isNew}
                         arrivalDelay={step * 0.06}
@@ -177,8 +178,8 @@ export default function Logging() {
       {!loading && refreshedAt && (
         <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
           {status === 'stale'
-            ? `live refresh failed · snapshot from ${refreshedAt.toLocaleTimeString()}`
-            : `refreshed ${refreshedAt.toLocaleTimeString()}`}
+            ? `live refresh failed · snapshot from ${formatTime(refreshedAt)}`
+            : `refreshed ${formatTime(refreshedAt)}`}
         </p>
       )}
     </PageShell>

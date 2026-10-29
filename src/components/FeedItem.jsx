@@ -131,6 +131,9 @@ function hrefFor(item) {
  * so this component never has to reconcile ledger rows with the
  * selection UI.
  *
+ * `showVerb={false}` is a single-kind page: the cards drop their verb badge
+ * and the ledger its repeated gerund.
+ *
  * The component renders the list item itself, so a list hands it straight
  * to a <ul>. `arriving` (with `arrivalDelay`, in seconds) plays the slide-in
  * for a record that just landed; it's read once, on mount, so the row plays
@@ -369,6 +372,7 @@ function FeedItem({
           item={item}
           xrayId={xrayId}
           href={href}
+          showVerb={showVerb}
           expanded={ledgerExpanded}
           onToggle={ledgerBatch ? () => setLedgerExpanded((v) => !v) : null}
           onOpenLightbox={onOpenLightbox}

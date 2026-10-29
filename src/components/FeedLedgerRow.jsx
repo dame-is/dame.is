@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
 import { formatTime, formatWallClockTime } from '../lib/time.js';
 import LedgerXrayLine from './LedgerXrayLine.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
@@ -15,26 +16,34 @@ import {
 import { firstSightingCount } from '../lib/firstSightings.js';
 import FirstSightingChip from './FirstSightingChip.jsx';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
-import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
+import { playArtistLine, playTrackName, playedAtOf } from '../lib/teal.js';
 import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
 import { flushBody, isWordlessFlush } from '../lib/flushText.js';
+import {
+  isYearOnlyDate,
+  sectionHref,
+  trimLinkEcho,
+  yearOf,
+} from '../lib/ledger.js';
 import InkblotFigure from './cards/InkblotFigure.jsx';
 import RedactedPost from './cards/RedactedPost.jsx';
+import AlbumCover from './AlbumCover.jsx';
+import Time from './Time.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID, ME_HANDLE } from '../config.js';
 
 /**
  * The home feed's second layout ("ledger"): each record renders as one
- * hairline-ruled row of three aligned columns — verb · time · a
- * one-line typographic summary — with no icons, avatars, embeds, or
- * stats. FeedItem owns the surrounding <li> (row click, thread
- * classes); this component renders the cells inside it.
+ * hairline-ruled row of three aligned columns: the verb in the margin, the
+ * record, and its time, which is the row's permalink, like a page number.
+ * FeedItem owns the surrounding <li> (row click, thread classes); this
+ * component renders the cells inside it.
  *
- * Summaries are intentionally lossy: they compress each card down to
- * the line a reader can scan ("track — artist", "@handle", "a post by
- * @handle"). The row links to the record page, which keeps the full
- * treatment.
+ * Summaries are intentionally lossy: they compress each card down to the
+ * line a reader can scan ("track — artist", "@handle"). A repost renders the
+ * original post as a quote box (RepostQuote). The time links to the record
+ * page, which keeps the full treatment, and the verb to its section.
  */
 
 /**
@@ -50,16 +59,6 @@ export function isListenBatch(item) {
     item.plays.length > 1
   );
 }
-
-/* Verb column labels are the same gerunds the site is named around
-   ("dame.is …ing") — the registry verb itself, with two exceptions:
-   replies show "replying", and logging statuses show "dame.is" (the
-   status text completes the sentence, mirroring StatusEntry's prefix).
-   Self-thread follow-ons show no label at all — the dashed rule above
-   the row (see Feed.css) marks them as connected to the post above. */
-const LEDGER_VERB_LABELS = {
-  logging: 'dame.is',
-};
 
 /* A nameless Anisota Lab piece falls back to what it *is* rather than the
    generic "a lab piece" — the ledger cousin of the card's kind label, and of
@@ -81,21 +80,29 @@ const BATCH_THUMBS = 4;
     long, and the ledger row's whole job is to be one row. */
 const BATCH_LEDGER_NAMES = 2;
 
+/**
+ * `showVerb={false}` is a single-kind page (/posting, /logging, /listening):
+ * every row is the same verb, so the margin drops it and prints only the
+ * exception ("replying"). /listening fills the freed margin
+ * with the session's cover.
+ */
 export default function FeedLedgerRow({
   item,
   xrayId,
   href,
+  showVerb = true,
   expanded = false,
   onToggle = null,
   onOpenLightbox = null,
 }) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
+  // Self-thread follow-ons show no label at all: the dashed rule above the
+  // row (see Feed.css) marks them as connected to the post above.
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
-  const label = threadContinuation
-    ? null
-    : replyHint
-      ? 'replying'
-      : LEDGER_VERB_LABELS[item.verb] || item.verb;
+  const label = threadContinuation ? null : replyHint ? 'replying' : item.verb;
+  // On a single-kind page the label only prints when it says something the
+  // page doesn't (a reply, on /posting).
+  const showLabel = Boolean(label) && (showVerb || label !== item.verb);
   const ts =
     item.createdAt || item.payload?.createdAt || item.payload?.indexedAt || null;
   // Reposts skip the inline "@handle: text" summary entirely — the
@@ -122,30 +129,38 @@ export default function FeedLedgerRow({
   const summary =
     isRepost || isObservation || isBlog || isRedaction
       ? null
-      : summarize(item, { expanded, onToggle });
+      : summarize(item);
   const embed = isRepost ? null : ledgerEmbed(item);
+  // A work known only by its year shows the year, not a "12:00 am" nobody
+  // recorded (see splitYearOnlyWorks, which also moves it to the ledger's end).
+  const yearOnly = item.verb === 'creating' && isYearOnlyDate(ts);
   // Observations show their stored local wall-clock time-of-day directly, never
   // localized — the record's timestamp is that wall-clock pinned to `Z`, so
   // running it through `formatTime` (which localizes) would re-shift the clock
   // (a 2:59pm sighting reading 10:59am). Falls back to the localized time only
   // for the rare observation with no recorded time.
-  const timeText = isObservation
-    ? formatWallClockTime(item.payload?.observedTime) || (ts ? formatTime(ts) : '')
-    : ts
-      ? formatTime(ts)
-      : '';
+  const wallClock = isObservation ? formatWallClockTime(item.payload?.observedTime) : '';
+  const timeText = yearOnly ? yearOf(ts) : wallClock || (ts ? formatTime(ts) : '');
+  // What the <time> says to a machine: the instant, a floating local time for
+  // a wall-clock observation, or just the year.
+  const machineTime = yearOnly
+    ? yearOf(ts)
+    : wallClock && item.payload?.observedDate
+      ? `${item.payload.observedDate}T${item.payload.observedTime}`
+      : ts;
+  const listening = item.verb === 'listening';
   return (
     <>
-      {/* Label-less rows (thread continuations) keep an empty verb cell
-          so grid auto-placement still lands the summary in column 2. */}
-      {!label ? (
-        <span className="ledger-verb" aria-hidden="true" />
-      ) : href ? (
-        <Link className="ledger-verb" to={href}>
-          {label}
-        </Link>
+      {/* The margin. A row with nothing to say there keeps an empty cell so
+          grid auto-placement still lands the body in column 2. */}
+      {listening && !showVerb ? (
+        <span className="ledger-verb ledger-cover" aria-hidden="true">
+          <AlbumCover payload={item.payload} size={100} className="ledger-cover-art" />
+        </span>
+      ) : showLabel ? (
+        <VerbLabel label={label} className="ledger-verb" />
       ) : (
-        <span className="ledger-verb">{label}</span>
+        <span className="ledger-verb" aria-hidden="true" />
       )}
       <div className="ledger-body">
         {isRepost && <RepostQuote item={item} />}
@@ -169,6 +184,9 @@ export default function FeedLedgerRow({
         ) : (
           summary && <p className="ledger-text">{summary}</p>
         )}
+        {listening && isListenBatch(item) && (
+          <ListenMore item={item} expanded={expanded} onToggle={onToggle} />
+        )}
         {embed && (
           <div className="ledger-embed">
             <PostEmbed
@@ -179,7 +197,10 @@ export default function FeedLedgerRow({
           </div>
         )}
       </div>
-      <span className="ledger-time">{timeText}</span>
+      <TimeLink className="ledger-time" href={href} dateTime={machineTime}>
+        {timeText}
+      </TimeLink>
+      {item.verb === 'posting' && <EngagementCounts payload={item.payload} />}
       {/* X-ray marginalia: in x-ray the verb and time columns give way to
           the record's collection and its rkey over a short CID, and the row
           keeps its content (see Xray.css). */}
@@ -191,25 +212,105 @@ export default function FeedLedgerRow({
           onOpenLightbox={onOpenLightbox}
         />
       ))}
-      {expanded && isListenBatch(item) && item.plays.map((play) => {
+      {/* An open session lists the rest of its songs, newest first: the
+          newest is already the row's own line. */}
+      {expanded && isListenBatch(item) && item.plays.slice(1).map((play) => {
         const playTs = play?.createdAt || playedAtOf(play?.payload) || null;
         const playHref = recordPathFromAtUri(play?.atUri);
         const line = trackLine(play?.payload);
         // Each play is its own compact sub-row spanning the summary + time
         // columns, split from the one above by a thin dashed rule (see
-        // .ledger-track-row in Feed.css) so the song list reads tight.
+        // .ledger-track-row in Feed.css) so the song list reads tight. Its
+        // time is its permalink, as a row's is.
         return (
           <div className="ledger-track-row" key={play?.atUri || playTs}>
             <p className="ledger-text ledger-track">
               {playHref ? <Link to={playHref}>{line || <em>—</em>}</Link> : line || <em>—</em>}
             </p>
-            <span className="ledger-time ledger-track-time">
+            <TimeLink className="ledger-time ledger-track-time" href={playHref} dateTime={playTs}>
               {playTs ? formatTime(playTs) : ''}
-            </span>
+            </TimeLink>
           </div>
         );
       })}
     </>
+  );
+}
+
+const countOf = (n, one, many) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+
+/**
+ * How a post of Dame's has been received: likes, replies, and the times it
+ * was passed on (reposts and quotes together), each a small glyph and a
+ * figure, leaving out any that are zero: a quiet line under the post on a
+ * desktop, the end of its caption on a phone (Feed.css `.ledger-counts`).
+ * The figures come from the author feed's post views, so a
+ * post that arrived some other way, without them, has none to show. A
+ * screen reader hears the counts in words; the glyphs are decoration.
+ */
+function EngagementCounts({ payload }) {
+  const likes = payload?.likeCount || 0;
+  const replies = payload?.replyCount || 0;
+  const passed = (payload?.repostCount || 0) + (payload?.quoteCount || 0);
+  if (!likes && !replies && !passed) return null;
+  const said = [
+    likes && countOf(likes, 'like', 'likes'),
+    replies && countOf(replies, 'reply', 'replies'),
+    passed && countOf(passed, 'repost or quote', 'reposts and quotes'),
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const figure = (n, Glyph) =>
+    n > 0 && (
+      <span className="ledger-count-item" aria-hidden="true">
+        <Glyph className="ledger-count-glyph" />
+        {n.toLocaleString('en-US')}
+      </span>
+    );
+  return (
+    <span className="ledger-counts">
+      <span className="visually-hidden">{said}</span>
+      {figure(likes, Heart)}
+      {figure(replies, MessageCircle)}
+      {figure(passed, Repeat2)}
+    </span>
+  );
+}
+
+/**
+ * A time that is its record's permalink: `<a><time>`, like a page number.
+ * With no page to go to (a live observation not mirrored yet) it's just the
+ * time.
+ */
+function TimeLink({ href, dateTime, className, children }) {
+  // <Time> keeps the printed text (an observation's recorded wall-clock, a
+  // work's year) and adds the full moment, on Dame's clock and the reader's,
+  // as its tooltip.
+  const time = dateTime ? (
+    <Time value={dateTime} variant="clock" tabular>
+      {children}
+    </Time>
+  ) : (
+    <time>{children}</time>
+  );
+  return href ? (
+    <Link className={className} to={href}>
+      {time}
+    </Link>
+  ) : (
+    <span className={className}>{time}</span>
+  );
+}
+
+/** The margin's gerund, linking to its section when it has one. */
+function VerbLabel({ label, className = 'ledger-verb-link' }) {
+  const to = sectionHref(label);
+  return to ? (
+    <Link className={className} to={to}>
+      {label}
+    </Link>
+  ) : (
+    <span className={className}>{label}</span>
   );
 }
 
@@ -229,6 +330,18 @@ function ledgerEmbed(item) {
   return { embed, did };
 }
 
+/** The address a post's link card points at, if it has one. */
+function embedLinkUri(payload) {
+  const embed = payload?.embed || payload?.embedRecord || null;
+  const type = embed?.$type || '';
+  if (type.startsWith('app.bsky.embed.external')) return embed.external?.uri || null;
+  if (type.startsWith('app.bsky.embed.recordWithMedia')) {
+    const media = embed.media;
+    if (media?.$type?.startsWith('app.bsky.embed.external')) return media.external?.uri || null;
+  }
+  return null;
+}
+
 /**
  * A repost's body: the original post styled like a quote embed —
  * mirrors PostEmbed's QuoteRecord markup so it inherits the condensed
@@ -239,6 +352,12 @@ function ledgerEmbed(item) {
  */
 function RepostQuote({ item }) {
   const payload = item.payload || {};
+  // An Anisota repost is a reference (a pointer at another post), not a
+  // carried copy of one: it has no author or text of its own to box, so it
+  // reads as its subject, the way a like does.
+  if (item.source === 'anisota' && item.subject) {
+    return <p className="ledger-text">{summarizeSubject(item.subject, item.source)}</p>;
+  }
   if (payload.subjectMissing) {
     return (
       <p className="ledger-text">
@@ -306,23 +425,17 @@ function RepostQuote({ item }) {
   );
 }
 
-function summarize(item, listenControls) {
+function summarize(item) {
   const payload = item.payload || {};
   switch (item.verb) {
     case 'logging':
       return plain(payload.status || payload.text, 'a status');
     case 'posting':
-    case 'reposting':
-      // An Anisota repost is a reference (a pointer at another post), not an
-      // authored post — summarise its subject like a like does.
-      if (item.source === 'anisota' && item.subject) {
-        return summarizeSubject(item.subject, item.source);
-      }
       return summarizePost(item);
     case 'blogging':
       return plain(payload.title || payload.name, 'an untitled entry');
     case 'listening':
-      return summarizeListen(item, listenControls);
+      return summarizeListen(item);
     case 'creating':
       return plain(payload.title || payload.slug, 'an untitled work');
     case 'photographing': {
@@ -384,14 +497,15 @@ function Placeholder({ children }) {
 /**
  * Posts keep their rich text (links / mentions render as anchors).
  * Text-less posts return null when an embed exists — the condensed
- * embed below carries the row on its own. Foreign authors (reposts)
- * get a leading @handle so attribution survives the loss of the
- * card's author header.
+ * embed below carries the row on its own. A link the post's card already
+ * shows isn't printed twice: a link-only post is just its card (see
+ * trimLinkEcho). A post by someone else gets a leading @handle so
+ * attribution survives the loss of the card's author header.
  */
 function summarizePost(item) {
   const payload = item.payload || {};
   if (payload.subjectMissing) return <Placeholder>an unavailable post</Placeholder>;
-  const text = payload.text || '';
+  const text = trimLinkEcho(payload.text || '', embedLinkUri(payload));
   const hasEmbed = Boolean(payload.embed || payload.embedRecord);
   const body = text
     ? renderPostText(text, payload.facets || null)
@@ -417,56 +531,47 @@ function summarizePost(item) {
 }
 
 /**
- * "track — artist" for a single play; a collapsed session leads with
- * its artist pool (dedup'd, latest first) plus the song count, same
- * logic as ListenRow's top line. When the session is expandable the
- * song count doubles as the accessible expand/collapse toggle —
+ * "track — artist": a play's line, and a session's, which leads with its
+ * newest song. What else the session held is the "+ 15 more" beneath it
+ * (ListenMore), which opens the rest in place.
+ */
+function summarizeListen(item) {
+  return trackLine(item.payload || {}) || <Placeholder>a play</Placeholder>;
+}
+
+/**
+ * Under a session's line: how many more songs it holds, and the control
+ * that opens them ("+ 15 more"), which reads "16 songs −" once they're out.
  * FeedItem also toggles on taps anywhere else in the row.
  */
-function summarizeListen(item, { expanded = false, onToggle = null } = {}) {
-  const payload = item.payload || {};
-  const isBatch = isListenBatch(item);
-  const countTag = isBatch ? (
-    <span className="ledger-count">
-      {' · '}
+function ListenMore({ item, expanded, onToggle }) {
+  const total = item.plays.length;
+  const label = expanded ? (
+    <>
+      {total} songs
+      <span className="ledger-count-caret" aria-hidden="true">
+        {'\u2212'}
+      </span>
+    </>
+  ) : (
+    `+ ${total - 1} more`
+  );
+  return (
+    <p className="ledger-count ledger-listen-more">
       {onToggle ? (
         <button
           type="button"
           className="ledger-count-toggle"
           onClick={onToggle}
           aria-expanded={expanded}
-          aria-label={`${expanded ? 'Hide' : 'Show'} all ${item.count} songs`}
+          aria-label={`${expanded ? 'Hide' : 'Show'} all ${total} songs`}
         >
-          {item.count} songs
-          <span className="ledger-count-caret" aria-hidden="true">
-            {expanded ? '−' : '+'}
-          </span>
+          {label}
         </button>
       ) : (
-        `${item.count} songs`
+        label
       )}
-    </span>
-  ) : null;
-  if (isBatch) {
-    const artists = uniqueArtistNames(item.plays);
-    if (artists.length > 1) {
-      const shown = artists.slice(0, 4).join(', ');
-      const extra = artists.length > 4 ? ` + ${artists.length - 4} more` : '';
-      return (
-        <>
-          <span className="ledger-accent">{shown + extra}</span>
-          {countTag}
-        </>
-      );
-    }
-  }
-  const line = trackLine(payload);
-  if (!line) return <Placeholder>a play</Placeholder>;
-  return (
-    <>
-      {line}
-      {countTag}
-    </>
+    </p>
   );
 }
 
@@ -483,20 +588,6 @@ function trackLine(payload) {
       {artist && <span className="ledger-accent">{artist}</span>}
     </>
   );
-}
-
-function uniqueArtistNames(plays) {
-  const seen = new Set();
-  const out = [];
-  for (const play of plays) {
-    for (const name of playArtistNames(play?.payload)) {
-      if (name && !seen.has(name)) {
-        seen.add(name);
-        out.push(name);
-      }
-    }
-  }
-  return out;
 }
 
 /**

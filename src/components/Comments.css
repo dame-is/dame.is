@@ -1,15 +1,8 @@
+/* The thread opens on the kit's section head (SectionHead.jsx), "Replies" in
+   sentence case on its hairline. That hairline is the section's divider, so
+   the section no longer draws a rule of its own above it. */
 .comments-section {
   margin-top: var(--space-8);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--rule);
-}
-
-.comments-heading {
-  font-family: var(--sans);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
-  margin: 0 0 var(--space-4);
 }
 
 /* Engagement summary for the host Bluesky post, sitting between the "Replies"
@@ -251,4 +244,8 @@ a.comment-author-name:focus-visible {
 
 .comments-empty-line .small-caps {
   letter-spacing: 0.12em;
+}
+
+.comments-empty-action {
+  margin-left: auto;
 }

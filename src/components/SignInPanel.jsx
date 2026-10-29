@@ -193,7 +193,7 @@ export default function SignInPanel({ onAction }) {
         onChange={(e) => setInput(e.target.value)}
         disabled={busy}
       />
-      <button type="submit" className="signin-button" disabled={busy || !input.trim()}>
+      <button type="submit" className="btn btn--primary signin-button" disabled={busy || !input.trim()}>
         {busy ? 'Redirecting…' : 'Sign in'}
       </button>
       {error && <p className="signin-error">{error}</p>}

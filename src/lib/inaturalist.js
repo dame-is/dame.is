@@ -23,6 +23,7 @@ import {
   OBSERVING_OBSERVATION_NSID,
 } from '../config.js';
 import { fetchWithTimeout } from './atproto.js';
+import { easternInstant } from './time.js';
 
 const PER_PAGE = 200; // iNaturalist's max page size.
 // How deep a page-numbered pull can go: iNaturalist refuses `page * per_page`
@@ -593,22 +594,23 @@ export function observedTimestamp(observedDate, observedTime) {
 
 /**
  * The instant to ORDER and DISPLAY an observation by in a feed, rebuilt from
- * its stored local wall-clock (`observedDate` + `observedTime`) interpreted in
- * the *runtime's* time zone.
+ * its stored local wall-clock (`observedDate` + `observedTime`) read on Dame's
+ * clock, America/New_York — the clock the whole site keeps (see lib/time.js).
  *
  * `observedTimestamp` pins the wall-clock to `Z` so no tz offset is ever stored
  * (a tz offset is a coarse location hint). But that fake-UTC value is not a real
  * instant: against genuinely-UTC records (Bluesky posts, statuses) it sorts
- * ~offset hours early, and localizing it for display double-shifts the clock
- * (a 2:59pm sighting reads 10:59am to an observer in UTC−4). Reconstructing it
- * as a local instant restores correct interleaving, correct local-day
- * bucketing, and — round-tripped back through `toLocaleTimeString` — the right
- * displayed time, for a viewer in the observer's own zone (the common case; the
- * offset is never persisted, so a far-away viewer still can't do better).
+ * ~offset hours early, and printing it on Dame's clock double-shifts it (a
+ * 2:59pm sighting reads 10:59am). Read as a New York wall-clock instead, it
+ * interleaves with her posts, lands on its own night in the day groups, and
+ * prints back as the time it was recorded at. It's the same instant for every
+ * reader. It used to be read in the reader's zone, which moved a moth's place
+ * in the feed depending on who was looking. The zone is a constant of the
+ * site, not the observer's, so it says nothing about where.
  *
- * In Node/UTC (the static prefetch) this returns the same instant as
- * `observedTimestamp`, so the snapshot is byte-identical; only the browser
- * rebuild, running in the viewer's zone, shifts it.
+ * A sighting made away from home is still read as if in New York: the zone
+ * was never stored, so nothing can do better, and the wall-clock printed
+ * beside it (formatWallClockTime) is the one it was recorded at either way.
  */
 export function observationFeedInstant(observedDate, observedTime) {
   const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(observedDate || ''));
@@ -616,7 +618,7 @@ export function observationFeedInstant(observedDate, observedTime) {
   const tm = /^(\d{2}):(\d{2})$/.exec(String(observedTime || ''));
   const hh = tm ? Number(tm[1]) : 12; // noon fallback for a timeless observation
   const mm = tm ? Number(tm[2]) : 0;
-  const d = new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm, 0, 0);
+  const d = easternInstant(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 

@@ -46,6 +46,14 @@ export default memo(function VitalsPanel() {
   // an empty-but-present row so the atmosphere bar doesn't pop a whole extra
   // line a beat after it opens. Day of life still rides at its right edge: on
   // a desktop this is the only copy of it on screen.
+  // The ambient-sound reading is dropped when it's the heart rate again. Since
+  // October 8 the phone's automation has written the heart rate into
+  // `soundLevel` on every record (65 bpm, 65 dB), so the "dB" figure was a
+  // second copy of the pulse. A real reading that happens to match is rare
+  // enough to lose; once the automation is fixed the two differ and it comes
+  // back by itself.
+  const soundLevel =
+    vitals?.soundLevel != null && vitals.soundLevel !== vitals.heartRate ? vitals.soundLevel : null;
   const hasAny =
     vitals &&
     !expired &&
@@ -53,13 +61,13 @@ export default memo(function VitalsPanel() {
       vitals.activity ||
       vitals.batteryLevel != null ||
       vitals.caloriesBurned != null ||
-      vitals.soundLevel != null);
+      soundLevel != null);
 
   if (!hasAny) {
     return (
       <div className="vitals vitals-empty">
         <span className="chrome-signal-label" aria-hidden="true">
-          state
+          dame’s phone
         </span>
         <span className="chrome-signal-value" aria-hidden="true">
           &mdash;
@@ -83,6 +91,14 @@ export default memo(function VitalsPanel() {
           : "Current state from Dame's phone"
       }
     >
+      {/* The row says whose readings these are and when they were taken, in
+          the small-caps lead its siblings have (LISTENING TO, FOLLOWED BY):
+          "Dame's phone · 2h ago". Without it a newcomer couldn't tell a heart
+          rate from a battery. */}
+      <span className="chrome-signal-label vitals-lead">
+        dame’s phone{age ? <span className="vitals-age"> · {age}</span> : null}
+      </span>
+
       {/* One is.dame.state record sits behind all five readings, so x-ray's
           underline spans them (the inner span) and its tag follows (the
           outer span's ::after); the day of life beside them isn't part of it. */}
@@ -104,10 +120,10 @@ export default memo(function VitalsPanel() {
             </span>
           )}
 
-          {vitals.soundLevel != null && (
-            <span className="vital vital-sound" aria-label={`Ambient sound ${vitals.soundLevel} decibels`}>
+          {soundLevel != null && (
+            <span className="vital vital-sound" aria-label={`Ambient sound ${soundLevel} decibels`}>
               <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-              <span className="vital-value">{vitals.soundLevel}</span>
+              <span className="vital-value">{soundLevel}</span>
               <span className="vital-unit">dB</span>
             </span>
           )}
@@ -137,10 +153,6 @@ export default memo(function VitalsPanel() {
           )}
         </span>
       </span>
-
-      {/* When the phone said all this — the same quiet age the status line
-          wears. */}
-      {age && <span className="vitals-age">{age}</span>}
 
       {/* Right edge: day of life, in the same small-caps label voice as
           LISTENING TO / FOLLOWED BY one bar up. */}

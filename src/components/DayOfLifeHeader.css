@@ -1,34 +1,44 @@
+/* A day's running head, on one line: the date on the left and the
+   day-of-life folio on the right, like a page number (DayOfLifeHeader). It
+   wraps the folio under the date only when a very narrow column can't hold
+   both. */
 .day-section-header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
   margin: 0 0 var(--space-5);
 }
 
-/* Day-group heading — a larger serif date line ("Yesterday, May 12,
-   2025") that reads clearly as a section break above the feed items,
-   rather than the old small-caps label + hairline rule. */
 .day-header {
   font-family: var(--serif);
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 500;
   line-height: var(--leading-tight);
   letter-spacing: -0.005em;
   color: var(--ink);
   margin: 0;
 }
 
-/* Day summary stats (Home) or the day-of-life count (other feeds) —
-   a quiet secondary line under the date heading. */
+/* The folio, and before it the home feed's passing note about itself
+   ("Updating…") while there is one. */
 .day-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  column-gap: 1.2em;
   font-family: var(--sans);
-  font-size: var(--text-xs);
+  font-size: var(--text-meta);
   color: var(--ink-faint);
   margin: 0;
   letter-spacing: 0.02em;
 }
 
-/* Subsequent day groups in a feed get a deeper top margin (applied on
-   the parent .feed-day-group, see Feed.css) so the break between one
-   day and the next reads as a section divider — the day-header itself
-   stays anchored to the top of its group. */
+.day-header-folio {
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  font-size: 1.05em;
+  white-space: nowrap;
+}

@@ -16,6 +16,8 @@ import { useChromeBar } from '../hooks/useChromeBar.jsx';
  *
  * `crumb` names this page in the chrome's running head, in place of its last
  * URL segment: a record page passes "Oct 26 · 5:36 pm", an essay its title.
+ * `crumbDate` (an ISO instant) is printed at the right of the masthead's
+ * trail: a post's date, where its page has no date line.
  */
 export default function PageShell({
   title,
@@ -26,6 +28,7 @@ export default function PageShell({
   children,
   headTitle,
   crumb = null,
+  crumbDate = null,
   selectable = false,
 }) {
   // Publish the route's backing record to edit mode so the owner's quick-edit
@@ -40,10 +43,10 @@ export default function PageShell({
   const { pathname } = useLocation();
   const { setCrumb } = useChromeBar();
   useEffect(() => {
-    if (!crumb) return undefined;
-    setCrumb({ path: pathname, label: crumb });
+    if (!crumb && !crumbDate) return undefined;
+    setCrumb({ path: pathname, label: crumb, date: crumbDate });
     return () => setCrumb((cur) => (cur?.path === pathname ? null : cur));
-  }, [crumb, pathname, setCrumb]);
+  }, [crumb, crumbDate, pathname, setCrumb]);
 
   return (
     <article className="page">

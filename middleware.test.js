@@ -336,13 +336,15 @@ describe('failure handling', () => {
 /* ------------------------------------------------------------------ */
 
 const PDS = 'https://pds.example';
+const PHOTO_CID = 'bafkreifkgmd2iisfr7fv3ucbcoqsgaexbp2itcnrwjxl2iqvbrjyehrn7m';
 
 /**
  * A world with a PDS in it: the shell, the PLC directory, `records` keyed
- * `collection/rkey` on the PDS, and `snapshots` keyed by name under /data.
- * Anything else 404s, as in the cold-edge stub above.
+ * `collection/rkey` on the PDS, `snapshots` keyed by name under /data, and an
+ * AppView that knows the post views in `posts` (keyed by at:// URI). Anything
+ * else 404s, as in the cold-edge stub above.
  */
-function worldFetch({ records = {}, snapshots = {} } = {}) {
+function worldFetch({ records = {}, snapshots = {}, posts = {} } = {}) {
   const calls = [];
   const json = (body) =>
     new Response(JSON.stringify(body), {
@@ -377,6 +379,10 @@ function worldFetch({ records = {}, snapshots = {} } = {}) {
       return new Response(JSON.stringify({ error: 'RecordNotFound' }), {
         status: 400,
       });
+    }
+    if (url.startsWith('https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts')) {
+      const uris = new URL(url).searchParams.getAll('uris');
+      return json({ posts: uris.map((u) => posts[u]).filter(Boolean) });
     }
     const snap = url.match(/\/data\/([^/?]+)\.json$/);
     if (snap && snap[1] in snapshots) return json(snapshots[snap[1]]);
@@ -493,6 +499,97 @@ describe('record pages', () => {
     expect(metaContent(body, 'property', 'article:published_time')).toBe(
       '2026-05-01T12:00:00.000Z',
     );
+  });
+
+  it('gives a post with a photo the photo card, described by both halves', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3cooper': {
+          text: 'gm from cooper',
+          embed: {
+            $type: 'app.bsky.embed.images',
+            images: [
+              {
+                alt: 'A small tan chihuahua',
+                image: { ref: { $link: PHOTO_CID }, mimeType: 'image/jpeg' },
+                aspectRatio: { width: 4, height: 3 },
+              },
+            ],
+          },
+          createdAt: '2026-10-27T12:00:00.000Z',
+        },
+      },
+    });
+    const { res, body } = await html('/posting/3cooper');
+    expect(res.status).toBe(200);
+    expect(metaContent(body, 'property', 'og:image')).toBe('https://dame.is/api/og?post=3cooper');
+    expect(metaContent(body, 'name', 'twitter:image')).toBe('https://dame.is/api/og?post=3cooper');
+    expect(metaContent(body, 'name', 'description')).toBe('gm from cooper');
+    expect(metaContent(body, 'property', 'og:image:alt')).toBe(
+      'gm from cooper (a photo: A small tan chihuahua)',
+    );
+    // Still a large 1200×630 card, so nothing about how it unfurls changes.
+    expect(metaContent(body, 'name', 'twitter:card')).toBe('summary_large_image');
+    expect(metaContent(body, 'property', 'og:image:width')).toBe('1200');
+    expect(metaContent(body, 'property', 'og:image:height')).toBe('630');
+  });
+
+  it('answers 200 for a photo with no words, described by its alt text', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3dril': {
+          text: '',
+          embed: {
+            $type: 'app.bsky.embed.recordWithMedia',
+            media: {
+              $type: 'app.bsky.embed.images',
+              images: [{ alt: 'dril tweet about candles', image: { ref: { $link: PHOTO_CID } } }],
+            },
+            record: { $type: 'app.bsky.embed.record', record: { uri: 'at://x/app.bsky.feed.post/1', cid: 'c' } },
+          },
+        },
+      },
+    });
+    const { res, body } = await html('/posting/3dril');
+    expect(res.status).toBe(200);
+    expect(body).not.toContain('content="noindex"');
+    expect(metaContent(body, 'name', 'description')).toBe('dril tweet about candles');
+    expect(metaContent(body, 'property', 'og:image')).toBe('https://dame.is/api/og?post=3dril');
+  });
+
+  it('credits a repost to the original author rather than to Dame', async () => {
+    const poe = 'did:plc:poepoepoepoepoepoepoepoe';
+    const subject = `at://${poe}/app.bsky.feed.post/3dispatch`;
+    worldFetch({
+      records: {
+        'app.bsky.feed.repost/3rp': {
+          subject: { uri: subject, cid: 'c' },
+          createdAt: '2026-10-27T15:00:00.000Z',
+        },
+      },
+      posts: {
+        [subject]: {
+          uri: subject,
+          cid: 'c',
+          author: { did: poe, handle: 'poe.atpota.to', displayName: 'Poe' },
+          record: { text: 'new dispatch!', createdAt: '2026-10-26T10:00:00.000Z' },
+          labels: [],
+        },
+      },
+    });
+    const { res, body } = await html('/reposting/3rp');
+    expect(res.status).toBe(200);
+    expect(body).toContain('<title>Dame reposted a post by Poe (@poe.atpota.to) — dame.is</title>');
+    expect(metaContent(body, 'property', 'og:title')).toBe(
+      'Dame reposted a post by Poe (@poe.atpota.to) — dame.is',
+    );
+    expect(metaContent(body, 'name', 'description')).toBe('“new dispatch!”');
+    expect(metaContent(body, 'property', 'og:image')).toBe('https://dame.is/api/og?repost=3rp');
+    expect(metaContent(body, 'property', 'og:image:alt')).toBe(
+      'A post by Poe (@poe.atpota.to): “new dispatch!”',
+    );
+    // The record behind the page is still Dame's repost.
+    expect(body).toContain(`at://${ME_DID}/app.bsky.feed.repost/3rp`);
   });
 
   it('borrows the owning verb’s copy on a lexicon-form record address', async () => {

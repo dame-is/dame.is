@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { LEGACY_POSTS, migratedSlugs, migratePost } from '../lib/legacyBlog.js';
-import { formatDateLong } from '../lib/time.js';
+import { formatDateFull } from '../lib/time.js';
 
 const STANDARD_DOC = 'site.standard.document';
 
@@ -167,7 +167,7 @@ export default function LegacyBlogMigration({ agent, did }) {
                     mono, faint and `word-break: break-all` — it shrinks and
                     wraps like the text it is. */}
                 <div className="legacy-blog-meta">
-                  <span className="small-caps">{formatDateLong(post.publishedAt)}</span>
+                  <span className="small-caps">{formatDateFull(post.publishedAt)}</span>
                   <span className="legacy-blog-dot">·</span>
                   <code className="admin-collection-nsid">/blogging/{post.slug}</code>
                   {post.images.length > 0 && (

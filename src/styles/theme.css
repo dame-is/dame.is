@@ -107,12 +107,30 @@
 
   --chrome-h: 56px;
 
+  /* Control heights (controls.css). Small for record actions, x-ray and an
+     in-table "more"; md for every button on a desktop pointer; touch for the
+     same buttons under a finger. The audit measured eleven quiet buttons at
+     27 to 40px, which is what these three replace. */
+  --control-h-sm: 1.75rem;
+  --control-h-md: 2.25rem;
+  --control-h-touch: 2.75rem;
+
+  /* The floor. The eyebrow label (controls.css) is set here and nothing on
+     the public site goes smaller: the audit counted thirteen rendered sizes
+     between 9.3 and 12.6px, most of them ad-hoc rems in the Ratioed blocks
+     and the chrome, and none of them reads as a step of its own. */
+  --text-2xs: 0.6875rem;
   --text-xs: 0.75rem;
   /* The one metadata size: ledger verbs and times, day stats, the chrome's
      sub-row labels. Nothing in that voice drops below it on a phone. */
   --text-meta: 0.8125rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
+  /* An alias, not a step. Leaflet's h4–h6 and its website card once asked
+     for --text-md while nothing defined it, so they quietly fell back to
+     body size; both wanted the step above body, which is --text-lg. Kept
+     so a stray var(--text-md) lands on the scale instead of on nothing. */
+  --text-md: var(--text-lg);
   --text-lg: 1.125rem;
   --text-xl: 1.375rem;
   --text-2xl: 1.75rem;
@@ -254,6 +272,22 @@
   --accent-fill: color-mix(in srgb, var(--accent) 85%, var(--ink));
   --accent-fill-edge: color-mix(in srgb, var(--accent) 72%, var(--ink));
   --accent-fill-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+}
+
+/* The two washes (controls.css). --wash-hover is what a pointer resting on a
+   quiet control paints; --wash-selected is the one look for "this is on":
+   with a 1px accent hairline and ink text, it is the filter line's box, the
+   segmented "7 days" and an open bar chip alike. A solid fill is kept for
+   the primary action and never means a state.
+
+   Mixed into --page, opaque, so a wash over the bar's darker surface lightens
+   instead of letting the bar show through. Like the fill above they resolve
+   on <html> against the root palette; the nest-ink re-tune on link cards
+   changes their text inks, not these, which is the wanted result. Ink on the
+   selected wash measures 12.9:1 at 1pm and 5.8:1 at 7pm. */
+:root {
+  --wash-hover: color-mix(in srgb, var(--accent) 8%, var(--page));
+  --wash-selected: color-mix(in srgb, var(--accent) 16%, var(--page));
 }
 
 /* Quote and link cards sit one or two nest steps off the page, where a page

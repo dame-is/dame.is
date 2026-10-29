@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useProfile } from '../hooks/useProfile.js';
+import { ME_HANDLE } from '../config.js';
 import TickerText from './TickerText.jsx';
 import { xrayNotARecord } from '../lib/xray.js';
 
@@ -53,12 +54,21 @@ export default function ProfileStats() {
     );
   }
   const peopleLabel = followers === 1 ? 'person' : 'people';
+  // The count leads to where it's kept: Dame's profile on Bluesky, which is
+  // where those people follow from.
   return (
     <span className="chrome-signal chrome-signal-stats" {...xrayNotARecord('AppView count')}>
       <span className="chrome-signal-label">followed by</span>
       <TickerText className="chrome-signal-value" title={`followed by ${followers.toLocaleString()} ${peopleLabel} on Bluesky`}>
-        <strong>{followers.toLocaleString()}</strong>
-        {` ${peopleLabel} on Bluesky`}
+        <a
+          className="chrome-signal-link"
+          href={`https://bsky.app/profile/${ME_HANDLE}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <strong>{followers.toLocaleString()}</strong>
+          {` ${peopleLabel} on Bluesky`}
+        </a>
       </TickerText>
     </span>
   );

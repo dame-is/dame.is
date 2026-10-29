@@ -1,4 +1,3 @@
-import { relativeTime } from '../lib/time.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
@@ -6,7 +5,9 @@ import { Link } from 'react-router-dom';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import PostEmbed from './PostEmbed.jsx';
+import Time from './Time.jsx';
 import { CommentsSkeleton } from './Skeleton.jsx';
+import SectionHead from './SectionHead.jsx';
 import './Comments.css';
 
 /**
@@ -23,7 +24,8 @@ const REPLY_INDENT_CAP = 4;
  * Pure rendering — the parent (Record.jsx) is responsible for fetching the
  * thread and slicing out the `replies` array. Status flags drive the empty /
  * loading / error states so the section stays mounted while the thread
- * resolves.
+ * resolves. `action` sits at the right of the Replies heading (a post's page
+ * puts its "Open in…" there).
  */
 export default function Comments({
   atUri,
@@ -31,18 +33,17 @@ export default function Comments({
   status = 'ready',
   metrics = null,
   emptyMessage = 'No replies yet.',
+  action = null,
 }) {
   if (!atUri) return null;
   // A thread with nothing in it takes one line ("Replies · none yet · reply
   // on Bluesky") instead of a heading over an empty block.
   const empty =
     status === 'ready' && !(replies || []).some(isRenderableReply) && !metrics?.replyCount;
-  if (empty) return <EmptyComments atUri={atUri} />;
+  if (empty) return <EmptyComments atUri={atUri} action={action} />;
   return (
     <section className="comments-section">
-      <h3 className="comments-heading">
-        <span className="small-caps">Replies</span>
-      </h3>
+      <SectionHead as="h3" title="Replies" meta={action} />
       {metrics && <EngagementBar metrics={metrics} atUri={atUri} />}
       <CommentsBody
         replies={replies}
@@ -97,7 +98,9 @@ function EngagementBar({ metrics, atUri }) {
   );
 }
 
-function EmptyComments({ atUri }) {
+// With an `action` (a post's "Open in…", which opens the same picker), that
+// takes the line's right end in place of "reply on Bluesky".
+function EmptyComments({ atUri, action = null }) {
   const { openWaypoints } = useWaypointsModal();
   const canReply = typeof atUri === 'string' && atUri.startsWith('at://');
   return (
@@ -105,7 +108,9 @@ function EmptyComments({ atUri }) {
       <span className="small-caps">Replies</span>
       <span aria-hidden="true">·</span>
       <span>none yet</span>
-      {canReply && (
+      {action ? (
+        <span className="comments-empty-action">{action}</span>
+      ) : canReply && (
         <>
           <span aria-hidden="true">·</span>
           <button type="button" className="engagement-link" onClick={() => openWaypoints(atUri)}>
@@ -177,7 +182,7 @@ function ReplyNode({ node, depth }) {
             <AuthorLink author={author} />
             {ts && (
               <span className="comment-time gutter">
-                <PermalinkOrText post={post}>{relativeTime(ts)}</PermalinkOrText>
+                <PermalinkOrText post={post}><Time value={ts} variant="relative" /></PermalinkOrText>
               </span>
             )}
           </div>

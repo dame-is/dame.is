@@ -10,6 +10,9 @@
 //   /api/og?play=3msrio…            → one teal.fm play, with its album cover on it
 //   /api/og?album=raven-by-kelela   → one album, likewise
 //   /api/og?albums=1                → the albums index, as a shelf of covers
+//   /api/og?post=3myudozd7n22u      → one of Dame's posts, with its photos on it
+//   /api/og?repost=3myuh64psn623    → the post a repost points at, under its
+//   /api/og?like=3m…                  author's name (likewise a like)
 //   /api/og?title=Foo&subtitle=Bar  → ad-hoc copy
 //   /api/og?theme=dark              → dark (green-black) variant
 //   /api/og                         → the home "index" card
@@ -34,6 +37,11 @@ import {
   playRecord,
   albumBySlug,
   albumsIndex,
+  postRecord,
+  postCardCopy,
+  subjectPost,
+  subjectCardCopy,
+  SUBJECT_CARD_KEYS,
 } from '../og/records.js';
 import { lookupArtwork } from './_lib/itunes.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
@@ -102,6 +110,18 @@ const SHELF_COVER_SIZE = 200;
 // they stop being recognisable at the size a card gets looked at.
 const SHELF_COVERS = 5;
 
+// The image types a card will draw. Satori decodes these three and nothing
+// else: a WebP or an AVIF it is handed throws, and the whole card fails to
+// render rather than going without one picture. SVG is left out on purpose,
+// the same rule api/image-proxy.js enforces: a card should never be drawing a
+// document somebody else wrote. Every source a card reads asks for a raster
+// (iNaturalist and Apple serve JPEG; the Bluesky CDN is asked for `@jpeg`), so
+// in practice this only ever turns away something unexpected.
+const CARD_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
+// A feed thumbnail is 50–300 KB and an album cover less. Anything this big is
+// not the file that was asked for, and would only slow the render down.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
 /**
  * One remote image as a data: URI, or null.
  *
@@ -115,9 +135,18 @@ async function inlineImage(url) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS) });
     if (!res.ok) return null;
-    const type = res.headers.get('content-type') || '';
-    if (!/^image\//.test(type)) return null;
+    const type = String(res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!CARD_IMAGE_TYPES.has(type)) {
+      res.body?.cancel?.().catch(() => {});
+      return null;
+    }
+    const declared = Number(res.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > MAX_IMAGE_BYTES) {
+      res.body?.cancel?.().catch(() => {});
+      return null;
+    }
     const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length > MAX_IMAGE_BYTES) return null;
     return `data:${type};base64,${bytes.toString('base64')}`;
   } catch {
     return null;
@@ -212,6 +241,45 @@ async function albumCardData(album) {
     cover: await inlineCover(album.sample),
   };
 }
+
+/**
+ * Everything a post's card draws, with its pictures inlined. `copy` is
+ * og/records.js's reading of the record (postCardCopy / subjectCardCopy), so
+ * the words on the card are the words in the head; this only fetches the
+ * photos and the author's avatar, every one of them a Bluesky CDN URL built
+ * there from a DID and a CID rather than taken off the query string.
+ */
+async function postCardData(copy, { date = null, nsid = null } = {}) {
+  if (!copy) return null;
+  const [photos, avatar] = await Promise.all([
+    Promise.all(
+      copy.photos.map(async (p) => {
+        const src = await inlineImage(p.url);
+        return src ? { src, aspect: p.aspect } : null;
+      }),
+    ),
+    copy.author?.avatar ? inlineImage(copy.author.avatar) : null,
+  ]);
+  const drawn = photos.filter(Boolean);
+  return {
+    text: copy.text,
+    caption: copy.caption,
+    standIn: copy.standIn,
+    alt: copy.alt,
+    photos: drawn,
+    author: copy.author ? { name: copy.author.name, handle: copy.author.handle, avatar } : null,
+    // Not drawn. `short` marks a card that was meant to carry photos and got
+    // none of them: it still renders, as the words alone, but is cached like
+    // a miss so the next fetch can try the CDN again. `date` stamps the folio
+    // and `nsid` the margin, both off the record rather than the query.
+    short: copy.photos.length > 0 && drawn.length === 0,
+    date,
+    nsid,
+  };
+}
+
+/** The collection an at:// URI names, for a card's margin. */
+const nsidOf = (uri) => String(uri || '').match(/^at:\/\/[^/]+\/([^/]+)\//)?.[1] || null;
 
 /** Everything the albums index card draws: the totals, and the first few
  *  covers off the shelf. A cover that won't resolve is simply left out. */
@@ -333,6 +401,49 @@ export default async function handler(req, res) {
     if (!takenAlready && !play && !album && (q.albums === '1' || q.albums === 'true')) {
       shelf = await shelfCardData(await albumsIndex(origin));
     }
+    // The post cards. None takes free text: `post` carries a record key in
+    // Dame's repo, and `repost` / `like` a record key whose subject the AppView
+    // has to name before anything is drawn. The words and the photos are read
+    // back off the records, exactly as the head was written from them.
+    let post = null;
+    let postVerb = '';
+    const subjectKey = Object.keys(SUBJECT_CARD_KEYS).find((k) => q[k]);
+    const listenTaken = play || album || shelf;
+    if (!takenAlready && !listenTaken && q.post) {
+      const found = await postRecord(clampText(q.post));
+      if (found?.value) {
+        post = await postCardData(postCardCopy(found.value), {
+          date: found.value.createdAt || null,
+          nsid: nsidOf(found.uri),
+        });
+        postVerb = 'posting';
+      }
+    } else if (!takenAlready && !listenTaken && subjectKey) {
+      const section = SUBJECT_CARD_KEYS[subjectKey];
+      const found = await subjectPost(section, clampText(q[subjectKey]));
+      post = await postCardData(subjectCardCopy(found), {
+        // The day Dame passed it on, which is what the page is about, rather
+        // than the day it was written.
+        date: found?.record?.value?.createdAt || null,
+        nsid: nsidOf(found?.record?.uri),
+      });
+      if (post) postVerb = section;
+    }
+    if (post?.date && !q.date) {
+      const d = new Date(post.date);
+      if (!Number.isNaN(d.getTime())) folioAt = d;
+    }
+    // A post the PDS didn't answer for, or a repost whose post the AppView
+    // couldn't name: that section's own card, as a missed play gets
+    // /listening's.
+    if (!takenAlready && !listenTaken && !post && (q.post || subjectKey)) {
+      const sectionPath = q.post ? '/posting' : `/${SUBJECT_CARD_KEYS[subjectKey]}`;
+      const meta = pageMeta(sectionPath);
+      pathname = sectionPath;
+      label = meta.label;
+      subtitle = meta.desc;
+      nsid = meta.nsid;
+    }
     // A handle nobody in the roster answers to, a piece the snapshot and the
     // PDS both missed, or a roster that could not be read: draw the work's own
     // card rather than the site's home index, which is what a bare fall-through
@@ -382,10 +493,14 @@ export default async function handler(req, res) {
       q.night ||
       q.play ||
       q.album ||
-      flag(q.albums);
+      flag(q.albums) ||
+      q.post ||
+      subjectKey;
     const drawn =
-      piece || participant || board || night || play || album || shelf;
-    const missed = Boolean(asked) && !drawn;
+      piece || participant || board || night || play || album || shelf || post;
+    // A post card that lost every one of its photos on the way counts as a
+    // miss too: it's a fair card, but not the one to keep for an hour.
+    const missed = (Boolean(asked) && !drawn) || Boolean(post?.short);
     if (piece || participant || board) {
       // Fall through to the render with one of them set; nothing else applies.
     } else if (night) {
@@ -399,6 +514,11 @@ export default async function handler(req, res) {
       // still addressable and the margin should say so when it's what's drawn.
       pathname = play ? '/listening' : '/listening/albums';
       nsid = play?.nsid || pageMeta(pathname).nsid;
+    } else if (post) {
+      // And the post cards, which name the lexicon of the record the page is
+      // about: a repost's margin says app.bsky.feed.repost, not post.
+      pathname = `/${postVerb}`;
+      nsid = post.nsid || pageMeta(pathname).nsid;
     } else if (q.page) {
       pathname = cleanPath(clampText(q.page));
       const meta = pageMeta(pathname);
@@ -442,6 +562,8 @@ export default async function handler(req, res) {
       play,
       album,
       shelf,
+      post,
+      verb: postVerb,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.

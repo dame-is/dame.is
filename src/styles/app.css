@@ -180,7 +180,8 @@ html {
      ink so the paper feel reads without competing with the text. The
      trailing `border-bottom` guarantees a closing rule under the last
      row regardless of whether the box height is an exact multiple of
-     the line-height. */
+     the line-height, and the gradient stops a pixel short so it doesn't
+     also draw that row's rule, which doubled it. */
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0,
@@ -188,6 +189,8 @@ html {
     color-mix(in srgb, var(--ink) 14%, transparent) calc(1.1em - 1px),
     color-mix(in srgb, var(--ink) 14%, transparent) 1.1em
   );
+  background-size: 100% calc(100% - 1px);
+  background-repeat: no-repeat;
   border-bottom: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
 }
 
@@ -252,10 +255,14 @@ html {
   right: 0;
 }
 
-/* Home hero CTAs: destinations underneath the animated sentence.
-   The primary (Resume) is filled in the accent color to match the
-   compass button's visual weight; the secondaries (Projects, Blog)
-   read as outlines, with the shuffle utility riding at the end. */
+/* Home hero CTAs: destinations underneath the animated sentence. The primary
+   (Resume) is the kit's one filled control; the secondaries (Projects, Blog)
+   are its quiet tier, with the guestbook pen and the shuffle as icon buttons at
+   the end.
+
+   These are the kit's buttons (controls.css .btn, .btn--primary, .btn--icon)
+   drawn under the hero's own class names, value for value, because Home.jsx
+   names them that way; once the markup carries `btn` these rules can go. */
 .home-hero-cta {
   display: flex;
   flex-wrap: wrap;
@@ -266,24 +273,42 @@ html {
 .home-hero-cta-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4em;
+  min-height: var(--control-h-md);
+  padding: 0.3em 0.875rem;
   font-family: var(--sans);
   font-size: var(--text-sm);
   font-weight: 500;
+  line-height: 1.2;
   letter-spacing: 0.02em;
-  padding: 0.3em 1em;
   border: 1px solid var(--rule);
+  border-radius: 0;
   background: transparent;
   color: var(--ink-soft);
   text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.home-hero-cta-btn:hover,
+/* Pointer-only: on touch the tint stuck to whichever button was tapped. */
+@media (hover: hover) {
+  .home-hero-cta-btn:hover {
+    color: var(--ink);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
+}
+
 .home-hero-cta-btn:focus-visible {
-  color: var(--accent);
+  color: var(--ink);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: var(--wash-hover);
+}
+
+.home-hero-cta-btn:active {
+  background: var(--wash-selected);
 }
 
 .home-hero-cta-primary {
@@ -295,19 +320,56 @@ html {
   color: var(--page);
 }
 
-.home-hero-cta-primary:hover,
-.home-hero-cta-primary:focus-visible {
-  /* Hover moves further from the page, never toward --accent-soft, so the
-     label's contrast only rises. */
+/* Hover moves further from the page, never toward --accent-soft, so the
+   label's contrast only rises. */
+@media (hover: hover) {
+  .home-hero-cta-primary:hover {
+    background: var(--accent-fill-hover);
+    border-color: var(--accent-fill-edge);
+    color: var(--page);
+  }
+}
+
+.home-hero-cta-primary:focus-visible,
+.home-hero-cta-primary:active {
   background: var(--accent-fill-hover);
   border-color: var(--accent-fill-edge);
   color: var(--page);
 }
 
-/* The guestbook button opens the sign sheet rather than going somewhere,
-   but reads as one more labelled destination in the row. */
+/* The guestbook pen and the shuffle are icon buttons: square, as tall as the
+   row. The guestbook one opens the sign sheet rather than going somewhere. */
+.home-hero-shuffle,
 .home-hero-guestbook-btn {
-  cursor: pointer;
+  width: var(--control-h-md);
+  padding: 0;
+}
+
+@media (pointer: coarse) {
+  .home-hero-cta-btn {
+    min-height: var(--control-h-touch);
+  }
+  .home-hero-shuffle,
+  .home-hero-guestbook-btn {
+    width: var(--control-h-touch);
+  }
+}
+
+/* On the narrowest phones the row only holds all five if the two icon
+   buttons keep their 36px width; each reaches the 44px target sideways
+   instead, into half of the 8px gap on either side, never a neighbour. */
+@media (pointer: coarse) and (max-width: 380px) {
+  .home-hero-shuffle,
+  .home-hero-guestbook-btn {
+    position: relative;
+    width: var(--control-h-md);
+  }
+  .home-hero-shuffle::before,
+  .home-hero-guestbook-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0 -4px;
+  }
 }
 
 /* Home: visual break between the hero (page-title) and the

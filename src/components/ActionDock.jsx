@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
@@ -9,8 +9,10 @@ import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
 import { useScrollLock } from '../hooks/useScrollLock.js';
+import { useOverlayHistory } from '../hooks/useOverlayHistory.js';
 import SignInPanel from './SignInPanel.jsx';
 import RouteList from './RouteList.jsx';
+import LayoutToggle from './LayoutToggle.jsx';
 import { SHEET_SLIDE } from './BottomSheet.jsx';
 import './ActionDock.css';
 
@@ -21,7 +23,7 @@ export default function ActionDock() {
   // live in the dock context so the bar can drive them. (The atmosphere-debug
   // readout used to be a third view here; it's now its own sheet — see
   // DebugSheet — reached from the inspect HUD.)
-  const { open, view, setView, closeDock } = useActionDock();
+  const { open, view, setView, closeDock, overflowTools } = useActionDock();
   const routes = useNavRoutes();
   // An open sheet keeps the route list it opened with. The live is.dame.nav
   // read can land while it's open and reorder or drop rows, and a row that
@@ -61,9 +63,22 @@ export default function ActionDock() {
   usePreventScrollChain(panelRef, open);
   // …and a wheel or PageDown over it, which that hook doesn't see.
   useScrollLock(open);
+  // Back folds the menu away rather than leaving the page (MOB-04).
+  useOverlayHistory(open, closeDock);
   // Focus into the dock on open, trap Tab within it, restore focus on close.
   // Escape stays owned by the handler below (it pops the sub-view first).
   useFocusTrap(panelRef, { active: open });
+  // The menu is set at the bottom of the sheet, by the thumb, and on a short
+  // phone (with the tools that didn't fit the bar under it) it can outgrow
+  // the sheet. Open it scrolled to its end, so what's by the thumb is what's
+  // in view; the top of the list is a scroll up. Before paint, so it never
+  // shows the other end first.
+  const toolCount = overflowTools.length;
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!open || view !== 'menu' || !panel) return;
+    if (panel.scrollHeight > panel.clientHeight) panel.scrollTop = panel.scrollHeight;
+  }, [open, view, toolCount]);
   // The sheet doesn't move for the on-screen keyboard: the account view's
   // sign-in field sits where the keyboard can't reach it instead. See
   // .dock-panel-view-account in ActionDock.css.
@@ -129,6 +144,44 @@ export default function ActionDock() {
                 <div className="dock-heading">Dame is&hellip;</div>
                 <RouteList routes={shownRoutes} onNavigate={goTo} />
               </div>
+              {/* The bottom bar's chips that didn't fit it (at 320px, or under
+                  large text), by the thumb at the foot of the sheet, each with
+                  its word. The bar publishes them; each runs what the chip
+                  would have. */}
+              {overflowTools.length > 0 && (
+                <div className="dock-section dock-overflow">
+                  <div className="dock-heading" id="dock-overflow-heading">
+                    Tools that didn&rsquo;t fit the bar
+                  </div>
+                  <div className="dock-overflow-row" role="group" aria-labelledby="dock-overflow-heading">
+                    {overflowTools.map((tool) => {
+                      // The feed layout is its own words, not a chip.
+                      if (tool.key === 'layout') {
+                        return (
+                          <div key={tool.key} className="dock-overflow-layout">
+                            <LayoutToggle />
+                          </div>
+                        );
+                      }
+                      const Glyph = tool.glyph;
+                      return (
+                        <button
+                          key={tool.key}
+                          type="button"
+                          className="dock-overflow-tool"
+                          onClick={tool.run}
+                          title={tool.title}
+                        >
+                          <span className="dock-overflow-face" aria-hidden="true">
+                            {tool.face || (Glyph && <Glyph strokeWidth={1.75} />)}
+                          </span>
+                          <span className="dock-overflow-word">{tool.word}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
