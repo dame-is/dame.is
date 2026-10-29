@@ -7,7 +7,7 @@ import RelativeTimeText from './RelativeTimeText.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
 import LinkCard from './LinkCard.jsx';
 import { avatarThumb } from '../lib/avatarThumb.js';
-import { blobFacts, formatBytes, shortenCid } from '../lib/xray.js';
+import { AltList, BlobPlate } from './XrayBlob.jsx';
 import Lightbox from './Lightbox.jsx';
 import './PostEmbed.css';
 
@@ -276,7 +276,12 @@ function ImageGrid({ images, postUri = null, inspect = false }) {
           );
         })}
       </div>
-      {inspect && <AltText images={list} />}
+      {inspect && (
+        <AltList
+          items={list.map((im) => ({ index: im.index, alt: im.alt }))}
+          field={(n) => `images[${n}].alt`}
+        />
+      )}
       <Lightbox
         open={lightbox.open}
         onClose={() => setLightbox((s) => ({ ...s, open: false }))}
@@ -284,58 +289,6 @@ function ImageGrid({ images, postUri = null, inspect = false }) {
         index={lightbox.index}
       />
     </>
-  );
-}
-
-/**
- * X-ray's plate over a picture or a video: where it sits in the record and
- * the blob under it, its CID and, when the record says, its type, its size
- * and the aspect ratio the post declared. Laid over the frame and hidden from
- * assistive tech, which hears it as the control's description instead
- * (aria-describedby): a button's contents are presentational, so a plate
- * inside one would otherwise say nothing. `head` sets it across the top, off
- * a video's controls.
- */
-function BlobPlate({ id, field, blob, url, aspectRatio, place = 'foot', hidden = true }) {
-  const facts = blobFacts(blob, url);
-  const ratio =
-    aspectRatio?.width > 0 && aspectRatio?.height > 0
-      ? `${aspectRatio.width}:${aspectRatio.height}`
-      : null;
-  const line = [facts?.mimeType, facts?.size != null ? formatBytes(facts.size) : null, ratio]
-    .filter(Boolean)
-    .join(' · ');
-  return (
-    <span
-      id={id}
-      className={`post-embed-xray post-embed-xray-${place}`}
-      aria-hidden={hidden ? 'true' : undefined}
-    >
-      <span className="post-embed-xray-field">
-        {field} <span className="post-embed-xray-kind">· blob</span>
-      </span>
-      {facts?.cid && <span className="post-embed-xray-cid">{shortenCid(facts.cid)}</span>}
-      {line && <span className="post-embed-xray-facts">{line}</span>}
-    </span>
-  );
-}
-
-/**
- * The pictures' alt text, which the page otherwise only hands to a screen
- * reader, printed under them in x-ray by its field, with the ones that have
- * none saying so. Hidden from assistive tech, which already has it as each
- * picture's name.
- */
-function AltText({ images }) {
-  return (
-    <dl className="post-embed-xray-alts" aria-hidden="true">
-      {images.map((im) => (
-        <div key={im.index} className="post-embed-xray-alt">
-          <dt>{`images[${im.index}].alt`}</dt>
-          <dd>{im.alt ? im.alt : <em>none</em>}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 

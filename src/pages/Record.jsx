@@ -605,16 +605,9 @@ function RecordBody({ verb, item, ownReplies = 0 }) {
   switch (verb) {
     case 'posting':
     case 'reposting':
-      // Only a post's own media is opted into x-ray's blob plates: on a
-      // repost's page the pictures are another record's, not the page's.
-      return (
-        <PostCard
-          {...item}
-          variant="record"
-          ownReplies={ownReplies}
-          inspect={inspecting && verb === 'posting'}
-        />
-      );
+      // A repost's pictures are the reposted post's blobs, which the tree
+      // above names as its subject; x-ray shows them all the same.
+      return <PostCard {...item} variant="record" ownReplies={ownReplies} inspect={inspecting} />;
     case 'logging':
       // The status is the page's H1 and its body-state sits in the facts
       // under it, so there is no body.

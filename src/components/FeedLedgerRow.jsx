@@ -16,6 +16,7 @@ import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { isSelfThreadRow, threadEngagement } from '../lib/threadGrouping.js';
 import { photoUrl } from '../lib/inaturalist.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
+import { xrayNotARecord } from '../lib/xray.js';
 import {
   batchCountLabel,
   batchNameLine,
@@ -94,6 +95,11 @@ const BATCH_LEDGER_NAMES = 2;
  * every row is the same verb, so the margin drops it and prints only the
  * exception ("replying"). /listening fills the freed margin
  * with the session's cover.
+ *
+ * `inspect` is x-ray focused on this row (FeedItem): its pictures and video
+ * then wear the plates naming their blobs, their alt text prints under them,
+ * and its counts say they are the AppView's. Only the tapped row, so a feed
+ * in x-ray stays a calm manifest.
  */
 export default function FeedLedgerRow({
   item,
@@ -104,6 +110,7 @@ export default function FeedLedgerRow({
   onToggle = null,
   onOpenLightbox = null,
   arrivingPosts = '',
+  inspect = false,
 }) {
   const edit = useEditMode();
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
@@ -181,8 +188,10 @@ export default function FeedLedgerRow({
         <span className="ledger-verb" aria-hidden="true" />
       )}
       <div className={threadPosts ? 'ledger-body ledger-thread' : 'ledger-body'}>
-        {threadPosts && <ThreadLedgerBody posts={threadPosts} arriving={arrivingPosts} />}
-        {isRepost && <RepostQuote item={item} />}
+        {threadPosts && (
+          <ThreadLedgerBody posts={threadPosts} arriving={arrivingPosts} inspect={inspect} />
+        )}
+        {isRepost && <RepostQuote item={item} inspect={inspect} />}
         {isRedaction && (
           <div className="ledger-embed ledger-redaction">
             <RedactedPost value={item.payload} subject={item.subject} />
@@ -212,6 +221,8 @@ export default function FeedLedgerRow({
               embed={embed.embed}
               did={embed.did}
               postUri={item.atUri}
+              raw={item.payload?.embedRecord || null}
+              inspect={inspect}
             />
           </div>
         )}
@@ -223,6 +234,7 @@ export default function FeedLedgerRow({
         <EngagementCounts
           payload={threadPosts ? threadEngagement(threadPosts) : item.payload}
           posts={threadPosts?.length || 1}
+          inspect={inspect}
         />
       )}
       {/* X-ray marginalia: in x-ray the verb and time columns give way to
@@ -286,7 +298,7 @@ const countOf = (n, one, many) => `${n.toLocaleString('en-US')} ${n === 1 ? one 
  * folded thread's are its posts' added together (threadEngagement), and say
  * so in words.
  */
-function EngagementCounts({ payload, posts = 1 }) {
+function EngagementCounts({ payload, posts = 1, inspect = false }) {
   const likes = payload?.likeCount || 0;
   const replies = payload?.replyCount || 0;
   const passed = (payload?.repostCount || 0) + (payload?.quoteCount || 0);
@@ -307,7 +319,7 @@ function EngagementCounts({ payload, posts = 1 }) {
       </span>
     );
   return (
-    <span className="ledger-counts">
+    <span className="ledger-counts" {...(inspect ? xrayNotARecord('AppView count') : null)}>
       <span className="visually-hidden">{said}</span>
       {figure(likes, Heart)}
       {figure(replies, MessageCircle)}
@@ -335,7 +347,7 @@ function threadStart(ts, anchorAt) {
  * under the row's one time (the thread's first). `arriving` lists the posts
  * that just landed (space-separated at:// URIs; see FeedItem).
  */
-function ThreadLedgerBody({ posts, arriving = '' }) {
+function ThreadLedgerBody({ posts, arriving = '', inspect = false }) {
   const landed = arriving ? new Set(arriving.split(' ')) : null;
   return posts.map((post, i) => (
     <ThreadLedgerPost
@@ -344,6 +356,7 @@ function ThreadLedgerBody({ posts, arriving = '' }) {
       n={i + 1}
       of={posts.length}
       arriving={Boolean(landed?.has(post.atUri))}
+      inspect={inspect}
     />
   ));
 }
@@ -356,7 +369,7 @@ function ThreadLedgerBody({ posts, arriving = '' }) {
  * in once, as a new row does (read on mount, dropped when it's played, so a
  * row that moves later doesn't play it again).
  */
-function ThreadLedgerPost({ post, n, of, arriving }) {
+function ThreadLedgerPost({ post, n, of, arriving, inspect = false }) {
   const [arrival, setArrival] = useState(arriving);
   const href = recordPathFromAtUri(post.atUri);
   const ts = post.createdAt || post.payload?.createdAt || post.payload?.indexedAt || null;
@@ -393,7 +406,13 @@ function ThreadLedgerPost({ post, n, of, arriving }) {
       </p>
       {embed && (
         <div className="ledger-embed">
-          <PostEmbed embed={embed.embed} did={embed.did} postUri={post.atUri} />
+          <PostEmbed
+            embed={embed.embed}
+            did={embed.did}
+            postUri={post.atUri}
+            raw={post.payload?.embedRecord || null}
+            inspect={inspect}
+          />
         </div>
       )}
     </div>
@@ -473,7 +492,7 @@ function embedLinkUri(payload) {
  * IS the row's content, so its text stays unclamped and its own media
  * renders (see the .ledger-repost overrides in Feed.css).
  */
-function RepostQuote({ item }) {
+function RepostQuote({ item, inspect = false }) {
   const payload = item.payload || {};
   // An Anisota repost is a reference (a pointer at another post), not a
   // carried copy of one: it has no author or text of its own to box, so it
@@ -541,6 +560,8 @@ function RepostQuote({ item }) {
             embed={embed}
             did={author.did}
             postUri={payload.subjectUri}
+            raw={payload.embedRecord || null}
+            inspect={inspect}
           />
         )}
       </article>

@@ -3,6 +3,7 @@ import {
   blobFacts,
   censusLine,
   formatBytes,
+  indexSpans,
   recordCensus,
   subjectOfRecord,
   xrayNotARecord,
@@ -119,5 +120,18 @@ describe('formatBytes', () => {
   it('prints nothing for a size it was not given', () => {
     expect(formatBytes(null)).toBe('');
     expect(formatBytes(-1)).toBe('');
+  });
+});
+
+describe('indexSpans', () => {
+  it('runs consecutive indices together', () => {
+    expect(indexSpans([7, 8, 9, 12])).toBe('7–9, 12');
+    expect(indexSpans([3])).toBe('3');
+    expect(indexSpans([0, 1])).toBe('0–1');
+  });
+
+  it('sorts and drops repeats', () => {
+    expect(indexSpans([12, 8, 7, 9, 8])).toBe('7–9, 12');
+    expect(indexSpans([])).toBe('');
   });
 });

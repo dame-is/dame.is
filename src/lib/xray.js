@@ -57,6 +57,18 @@ function cidFromUrl(url) {
   return m ? m[1] : null;
 }
 
+/** Indices as runs, for a field path: `[7, 8, 9, 12]` → `7–9, 12`. */
+export function indexSpans(indices) {
+  const sorted = [...new Set(indices)].filter(Number.isInteger).sort((a, b) => a - b);
+  const runs = [];
+  for (const n of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && n === last[1] + 1) last[1] = n;
+    else runs.push([n, n]);
+  }
+  return runs.map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`)).join(', ');
+}
+
 /** `1768328` → `1.8 MB`, `48213` → `48 kB`, in decimal units. */
 export function formatBytes(n) {
   if (!Number.isFinite(n) || n < 0) return '';
