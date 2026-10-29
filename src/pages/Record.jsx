@@ -18,8 +18,6 @@ import Time from '../components/Time.jsx';
 import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
 import {
   colophon,
-  crumbStamp,
-  crumbTitle,
   indexPathForVerb,
   recordSentence,
   sentenceText,
@@ -329,7 +327,10 @@ export default function Record({ verb, nsid, source }) {
       atUri={atUri}
       cid={cid}
       headTitle={headTitleFor(verb, item, sentence)}
-      crumb={isPost ? rkey : item ? crumbFor(verb, item) : null}
+      // A record's trail always ends on its rkey, as its URL does, never a
+      // date or title in its place; the chrome would otherwise borrow the
+      // page's title. The date lives in the colophon (a post's at the right).
+      crumb={rkey}
       crumbDate={isPost ? createdAt : null}
     >
       <article className="record-page">
@@ -448,12 +449,6 @@ function RecordTitle({ sentence }) {
       {sentence.rest && <span className="record-title-rest"> {sentence.rest}</span>}
     </span>
   );
-}
-
-/** The last crumb: a time for things addressed by when, a title otherwise. */
-function crumbFor(verb, item) {
-  if (verb === 'blogging' || verb === 'creating') return crumbTitle(item.payload?.title);
-  return item.createdAt ? crumbStamp(item.createdAt) : null;
 }
 
 // What a section's records are called, for "All status updates in logging".

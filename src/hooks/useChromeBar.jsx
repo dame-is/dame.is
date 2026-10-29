@@ -44,8 +44,8 @@ export function ChromeBarProvider({ children }) {
   const close = useCallback(() => setExpanded(false), []);
   const toggle = useCallback(() => setExpanded((prev) => !prev), []);
 
-  // The running head's last crumb, as the page names it ("Oct 26 · 5:36 pm"
-  // rather than an rkey). Published by PageShell's `crumb` prop and keyed to
+  // The running head's last crumb, as the page names it (a mothing night's
+  // day; a record page names its own rkey). Published by PageShell's `crumb` prop and keyed to
   // the path it was set for, so a label never outlives its page.
   const [crumb, setCrumb] = useState(null);
 

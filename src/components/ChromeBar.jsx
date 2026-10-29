@@ -200,8 +200,8 @@ export default function ChromeBar() {
     tierMode: inAdmin ? 'closed' : tierMode,
   });
   // The trail's last crumb names the page: its own label when it gives one
-  // through PageShell's `crumb` ("Oct 26 · 5:36 pm" rather than a record's
-  // rkey), else on a detail page the title it shows, rather than its slug.
+  // through PageShell's `crumb` (a record page's rkey, a mothing night's
+  // day), else on a detail page the title it shows, rather than its slug.
   const ownLabel = pageCrumb?.path === mountedPath ? pageCrumb.label : null;
   // A post's date, at the right of the masthead's trail (PageShell's
   // `crumbDate`): its page has no date line of its own.
