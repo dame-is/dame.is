@@ -26,9 +26,19 @@ The admin imports none of the kit: no `Button`, `Segmented`, `SectionHead`, `Fig
 | [a-06](index.html#a-06) | Studios | Résumé, site pages, nav menu and moderation on the same head, section heads and rows |
 | [a-07](index.html#a-07) | Phone | The same parts between the site's own bars; the bar's Save as a quiet button that shows unsaved work the way the ⋯ beside it does |
 
+## As built
+
+The mockups were implemented on `claude/fervent-ptolemy-ghkvmk`, taking the drawn answer to each open question:
+
+- **Kit additions:** `Button variant="danger"` (`.btn--danger`), `Tag` (`.tag`, `.tag--danger`) and `.ident` for identifiers, all in `controls.css` and set out on `/colophon`.
+- **The public quick-edit sheet is unchanged.** Inside the workbench, the shared editor's labels, badges, inline code and any remaining `.admin-gate-button` take the kit's voice through rules scoped to `.wb` (`adminShell.css`); the sheet portals outside `.wb` and keeps its look.
+- **Rail counts are shown,** except for the singleton surfaces (Nav menu, Sky theme, About) and the Ratioed studio, whose count belongs to the catalogue.
+- **Phone Save stays enabled** when nothing has changed, because a clean record can still be re-saved on purpose; it shows unsaved work the way the ⋯ beside it does.
+- **Moderation's "Add N to the list"** is a danger button rather than the primary, because it blocks people.
+
 ## Questions for Dame
 
-1. **The public quick-edit sheet.** `RecordEditor` is shared with the sheet on public pages, which `admin-rebuild-decisions.md` §4 froze. Move its buttons to the kit too, or scope the change to `.wb` and keep two button systems?
+1. **The public quick-edit sheet.** `RecordEditor` is shared with the sheet on public pages, which `admin-rebuild-decisions.md` §4 froze. It is unchanged for now; say if it should move to the kit too.
 2. **A danger tier.** Add `btn--danger` to the kit, or keep destructive actions as text buttons behind a confirm step?
 3. **Tags.** Add a hairline tag to the kit, or set states as words in a facts line?
 4. **Counts in the rail.** Useful, or noise, as with the compass?
