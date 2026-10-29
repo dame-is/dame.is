@@ -169,17 +169,18 @@ export function crumbTitle(title, n = 28) {
 }
 
 /**
- * The colophon: one small-caps line in Dame's time.
- * "logged Monday, October 26, 2026 · 5:36 pm · day 12,226". A record dated
+ * The colophon: one line of facts in Dame's time, set like a page's facts line.
+ * "Logged Monday, October 26, 2026 · 5:36 pm · day 12,226". A record dated
  * to a day (a back-filled work's UTC midnight) gets no clock: read as an
  * instant, that's 7 pm the evening before.
  */
 export function colophon(verb, iso) {
   if (!iso) return '';
   const past = verbConfig(verb)?.pastTense || verb;
+  const lead = past.charAt(0).toUpperCase() + past.slice(1);
   const n = easternDayOfLife(iso);
   const time = isDayOnly(iso) ? null : clockTime(iso);
-  return [`${past} ${longDate(iso)}`, time, n ? `day ${n.toLocaleString('en-US')}` : null]
+  return [`${lead} ${longDate(iso)}`, time, n ? `day ${n.toLocaleString('en-US')}` : null]
     .filter(Boolean)
     .join(' · ');
 }
