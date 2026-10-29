@@ -250,9 +250,9 @@ const countOf = (n, one, many) => `${n.toLocaleString('en-US')} ${n === 1 ? one 
 /**
  * How a post of Dame's has been received: likes, replies, and the times it
  * was passed on (reposts and quotes together), each a small glyph and a
- * figure, leaving out any that are zero. Drawn on a phone's home ledger, at
- * the end of the caption under the post (Feed.css `.feed-ledger-home`), and
- * hidden elsewhere. The figures come from the author feed's post views, so a
+ * figure, leaving out any that are zero: a quiet line under the post on a
+ * desktop, the end of its caption on a phone (Feed.css `.ledger-counts`).
+ * The figures come from the author feed's post views, so a
  * post that arrived some other way, without them, has none to show. A
  * screen reader hears the counts in words; the glyphs are decoration.
  */

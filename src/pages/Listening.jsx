@@ -139,7 +139,7 @@ export default function Listening() {
       ) : (
         // The ledger's margin holds each session's cover here, not the word
         // "listening" on every row.
-        <div className={ledger ? 'feed-ledger feed-ledger-covers' : undefined}>
+        <div className={ledger ? 'feed-ledger feed-ledger-column feed-ledger-covers' : undefined}>
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">

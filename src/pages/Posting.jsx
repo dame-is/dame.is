@@ -80,7 +80,7 @@ export default function Posting() {
       ) : groups.length === 0 ? (
         <p className="feed-empty">{params.get('q') ? 'No posts match that search.' : 'No posts match these filters.'}</p>
       ) : (
-        <div className={ledger ? 'feed-ledger' : undefined}>
+        <div className={ledger ? 'feed-ledger feed-ledger-column' : undefined}>
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">

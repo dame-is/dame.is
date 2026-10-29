@@ -1012,7 +1012,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
         {/* One flex child holds the whole feed body (or the cold-load
             fetching line) so its spacing rides in the wrapper rather than
             in the parent's animatable flex `gap`. */}
-        <div className={`home-feed-region${ledger ? ' feed-ledger feed-ledger-home' : ''}`}>
+        <div className={`home-feed-region${ledger ? ' feed-ledger feed-ledger-column' : ''}`}>
           {loading || (checking && filtered.length === 0) ? (
             // Shaped like the ledger (verb | body | time), so the rows land
             // in its place rather than below a status line.

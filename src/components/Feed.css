@@ -2841,20 +2841,31 @@ a.ledger-time:focus-visible {
   }
 }
 
-/* A post's engagement counts (FeedLedgerRow's EngagementCounts): drawn only
-   in the caption of a phone's home ledger, below. */
-.ledger-counts {
-  display: none;
+/* A post's engagement counts (FeedLedgerRow's EngagementCounts). On a
+   desktop, a quiet line under the post in the record's column: only the
+   column is set, so auto-placement gives it the next free row there, under
+   the body, and under x-ray's own rows too. On a phone they close the
+   caption instead (below). */
+.feed-ledger .feed-item-ledger > .ledger-counts {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  margin-top: var(--space-1);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
 }
 
-/* A phone's home ledger is one column. Each record runs the full width,
-   then a caption under it: the gerund and the time on the left, read as
-   one line ("posting · 7:40 pm"), and a post's counts on the right. On a
-   desktop, and on the other feed pages, the three columns stay. X-ray keeps
-   its own placement of these cells (Xray.css), so the column applies only
-   while it's off. */
+/* On a phone the feed pages' ledgers (home, /posting, /logging, /listening:
+   `.feed-ledger-column`) are one column. Each record runs the full width,
+   then a caption under it: the gerund and the time on the left, read as one
+   line ("posting · 7:40 pm"), and a post's counts on the right. A single-kind
+   page prints no gerund, so its caption is the time, unless the row is an
+   exception ("replying · 3:17 pm"). X-ray keeps its own placement of these
+   cells (Xray.css), so the column applies only while it's off. */
 @media (max-width: 600px) {
-  :root:not([data-xray='on']) .feed-ledger-home .feed-item-ledger {
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger {
     grid-template-columns: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
       'body body body body'
@@ -2865,47 +2876,80 @@ a.ledger-time:focus-visible {
     padding: var(--space-3) 0 var(--space-2);
   }
 
-  :root:not([data-xray='on']) .feed-ledger-home .feed-item-ledger > .ledger-body {
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-body {
     grid-area: body;
     max-width: none;
   }
 
-  :root:not([data-xray='on']) .feed-ledger-home .feed-item-ledger > .ledger-verb {
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-verb {
     grid-area: verb;
   }
 
-  :root:not([data-xray='on']) .feed-ledger-home .feed-item-ledger > .ledger-time {
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-time {
     grid-area: time;
     text-align: left;
+    padding-top: 0;
   }
 
-  /* The dot that joins the gerund to the time. A follow-on in a thread has
-     no gerund (its empty cell), so its caption is the time alone. Inline-
-     block so a hovered time's underline doesn't run under it. */
+  /* The dot that joins the gerund to the time. A row with no gerund (a
+     thread's follow-on, a single-kind page's ordinary row) has an empty
+     cell, so its caption is the time alone; a cover or a running date in
+     that cell isn't a gerund either. Inline-block so a hovered time's
+     underline doesn't run under it. */
   :root:not([data-xray='on'])
-    .feed-ledger-home
+    .feed-ledger-column
     .feed-item-ledger
-    > .ledger-verb:not(:empty)
+    > .ledger-verb:not(:empty, .ledger-cover, .ledger-diary-date)
     ~ .ledger-time::before {
     content: '·';
     display: inline-block;
     margin: 0 0.4em;
   }
 
-  :root:not([data-xray='on']) .feed-ledger-home .feed-item-ledger > .ledger-counts {
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-counts {
     grid-area: counts;
-    display: flex;
-    align-items: center;
-    gap: 0.7em;
-    font-size: var(--text-meta);
-    font-variant-numeric: tabular-nums;
-    color: var(--ink-muted);
+    margin-top: 0;
   }
 
   /* An opened session's songs and a night's sightings span the column,
      under the caption. */
-  :root:not([data-xray='on']) .feed-ledger-home .feed-item-ledger > .ledger-track-row {
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-track-row {
     grid-column: 1 / -1;
+  }
+
+  /* /logging: the first status of a day opens with its running date on a
+     line of its own above it ("Oct 26  day 12,226"), where the margin held
+     it; the rest of the day's statuses caption with their time alone. */
+  :root:not([data-xray='on']) .feed-diary.feed-ledger-column .feed-item-day-start {
+    grid-template-areas:
+      'verb verb verb verb'
+      'body body body body'
+      'time time . counts';
+  }
+
+  :root:not([data-xray='on']) .feed-diary.feed-ledger-column .ledger-diary-date {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.6em;
+  }
+
+  /* /listening keeps each session's cover beside it, so the column is the
+     cover and the record: the song line, then its time under it. */
+  :root:not([data-xray='on']) .feed-ledger-covers.feed-ledger-column .feed-item-ledger {
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    grid-template-areas:
+      'verb body'
+      'verb time';
+    column-gap: var(--space-3);
+    row-gap: var(--space-1);
+    align-items: start;
+  }
+
+  :root:not([data-xray='on'])
+    .feed-ledger-covers.feed-ledger-column
+    .feed-item-ledger
+    > .ledger-track-row {
+    grid-column: 2;
   }
 }
 
