@@ -16,6 +16,7 @@ import { verbIndexIntro } from '../lib/recordPlate.js';
 import Lightbox from '../components/Lightbox.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
+import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import {
   readFeedCache,
@@ -57,7 +58,6 @@ import {
 import { useThreadBackfill } from '../hooks/useThreadBackfill.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
-import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
 import { useChromePanelActions } from '../hooks/useChromePanel.jsx';
@@ -822,13 +822,6 @@ export default function Home({ verb: presetVerb = null } = {}) {
   // (which won't return them anyway).
   const { removedUris, active: editActive } = useEditMode();
 
-  // Which of the two feed layouts to render: the default card view, or
-  // the condensed multi-column "ledger" (toggled from the nav dock).
-  // Owner edit mode always gets the full cards — the selection UI
-  // (per-song listen selection, select marks) lives in the card
-  // renderers, so the ledger steps aside while it's active.
-  const { layout } = useFeedLayout();
-  const ledger = layout === 'ledger' && !editActive;
   const kept = useMemo(
     () =>
       removedUris?.size
@@ -926,6 +919,9 @@ export default function Home({ verb: presetVerb = null } = {}) {
         src: large,
         thumb: photoUrl(photo, 'medium'),
         alt: sci && sci !== name ? `${name} — ${sci}` : name,
+        caption: name,
+        credit: sci && sci !== name ? sci : undefined,
+        recordHref: recordPathFromAtUri(item.atUri) || undefined,
       });
     }
     return { images, indexByUri };
@@ -963,12 +959,12 @@ export default function Home({ verb: presetVerb = null } = {}) {
     rowKeysRef.current = keys;
     return rows;
   }, [collapsed]);
-  // The ledger sets each of Dame's self-threads as one row; the cards keep a
-  // card per post.
+  // The ledger sets each of Dame's self-threads as one row. Owner edit mode
+  // keeps a row per post, so each one can be picked out on its own.
   const threaded = useMemo(() => {
     const grouped = groupSelfReplyThreads(keyed, ME_DID);
-    return ledger ? collapseSelfThreads(grouped) : grouped;
-  }, [keyed, ledger]);
+    return editActive ? grouped : collapseSelfThreads(grouped);
+  }, [keyed, editActive]);
   const groups = useMemo(() => groupByDay(threaded, threadAwareDateKey), [threaded]);
 
   // Stagger delays among the new arrivals (top-down cascade).
@@ -1050,11 +1046,11 @@ export default function Home({ verb: presetVerb = null } = {}) {
         {/* One flex child holds the whole feed body (or the cold-load
             fetching line) so its spacing rides in the wrapper rather than
             in the parent's animatable flex `gap`. */}
-        <div className={`home-feed-region${ledger ? ' feed-ledger feed-ledger-column' : ''}`}>
+        <div className="home-feed-region feed-ledger feed-ledger-column">
           {loading || (checking && filtered.length === 0) ? (
             // Shaped like the ledger (verb | body | time), so the rows land
             // in its place rather than below a status line.
-            <FeedSkeleton rows={6} label="Fetching latest activity" ledger={ledger} />
+            <FeedSkeleton rows={6} label="Fetching latest activity" ledger />
           ) : filtered.length === 0 ? (
             <div className="feed-empty">
               <p>{empty.copy}</p>
@@ -1074,20 +1070,16 @@ export default function Home({ verb: presetVerb = null } = {}) {
               <li key={group.dateKey} className="feed-day-group">
                 <DayOfLifeHeader
                   date={group.date}
-                  variant={ledger ? 'ledger' : 'default'}
+                  variant="ledger"
                   meta={
                     gi === 0 ? (
                       <DayActivityMeta checking={checking} stale={staleNote} reduce={reduce} />
                     ) : null
                   }
                 />
-                {/* The ledger's day header carries its own bottom rule, so
-                    the list sits flush beneath it; the card layout keeps a
-                    breathing gap. */}
-                <ul
-                  className="feed-list"
-                  style={ledger ? undefined : { marginTop: 'var(--space-3)' }}
-                >
+                {/* The day header carries its own bottom rule, so the list
+                    sits flush beneath it. */}
+                <ul className="feed-list">
                   {group.items.map((item, i) => {
                     if (isHorizonMarker(item)) {
                       return (
@@ -1119,8 +1111,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
                       <FeedItem
                         key={item.rowKey || uri || `fallback-${group.dateKey}-${i}`}
                         item={item}
-                        layout={ledger ? 'ledger' : 'cards'}
-                        onOpenLightbox={ledger ? openObservationLightbox : undefined}
+                        onOpenLightbox={openObservationLightbox}
                         arriving={isNew}
                         arrivalDelay={step * 0.06}
                         arrivingPosts={arrivingPosts || undefined}
@@ -1139,11 +1130,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
                 </header>
                 <ul className="feed-list">
                   {yearOnly.map((item) => (
-                    <FeedItem
-                      key={item.rowKey || item.atUri}
-                      item={item}
-                      layout={ledger ? 'ledger' : 'cards'}
-                    />
+                    <FeedItem key={item.rowKey || item.atUri} item={item} />
                   ))}
                 </ul>
               </li>

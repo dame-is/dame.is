@@ -12,7 +12,6 @@ import { useScrollLock } from '../hooks/useScrollLock.js';
 import { useOverlayHistory } from '../hooks/useOverlayHistory.js';
 import SignInPanel from './SignInPanel.jsx';
 import RouteList from './RouteList.jsx';
-import LayoutToggle from './LayoutToggle.jsx';
 import { SHEET_SLIDE } from './BottomSheet.jsx';
 import './ActionDock.css';
 
@@ -155,14 +154,6 @@ export default function ActionDock() {
                   </div>
                   <div className="dock-overflow-row" role="group" aria-labelledby="dock-overflow-heading">
                     {overflowTools.map((tool) => {
-                      // The feed layout is its own words, not a chip.
-                      if (tool.key === 'layout') {
-                        return (
-                          <div key={tool.key} className="dock-overflow-layout">
-                            <LayoutToggle />
-                          </div>
-                        );
-                      }
                       const Glyph = tool.glyph;
                       return (
                         <button

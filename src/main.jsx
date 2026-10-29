@@ -10,6 +10,7 @@ import { FONT_SWITCHER_ENABLED } from './hooks/useFont.jsx';
 import { applySkyTheme, easternHour, setSkyTuning } from './lib/skyTheme.js';
 import { recoverFromChunkError } from './lib/chunkRecovery.js';
 import bakedSkyTuning from 'virtual:sky-tuning';
+import './styles/fonts.css';
 import './styles/reset.css';
 import './styles/theme.css';
 import './styles/typography.css';
@@ -72,6 +73,13 @@ if (bakedSkyTuning) setSkyTuning(bakedSkyTuning);
 // hour's tokens before the first paint and take the browser-chrome tint
 // from them.
 const initialThemeColor = applySkyTheme(easternHour()).themeColor;
+
+// The owner's preview of the proposed label voice, switched on from
+// /colophon and remembered in this browser (lib/labelPreview.js). Fetched
+// only when it's on, so no one else's bundle carries it.
+if (readStorage('dame.labelPreview') === 'caps') {
+  import('./lib/labelPreview.js').then((m) => m.restoreLabelPreview()).catch(() => {});
+}
 
 document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
 const themeColorMeta = document.createElement('meta');

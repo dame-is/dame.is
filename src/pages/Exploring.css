@@ -371,7 +371,7 @@
 .exploring-backlink-records-more { align-self: flex-start; }
 .exploring-backlink-records-error { margin: 0; }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   .exploring-backlink-row {
     grid-template-columns: auto 1fr auto;
   }

@@ -508,7 +508,7 @@
 
 /* On a phone the folio collapses to one line, the strip to four cells, and
    the season tally drops species to stay on one line. */
-@media (max-width: 560px) {
+@media (max-width: 700px) {
   .night-entry {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2);

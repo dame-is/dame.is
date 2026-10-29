@@ -5,9 +5,10 @@ import './Fleuron.css';
  * ledger and stands in for a missing photograph, so a blank reads as a
  * printer's mark rather than an emoji or a broken-image glyph (IDN-12).
  *
- * Crimson Pro's Google Fonts subsets don't carry U+2767, so the glyph comes
- * from the reader's fallback font; one component keeps it swappable for a
- * drawn mark later without touching every place that uses it. Decorative, so
+ * The self-hosted Crimson Pro carries U+2767 (fonts.css keeps it in the latin
+ * file), so the glyph is drawn in the house face; one component keeps it
+ * swappable for a drawn mark later without touching every place that uses
+ * it. Decorative, so
  * it is hidden from assistive tech: say what's missing in the surrounding
  * text instead.
  */

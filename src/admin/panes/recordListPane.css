@@ -42,7 +42,7 @@
    gutter, where a marker belongs. */
 
 .wb-list {
-  /* 13px checkbox + the row's `--space-2` gap. Set to zero below 60rem outside
+  /* 13px checkbox + the row's `--space-2` gap. Set to zero below 62rem outside
      selection mode, where there is no checkbox to make room for, and to 2rem
      inside it, where the box is 24px. */
   --wb-list-check: 1.3125rem;
@@ -400,7 +400,7 @@
   cursor: pointer;
 }
 
-/* Checkboxes are always in the DOM above 60rem and always focusable — the fade
+/* Checkboxes are always in the DOM above 62rem and always focusable — the fade
    is opacity, never `display`, so revealing one cannot reflow the list under the
    pointer. They come up on hover, on keyboard focus anywhere in the row, on the
    rows that are ticked, and on every row while a selection exists.
@@ -555,7 +555,7 @@
 }
 
 /* The panel's own label is `--text-lg`: the same size as this pane's <h1>, which
-   below 60rem is the page's only heading. A card at the foot of a column cannot
+   below 62rem is the page's only heading. A card at the foot of a column cannot
    be the typographic equal of the column's title — measured at 390, where the
    panel label read as the MORE prominent of the two because it had more space
    around it. Scoped to this column, because the panel is also rendered
@@ -623,7 +623,7 @@
   }
 
   /* Touch has no hover, and a checkbox that only appears on a state the device
-     cannot produce is a checkbox that does not exist. Above 60rem — a tablet at
+     cannot produce is a checkbox that does not exist. Above 62rem — a tablet at
      1024 with no mouse — the column keeps its permanent checkboxes, so they are
      drawn at 24px and given the `.wb-hit` growth by hand: `inset: -10px` on a
      24px box is 44 exactly. Written out rather than reaching for the utility
@@ -660,10 +660,10 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Stacked (drill-down) — 60rem / 960px                                 */
+/* Stacked (drill-down) — 62rem / 992px                                 */
 /* ------------------------------------------------------------------ */
 
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   /* One column: there is no detail pane beside this one to be separated from.
      The measure is the same 34rem the detail pane clamps to, and left-aligned
      for the same reason it is: at 768 the list ran the full 742px, which put a
@@ -706,7 +706,7 @@
     margin-top: var(--space-3);
   }
 
-  /* The head's two 44px rows. `--text-lg` still: below 60rem this heading is the
+  /* The head's two 44px rows. `--text-lg` still: below 62rem this heading is the
      page's title, but it shares its row with a control and its screen with 20
      record titles set in the same serif. */
   .wb-list-titlerow {

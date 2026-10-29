@@ -469,7 +469,7 @@
 /* --- when: day of week x time of day ------------------------------ */
 
 /* Neither orientation overflows: the wide build is used only where it stays
-   legible, and below 44rem the chart transposes into the tall one rather than
+   legible, and at phone width (700px, NARROW_QUERY) the chart transposes into the tall one rather than
    scrolling sideways or shrinking its labels into nothing. */
 .ratioed-when-svg {
   width: 100%;
@@ -632,7 +632,7 @@
 /* Two columns from here down — see TWO_UP in RatioedBlock.jsx, which switches
    on the same width. Two is the floor: one figure per line turns a strip into
    a list, and these are meant to be scanned rather than read. */
-@media (max-width: 54rem) {
+@media (max-width: 61.99rem) {
   .ratioed-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ratioed-tile:nth-child(4n + 1) { padding-left: var(--space-4); }
   .ratioed-tile:nth-child(4n) { padding-right: var(--space-4); }
@@ -791,7 +791,7 @@
 
 /* --- narrow ------------------------------------------------------- */
 
-@media (max-width: 46rem) {
+@media (max-width: 700px) {
   .ratioed { --ratioed-lab: 112px; --ratioed-gut: 84px; }
   /* The per-row lifespan label carries the scale here, so the tick rail goes. */
   .ratioed-tick { display: none; }
@@ -929,7 +929,7 @@
   );
 }
 
-@media (max-width: 30rem) {
+@media (max-width: 700px) {
   .ratioed-reach-row { grid-template-columns: 2.2rem 1fr 5.2rem; }
   .ratioed-reach-figure { font-size: 0.66rem; }
 }

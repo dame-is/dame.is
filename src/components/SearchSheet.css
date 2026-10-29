@@ -92,7 +92,7 @@
   font-size: 0.95em;
   padding: 0.1em 0.4em;
   border: 1px solid var(--rule);
-  border-radius: 3px;
+  border-radius: var(--radius-1);
   background: var(--page);
   color: var(--ink-soft);
   margin: 0 0.15em;

@@ -232,7 +232,7 @@
   overflow: hidden;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 700px) {
   .curating-row-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;
@@ -242,7 +242,7 @@
 /* A channel on a phone: a three-up contact sheet with 4px gutters, fifteen
    or more images a screen instead of one. Wider screens keep the 11rem
    track. */
-@media (max-width: 34rem) {
+@media (max-width: 700px) {
   .curating-block-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;

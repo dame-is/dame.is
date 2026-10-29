@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Modal from './Modal.jsx';
 import { useOverlayHistory } from '../hooks/useOverlayHistory.js';
@@ -26,6 +27,10 @@ import './Lightbox.css';
  *     their blocks come from elsewhere and pointing at where is the point.
  *     Everywhere else the picture is the site's own, so the viewer stays
  *     bare — image, navigation, close.
+ *   - `recordHref`: the picture's own record page (a moth's observation, the
+ *     post a photo came in), linked as "record" in the control bar, so a
+ *     plate opened from a grid leads to what it is a plate of. Left out on
+ *     the page it would link to.
  *   - `embedSrc`: a video player URL (YouTube/Vimeo). The entry plays in an
  *     iframe instead of showing `src`, which is then only its poster in the
  *     grid. `width` / `height` give the player's aspect (16:9 without them).
@@ -36,6 +41,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   const [active, setActive] = useState(index);
   const [loadedSrcs, setLoadedSrcs] = useState(() => new Set());
   const reduce = useReducedMotion();
+  const { pathname } = useLocation();
   // Back closes the photo rather than leaving the gallery behind it (MOB-04).
   useOverlayHistory(open, onClose);
   // The control bar renders beside the Modal panel rather than inside it (a
@@ -210,6 +216,11 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
         >
           <div className="lightbox-controls-row">
             <div className="lightbox-controls-cluster lightbox-controls-links">
+              {current.recordHref && current.recordHref !== pathname && (
+                <Link to={current.recordHref} className="lightbox-controls-link">
+                  record
+                </Link>
+              )}
               {current.sourceUrl && (
                 <a
                   href={current.sourceUrl}

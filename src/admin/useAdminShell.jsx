@@ -50,7 +50,7 @@ import { holdReload } from '../lib/reloadHold.js';
 
 /**
  * The stacked (drill-down) breakpoint. Deliberately catches tablets: between
- * 701px and 960px a 13.5rem rail plus a 23rem list column leaves the detail pane
+ * 701px and 992px a 13.5rem rail plus a 23rem list column leaves the detail pane
  * under 20rem wide, which is unusable for the blocks editor. The site's own
  * 700px rules (type scale, the iOS 16px input floor) still apply on top.
  *
@@ -58,7 +58,7 @@ import { holdReload } from '../lib/reloadHold.js';
  * deleted: the rail is gone, a three-slot action bar is the third row of the
  * frame, and the surface directory is a sheet. See docs/admin-mobile-design.md.
  */
-export const STACK_QUERY = '(max-width: 60rem)';
+export const STACK_QUERY = '(max-width: 61.99rem)';
 
 /**
  * The one sentence the admin uses to ask about unsaved work. Stated once so the
@@ -171,7 +171,7 @@ export const CLEAN = Object.freeze({
  *                                   owner to pick a record from a list that has none.
  * @property {number}   lastOpenIndex Where that row SAT in the visible order, so focus still has
  *                                   somewhere to go when the record no longer exists. Deleting from
- *                                   the record pane below 60rem unmounts the pane and mounts this
+ *                                   the record pane below 62rem unmounts the pane and mounts this
  *                                   list; the rkey then matches nothing, and without a position the
  *                                   only honest target left is the surface heading.
  */

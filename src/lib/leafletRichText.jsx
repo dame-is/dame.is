@@ -27,12 +27,13 @@ const VERBATIM_FEATURES = new Set([
  * mention segments. The author's own documents ask for it; other people's
  * embedded posts don't, and keep their punctuation as posted.
  */
-export function renderLeafletText(text, facets, { smart = false } = {}) {
+export function renderLeafletText(text, facets, { smart = false, prev: before = '' } = {}) {
   const safeText = typeof text === 'string' ? text : '';
   if (!safeText) return null;
   // The character before each segment on the page, so a quote that opens in
-  // one run and closes in the next still pairs.
-  let prev = '';
+  // one run and closes in the next still pairs. `prev` seeds it for text that
+  // continues a run rendered separately (an essay's opening phrase).
+  let prev = before;
   const typeset = (s, verbatim = false) => {
     const out = smart && !verbatim ? smartenText(s, prev) : s;
     if (s) prev = s[s.length - 1];
@@ -95,6 +96,79 @@ export function renderLeafletText(text, facets, { smart = false } = {}) {
   return <Fragment>{out}</Fragment>;
 }
 
+const LINK_FEATURE = 'pub.leaflet.richtext.facet#link';
+
+/**
+ * Where an essay's opening phrase ends, as a string index into `text`: the
+ * words set in small caps after the drop cap, the book convention for where
+ * the text begins. It runs to the first clause mark if one comes within five
+ * words ("In November of 2007", "Note"), and is otherwise the first three
+ * ("Six months ago"). 0 when there are no words.
+ */
+export function ledeEnd(text) {
+  const words = [...String(text || '').matchAll(/\S+/g)].slice(0, 5);
+  if (!words.length) return 0;
+  for (const w of words) {
+    const mark = w[0].search(/[,.;:!?\u2013\u2014]/);
+    if (mark > 0) return w.index + mark;
+    if (mark === 0) return w.index > 0 ? w.index - 1 : 0;
+  }
+  const last = words[Math.min(3, words.length) - 1];
+  return last.index + last[0].length;
+}
+
+/**
+ * `facets` with any link that opens the paragraph started after its initial
+ * letter (and the punctuation before it, which ::first-letter takes too), so
+ * a drop cap never sits inside a link: Chromium draws the link's underline
+ * across the top of an `initial-letter` cap. The rest of the word still links.
+ */
+export function unlinkInitial(text, facets) {
+  const initial = String(text || '').match(/^[\p{P}\s]*[\p{L}\p{N}]/u);
+  if (!initial || !Array.isArray(facets)) return facets;
+  const skip = new TextEncoder().encode(initial[0]).length;
+  return facets.map((f) => {
+    const isLink = (f?.features || []).some((x) => x?.$type === LINK_FEATURE);
+    if (!isLink || f.index?.byteStart !== 0 || f.index.byteEnd <= skip) return f;
+    return { ...f, index: { ...f.index, byteStart: skip } };
+  });
+}
+
+/**
+ * `text` and its byte-indexed `facets` cut in two at string index `at`, each
+ * half with its facets rebased to its own bytes. Formatting that spans the
+ * cut is split across both halves; a link never is, so a cut inside one
+ * moves back to where the link starts.
+ */
+export function splitLeafletText(text, facets, at) {
+  const safe = typeof text === 'string' ? text : '';
+  const encoder = new TextEncoder();
+  let cut = encoder.encode(safe.slice(0, Math.max(0, Math.min(at, safe.length)))).length;
+  const list = Array.isArray(facets) ? facets.filter((f) => f?.index) : [];
+  for (const f of list) {
+    const { byteStart, byteEnd } = f.index;
+    const isLink = (f.features || []).some((x) => x?.$type === LINK_FEATURE);
+    if (isLink && byteStart < cut && byteEnd > cut) cut = byteStart;
+  }
+  const bytes = encoder.encode(safe);
+  const decoder = new TextDecoder('utf-8');
+  const head = [];
+  const tail = [];
+  for (const f of list) {
+    const { byteStart, byteEnd } = f.index;
+    if (byteStart < cut) {
+      head.push({ ...f, index: { byteStart, byteEnd: Math.min(byteEnd, cut) } });
+    }
+    if (byteEnd > cut) {
+      tail.push({ ...f, index: { byteStart: Math.max(byteStart, cut) - cut, byteEnd: byteEnd - cut } });
+    }
+  }
+  return [
+    { text: decoder.decode(bytes.slice(0, cut)), facets: head },
+    { text: decoder.decode(bytes.slice(cut)), facets: tail },
+  ];
+}
+
 /**
  * Compose all features on a facet into nested React elements. We apply
  * the link feature outermost so the wrapping anchor remains a single
@@ -104,7 +178,7 @@ export function renderLeafletText(text, facets, { smart = false } = {}) {
 function wrapWithFeatures(features, text) {
   if (!Array.isArray(features) || features.length === 0) return text;
 
-  const link = features.find((f) => f?.$type === 'pub.leaflet.richtext.facet#link');
+  const link = features.find((f) => f?.$type === LINK_FEATURE);
   const formatTypes = features
     .map((f) => f?.$type)
     .filter((t) => INLINE_FORMATS[t]);
@@ -124,29 +198,21 @@ function wrapWithFeatures(features, text) {
   // so a hostile URI never becomes a live link.
   const href = link?.uri ? safeHref(link.uri) : undefined;
   if (href) {
-    const titleAttr =
-      useTrunc && sourceText.length < trimmed.length ? trimmed : undefined;
     // A link whose words don't say where it goes ("(source)", "shortcut
-    // link") carries a sidenote naming the host. Only an essay's margin shows
-    // it (Blogging.css); everywhere else it stays display: none.
-    const host = useTrunc ? null : hostOf(href);
+    // link") names its host on hover. It used to be a sidenote in the
+    // essay's margin, which the one-column page no longer has.
+    const titleAttr =
+      useTrunc && sourceText.length < trimmed.length ? trimmed : hostOf(href) || undefined;
     return (
-      <>
-        <a
-          className="post-rich-link"
-          href={href}
-          target="_blank"
-          rel="noreferrer noopener"
-          title={titleAttr}
-        >
-          {node}
-        </a>
-        {host && (
-          <span className="leaflet-sidenote" aria-hidden="true">
-            {host} &#x2197;
-          </span>
-        )}
-      </>
+      <a
+        className="post-rich-link"
+        href={href}
+        target="_blank"
+        rel="noreferrer noopener"
+        title={titleAttr}
+      >
+        {node}
+      </a>
     );
   }
   return node;

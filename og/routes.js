@@ -57,6 +57,7 @@ export const STATIC_ROUTE_PATTERNS = [
   '/welcoming',
   '/guestbook',
   '/participants',
+  '/colophon',
   '/admin',
   '/exploring',
   '/exploring/:repo',

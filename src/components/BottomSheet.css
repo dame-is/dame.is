@@ -130,7 +130,7 @@
 
 /* On a phone the actions take a line of their own under the title, so the
    × keeps its place at the top right. */
-@media (max-width: 560px) {
+@media (max-width: 700px) {
   .sheet-head:has(.sheet-head-actions) {
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:

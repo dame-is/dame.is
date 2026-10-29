@@ -188,7 +188,7 @@
   .ratioed-replay-mark.on { transform: none; }
 }
 
-@media (max-width: 34rem) {
+@media (max-width: 700px) {
   .ratioed-replay-track,
   .ratioed-replay-legend { grid-template-columns: 2fr auto 1fr; }
 }

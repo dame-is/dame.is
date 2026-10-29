@@ -27,7 +27,7 @@ const Ctx = createContext(null);
  * the main bundle, undoing the `lazy()` that keeps it out for every visitor who
  * is not the owner. The two must stay in step; there is a test asserting it.
  */
-export const ADMIN_STACK_QUERY = '(max-width: 60rem)';
+export const ADMIN_STACK_QUERY = '(max-width: 61.99rem)';
 
 /** True while the viewport is narrow enough for the admin to stack. */
 export function useStackedViewport() {

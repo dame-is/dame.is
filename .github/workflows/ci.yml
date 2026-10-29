@@ -28,5 +28,10 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
+      # The stylesheet guards (stylelint.config.js): square corners, type on
+      # the scale, the two breakpoints. Blocking, unlike the ESLint step.
+      - name: Lint styles
+        run: npm run lint:css
+
       - name: Test
         run: npm test

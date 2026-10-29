@@ -49,11 +49,12 @@ function renderEmbed(embed, did, depth, nest = 0, postUri = null) {
   const type = embed.$type;
   switch (type) {
     case 'app.bsky.embed.images#view':
-      return <ImageGrid images={embed.images} />;
+      return <ImageGrid images={embed.images} postUri={postUri} />;
     case 'app.bsky.embed.images':
       return (
         <ImageGrid
           images={(embed.images || []).map((im) => normalizeRawImage(im, did))}
+          postUri={postUri}
         />
       );
     case 'app.bsky.embed.video#view':
@@ -175,8 +176,11 @@ function normalizeRawImage(image, did) {
   };
 }
 
-function ImageGrid({ images }) {
+function ImageGrid({ images, postUri = null }) {
   const list = (images || []).filter((im) => im?.thumb || im?.fullsize);
+  // The post the photos came in, when it's one of Dame's and so has a page
+  // here (recordPathFromAtUri reads only the collection, not whose it is).
+  const recordHref = postUri?.startsWith(`at://${ME_DID}/`) ? recordPathFromAtUri(postUri) : null;
   const [lightbox, setLightbox] = useState({ open: false, index: 0 });
   if (list.length === 0) return null;
   // Pass the already-cached grid thumbnail plus intrinsic dimensions so the
@@ -189,6 +193,7 @@ function ImageGrid({ images }) {
     thumb: im.thumb || undefined,
     width: im.aspectRatio?.width || undefined,
     height: im.aspectRatio?.height || undefined,
+    recordHref: recordHref || undefined,
   }));
   const single = list.length === 1;
   return (

@@ -366,7 +366,7 @@
 .ratioed-live-open:hover { color: var(--ink); border-color: var(--rule); }
 /* The same button, twice the size and with its name on, once it is in the
    panel: there is room for words there, and on a phone the panel is the ONLY
-   place this button exists — the row's own controls are hidden below 34rem. */
+   place this button exists — the row's own controls are hidden at phone width (700px). */
 .ratioed-live-open-say { display: none; }
 .ratioed-live-panel-acts .ratioed-live-open {
   width: auto;
@@ -460,7 +460,7 @@
    fall apart here in the same way, by spending vertical space on air.
    Measured on a 390px viewport: the deck was 597px tall before this block and
    is a little over half that after it, with nothing removed. */
-@media (max-width: 34rem) {
+@media (max-width: 700px) {
   /* 16px of padding inside a 358px box is 9% of the width given to the border,
      twice. The deck is already inside the page's own gutter. */
   .ratioed-live { padding: var(--space-3); }

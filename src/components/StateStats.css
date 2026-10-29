@@ -158,20 +158,24 @@
 
 /* ---- Activity ranked bars ---------------------------------------- */
 
+/* The rows share one set of tracks (subgrid), so every bar starts on the
+   same zero line and their lengths compare by eye. Each row used to size its
+   label column to its own text, which started "stationary" and "in vehicle"
+   a few pixels apart (LAY-11). */
 .state-bars {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(5rem, max-content) minmax(0, 1fr) 2.4rem;
   gap: var(--space-3);
 }
 
 .state-bar-row {
   display: grid;
-  grid-template-columns: minmax(5rem, auto) 1fr 2.4rem;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: var(--space-3);
 }
 
 .state-bar-label {
@@ -215,7 +219,7 @@
 
 /* ---- Responsive -------------------------------------------------- */
 
-@media (max-width: 760px) {
+@media (max-width: 700px) {
   .state-stats-panels {
     grid-template-columns: 1fr;
     gap: var(--space-6);

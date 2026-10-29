@@ -6,9 +6,9 @@
  * everything a person reads.
  *
  * Phone first. Every control that decides something is at least 44px tall,
- * nothing pushes the page sideways, and the layout widens at 560px (stats in a
- * row, card buttons inline), 640px (tabs and list tags inline) and 720px (the
- * account sheet becomes a drawer).
+ * nothing pushes the page sideways, and the layout widens past the phone
+ * breakpoint, 701px (stats in a row, card buttons inline, tabs and list tags
+ * inline, the account sheet a drawer).
  */
 
 .mh {
@@ -149,7 +149,7 @@
   line-height: 1.2;
 }
 
-@media (min-width: 560px) {
+@media (min-width: 701px) {
   .mh-stat {
     min-height: 4.2rem;
     padding: var(--space-3);
@@ -221,7 +221,7 @@
   background: var(--danger);
 }
 
-@media (min-width: 640px) {
+@media (min-width: 701px) {
   .mh-tab {
     flex: 0 0 auto;
     flex-direction: row;
@@ -614,7 +614,7 @@
   min-height: 2.25rem;
 }
 
-@media (min-width: 560px) {
+@media (min-width: 701px) {
   .mh-card-actions {
     grid-template-columns: auto auto 1fr;
   }
@@ -702,7 +702,7 @@
   white-space: nowrap;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 701px) {
   .mh-row {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
@@ -946,7 +946,7 @@ textarea.mh-input {
   border-bottom: 0;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 701px) {
   .modal-panel.mh-sheet {
     top: var(--space-4);
     right: var(--space-4);
@@ -1200,7 +1200,7 @@ textarea.mh-input {
 /* On a phone each filter group is one row you swipe, rather than three rows
    of chips pushing the first account below the fold. A scroller inside the
    pane, not the page, so nothing else moves sideways. */
-@media (max-width: 639px) {
+@media (max-width: 700px) {
   .mh-filters .mh-chips {
     flex-wrap: nowrap;
     overflow-x: auto;

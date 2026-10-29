@@ -20,7 +20,7 @@
 // the rows are hydrated from the AppView as they arrive, which buys two things:
 // a mark on the row saying what is attached, and the embed itself once somebody
 // opens the row. Opening it is also where the controls go, which is how a phone
-// gets them back — the row's own buttons are hidden below 34rem, and have been
+// gets them back — the row's own buttons are hidden at phone width, and have been
 // since they were costing a third of the width of a 358px row.
 //
 // The stylesheet is RatioedLive.css, and the class names are still

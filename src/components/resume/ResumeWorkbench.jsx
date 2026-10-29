@@ -515,7 +515,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
     );
   }, [registerActions, stableSave, stableRemove, saving, deleting, isLoading, notFound, rkey]);
 
-  // Below 60rem Delete lives in the bar's ⋯ menu, and the shell will append its
+  // Below 62rem Delete lives in the bar's ⋯ menu, and the shell will append its
   // own generic `Delete record…` whenever `canDelete` — which would ask "Delete
   // this record?" and then hand off to a `remove` that asks a SECOND time. One
   // item with the reserved id `delete` replaces it with the question that names

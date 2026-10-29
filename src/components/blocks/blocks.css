@@ -578,7 +578,7 @@
   color: var(--ink);
   background: var(--page);
   border: 1px solid var(--rule, rgba(0, 0, 0, 0.18));
-  border-radius: 6px;
+  border-radius: var(--radius-1);
   padding: 0.15rem 0.35rem;
   cursor: pointer;
 }
