@@ -575,7 +575,7 @@ body { margin: 0; background: var(--d-bg); color: var(--d-fg); font-family: var(
     <li><span class="pin pin--static">2</span><strong>A running head for crumbs.</strong> Slash-led, ink-soft links, the current page in ink at 600, the way <code>/logging/3mz22ky5jbu25</code> prints its trail. “admin” is the root and links to the front desk; the group name (“Content”) drops out because the rail already says it. An rkey sets in the serif, as the public trail sets it, not in Plex Mono (<code>adminShell.css:297</code>).</li>
     <li><span class="pin pin--static">3</span><strong>Two small Buttons.</strong> The hour reads “1 pm” in the house style, where <code>AdminTopBar.jsx:27</code> prints “1PM”, and links to the sky studio like the bottom bar’s chip. “View site” is <code>Button size="sm"</code> in sentence case.</li>
     <li><span class="pin pin--static">4</span><strong>The kit’s “on”.</strong> The 16% wash, an accent hairline and ink text. Today the open row is accent text on a 20% mix (<code>adminShell.css:630</code>); hover becomes the 8% wash.</li>
-    <li><span class="pin pin--static">5</span><strong>Group heads are <code>.eyebrow</code>.</strong> 0.1em, not their own 0.18em rule, so the label switch on <code>/colophon</code> reaches them too.</li>
+    <li><span class="pin pin--static">5</span><strong>Group heads are <code>.eyebrow</code>.</strong> 0.1em, not their own 0.18em rule, so the label voice lives in one place.</li>
     <li><span class="pin pin--static">6</span><strong>Directory rows with a count.</strong> Icon, label and a quiet tabular count at the right, on hairlines, as the directory sheet draws them. The counts are already fetched for <code>isAbsent</code> (<code>AdminRail.jsx:312</code>). The large collections that are never counted show no number, as the front desk already does.</li>
     <li><span class="pin pin--static">7</span><strong>The escape hatch is a text button.</strong> “Open any collection…” keeps its place outside the scroller, so it never scrolls away.</li>
     <li><strong>Empty is a number, not a fade.</strong> A collection that came back empty says “0” at full ink. The current <code>opacity: 0.55</code> (<code>adminShell.css:639</code>) puts its label at 2.78:1 at 1 pm and 3.09:1 at 7 pm.</li>
@@ -888,7 +888,7 @@ body { margin: 0; background: var(--d-bg); color: var(--d-fg); font-family: var(
   <div class="concept-head">
     <p class="concept-eyebrow">a-05 · type</p>
     <h2 class="concept-title" id="a-05-t">One label voice, a quiet tag, and identifiers where the site prints them</h2>
-    <p class="concept-lede">The site’s labels share one rule: <code>.eyebrow</code>, 12px small caps at 0.1em, with real capitals at 11px waiting on Dame’s decision at /colophon. On the screens captured, the admin sets its labels at ten different trackings, from 0.02em to 0.18em, and 37 declarations in its stylesheets track at 0.14em or wider. None of them will follow the /colophon switch, because the switch only restyles the class.</p>
+    <p class="concept-lede">The site’s labels share one rule: <code>.eyebrow</code>, 12px small caps at 0.1em, with real capitals at 11px waiting on Dame’s decision at /colophon. On the screens captured, the admin sets its labels at ten different trackings, from 0.02em to 0.18em, and 37 declarations in its stylesheets track at 0.14em or wider. The /colophon preview does reach them, because it finds every rule that asks for small caps, but it can only swap the voice. Each of those rules still carries its own size and tracking, and making the switch for real would mean editing each one.</p>
   </div>
   <div class="concept-before">
     <p class="concept-label">Now</p>
@@ -944,7 +944,7 @@ body { margin: 0; background: var(--d-bg); color: var(--d-fg); font-family: var(
     </div>
   </div>
   <ul class="concept-notes">
-    <li><strong>Every label is <code>.eyebrow</code>.</strong> Field labels, rail heads, figure labels, a sheet’s title. The admin then takes whichever voice Dame picks on /colophon, with nothing else to change.</li>
+    <li><strong>Every label is <code>.eyebrow</code>.</strong> Field labels, rail heads, figure labels, a sheet’s title. Whichever voice Dame picks on /colophon, the admin then changes with one rule instead of dozens.</li>
     <li><strong>A tag, proposed for the kit.</strong> The eyebrow voice in a 1px hairline box, 20px tall. A live state (active, on PDS, connected) wears the “on” look; anything else is plain. No fills: today’s filled “PDS” badge (<code>Admin.css:565</code>) uses a fill for a state, which the kit reserves for the primary action. The 9.9px résumé chips go up to the 12px of the rest.</li>
     <li><strong>The NSID belongs to the running head</strong>, as on public record pages, and the at:// URI to a mono folio. Plex Mono stays for raw data: rkeys, URIs and the JSON tab.</li>
     <li><strong>The rkey drops its tint.</strong> It is the same quiet mono <code>.wb-list-rkey</code> already uses (<code>recordListPane.css:507</code>); the tinted boxes are the extra.</li>
@@ -1181,7 +1181,7 @@ body { margin: 0; background: var(--d-bg); color: var(--d-fg); font-family: var(
     <li><strong>A danger tier in the kit.</strong> Add <code>btn--danger</code> as drawn in a-04, or keep destructive actions as text buttons behind a confirm step?</li>
     <li><strong>Tags.</strong> Add the hairline tag as a kit part, or set states as words in a facts line and live without a tag?</li>
     <li><strong>Counts in the rail.</strong> Useful at a glance, or noise you’d rather leave out, as you did on the compass?</li>
-    <li><strong>The label voice.</strong> Once the admin uses <code>.eyebrow</code>, it follows whatever you choose on /colophon. Nothing to decide here unless you want the admin to differ from the site.</li>
+    <li><strong>The label voice.</strong> Once the admin uses <code>.eyebrow</code>, it changes with the site when you make the /colophon choice for real. Nothing to decide here unless you want the admin to differ from the site.</li>
   </ol>
 </section>
 

@@ -10,7 +10,7 @@ The admin imports none of the kit: no `Button`, `Segmented`, `SectionHead`, `Fig
 
 - **One button for everything.** `.admin-gate-button` (`Admin.css:52`, used in 20 files) is always filled with `--ink`, so Tailor and Duplicate weigh what Save weighs. At 7 pm the ink is near white and every one of them turns into a pale slab. The blogging editor screen alone shows 9 distinct button looks.
 - **Four ways to say "selected".** A 20% accent mix on the rail, an 8% wash with a left bar on list rows, an underline on the editor tabs, an ink fill on moderation's chips. The kit has one.
-- **A wider label voice.** Most admin labels track at 0.18em against the eyebrow's 0.1em. The captured screens show ten trackings between 0.02em and 0.18em, and 37 declarations at 0.14em or wider. None of them will follow the label switch on `/colophon`, which only restyles the class.
+- **A wider label voice.** Most admin labels track at 0.18em against the eyebrow's 0.1em. The captured screens show ten trackings between 0.02em and 0.18em, and 37 declarations at 0.14em or wider. The `/colophon` preview reaches them (it finds every rule that asks for small caps), but each still carries its own size and tracking.
 - **Below the floor.** The résumé's version chips are 9.9px, under the 11px floor. An empty collection's rail row fades to `opacity: 0.55`, which puts its label at 2.78:1 at 1 pm and 3.09:1 at 7 pm.
 - **Boxes and tints.** Count tiles, studio cards, NSID and rkey chips and the status strip all sit on tinted fills, where the site uses hairlines.
 
@@ -32,6 +32,6 @@ The admin imports none of the kit: no `Button`, `Segmented`, `SectionHead`, `Fig
 2. **A danger tier.** Add `btn--danger` to the kit, or keep destructive actions as text buttons behind a confirm step?
 3. **Tags.** Add a hairline tag to the kit, or set states as words in a facts line?
 4. **Counts in the rail.** Useful, or noise, as with the compass?
-5. **The label voice.** Once the admin uses `.eyebrow` it follows whatever `/colophon` decides.
+5. **The label voice.** Once the admin uses `.eyebrow`, making the `/colophon` choice for real changes it in one place.
 
 The full swap list (each admin class, its kit replacement and where it lives) and an order of work are at the end of `index.html`.
