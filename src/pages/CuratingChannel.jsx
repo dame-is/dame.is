@@ -3,12 +3,22 @@ import { Link, useParams } from 'react-router-dom';
 import { Play } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
+import SortSwitch from '../components/SortSwitch.jsx';
 import { formatDateFull } from '../lib/time.js';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useSortParam } from '../hooks/useSortParam.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, toAtUri } from '../lib/atproto.js';
-import { fetchChannelMeta, fetchAllBlocks, arenaText, orderBlocks } from '../lib/arena.js';
+import {
+  fetchChannelMeta,
+  fetchAllBlocks,
+  arenaText,
+  orderBlocks,
+  resolveBlockOrder,
+  BLOCK_ORDERS,
+  galleryFacts,
+} from '../lib/arena.js';
 import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Curating.css';
@@ -84,6 +94,7 @@ export default function CuratingChannel() {
           description: v.description || arenaText(meta?.description) || '',
           blockCount: blocks.length,
           updatedAt: meta?.updated_at || null,
+          createdAt: meta?.created_at || null,
           // How the record wants the blocks laid out. Applied at render rather
           // than baked in here, so a random gallery is random per visit and a
           // change to the record takes hold without waiting for a rebuild.
@@ -118,14 +129,18 @@ export default function CuratingChannel() {
   // you come back.
   const [shuffleSeed] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const gallery = items?.notFound ? null : items?.gallery || null;
+  // The record's blockOrder is where the gallery starts (newest when it names
+  // none); the sort switch at the top lets a reader take it elsewhere. Pins
+  // lead whichever order is picked.
+  const [sort, setSort] = useSortParam(resolveBlockOrder(gallery?.blockOrder), resolveBlockOrder);
   const blocks = useMemo(
     () =>
       orderBlocks(gallery ? items?.blocks : [], {
-        order: gallery?.blockOrder,
+        order: sort,
         pinned: gallery?.pinnedBlockIds,
         seed: shuffleSeed,
       }),
-    [items, gallery, shuffleSeed],
+    [items, gallery, sort, shuffleSeed],
   );
 
   if (status === 'loading') {
@@ -184,10 +199,18 @@ export default function CuratingChannel() {
       atUri={toAtUri({ did: ME_DID, collection: COLLECTIONS.arenaChannel, rkey: slug })}
       cid={recordCid || undefined}
       headTitle={`${gallery.title} — dame.is`}
+      facts={galleryFacts(gallery).join(' · ') || undefined}
     >
-      <div className="curating-channel-meta gutter">
-        <span>{gallery.blockCount} {gallery.blockCount === 1 ? 'block' : 'blocks'}</span>
-      </div>
+      {gallery.blockCount > 1 && (
+        <div className="curating-channel-meta gutter">
+          <SortSwitch
+            value={sort}
+            options={BLOCK_ORDERS}
+            onChange={setSort}
+            label="Sort the blocks by"
+          />
+        </div>
+      )}
 
       {blocks.length === 0 ? (
         <p className="feed-empty">No blocks in this gallery yet.</p>

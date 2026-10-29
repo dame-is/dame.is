@@ -16,14 +16,14 @@
           "coverBlockId": { "type": "integer", "description": "Are.na block id fronting the gallery on /curating. Unset = the channel's first image, whatever blockOrder says." },
           "blockOrder":  {
             "type": "string",
-            "default": "curated",
-            "knownValues": ["curated", "newest", "oldest", "random"],
-            "description": "How the gallery page lays its blocks out. curated = are.na's own position order (the default); newest/oldest = when the block was connected to the channel; random = reshuffled every visit."
+            "default": "newest",
+            "knownValues": ["newest", "oldest", "curated", "random"],
+            "description": "Which order the gallery page opens in; readers can re-sort from the page. newest/oldest = when the block was connected to the channel (newest is the default); curated = are.na's own position order; random = reshuffled every visit."
           },
           "pinnedBlockIds": {
             "type": "array",
             "items": { "type": "integer" },
-            "description": "Are.na block ids that lead the gallery, in this order, whatever blockOrder is set to. An id no longer in the channel places nothing."
+            "description": "Are.na block ids that lead the gallery, in this order, whatever blockOrder is set to or a reader sorts by. An id no longer in the channel places nothing."
           },
           "order":       { "type": "integer", "default": 0, "description": "Sort order on the /curating index — lower sorts first." },
           "enabled":     { "type": "boolean", "default": true, "description": "When false, the gallery is hidden from the site." },

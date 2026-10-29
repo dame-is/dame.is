@@ -10,6 +10,8 @@
 //     serverless proxy, which injects the token server-side.
 // The env var is deliberately not VITE_-prefixed so Vite can never inline it.
 
+import { formatDateFull, relativeDay } from './time.js';
+
 const ARENA_API = 'https://api.are.na/v3';
 
 // Browser calls hit the serverless proxy instead of api.are.na directly.
@@ -172,22 +174,30 @@ export function pickCoverThumb(blocks, coverBlockId) {
 
 /**
  * How a gallery lays its blocks out, offered in the channel record's editor and
- * read by the gallery page. `curated` is are.na's own position order — the only
- * order the site had, and still the default, because it is the one the author
- * arranged by hand over there.
+ * in the sort switch at the top of the gallery page. `newest` is the default:
+ * a gallery opens on what was added last, with any pins ahead of it. `curated`
+ * is are.na's own position order, the one the author arranged by hand over
+ * there, and was the site's only order before the record could ask for another.
  *
  * `newest`/`oldest` sort by when a block was CONNECTED to this channel, which is
  * not the same question as position: reordering blocks on are.na moves their
  * position and leaves their connection date alone.
+ *
+ * `short` is the word the page's sort switch shows.
  */
 export const BLOCK_ORDERS = [
-  { value: 'curated', label: 'Curated — the order they sit in on are.na' },
-  { value: 'newest', label: 'Newest first — most recently added to the channel' },
-  { value: 'oldest', label: 'Oldest first — as they were added' },
-  { value: 'random', label: 'Random — reshuffled on every visit' },
+  { value: 'newest', short: 'newest', label: 'Newest first — most recently added to the channel' },
+  { value: 'oldest', short: 'oldest', label: 'Oldest first — as they were added' },
+  { value: 'curated', short: 'curated', label: 'Curated — the order they sit in on are.na' },
+  { value: 'random', short: 'random', label: 'Random — reshuffled on every visit' },
 ];
 
-export const DEFAULT_BLOCK_ORDER = 'curated';
+export const DEFAULT_BLOCK_ORDER = 'newest';
+
+/** `value` when it names one of BLOCK_ORDERS, otherwise the default. */
+export function resolveBlockOrder(value) {
+  return BLOCK_ORDERS.some((o) => o.value === value) ? value : DEFAULT_BLOCK_ORDER;
+}
 
 /** When a block joined this channel, in ms, or null if it doesn't say. */
 const connectedMs = (b) => {
@@ -262,6 +272,85 @@ export function orderBlocks(blocks, { order = DEFAULT_BLOCK_ORDER, pinned = [], 
   }
   const rest = taken.size ? list.filter((b) => !taken.has(String(b.id))) : list;
   return [...head, ...sortRest(rest, order, seed)];
+}
+
+/**
+ * How /curating lists its galleries, offered in the sort switch at the top of
+ * the page. `recent` is the default: the channel most recently changed on
+ * are.na comes first. `curated` is the records' own `order` field, the only
+ * order the index had before. Galleries have no pins; pins are per block.
+ */
+export const GALLERY_ORDERS = [
+  { value: 'recent', short: 'recent' },
+  { value: 'curated', short: 'curated' },
+  { value: 'title', short: 'a–z' },
+];
+
+export const DEFAULT_GALLERY_ORDER = 'recent';
+
+/** `value` when it names one of GALLERY_ORDERS, otherwise the default. */
+export function resolveGalleryOrder(value) {
+  return GALLERY_ORDERS.some((o) => o.value === value) ? value : DEFAULT_GALLERY_ORDER;
+}
+
+const updatedMs = (g) => {
+  const t = Date.parse(g?.updatedAt || '');
+  return Number.isNaN(t) ? null : t;
+};
+
+/**
+ * The /curating index in the order asked for. As with blocks, a gallery with no
+ * date sorts after the dated ones, and the sort is stable, so ties keep the
+ * records' own order.
+ *
+ * @param {Array} galleries  in the records' `order`, as loadGalleries leaves them
+ * @param {string} [order]   one of GALLERY_ORDERS
+ * @returns {Array} a new array; the input is never mutated
+ */
+export function orderGalleries(galleries, order = DEFAULT_GALLERY_ORDER) {
+  const list = (Array.isArray(galleries) ? galleries : []).filter(Boolean);
+  if (order === 'curated') return [...list].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  if (order === 'title') {
+    return [...list].sort((a, b) =>
+      String(a.title || a.slug || '').localeCompare(String(b.title || b.slug || ''), undefined, {
+        sensitivity: 'base',
+      }),
+    );
+  }
+  const dated = [];
+  const undated = [];
+  for (const g of list) (updatedMs(g) === null ? undated : dated).push(g);
+  dated.sort((a, b) => updatedMs(b) - updatedMs(a));
+  return [...dated, ...undated];
+}
+
+/**
+ * How old a channel is, from when it was made on are.na: "2 years old",
+ * "3 weeks old", "new today". The same buckets as relativeDay, so it never
+ * disagrees with an "x ago" elsewhere on the site. Empty without a date.
+ */
+export function channelAge(createdAt, now = new Date()) {
+  const rel = relativeDay(createdAt, now);
+  if (!rel) return '';
+  if (rel === 'today') return 'new today';
+  if (rel === 'yesterday') return '1 day old';
+  return rel.replace(/ ago$/, ' old');
+}
+
+/**
+ * The line under a gallery's title: "Updated October 29, 2026 · 250 blocks ·
+ * 2 years old". Each part is left out when its fact is missing (a snapshot
+ * from before createdAt was kept has no age), so the line never prints a
+ * blank between dots.
+ */
+export function galleryFacts({ updatedAt, blockCount, createdAt } = {}, now = new Date()) {
+  const parts = [];
+  const updated = updatedAt ? formatDateFull(updatedAt) : '';
+  if (updated) parts.push(`Updated ${updated}`);
+  if (blockCount != null) parts.push(`${blockCount} ${blockCount === 1 ? 'block' : 'blocks'}`);
+  const age = channelAge(createdAt, now);
+  if (age) parts.push(age);
+  return parts;
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

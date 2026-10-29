@@ -148,6 +148,19 @@ html {
    after it starts flush, as one after a heading would. Otherwise the global
    book-style `p + p` indent (typography.css) stepped in whatever came next —
    an empty state, a one-line note — under the unindented intro. */
+/* A short line of facts under a page's title (PageShell's `facts`): pulled
+   up to the title it belongs to, out of the page's usual gap. */
+.page-facts {
+  margin: calc(-1 * var(--space-4)) 0 0;
+  max-width: none;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: 1.35;
+  color: var(--ink-muted);
+  text-indent: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .page-intro + p {
   text-indent: 0;
 }
@@ -519,6 +532,50 @@ html {
   .section-view-switch button:hover {
     color: var(--accent);
   }
+}
+
+/* A collection's sort and view switches on one line: the sort to the left,
+   "plates · index" kept at the right where it was, the pair pulled up beside
+   the intro the way the view switch alone was. On a narrow screen the sort
+   wraps above. */
+.collection-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  margin-top: calc(-1 * var(--space-4));
+}
+
+.collection-controls > .section-view-switch {
+  margin-top: 0;
+  align-self: auto;
+}
+
+.collection-controls > .section-view-switch:last-child {
+  margin-left: auto;
+}
+
+/* The sort switch's options wrap as units, separator and all. */
+.sort-switch {
+  flex-wrap: wrap;
+}
+
+.sort-switch-option {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45em;
+}
+
+/* "sort by" is a label, not a choice: set in italic lowercase rather than
+   the options' small caps, so it can't be mistaken for one more of them. */
+.sort-switch-lead {
+  margin-right: 0.35em;
+  font-family: var(--serif);
+  font-style: italic;
+  font-variant: normal;
+  letter-spacing: 0;
+  color: var(--ink-faint);
 }
 
 /* Text for screen readers only (a repeated year the index draws as a
