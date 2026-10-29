@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
-import PostCard from '../components/PostCard.jsx';
+import PostCard, { postStatsLine } from '../components/PostCard.jsx';
 import ListenRow from '../components/ListenRow.jsx';
 import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
@@ -888,17 +888,20 @@ function splitSelfThread(rootNode, authorDid) {
 /**
  * One continuation post in the author's self-reply thread, rendered as a
  * full-size post in the main area (not a nested reply), tied to the post
- * above by a dotted rule and nothing else: it reads on as the same post.
+ * above by a dotted rule and nothing else: it reads on as the same post,
+ * with its own engagement under it, as the post's card has.
  */
 function SelfThreadPost({ item }) {
   const text = item.payload?.text || '';
   const facets = item.payload?.facets || null;
   const embed = item.payload?.embed || item.payload?.embedRecord || null;
   const authorDid = item.payload?.author?.did;
+  const stats = postStatsLine(item.payload);
   return (
     <article className="record-thread-post" data-at-uri={item.atUri}>
       {text && <p className="record-thread-text">{renderPostText(text, facets)}</p>}
       {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
+      {stats && <footer className="post-card-stats">{stats}</footer>}
     </article>
   );
 }

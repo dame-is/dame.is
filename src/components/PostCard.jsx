@@ -202,17 +202,27 @@ function PostCardBody({
           postUri={payload?.subjectUri || atUri}
         />
       )}
-      {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
-        <footer className="post-card-stats">
-          {payload?.replyCount ? `${payload.replyCount} ${payload.replyCount === 1 ? 'reply' : 'replies'}` : ''}
-          {payload?.replyCount && (payload?.repostCount || payload?.likeCount) ? ' · ' : ''}
-          {payload?.repostCount ? `${payload.repostCount} ${payload.repostCount === 1 ? 'repost' : 'reposts'}` : ''}
-          {payload?.repostCount && payload?.likeCount ? ' · ' : ''}
-          {payload?.likeCount ? `${payload.likeCount} ${payload.likeCount === 1 ? 'like' : 'likes'}` : ''}
-        </footer>
-      ) : null}
+      {postStatsLine(payload) && (
+        <footer className="post-card-stats">{postStatsLine(payload)}</footer>
+      )}
     </article>
   );
+}
+
+/**
+ * A post's engagement as one line, "4 replies · 3 reposts · 93 likes",
+ * leaving out any that are zero; '' when all are. Under a post card, and
+ * under each continuation of a thread on a post's page.
+ */
+export function postStatsLine(payload) {
+  const tally = (n, one, many) => (n ? `${n} ${n === 1 ? one : many}` : null);
+  return [
+    tally(payload?.replyCount, 'reply', 'replies'),
+    tally(payload?.repostCount, 'repost', 'reposts'),
+    tally(payload?.likeCount, 'like', 'likes'),
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /**

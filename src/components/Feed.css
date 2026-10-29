@@ -328,8 +328,10 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 }
 
 /* Explicit metadata typography so stats never inherit the serif body
-   scale from a stretched grid/flex ancestor when min-width was wrong. */
-article.post-card > footer.post-card-stats {
+   scale from a stretched grid/flex ancestor when min-width was wrong. The
+   continuations of a thread on a post's page (Record.jsx) wear the same. */
+article.post-card > footer.post-card-stats,
+.record-thread-post > footer.post-card-stats {
   font-family: var(--mono);
   font-size: calc(var(--text-xs) * var(--mono-scale));
   font-weight: 400;
