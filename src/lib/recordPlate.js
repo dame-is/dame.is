@@ -88,7 +88,7 @@ function decode(seg) {
  * a link to "Nowhere to be found"). A lexicon-form record path
  * (`/app.bsky.feed.repost/3my…`) resolves its first crumb through the verb
  * registry to that verb's index. `lastLabel`, when the page supplies one,
- * replaces the final segment (an rkey becomes "Oct 26 · 5:36 pm").
+ * replaces the final segment.
  */
 export function resolveCrumbs(pathname, lastLabel = null) {
   const parts = String(pathname || '').split('/').filter(Boolean);
@@ -148,8 +148,8 @@ export function easternDayOfLife(iso) {
 
 /**
  * "Oct 26 · 5:36 pm": a record's day and time, the year added when it isn't
- * `now`'s ("Mar 2, 2025 · 4:00 pm"). The last crumb for a record addressed
- * by time, and the date at the right of a post's trail.
+ * `now`'s ("Mar 2, 2025 · 4:00 pm"). The date at the right of a post's
+ * trail.
  */
 export function crumbStamp(iso, now = new Date()) {
   const day = formatMonthDay(iso);
@@ -157,15 +157,6 @@ export function crumbStamp(iso, now = new Date()) {
   const year = calendarDay(iso)?.y;
   const dated = year === calendarDay(now)?.y ? day : `${day}, ${year}`;
   return `${dated} · ${clockTime(iso)}`;
-}
-
-/** A title cut for a crumb, about 28 characters, at a word. */
-export function crumbTitle(title, n = 28) {
-  const s = String(title || '').trim();
-  if (s.length <= n) return s;
-  const cut = s.slice(0, n);
-  const at = cut.lastIndexOf(' ');
-  return `${(at > 12 ? cut.slice(0, at) : cut).replace(/[\s,;:.–—-]+$/, '')}…`;
 }
 
 /**

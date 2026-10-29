@@ -5,7 +5,6 @@ import {
   indexPathForVerb,
   GENERATED_INDEX_VERBS,
   crumbStamp,
-  crumbTitle,
   colophon,
   easternDayOfLife,
   gapBetween,
@@ -94,15 +93,6 @@ describe("Dame's clock", () => {
   it('measures the gap between neighbours', () => {
     expect(gapBetween('2026-10-26T21:36:00Z', '2026-10-26T01:28:00Z')).toBe('20 h');
     expect(gapBetween('2026-10-27T14:30:00Z', '2026-10-27T13:32:00Z')).toBe('58 min');
-  });
-});
-
-describe('crumbTitle', () => {
-  it('cuts a long title at a word, about 28 characters in', () => {
-    expect(crumbTitle('Creating a decentralized bathroom (powered by the AT Protocol)')).toBe(
-      'Creating a decentralized…',
-    );
-    expect(crumbTitle('Ratioed')).toBe('Ratioed');
   });
 });
 

@@ -15,7 +15,8 @@ import { useChromeBar } from '../hooks/useChromeBar.jsx';
  * (see ChromeBar). Defaults to false — set it on new feed-style pages.
  *
  * `crumb` names this page in the chrome's running head, in place of its last
- * URL segment: a record page passes "Oct 26 · 5:36 pm", an essay its title.
+ * URL segment: a mothing night passes its day. A record page passes its own
+ * rkey, so the chrome keeps the TID rather than borrowing the page's title.
  * `crumbDate` (an ISO instant) is printed at the right of the masthead's
  * trail: a post's date, where its page has no date line.
  *
