@@ -314,8 +314,9 @@ export default function Record({ verb, nsid, source }) {
   const sentence = item ? recordSentence(verb, item.payload || {}, { subject: subjectName }) : null;
   const all = allInSection(verb);
   // A post is its own words, so its page opens on them: no title restating
-  // the post, no date line. The trail names it by rkey and carries its date
-  // at the right; the sentence stays the page's heading for a screen reader.
+  // the post, and its date line set under it rather than over it. The trail
+  // names it by rkey; the sentence stays the page's heading for a screen
+  // reader.
   const isPost = verb === 'posting';
   // No replies section under a repost whose post is gone: there is no thread
   // to read, and "No replies yet" would claim there is.
@@ -332,9 +333,8 @@ export default function Record({ verb, nsid, source }) {
       headTitle={headTitleFor(verb, item, sentence)}
       // A record's trail always ends on its rkey, as its URL does, never a
       // date or title in its place; the chrome would otherwise borrow the
-      // page's title. The date lives in the colophon (a post's at the right).
+      // page's title. The date lives in the colophon.
       crumb={rkey}
-      crumbDate={isPost ? createdAt : null}
     >
       <article className="record-page">
         {isPost && sentence && <h1 className="visually-hidden">{sentenceText(sentence)}</h1>}
@@ -363,6 +363,11 @@ export default function Record({ verb, nsid, source }) {
         {item ? (
           <div className="reveal">
             <RecordBody verb={verb} item={item} ownReplies={selfThread.length ? 1 : 0} />
+            {/* A post's colophon, under the post it dates and ahead of any
+                continuation of its thread. */}
+            {isPost && createdAt && (
+              <p className="record-colophon record-colophon-foot">{colophon(verb, createdAt)}</p>
+            )}
           </div>
         ) : (
           <RecordSkeleton />
