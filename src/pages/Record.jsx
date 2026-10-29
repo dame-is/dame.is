@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
-import PostCard, { postStatsLine } from '../components/PostCard.jsx';
+import PostCard, { postStatParts, postStatsLine, useMultilineFlag } from '../components/PostCard.jsx';
 import ListenRow from '../components/ListenRow.jsx';
 import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
@@ -12,10 +12,13 @@ import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions, { OpenInButton } from '../components/AturiActions.jsx';
-import SequenceFoot from '../components/SequenceFoot.jsx';
+import { InspectMargin, XrayTag } from '../components/XraySubstrate.jsx';
+import SequenceFoot, { countWord } from '../components/SequenceFoot.jsx';
+import { restoringScroll } from '../components/RouteTransition.jsx';
 import VitalsChip from '../components/VitalsChip.jsx';
 import Time from '../components/Time.jsx';
 import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
+import { useXray } from '../hooks/useXray.jsx';
 import {
   colophon,
   indexPathForVerb,
@@ -29,7 +32,18 @@ import {
   getRecord,
   getPostThread,
   isRecordNotFound,
+  rkeyFromAtUri,
 } from '../lib/atproto.js';
+import {
+  isRenderableReply,
+  loadPostThread,
+  mostLikedFirst,
+  postExcerpt,
+  repliesByPost,
+  walkSelfChain,
+} from '../lib/postThread.js';
+import { dateKey, formatMonthDay, formatTime } from '../lib/time.js';
+import { usePaper } from '../hooks/usePaper.jsx';
 import { createSubjectResolver } from '../lib/subjectResolver.js';
 import { isDraft } from '../lib/publications.js';
 import { ME_DID, ME_HANDLE } from '../config.js';
@@ -48,6 +62,7 @@ import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { useFirstSightings } from '../hooks/useFirstSightings.js';
 import { isFirstSighting } from '../lib/firstSightings.js';
 import { renderPostText } from '../lib/postRichText.jsx';
+import { xrayNotARecord } from '../lib/xray.js';
 import PostEmbed from '../components/PostEmbed.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import './Blogging.css';
@@ -65,8 +80,11 @@ import '../components/Feed.css';
  *
  * Strategy: always fetch live, render a skeleton while pending. Every
  * record the site addresses lives on Dame's PDS, so:
- *   - posting → `getPostThread` on the AppView (one call → post view +
- *     parents + replies), addressed as `at://<ME_DID>/app.bsky.feed.post/<rkey>`.
+ *   - posting → `getPostThread` on the AppView through loadPostThread
+ *     (lib/postThread.js), addressed as `at://<ME_DID>/app.bsky.feed.post/<rkey>`.
+ *     A post in one of Dame's self-threads draws the whole thread, from its
+ *     first post, with this one marked and scrolled to and the replies filed
+ *     by the post they answer.
  *   - reposting → `getRecord` on Dame's PDS for the `app.bsky.feed.repost`
  *     record (the rkey *is* Dame's repost record's rkey), then
  *     `getPostThread` on `subject.uri` for the original post + thread.
@@ -123,8 +141,12 @@ export default function Record({ verb, nsid, source }) {
   const [replies, setReplies] = useState([]);
   const [repliesStatus, setRepliesStatus] = useState('idle'); // idle | loading | ready | error
   // The author's own linear self-reply continuation of this post, lifted out
-  // of `replies` and stacked in the main post area (oldest → newest).
+  // of `replies` and stacked in the main post area (oldest → newest). A
+  // reposted post's page only; a post's own page draws `thread` instead.
   const [selfThread, setSelfThread] = useState([]);
+  // The self-thread a post belongs to, when it belongs to one:
+  // { items, linkedIndex, groups } (see applyPostThread).
+  const [thread, setThread] = useState(null);
 
   useEffect(() => {
     if (!collection || !rkey) return;
@@ -136,22 +158,26 @@ export default function Record({ verb, nsid, source }) {
     setParents([]);
     setReplies([]);
     setSelfThread([]);
+    setThread(null);
     setRepliesStatus(threadMode ? 'loading' : 'idle');
 
     async function load() {
       try {
         if (threadMode === 'post') {
           const uri = `at://${ME_DID}/app.bsky.feed.post/${rkey}`;
-          const thread = await getPostThread(uri, { depth: 6, parentHeight: 6 });
+          // A thread just drawn for another of its posts is drawn again
+          // without asking: the numbers are links between its posts.
+          const loaded =
+            cachedThread(uri) ||
+            (await loadPostThread(uri, { fetchThread: getPostThread, authorDid: ME_DID }));
           if (cancelled) return;
-          const post = thread?.thread?.post;
-          if (!post) {
+          if (!loaded) {
             setMissing(true);
             setRepliesStatus('error');
             return;
           }
-          setItem(postViewToFeedItem('posting', post));
-          applyThreadContext(thread.thread);
+          rememberThread(loaded);
+          applyPostThread(loaded, uri);
           return;
         }
 
@@ -235,16 +261,31 @@ export default function Record({ verb, nsid, source }) {
         if (threadMode) setRepliesStatus('error');
       }
 
+      function applyPostThread(loaded, uri) {
+        const items = loaded.chain.map((node) => postViewToFeedItem('posting', node.post));
+        const linkedIndex = Math.max(0, items.findIndex((post) => post.atUri === uri));
+        setItem(items[linkedIndex]);
+        // Whatever the thread answers, when it answers someone else's post.
+        const above = collectParents(loaded.above);
+        if (above.length) setParents(above);
+        if (items.length > 1) {
+          setThread({ items, linkedIndex, groups: loaded.groups });
+        } else {
+          setReplies(loaded.groups[0]?.replies || []);
+        }
+        setRepliesStatus('ready');
+      }
+
+      // A reposted post: lift its author's own linear self-reply chain into
+      // the main post area; everything else stays in the replies tree.
       function applyThreadContext(threadNode) {
         if (cancelled || !threadNode) return;
         const chain = collectParents(threadNode);
         if (chain.length) setParents(chain);
-        // Lift the author's own linear self-reply chain into the main post
-        // area; everything else stays in the replies tree.
         const authorDid = threadNode.post?.author?.did || ME_DID;
-        const { thread, leftover } = splitSelfThread(threadNode, authorDid);
-        setSelfThread(thread.map((node) => postViewToFeedItem('posting', node.post)));
-        setReplies(leftover);
+        const lifted = walkSelfChain(threadNode, authorDid);
+        setSelfThread(lifted.slice(1).map((node) => postViewToFeedItem('posting', node.post)));
+        setReplies(mostLikedFirst(repliesByPost(lifted).flatMap((group) => group.replies)));
         setRepliesStatus('ready');
       }
     }
@@ -257,6 +298,10 @@ export default function Record({ verb, nsid, source }) {
 
   // The plate's slots, worked out once the record is in hand.
   const subjectName = useSubjectName(verb, item);
+  // On a thread, the foot steps over the thread as a whole: its posts are
+  // all on this page already.
+  const threadFirst = thread?.items[0] || null;
+  const threadLast = thread?.items[thread.items.length - 1] || null;
   const neighbours = useRecordNeighbours({
     verb,
     // The record's own collection, read off its URI: for a repost that's
@@ -264,7 +309,34 @@ export default function Record({ verb, nsid, source }) {
     collection: item ? nsidFromAtUri(item.atUri) || resolvedCollection : null,
     rkey,
     createdAt: item?.createdAt || null,
+    earlierFrom: threadFirst
+      ? { rkey: rkeyFromAtUri(threadFirst.atUri), createdAt: threadFirst.createdAt }
+      : null,
+    laterFrom: threadLast
+      ? { rkey: rkeyFromAtUri(threadLast.atUri), createdAt: threadLast.createdAt }
+      : null,
   });
+
+  // A link to a post inside a thread opens on that post, with the end of the
+  // one before it showing above. Once per post; and never over a restore, so
+  // a Back or a reload leaves the reader where they were.
+  const scrolledFor = useRef(null);
+  useLayoutEffect(() => {
+    const linked = thread?.items[thread.linkedIndex]?.atUri;
+    if (!linked || scrolledFor.current === linked) return;
+    scrolledFor.current = linked;
+    if (restoringScroll() || window.scrollY > 4) return;
+    let hash = '';
+    try {
+      hash = decodeURIComponent(window.location.hash.slice(1));
+    } catch {
+      /* a malformed fragment names nothing on the page */
+    }
+    const target =
+      (hash && document.getElementById(hash)) ||
+      (thread.linkedIndex > 0 ? document.getElementById(threadPostId(thread.linkedIndex)) : null);
+    target?.scrollIntoView({ block: 'start' });
+  }, [thread]);
   const up = upFrom(indexPathForVerb(verb) ? `/${verb}/${rkey}` : `/${collection}/${rkey}`);
 
   if (!collection) {
@@ -311,8 +383,9 @@ export default function Record({ verb, nsid, source }) {
   const sentence = item ? recordSentence(verb, item.payload || {}, { subject: subjectName }) : null;
   const all = allInSection(verb);
   // A post is its own words, so its page opens on them: no title restating
-  // the post, no date line. The trail names it by rkey and carries its date
-  // at the right; the sentence stays the page's heading for a screen reader.
+  // the post, and its date line set under it rather than over it. The trail
+  // names it by rkey; the sentence stays the page's heading for a screen
+  // reader.
   const isPost = verb === 'posting';
   // No replies section under a repost whose post is gone: there is no thread
   // to read, and "No replies yet" would claim there is.
@@ -329,9 +402,11 @@ export default function Record({ verb, nsid, source }) {
       headTitle={headTitleFor(verb, item, sentence)}
       // A record's trail always ends on its rkey, as its URL does, never a
       // date or title in its place; the chrome would otherwise borrow the
-      // page's title. The date lives in the colophon (a post's at the right).
+      // page's title. The date lives in the colophon, or a thread's posts
+      // carry their own; a thread post's place in it ("3 of 6") is noted
+      // beside the trail.
       crumb={rkey}
-      crumbDate={isPost ? createdAt : null}
+      crumbNote={thread ? `${thread.linkedIndex + 1} of ${thread.items.length}` : null}
     >
       <article className="record-page">
         {isPost && sentence && <h1 className="visually-hidden">{sentenceText(sentence)}</h1>}
@@ -348,13 +423,25 @@ export default function Record({ verb, nsid, source }) {
           </div>
         )}
 
+        {/* Under x-ray, the record behind the page: where it sits in the
+            atmosphere (PDS, repo, collection, rkey, CID), and for a repost or
+            a like the record it points at. Takes no room until then. */}
+        <InspectMargin atUri={atUri} cid={cid} value={item?.payload} />
+
         {threadMode && parents.length > 0 && (
           <ParentChain parents={parents.slice(0, 1)} />
         )}
 
-        {item ? (
+        {item && thread ? (
+          <ThreadPosts thread={thread} />
+        ) : item ? (
           <div className="reveal">
             <RecordBody verb={verb} item={item} ownReplies={selfThread.length ? 1 : 0} />
+            {/* A post's colophon, under the post it dates and ahead of any
+                continuation of its thread. */}
+            {isPost && createdAt && (
+              <p className="record-colophon record-colophon-foot">{colophon(verb, createdAt)}</p>
+            )}
           </div>
         ) : (
           <RecordSkeleton />
@@ -387,6 +474,7 @@ export default function Record({ verb, nsid, source }) {
           <Comments
             atUri={item?.payload?.subjectUri || item.atUri}
             replies={replies}
+            groups={thread ? replyGroupsFor(thread) : null}
             status={repliesStatus}
             action={openInReplies ? <OpenInButton atUri={atUri} /> : null}
           />
@@ -395,6 +483,8 @@ export default function Record({ verb, nsid, source }) {
         {item && neighbours.ready && (neighbours.earlier || neighbours.later || all) && (
           <SequenceFoot
             label={`Other ${all?.noun || 'records'}`}
+            earlierLabel={thread ? 'Before this thread' : undefined}
+            laterLabel={thread ? 'After this thread' : undefined}
             earlier={neighbours.earlier}
             later={neighbours.later}
             earlierNone="None. This is the first."
@@ -588,10 +678,13 @@ function LexiconList({ nsids }) {
 /* ------------------------------------------------------------------ */
 
 function RecordBody({ verb, item, ownReplies = 0 }) {
+  const { active: inspecting } = useXray();
   switch (verb) {
     case 'posting':
     case 'reposting':
-      return <PostCard {...item} variant="record" ownReplies={ownReplies} />;
+      // A repost's pictures are the reposted post's blobs, which the tree
+      // above names as its subject; x-ray shows them all the same.
+      return <PostCard {...item} variant="record" ownReplies={ownReplies} inspect={inspecting} />;
     case 'logging':
       // The status is the page's H1 and its body-state sits in the facts
       // under it, so there is no body.
@@ -783,6 +876,7 @@ function ParentChain({ parents }) {
 }
 
 function ParentPostCard({ parent, isRoot }) {
+  const { active: inspecting } = useXray();
   if (parent?.$type === 'app.bsky.feed.defs#notFoundPost') {
     return <div className="record-parent record-parent-missing gutter">↳ a deleted post</div>;
   }
@@ -806,6 +900,7 @@ function ParentPostCard({ parent, isRoot }) {
     : null;
   return (
     <article className="record-parent" data-at-uri={parent?.uri}>
+      {inspecting && parent?.uri && <XrayTag atUri={parent.uri} />}
       <header className="record-parent-head">
         <span className="record-parent-arrow" aria-hidden="true">↳</span>
         {isRoot && <span className="small-caps record-parent-tag">root</span>}
@@ -836,55 +931,195 @@ function ParentPostCard({ parent, isRoot }) {
   );
 }
 
-function isRenderableReplyNode(node) {
-  if (!node) return false;
-  if (node.$type === 'app.bsky.feed.defs#notFoundPost') return true;
-  if (node.$type === 'app.bsky.feed.defs#blockedPost') return true;
-  return Boolean(node.post);
+/* ------------------------------------------------------------------ */
+/* A self-thread on a post's page                                      */
+/* ------------------------------------------------------------------ */
+
+/** The anchor of a thread's post (0-based index) and of its replies. */
+function threadPostId(index) {
+  return `thread-post-${index + 1}`;
+}
+
+function replyGroupId(index) {
+  return `replies-on-${index + 1}`;
+}
+
+/** The thread's replies as Comments files them: under each post's number. */
+function replyGroupsFor(thread) {
+  return thread.groups.map((group) => ({
+    id: replyGroupId(group.index),
+    n: group.index + 1,
+    postHref: `#${threadPostId(group.index)}`,
+    excerpt: postExcerpt(group.node.post),
+    replies: group.replies,
+  }));
 }
 
 /**
- * A post record page for one of the author's own posts often sits at the head
- * of a self-reply thread — the author replied to their own post to keep a
- * thought going. Those continuation posts read as one linear piece, so we
- * lift them out of the replies tree and stack them in the main post area.
- *
- * Walks down from the focused post following a *single* self-reply at each
- * level. It stops as soon as a level has zero self-replies (the thread ended)
- * or more than one (the author branched — no longer a linear thread, so which
- * branch "continues" is ambiguous and we leave everything in replies).
- *
- * Returns:
- *   thread   — continuation `threadViewPost` nodes, oldest → newest
- *   leftover — every reply node NOT on the lifted chain, ready to feed the
- *              Comments tree: other people's replies to any post in the
- *              thread, plus all replies hanging off the thread's tail.
+ * When a thread was written, on Dame's clock: "5:11 to 5:31 pm" in one
+ * stretch, "5:11 am to 1:02 pm" across noon, and the days as well when it
+ * crossed midnight.
  */
-function splitSelfThread(rootNode, authorDid) {
-  const thread = [];
-  const leftover = [];
-  if (!rootNode || !authorDid) return { thread, leftover };
-  let cursor = rootNode;
-  const seen = new Set(); // guard against a malformed cyclic thread view
-  while (cursor && cursor.post?.uri && !seen.has(cursor.post.uri)) {
-    seen.add(cursor.post.uri);
-    const replies = (cursor.replies || []).filter(isRenderableReplyNode);
-    const selfReplies = replies.filter((r) => r.post?.author?.did === authorDid);
-    if (selfReplies.length === 1) {
-      const next = selfReplies[0];
-      // Siblings of the continuation (replies by others at this level) stay
-      // in the replies section.
-      for (const r of replies) if (r !== next) leftover.push(r);
-      thread.push(next);
-      cursor = next;
-    } else {
-      // 0 → thread ended here; 2+ → branched, not linear. Either way, every
-      // reply hanging off this node belongs in the replies section.
-      leftover.push(...replies);
-      break;
-    }
+function threadSpan(first, last) {
+  const from = formatTime(first);
+  const to = formatTime(last);
+  if (!from || !to) return '';
+  if (dateKey(first) !== dateKey(last)) {
+    return `${formatMonthDay(first)}, ${from} to ${formatMonthDay(last)}, ${to}`;
   }
-  return { thread, leftover };
+  if (from === to) return from;
+  const [fromClock, fromHalf] = from.split(' ');
+  const [, toHalf] = to.split(' ');
+  return fromHalf === toHalf ? `${fromClock} to ${to}` : `${from} to ${to}`;
+}
+
+/**
+ * Every post of the thread at full size, in order, each with its number: the
+ * same numbers the folded thread row in the feed gives them, and links to
+ * each post's own page. The post the address names is marked, and the page
+ * opens on it (Record's scroll effect).
+ */
+function ThreadPosts({ thread }) {
+  const { items, linkedIndex, groups } = thread;
+  const first = items[0]?.createdAt;
+  const last = items[items.length - 1]?.createdAt;
+  const span = first && last ? threadSpan(first, last) : '';
+  return (
+    <section className="record-thread reveal" aria-label={`A thread of ${items.length} posts`}>
+      <p className="record-thread-head">
+        <span className="small-caps">a thread of {countWord(items.length)} posts</span>
+        {span && <span className="record-thread-span">{span}</span>}
+      </p>
+      {items.map((post, i) => (
+        <ThreadPost
+          key={post.atUri}
+          item={post}
+          index={i}
+          of={items.length}
+          linked={i === linkedIndex}
+          ownReplies={i < items.length - 1 ? 1 : 0}
+          repliesHref={groups[i]?.replies.some(isRenderableReply) ? `#${replyGroupId(i)}` : null}
+        />
+      ))}
+    </section>
+  );
+}
+
+/**
+ * One post of a thread. Its number hangs in the margin on a wide screen,
+ * with its time under it; on a narrower one it starts the first line, raised
+ * like a verse number, and the time leads the stats line instead. `ownReplies`
+ * is 1 when the thread carries on below it (that next post is one of the
+ * replies its count includes), and the replies left in the count link down
+ * to where they're filed.
+ */
+function ThreadPost({ item, index, of, linked, ownReplies = 0, repliesHref = null }) {
+  const { active: inspecting } = useXray();
+  const text = item.payload?.text || '';
+  const facets = item.payload?.facets || null;
+  const embed = item.payload?.embed || item.payload?.embedRecord || null;
+  const authorDid = item.payload?.author?.did;
+  const ts = item.createdAt;
+  const href = recordPathFromAtUri(item.atUri);
+  const { paper } = usePaper();
+  const textRef = useMultilineFlag(paper !== 'blank' && Boolean(text), text);
+  const parts = postStatParts(item.payload, ownReplies);
+  const n = index + 1;
+  const clock = ts ? formatTime(ts) : '';
+  const numContent = (
+    <>
+      <span className="record-thread-num-n">{n}</span>
+      {ts && <Time value={ts} variant="clock" className="record-thread-num-time" tabular />}
+    </>
+  );
+  const num = href ? (
+    <Link
+      className="record-thread-num"
+      to={href}
+      aria-label={`Post ${n} of ${of}${clock ? `, ${clock}` : ''}`}
+      aria-current={linked ? 'page' : undefined}
+    >
+      {numContent}
+    </Link>
+  ) : (
+    <span className="record-thread-num">{numContent}</span>
+  );
+  return (
+    <article
+      id={threadPostId(index)}
+      className={linked ? 'record-thread-post is-linked' : 'record-thread-post'}
+      data-at-uri={item.atUri}
+    >
+      {/* Each post of the thread is a record of its own; x-ray names which.
+          Only mounted then: collapsed, the tag would still take a gap here. */}
+      {inspecting && <XrayTag atUri={item.atUri} />}
+      {text ? (
+        <p className="post-card-text record-thread-text" ref={textRef}>
+          {num}
+          {renderPostText(text, facets)}
+        </p>
+      ) : (
+        <div className="record-thread-bare">{num}</div>
+      )}
+      {embed && (
+        <PostEmbed
+          embed={embed}
+          did={authorDid}
+          postUri={item.atUri}
+          raw={item.payload?.embedRecord || null}
+          inspect={inspecting}
+        />
+      )}
+      {(ts || parts.length > 0) && (
+        <footer
+          className={
+            parts.length
+              ? 'post-card-stats record-thread-stats'
+              : 'post-card-stats record-thread-stats record-thread-stats-bare'
+          }
+          {...(inspecting && parts.length ? xrayNotARecord('AppView count') : null)}
+        >
+          {ts && (
+            <span className="record-thread-stats-time">
+              <Time value={ts} variant="clock" />
+              {parts.length > 0 && ' · '}
+            </span>
+          )}
+          {parts.map((part, i) => (
+            <Fragment key={part.key}>
+              {i > 0 && ' · '}
+              {part.key === 'replies' && repliesHref ? <a href={repliesHref}>{part.text}</a> : part.text}
+            </Fragment>
+          ))}
+        </footer>
+      )}
+    </article>
+  );
+}
+
+/**
+ * Threads drawn in the last couple of minutes, by the at:// URI of each of
+ * their posts, so following a thread's numbers from post to post doesn't
+ * fetch the same thread again each time.
+ */
+const THREAD_CACHE_MS = 2 * 60 * 1000;
+const threadCache = new Map();
+
+function cachedThread(uri) {
+  const hit = threadCache.get(uri);
+  if (!hit) return null;
+  if (Date.now() - hit.at > THREAD_CACHE_MS) {
+    threadCache.delete(uri);
+    return null;
+  }
+  return hit.loaded;
+}
+
+function rememberThread(loaded) {
+  if (loaded.chain.length < 2) return;
+  if (threadCache.size > 200) threadCache.clear();
+  const at = Date.now();
+  for (const node of loaded.chain) threadCache.set(node.post.uri, { loaded, at });
 }
 
 /**
@@ -896,6 +1131,7 @@ function splitSelfThread(rootNode, authorDid) {
  * replies its count includes.
  */
 function SelfThreadPost({ item, ownReplies = 0 }) {
+  const { active: inspecting } = useXray();
   const text = item.payload?.text || '';
   const facets = item.payload?.facets || null;
   const embed = item.payload?.embed || item.payload?.embedRecord || null;
@@ -903,9 +1139,24 @@ function SelfThreadPost({ item, ownReplies = 0 }) {
   const stats = postStatsLine(item.payload, ownReplies);
   return (
     <article className="record-thread-post" data-at-uri={item.atUri}>
+      {/* Each continuation is a record of its own; x-ray names which. Only
+          mounted then: collapsed, the tag would still take a gap here. */}
+      {inspecting && <XrayTag atUri={item.atUri} />}
       {text && <p className="record-thread-text">{renderPostText(text, facets)}</p>}
-      {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
-      {stats && <footer className="post-card-stats">{stats}</footer>}
+      {embed && (
+        <PostEmbed
+          embed={embed}
+          did={authorDid}
+          collapsible
+          raw={item.payload?.embedRecord || null}
+          inspect={inspecting}
+        />
+      )}
+      {stats && (
+        <footer className="post-card-stats" {...(inspecting ? xrayNotARecord('AppView count') : null)}>
+          {stats}
+        </footer>
+      )}
     </article>
   );
 }

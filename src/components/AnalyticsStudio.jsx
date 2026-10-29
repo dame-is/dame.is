@@ -58,6 +58,7 @@ import {
   topPosts,
   unitChoicesFor,
 } from '../lib/analytics.js';
+import { archiveJson, exportFilename, postsCsv } from '../lib/analyticsExport.js';
 import { openAnalyticsStore } from '../lib/analyticsStore.js';
 import { atmosphereRowFromEntry, fetchRepoCar, readRepoCar } from '../lib/carRepo.js';
 import { holdReload } from '../lib/reloadHold.js';
@@ -651,9 +652,55 @@ function SyncStrip({ archive }) {
         >
           Rebuild
         </Button>
+        {/* The archive's two exports (#341), as text Buttons beside Rebuild:
+            occasional actions, not the strip's main one. */}
+        <Button
+          size="sm"
+          variant="text"
+          title="Download everything this browser holds (posts, followers, blocks, engagement, repo records) as one JSON file."
+          onClick={() => exportArchive(archive)}
+        >
+          Export all (JSON)
+        </Button>
+        <Button
+          size="sm"
+          variant="text"
+          title="Download the post archive with its engagement counts as a spreadsheet, newest first."
+          onClick={() => exportPosts(archive)}
+        >
+          Export posts (CSV)
+        </Button>
       </span>
     </div>
   );
+}
+
+/* The export reads the archive already in memory, the same rows the charts
+   draw, so a file always matches what the studio is showing. */
+
+function exportArchive(archive) {
+  const now = Date.now();
+  const json = archiveJson(archive, { did: archive.did, handle: ME_HANDLE, actors: archive.actors, now });
+  downloadText(json, exportFilename(ME_HANDLE, 'analytics', 'json', now), 'application/json');
+}
+
+function exportPosts(archive) {
+  const now = Date.now();
+  const csv = postsCsv(archive.posts, { did: archive.did, handle: ME_HANDLE });
+  downloadText(csv, exportFilename(ME_HANDLE, 'posts', 'csv', now), 'text/csv;charset=utf-8');
+}
+
+function downloadText(text, filename, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // The download starts after the click returns, and Safari can still be
+  // reading the blob well after that; revoking at once can cut it off.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function FirstRun({ archive }) {

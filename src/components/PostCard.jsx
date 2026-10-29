@@ -5,6 +5,7 @@ import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
+import { xrayNotARecord } from '../lib/xray.js';
 import { usePaper } from '../hooks/usePaper.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import ReferenceCard from './ReferenceCard.jsx';
@@ -26,7 +27,7 @@ function isAnisotaPost({ source, atUri }) {
  * to read as lined paper (a lone rule under a one-line status looks like a
  * stray underline). Inert while paper is 'blank' — no observers, no attr.
  */
-function useMultilineFlag(enabled, text) {
+export function useMultilineFlag(enabled, text) {
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
@@ -100,6 +101,9 @@ function PostCardBody({
   suppressReplyBadge = false,
   _thread = null,
   ownReplies = _thread?.selfReplies || 0,
+  // x-ray, on a page that opts the post into it (its own page): its media
+  // shows the blobs under it, and its counts say they aren't in the record.
+  inspect = false,
 }) {
   const anisota = isAnisotaPost({ source, atUri });
   const stats = postStatsLine(payload, ownReplies);
@@ -203,9 +207,15 @@ function PostCardBody({
           embed={embed}
           did={authorDid}
           postUri={payload?.subjectUri || atUri}
+          raw={payload?.embedRecord || null}
+          inspect={inspect}
         />
       )}
-      {stats && <footer className="post-card-stats">{stats}</footer>}
+      {stats && (
+        <footer className="post-card-stats" {...(inspect ? xrayNotARecord('AppView count') : null)}>
+          {stats}
+        </footer>
+      )}
     </article>
   );
 }
@@ -219,14 +229,23 @@ function PostCardBody({
  * them; see groupSelfReplyThreads' `selfReplies`).
  */
 export function postStatsLine(payload, ownReplies = 0) {
-  const tally = (n, one, many) => (n ? `${n} ${n === 1 ? one : many}` : null);
-  return [
-    tally(Math.max(0, (payload?.replyCount || 0) - ownReplies), 'reply', 'replies'),
-    tally(payload?.repostCount, 'repost', 'reposts'),
-    tally(payload?.likeCount, 'like', 'likes'),
-  ]
-    .filter(Boolean)
+  return postStatParts(payload, ownReplies)
+    .map((part) => part.text)
     .join(' · ');
+}
+
+/**
+ * postStatsLine's tallies one by one, `{ key, text }` with `key` one of
+ * 'replies', 'reposts' and 'likes', for a line that links one of them (a
+ * thread post's replies, to where they're filed).
+ */
+export function postStatParts(payload, ownReplies = 0) {
+  const tally = (key, n, one, many) => (n ? { key, text: `${n} ${n === 1 ? one : many}` } : null);
+  return [
+    tally('replies', Math.max(0, (payload?.replyCount || 0) - ownReplies), 'reply', 'replies'),
+    tally('reposts', payload?.repostCount, 'repost', 'reposts'),
+    tally('likes', payload?.likeCount, 'like', 'likes'),
+  ].filter(Boolean);
 }
 
 /**

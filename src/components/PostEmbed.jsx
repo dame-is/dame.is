@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Play } from 'lucide-react';
 import { ME_DID } from '../config.js';
@@ -7,6 +7,7 @@ import RelativeTimeText from './RelativeTimeText.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
 import LinkCard from './LinkCard.jsx';
 import { avatarThumb } from '../lib/avatarThumb.js';
+import { AltList, BlobPlate } from './XrayBlob.jsx';
 import Lightbox from './Lightbox.jsx';
 import './PostEmbed.css';
 
@@ -32,6 +33,12 @@ import './PostEmbed.css';
  * `postUri` is the at:// URI of the post the embed belongs to, when the
  * caller knows it. A video the browser can't play inline links out to that
  * post on bsky.app; without it the poster just sits there.
+ *
+ * `inspect` is x-ray, on a page that opts its post's own media into it (a
+ * post's page): each picture and video then wears a plate naming the blob
+ * under it, and the pictures' alt text is printed beneath them. `raw` is the
+ * record's own embed, beside the AppView's view of it, since only the record
+ * says a blob's type and size.
  */
 export default function PostEmbed({
   embed,
@@ -39,22 +46,31 @@ export default function PostEmbed({
   depth = 0,
   nest = 0,
   postUri = null,
+  raw = null,
+  inspect = false,
 }) {
   if (!embed) return null;
-  return renderEmbed(embed, did, depth, nest, postUri);
+  return renderEmbed(embed, did, depth, nest, postUri, { raw, inspect });
 }
 
 /** Resolves an embed object to its rendered element. */
-function renderEmbed(embed, did, depth, nest = 0, postUri = null) {
+function renderEmbed(embed, did, depth, nest = 0, postUri = null, { raw = null, inspect = false } = {}) {
   const type = embed.$type;
   switch (type) {
     case 'app.bsky.embed.images#view':
-      return <ImageGrid images={embed.images} postUri={postUri} />;
+      return (
+        <ImageGrid
+          images={(embed.images || []).map((im, i) => ({ ...im, blob: raw?.images?.[i]?.image || null }))}
+          postUri={postUri}
+          inspect={inspect}
+        />
+      );
     case 'app.bsky.embed.images':
       return (
         <ImageGrid
           images={(embed.images || []).map((im) => normalizeRawImage(im, did))}
           postUri={postUri}
+          inspect={inspect}
         />
       );
     case 'app.bsky.embed.video#view':
@@ -65,6 +81,8 @@ function renderEmbed(embed, did, depth, nest = 0, postUri = null) {
           alt={embed.alt}
           aspectRatio={embed.aspectRatio}
           postUri={postUri}
+          blob={raw?.video || (embed.cid ? { cid: embed.cid } : null)}
+          inspect={inspect}
         />
       );
     case 'app.bsky.embed.video':
@@ -79,6 +97,8 @@ function renderEmbed(embed, did, depth, nest = 0, postUri = null) {
           alt={embed.alt}
           aspectRatio={embed.aspectRatio}
           postUri={postUri}
+          blob={embed.video || null}
+          inspect={inspect}
         />
       );
     case 'app.bsky.embed.external#view':
@@ -121,6 +141,8 @@ function renderEmbed(embed, did, depth, nest = 0, postUri = null) {
               depth={depth}
               nest={nest}
               postUri={postUri}
+              raw={raw?.media || null}
+              inspect={inspect}
             />
           )}
           {embed.record?.record && (
@@ -138,6 +160,7 @@ function renderEmbed(embed, did, depth, nest = 0, postUri = null) {
               depth={depth}
               nest={nest}
               postUri={postUri}
+              inspect={inspect}
             />
           )}
           {embed.record?.record && (
@@ -166,6 +189,7 @@ function normalizeRawImage(image, did) {
       aspectRatio: image?.aspectRatio || null,
       thumb: null,
       fullsize: null,
+      blob: image?.image || null,
     };
   }
   return {
@@ -173,11 +197,17 @@ function normalizeRawImage(image, did) {
     aspectRatio: image?.aspectRatio || null,
     thumb: `https://cdn.bsky.app/img/feed_thumbnail/plain/${did}/${cid}@jpeg`,
     fullsize: `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@jpeg`,
+    blob: image?.image || null,
   };
 }
 
-function ImageGrid({ images, postUri = null }) {
-  const list = (images || []).filter((im) => im?.thumb || im?.fullsize);
+function ImageGrid({ images, postUri = null, inspect = false }) {
+  const plateId = useId();
+  // Each picture keeps its place in the record's `images` array, which is
+  // what x-ray names it by, even if one before it has nothing to show.
+  const list = (images || [])
+    .map((im, index) => im && { ...im, index })
+    .filter((im) => im?.thumb || im?.fullsize);
   // The post the photos came in, when it's one of Dame's and so has a page
   // here (recordPathFromAtUri reads only the collection, not whose it is).
   const recordHref = postUri?.startsWith(`at://${ME_DID}/`) ? recordPathFromAtUri(postUri) : null;
@@ -220,6 +250,7 @@ function ImageGrid({ images, postUri = null }) {
               style={framed ? { '--img-ar': ar.width / ar.height } : undefined}
               onClick={() => setLightbox({ open: true, index: i })}
               aria-label={im.alt ? `Open image: ${im.alt}` : 'Open image'}
+              aria-describedby={inspect ? `${plateId}-${i}` : undefined}
             >
               <img
                 src={im.thumb || im.fullsize}
@@ -232,10 +263,25 @@ function ImageGrid({ images, postUri = null }) {
                     : undefined
                 }
               />
+              {inspect && (
+                <BlobPlate
+                  id={`${plateId}-${i}`}
+                  field={`images[${im.index}]`}
+                  blob={im.blob}
+                  url={im.fullsize || im.thumb}
+                  aspectRatio={ar}
+                />
+              )}
             </button>
           );
         })}
       </div>
+      {inspect && (
+        <AltList
+          items={list.map((im) => ({ index: im.index, alt: im.alt }))}
+          field={(n) => `images[${n}].alt`}
+        />
+      )}
       <Lightbox
         open={lightbox.open}
         onClose={() => setLightbox((s) => ({ ...s, open: false }))}
@@ -269,11 +315,33 @@ function playsHlsNatively() {
  * thumbnail, linking out to the post on bsky.app (when `postUri` says which
  * post that is) so the video is still one tap away.
  */
-function VideoBlock({ playlist, thumbnail, alt, aspectRatio, postUri = null }) {
+function VideoBlock({
+  playlist,
+  thumbnail,
+  alt,
+  aspectRatio,
+  postUri = null,
+  blob = null,
+  inspect = false,
+}) {
+  const plateId = useId();
   if (!playlist && !thumbnail) return null;
   const style = aspectRatio
     ? { aspectRatio: `${aspectRatio.width} / ${aspectRatio.height}` }
     : undefined;
+  const plate = (hidden = true) =>
+    inspect ? (
+      <BlobPlate
+        id={plateId}
+        field="video"
+        blob={blob}
+        url={thumbnail || playlist}
+        aspectRatio={aspectRatio}
+        place="head"
+        hidden={hidden}
+      />
+    ) : null;
+  const describedBy = inspect ? plateId : undefined;
   if (playlist && playsHlsNatively()) {
     return (
       <div className="post-embed-video" style={style}>
@@ -282,10 +350,12 @@ function VideoBlock({ playlist, thumbnail, alt, aspectRatio, postUri = null }) {
           preload="none"
           poster={thumbnail || undefined}
           aria-label={alt || 'Video'}
+          aria-describedby={describedBy}
           playsInline
         >
           <source src={playlist} type="application/vnd.apple.mpegurl" />
         </video>
+        {plate()}
       </div>
     );
   }
@@ -298,9 +368,11 @@ function VideoBlock({ playlist, thumbnail, alt, aspectRatio, postUri = null }) {
     <img src={thumbnail} alt={alt || ''} loading="lazy" />
   ) : null;
   if (!href) {
+    // No control to describe it, so the plate speaks for itself here.
     return poster ? (
       <div className="post-embed-video" style={style}>
         {poster}
+        {plate(false)}
       </div>
     ) : null;
   }
@@ -314,11 +386,13 @@ function VideoBlock({ playlist, thumbnail, alt, aspectRatio, postUri = null }) {
       aria-label={
         alt ? `Play video on Bluesky: ${alt}` : 'Play video on Bluesky'
       }
+      aria-describedby={describedBy}
     >
       {poster}
       <span className="post-embed-video-badge gutter" aria-hidden="true">
         <Play size={12} strokeWidth={2} fill="currentColor" /> play on Bluesky
       </span>
+      {plate()}
     </a>
   );
 }

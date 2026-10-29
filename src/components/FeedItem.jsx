@@ -243,6 +243,7 @@ function FeedItem({
         onToggle={runBatch ? () => setExpanded((v) => !v) : null}
         onOpenLightbox={onOpenLightbox}
         arrivingPosts={arrivingPosts}
+        inspect={xrayFocused}
       />
       {xrayFocused && (
         <XraySubstratePanel atUri={item.atUri} cid={item.cid} value={item.payload} />
