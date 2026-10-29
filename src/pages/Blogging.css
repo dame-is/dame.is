@@ -334,6 +334,18 @@
   :root[data-xray='on'] .blog-book .leaflet-sidenote {
     display: none;
   }
+  /* The colophon comes first in the margin. This float is as tall as it
+     reaches down beside the text (--margin-clear, measured in BlogPost.jsx)
+     and stands where the sidenotes go, taking no room from the text the same
+     way they don't; each sidenote's `clear: right` then starts it a step
+     below the colophon instead of on top of it. */
+  .blog-book > .leaflet-doc::before {
+    content: '';
+    float: right;
+    width: 12rem;
+    height: calc(var(--margin-clear, 0px) + var(--space-3));
+    margin-right: calc(-12rem - var(--space-7));
+  }
 
   /* While inspecting, the record panel opens in the text column under the
      title and the colophon stops beside it, so the margin beside the text is
