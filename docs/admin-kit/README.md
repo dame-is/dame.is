@@ -33,6 +33,8 @@ The mockups were implemented on `claude/fervent-ptolemy-ghkvmk`, taking the draw
 - **Kit additions:** `Button variant="danger"` (`.btn--danger`), `Tag` (`.tag`, `.tag--danger`) and `.ident` for identifiers, all in `controls.css` and set out on `/colophon`.
 - **The public quick-edit sheet is unchanged.** Inside the workbench, the shared editor's labels, badges, inline code and any remaining `.admin-gate-button` take the kit's voice through rules scoped to `.wb` (`adminShell.css`); the sheet portals outside `.wb` and keeps its look.
 - **Rail counts are shown,** except for the singleton surfaces (Nav menu, Sky theme, About) and the Ratioed studio, whose count belongs to the catalogue.
+- **The nav is the compass's page list.** After a first pass with icons and the kit's boxed "on", the rail and both directory sheets were reset to the compass's rows: no icons, the label on the content edge, the count where the compass prints a path, and the current page in the accent. The rail sits on the compass's own surface (`--surface-deep`), where that accent reads as the compass's does.
+- **The bottom bar keeps its chips while the compass is open.** The open menu used to swap the left cluster for tools of its own; with the layout words gone and the paper toggle paused, that swap emptied the left of the bar every time the compass opened.
 - **Phone Save stays enabled** when nothing has changed, because a clean record can still be re-saved on purpose; it shows unsaved work the way the ⋯ beside it does.
 - **Moderation's "Add N to the list"** is a danger button rather than the primary, because it blocks people.
 

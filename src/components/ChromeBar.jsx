@@ -894,13 +894,22 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
     account: () => setView(view === 'account' ? 'menu' : 'account'),
   };
 
-  // Which chips the compass sheet draws: the ones that didn't fit the bar at
-  // rest. While the menu is open the bar wears different tools (the layout
-  // words, Account) and is measured afresh, but the sheet keeps listing what
-  // the resting bar couldn't hold, less anything the open bar does show, plus
-  // any of the menu's own controls the open bar had no room for.
+  // Whether the open menu dresses the left of the bar in tools of its own. Of
+  // the tools that slot held (the layout words, the paper toggle) only the
+  // paper toggle is left, and it is paused, so with nothing to show the bar
+  // keeps the page's own chips while the menu is open. Swapping them for an
+  // empty cluster made every chip on the left vanish each time the compass
+  // opened, and fade back each time it closed.
+  const dockTools = dockOpen && PAPER_ENABLED;
+
+  // Which chips the compass sheet draws: the ones that didn't fit the bar.
+  // When the open menu wears tools of its own, the bar is measured afresh, so
+  // the sheet keeps listing what the resting bar couldn't hold, less anything
+  // the open bar does show, plus any of the menu's own controls the open bar
+  // had no room for. Otherwise the bar is the same bar with Account added,
+  // and what it can't hold right now is the list.
   const restingOutRef = useRef([]);
-  if (!dockOpen) restingOutRef.current = [...plan.hidden].filter((k) => TOOL_META[k]);
+  if (!dockTools) restingOutRef.current = [...plan.hidden].filter((k) => TOOL_META[k]);
   const openBarShows = new Set(
     dockOpen
       ? [
@@ -910,8 +919,10 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
         ].filter(Boolean)
       : [],
   );
-  const openOut = dockOpen && plan.hidden.has('account') ? ['account'] : [];
-  const sheetTools = [...restingOutRef.current.filter((k) => !openBarShows.has(k)), ...openOut];
+  const openOut = dockTools && plan.hidden.has('account') ? ['account'] : [];
+  const sheetTools = dockTools
+    ? [...restingOutRef.current.filter((k) => !openBarShows.has(k)), ...openOut]
+    : restingOutRef.current;
   const sheetToolsKey = `${sheetTools.join(',')}|${atTop}|${hourLabel}`;
   useEffect(() => {
     setOverflowTools(
@@ -985,7 +996,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
             readout is its own sheet, reached from the inspect HUD.) */}
         <div className="chrome-bottom-left">
           <AnimatePresence mode="wait" initial={false}>
-            {dockOpen ? (
+            {dockTools ? (
               <motion.div
                 key="tools"
                 className="chrome-bottom-cluster"

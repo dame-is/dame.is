@@ -334,12 +334,11 @@
    --surface-raised (both now land ~4.5:1+ to clear AA), while leaving
    the on-page values untouched. Scoped to the raised surfaces so the
    adjustment only applies where the background actually warrants it. The
-   admin's own bar and rail (.wb-top, .wb-rail) are the same surface carrying
-   the same labels, so they take the same re-tune. */
+   admin's own top bar (.wb-top) is the same surface carrying the same labels,
+   so it takes the same re-tune. */
 [data-theme='light'] .chrome-bar,
 [data-theme='light'] .modal-panel,
-[data-theme='light'] .wb-top,
-[data-theme='light'] .wb-rail {
+[data-theme='light'] .wb-top {
   --ink-muted: #5b5a46;
   --ink-faint: #605d4b;   /* ~4.68:1 on --surface-raised (#e3d8ba) */
 }
@@ -348,8 +347,7 @@
    very dark raised surface); only the faint step needs a lift. */
 [data-theme='dark'] .chrome-bar,
 [data-theme='dark'] .modal-panel,
-[data-theme='dark'] .wb-top,
-[data-theme='dark'] .wb-rail {
+[data-theme='dark'] .wb-top {
   --ink-faint: #888269;   /* ~4.67:1 on --surface-raised (#13180f) */
 }
 
@@ -358,8 +356,7 @@
    lift the faint step, mirroring the static themes above). */
 [data-theme='sky'] .chrome-bar,
 [data-theme='sky'] .modal-panel,
-[data-theme='sky'] .wb-top,
-[data-theme='sky'] .wb-rail {
+[data-theme='sky'] .wb-top {
   --ink-muted: var(--sky-ink-muted-raised, var(--sky-ink-muted, #93a5a5));
   --ink-faint: var(--sky-ink-faint-raised, var(--sky-ink-faint, #7b8e8e));
 }

@@ -411,9 +411,12 @@
 /* Rail                                                                 */
 /* ------------------------------------------------------------------ */
 
-/* Panes paint on `--page`; the rail paints on `--surface-raised`, the same
-   surface as the site's chrome, and takes the same raised-surface re-tune of
-   its muted and faint inks (theme.css) for its group heads and counts. */
+/* Panes paint on `--page`; the rail paints on `--surface-deep`, the layer the
+   site gives its open chrome panels, the compass sheet among them. The rail is
+   the admin's menu left open, and on the compass's own surface its rows, its
+   counts and the accent that marks where you are read exactly as the
+   compass's do: on the darker raised surface that accent fell to 3.3:1 at
+   7 am. */
 .wb-rail {
   display: flex;
   flex-direction: column;
@@ -422,8 +425,10 @@
      scroll container — every rem of slack here is a row that falls below the
      fold on a laptop. */
   gap: 0;
-  padding: var(--space-2) var(--space-2) var(--space-2);
-  background: var(--surface-raised);
+  /* The top bar's own inset, so the wordmark above and every row below hang
+     from one left edge, as the compass's rows hang from the chrome's. */
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-deep);
   border-right: 1px solid var(--rule);
 }
 
@@ -457,8 +462,8 @@
      to see — at the bottom until you reach the end, at the top once you have
      left it — and not at all when everything already fits. */
   background:
-    linear-gradient(var(--surface-raised) 40%, transparent) top / 100% 1.25rem local no-repeat,
-    linear-gradient(transparent, var(--surface-raised) 60%) bottom / 100% 1.25rem local no-repeat,
+    linear-gradient(var(--surface-deep) 40%, transparent) top / 100% 1.25rem local no-repeat,
+    linear-gradient(transparent, var(--surface-deep) 60%) bottom / 100% 1.25rem local no-repeat,
     linear-gradient(var(--shadow), transparent) top / 100% 0.5rem scroll no-repeat,
     linear-gradient(transparent, var(--shadow)) bottom / 100% 0.5rem scroll no-repeat;
 }
@@ -480,7 +485,7 @@
 .wb-rail-group-end {
   flex: 0 0 auto;
   margin-top: auto;
-  padding: var(--space-2) var(--space-2) 0;
+  padding: var(--space-2) 0 0;
   border-top: 1px solid var(--rule-soft);
 }
 
@@ -488,22 +493,21 @@
   justify-content: flex-start;
 }
 
-/* One row of the directory, as AdminDirectoryBody draws it on a public page:
-   glyph, label and a count on a hairline. The border is drawn on all four
-   sides and left transparent on three, so the "on" row's accent hairline
-   closes round it without the row changing size. */
+/* One row of the compass's page list (ActionDock.css `.dock-route`): the label
+   on the rail's content edge, its count at the right where the compass prints
+   a path, a hairline under it. */
 .wb-rail-btn {
   position: relative;
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
   gap: var(--space-2);
   width: 100%;
   min-height: 1.75rem;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid transparent;
-  border-bottom-color: var(--rule-soft);
+  padding: var(--space-1) 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule-soft);
   border-radius: 0;
   background: transparent;
   color: var(--ink-soft);
@@ -523,45 +527,36 @@
   outline-offset: -2px;
 }
 
-/* The glyph never shrinks when a long label wraps. */
-.wb-rail-btn > svg {
-  flex: 0 0 auto;
-}
-
-/* The kit's hover and "on" (controls.css): the 8% wash for a pointer, the 16%
-   wash with an accent hairline and ink text for where you are. Restated here
-   because this sheet loads after controls.css and the row's own border and
-   colour would otherwise win at equal specificity. Both washes are mixed into
-   --page, so they lighten the rail's raised surface rather than letting it
-   show through. */
-@media (hover: hover) {
-  .wb-rail-btn:hover:not(.is-on) {
-    color: var(--ink);
-    background: var(--wash-hover);
+/* Hover and "you are here" as the compass draws them: the words go to the
+   accent, and nothing is drawn round the row (`.dock-route:hover`,
+   `.dock-route.is-active`). Hover is for a fine pointer only, the compass's
+   guard: on touch a tap that repaints the row costs the click. Restated
+   against `.is-on` because the kit's rule (controls.css) would otherwise paint
+   the row's wash and hairline. */
+@media (hover: hover) and (pointer: fine) {
+  .wb-rail-btn:hover,
+  .wb-rail-btn:hover .wb-rail-count {
+    color: var(--accent);
   }
 }
 
-.wb-rail-btn:focus-visible:not(.is-on) {
-  color: var(--ink);
-  background: var(--wash-hover);
+.wb-rail-btn:focus-visible,
+.wb-rail-btn.is-on,
+.wb-rail-btn.is-on .wb-rail-count {
+  color: var(--accent);
 }
 
 .wb-rail-btn.is-on {
-  color: var(--ink);
-  background: var(--wash-selected);
-  border-color: var(--accent);
+  background: transparent;
+  border-color: var(--rule-soft);
 }
 
-/* The collection's count, as the Front Desk tile prints it: quiet tabular
-   figures at the meta size. The rail's raised-surface re-tune (theme.css) is
-   what keeps --ink-faint legible here. */
+/* The collection's count, where the compass prints a page's path and in the
+   same voice. */
 .wb-rail-count {
-  font-size: var(--text-meta);
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
-  color: var(--ink-faint);
-}
-
-.wb-rail-btn.is-on .wb-rail-count {
   color: var(--ink-muted);
 }
 
@@ -614,12 +609,9 @@
 /* The group's name, in the eyebrow voice (typography.css `.eyebrow`, which the
    markup carries); this rule only spaces it. */
 .wb-rail-heading {
-  padding: var(--space-3) var(--space-2) var(--space-1);
+  padding: var(--space-3) 0 var(--space-1);
 }
 
-.wb-rail-scroll > .wb-rail-group:first-child .wb-rail-btn {
-  margin-bottom: var(--space-1);
-}
 
 /* ------------------------------------------------------------------ */
 /* Pane headers, studios                                                */
