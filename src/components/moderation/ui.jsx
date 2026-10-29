@@ -16,6 +16,10 @@ import {
   useRef,
   useState,
 } from 'react';
+import Button from '../Button.jsx';
+import Fleuron from '../Fleuron.jsx';
+import Segmented from '../Segmented.jsx';
+import KitTag from '../Tag.jsx';
 
 /* ----------------------------------------------------------------- cache */
 
@@ -154,45 +158,60 @@ export const BAND_LABEL = {
   UNKNOWN: 'Stranger',
 };
 
-/** The band, coloured by how much it should stop you. */
+/**
+ * The bands that should stop you. A protected account should never be on the
+ * list, and a connected one is the likeliest collateral of a sweep, so both
+ * take the kit's warning tone; the rest are plain.
+ */
+const WARN_BANDS = new Set(['PROTECTED', 'CONNECTED']);
+
+/** The band as a kit tag (styles/controls.css .tag). */
 export function BandBadge({ band }) {
   if (!band) return null;
   return (
-    <span className={`mh-badge mh-badge--${band.toLowerCase()}`}>
+    <KitTag tone={WARN_BANDS.has(band) ? 'danger' : undefined}>
       {BAND_LABEL[band] || band}
-    </span>
+    </KitTag>
   );
 }
 
-/** A plain tag: how someone was added, a triage label, a plan code. */
+/**
+ * A plain tag: how someone was added, a triage label, a plan code. The kit's
+ * tag, with the hub's three tones mapped onto its two: `danger` warns,
+ * `plain` and `muted` are the plain tag.
+ */
 export function Tag({ children, tone = 'plain', title }) {
   return (
-    <span className={`mh-tag mh-tag--${tone}`} title={title}>
+    <KitTag tone={tone === 'danger' ? 'danger' : undefined} title={title}>
       {children}
-    </span>
+    </KitTag>
   );
 }
 
-/** A chip row that filters. `options`: [{ key, label, count }] */
+/**
+ * A row of keys that filters: the kit's Segmented, with each key's count set
+ * quietly after its name. `options`: [{ key, label, count }]
+ */
 export function Chips({ options, value, onChange, label }) {
   return (
-    <div className="mh-chips" role="radiogroup" aria-label={label}>
-      {options.map((o) => (
-        <button
-          key={o.key}
-          type="button"
-          role="radio"
-          aria-checked={value === o.key}
-          className={`mh-chip${value === o.key ? ' is-on' : ''}`}
-          onClick={() => onChange(o.key)}
-        >
-          {o.label}
-          {typeof o.count === 'number' && (
-            <span className="mh-chip-count">{fmt(o.count)}</span>
-          )}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      className="mh-segmented"
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={options.map((o) => ({
+        value: o.key,
+        label:
+          typeof o.count === 'number' ? (
+            <>
+              {o.label}
+              <span className="mh-count">{fmt(o.count)}</span>
+            </>
+          ) : (
+            o.label
+          ),
+      }))}
+    />
   );
 }
 
@@ -213,9 +232,11 @@ export function Skeleton({ rows = 4, avatar = true }) {
   );
 }
 
+/** Nothing to show, in the site's own voice: the fleuron, then the words. */
 export function Empty({ title, children }) {
   return (
     <div className="mh-empty">
+      <Fleuron className="mh-empty-mark" />
       <p className="mh-empty-title">{title}</p>
       {children && <p className="mh-empty-body">{children}</p>}
     </div>
@@ -229,9 +250,9 @@ export function ErrorNote({ error, onRetry, compact: small = false }) {
     <div className={`mh-error${small ? ' mh-error--small' : ''}`} role="alert">
       <span>{String(error?.message || error)}</span>
       {onRetry && (
-        <button type="button" className="mh-link" onClick={onRetry}>
+        <Button variant="text" size="sm" onClick={onRetry}>
           Try again
-        </button>
+        </Button>
       )}
     </div>
   );

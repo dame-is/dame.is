@@ -6,6 +6,10 @@
 // record in dame's own repo, which the bot reads and cannot change.
 
 import { useEffect, useState } from 'react';
+import Button from '../Button.jsx';
+import Figures from '../Figures.jsx';
+import SectionHead from '../SectionHead.jsx';
+import Time from '../Time.jsx';
 import {
   CONFIG_NSID,
   auditRun,
@@ -21,7 +25,6 @@ import {
   compact,
   fmt,
   invalidate,
-  timeAgo,
   usd,
   useCached,
   useToast,
@@ -96,52 +99,54 @@ function Health({ agent, data, reload }) {
 
   return (
     <div className="mh-health">
-      <article className={`mh-health-card${stale ? ' is-warn' : ''}`}>
-        <h3 className="mh-label">Scoring snapshot</h3>
+      <article className="mh-health-card">
+        <h3 className="mh-label eyebrow">Scoring snapshot</h3>
         <p className="mh-health-big">
           {snap.ageHours != null ? `${snap.ageHours}h old` : 'missing'}
+          {stale && <span className="mh-health-warn"> · stale</span>}
         </p>
         <p className="mh-small">
           {fmt(snap.scored)} accounts scored, {fmt(snap.protected)} protected.
           {stale &&
             ' Bands are computed from this, so anyone whose connections changed since is scored on the old graph.'}
         </p>
-        <button
-          type="button"
-          className="mh-button"
-          disabled={Boolean(building)}
-          onClick={rebuild}
-        >
+        <Button size="sm" disabled={Boolean(building)} onClick={rebuild}>
           {building ? `Rebuilding: ${building}` : 'Rebuild now'}
-        </button>
+        </Button>
       </article>
 
       <article className="mh-health-card">
-        <h3 className="mh-label">List re-score</h3>
+        <h3 className="mh-label eyebrow">List re-score</h3>
         <p className="mh-health-big">
-          {audit ? timeAgo(audit.finished_at || audit.started_at) : 'never'}
+          {audit ? (
+            <Time
+              value={audit.finished_at || audit.started_at}
+              variant="relative"
+            />
+          ) : (
+            'never'
+          )}
         </p>
         <p className="mh-small">
           {audit ? `${fmt(audit.scored)} accounts. ` : ''}The droplet re-scores
           the whole list weekly; the queue is built from the latest one.
         </p>
-        <button
-          type="button"
-          className="mh-button"
-          disabled={Boolean(scoring)}
-          onClick={rescore}
-        >
+        <Button size="sm" disabled={Boolean(scoring)} onClick={rescore}>
           {scoring ? `Re-scoring: ${scoring}` : 'Re-score now'}
-        </button>
+        </Button>
       </article>
 
       <article className="mh-health-card">
-        <h3 className="mh-label">The bot</h3>
+        <h3 className="mh-label eyebrow">The bot</h3>
         <p className="mh-health-big">@{data.bot?.handle || 'no session'}</p>
         <p className="mh-small">
-          {session
-            ? `Session refreshed ${timeAgo(session)}.`
-            : 'No stored session.'}{' '}
+          {session ? (
+            <>
+              Session refreshed <Time value={session} variant="relative" />.
+            </>
+          ) : (
+            'No stored session.'
+          )}{' '}
           It owns the list and answers your DMs.
         </p>
       </article>
@@ -153,16 +158,14 @@ function Spend({ cost }) {
   if (!cost) return null;
   return (
     <div className="mh-spend">
-      <div className="mh-spend-totals">
-        <p>
-          <span className="mh-health-big">{usd(cost.week)}</span>
-          <span className="mh-small"> this week</span>
-        </p>
-        <p>
-          <span className="mh-health-big">{usd(cost.total)}</span>
-          <span className="mh-small"> all time</span>
-        </p>
-      </div>
+      <Figures
+        layout="inline"
+        label="Spend"
+        items={[
+          { key: 'week', label: 'This week', value: usd(cost.week) },
+          { key: 'total', label: 'All time', value: usd(cost.total) },
+        ]}
+      />
       <table className="mh-table">
         <thead>
           <tr>
@@ -175,7 +178,7 @@ function Spend({ cost }) {
         <tbody>
           {cost.models.map((m) => (
             <tr key={m.model}>
-              <td className="mh-code">{m.model}</td>
+              <td className="ident">{m.model}</td>
               <td>{fmt(m.calls)}</td>
               <td>{compact(m.input + m.output)}</td>
               <td>{cost.priced ? usd(m.usd) : '—'}</td>
@@ -251,7 +254,7 @@ function Voice({ agent }) {
 
   const field = (k, label, help, rows = 4, placeholder = '') => (
     <label className="mh-field">
-      <span className="mh-field-label">{label}</span>
+      <span className="mh-field-label eyebrow">{label}</span>
       {help && <span className="mh-small mh-muted">{help}</span>}
       <textarea
         className="mh-input"
@@ -274,13 +277,26 @@ function Voice({ agent }) {
   return (
     <div className="mh-voice">
       <p className="mh-small">
-        Published as <code className="mh-code">{CONFIG_NSID}</code> in your own
+        Published as <code className="ident">{CONFIG_NSID}</code> in your own
         repo, signed by your session. The bot reads it and cannot change it.{' '}
-        {cfg.config
-          ? cfg.config.source === 'pds'
-            ? `Live from your repo${cfg.config.updated_at ? `, updated ${timeAgo(cfg.config.updated_at)}` : ''}.`
-            : 'Showing the cached copy; the record could not be read.'
-          : 'No record yet, so the bot runs on its built-in defaults.'}
+        {cfg.config ? (
+          cfg.config.source === 'pds' ? (
+            <>
+              Live from your repo
+              {cfg.config.updated_at && (
+                <>
+                  , updated{' '}
+                  <Time value={cfg.config.updated_at} variant="relative" />
+                </>
+              )}
+              .
+            </>
+          ) : (
+            'Showing the cached copy; the record could not be read.'
+          )
+        ) : (
+          'No record yet, so the bot runs on its built-in defaults.'
+        )}
       </p>
       {field('style', 'Voice', 'How it writes.', 5, cfg.default?.style)}
       {field(
@@ -298,7 +314,9 @@ function Voice({ agent }) {
         'Acknowledged.\nOn it.',
       )}
       <label className="mh-field">
-        <span className="mh-field-label">A post sent with no words</span>
+        <span className="mh-field-label eyebrow">
+          A post sent with no words
+        </span>
         <span className="mh-small mh-muted">
           The card shows who engaged and answers to author, likers, unknowns,
           everyone or hostile.
@@ -329,7 +347,7 @@ function Voice({ agent }) {
           cfg.default?.postReport,
         )}
         <label className="mh-field">
-          <span className="mh-field-label">Analyst model</span>
+          <span className="mh-field-label eyebrow">Analyst model</span>
           <span className="mh-small mh-muted">
             Blank uses what the droplet is configured with.
           </span>
@@ -344,7 +362,7 @@ function Voice({ agent }) {
         <div className="mh-limits">
           {Object.entries(cfg.limitSpec || {}).map(([k, range]) => (
             <label key={k} className="mh-field">
-              <span className="mh-field-label">{k}</span>
+              <span className="mh-field-label eyebrow">{k}</span>
               <input
                 className="mh-input"
                 type="number"
@@ -364,14 +382,13 @@ function Voice({ agent }) {
         </div>
       </details>
       <div className="mh-form-row">
-        <button
-          type="button"
-          className="mh-button mh-button--primary"
+        <Button
+          variant="primary"
           disabled={busy || over || !dirty}
           onClick={save}
         >
           {busy ? 'Publishing…' : 'Publish to your repo'}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -387,15 +404,15 @@ export default function SettingsView({ agent }) {
   );
   return (
     <section className="mh-view" aria-label="Settings">
-      <h2 className="mh-section-title">Health</h2>
+      <SectionHead title="Health" className="mh-section-head" />
       {loading && <Skeleton rows={2} avatar={false} />}
       <ErrorNote error={error} onRetry={reload} />
       {data && <Health agent={agent} data={data} reload={reload} />}
 
-      <h2 className="mh-section-title">Spend</h2>
+      <SectionHead title="Spend" className="mh-section-head" />
       {data && <Spend cost={data.cost} />}
 
-      <h2 className="mh-section-title">How the bot writes</h2>
+      <SectionHead title="How the bot writes" className="mh-section-head" />
       <Voice agent={agent} />
     </section>
   );

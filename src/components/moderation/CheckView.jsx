@@ -4,6 +4,8 @@
 // in the decision log; acting on a post is still the bot's job, in a DM.
 
 import { useState } from 'react';
+import Button from '../Button.jsx';
+import Figures from '../Figures.jsx';
 import { describeEngagements, preflight } from '../../lib/moderation/client.js';
 import {
   Avatar,
@@ -69,7 +71,7 @@ export default function CheckView({ agent, onOpenAccount }) {
 
       {mode === 'post' ? (
         <form className="mh-form" onSubmit={score}>
-          <label className="mh-label" htmlFor="mh-post">
+          <label className="mh-label eyebrow" htmlFor="mh-post">
             Post link
           </label>
           <div className="mh-form-row">
@@ -83,13 +85,13 @@ export default function CheckView({ agent, onOpenAccount }) {
               autoComplete="off"
               inputMode="url"
             />
-            <button
-              className="mh-button mh-button--primary"
+            <Button
+              variant="primary"
               type="submit"
               disabled={busy || !link.trim()}
             >
               {busy ? 'Scoring…' : 'Score'}
-            </button>
+            </Button>
           </div>
           <p className="mh-small mh-muted">
             Everyone who liked, reposted, replied or quoted, scored against your
@@ -98,7 +100,7 @@ export default function CheckView({ agent, onOpenAccount }) {
         </form>
       ) : (
         <form className="mh-form" onSubmit={look}>
-          <label className="mh-label" htmlFor="mh-actor">
+          <label className="mh-label eyebrow" htmlFor="mh-actor">
             Handle, DID or profile link
           </label>
           <div className="mh-form-row">
@@ -112,13 +114,9 @@ export default function CheckView({ agent, onOpenAccount }) {
               autoComplete="off"
               autoCapitalize="none"
             />
-            <button
-              className="mh-button mh-button--primary"
-              type="submit"
-              disabled={!actor.trim()}
-            >
+            <Button variant="primary" type="submit" disabled={!actor.trim()}>
               Look up
-            </button>
+            </Button>
           </div>
           <p className="mh-small mh-muted">
             Whether they are on the list, their band, and every decision
@@ -144,20 +142,15 @@ export default function CheckView({ agent, onOpenAccount }) {
               are whole; the tail of the likes is cut.
             </p>
           )}
-          <ul className="mh-tiles">
-            {ORDER.map((band) => {
-              const n = totals.byBand?.[band] || 0;
-              return (
-                <li
-                  key={band}
-                  className={`mh-tile mh-tile--${band.toLowerCase()}`}
-                >
-                  <span className="mh-tile-n">{fmt(n)}</span>
-                  <span className="mh-tile-label">{BAND_LABEL[band]}</span>
-                </li>
-              );
-            })}
-          </ul>
+          <Figures
+            label="Accounts by band"
+            dense
+            items={ORDER.map((band) => ({
+              key: band,
+              label: BAND_LABEL[band],
+              value: totals.byBand?.[band] || 0,
+            }))}
+          />
           <p>
             <strong>{fmt(result.requiresReview.length)}</strong> need a named
             look; <strong>{fmt(result.autoEligible)}</strong> are strangers. The
