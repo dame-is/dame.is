@@ -33,32 +33,11 @@ import { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import BottomSheet from '../components/BottomSheet.jsx';
 import AdminSheet from './AdminSheet.jsx';
-import { NsidForm, SurfaceIcon, useSurfaceList } from './AdminRail.jsx';
+import { NsidForm, SurfaceIcon, railCount, useSurfaceList } from './AdminRail.jsx';
 import { useAdminData } from './useAdminData.js';
 import { useAdminShell } from './useAdminShell.jsx';
 import { surfaceByKey } from './surfaces.js';
 
-/**
- * The number a row shows, or null for a row that has none — a surface that is
- * not countable, one whose count has not landed yet (there is no entry until it
- * has), or one whose request failed. `count+` rather than a bare number when the
- * page came back full, because a capped page cannot say how many there are and
- * an invented number is worse than no number.
- */
-function countLabel(entry, surf) {
-  if (!surf.countable || !entry || entry.error) return null;
-  if (!Number.isFinite(entry.count)) return null;
-  // A surface that is a client-side SLICE of a collection must be counted as
-  // that slice. Blogging and Creating are one `site.standard.document` split on
-  // `value.site`, so the raw entry count says 28 for both — a number that
-  // disagrees with the twenty rows the list then draws, which is worse than no
-  // number at all. The filter is the surface's own, applied to the same cached
-  // page, so it costs no request.
-  const count = surf.recordFilter
-    ? entry.records.filter((r) => surf.recordFilter(r.value)).length
-    : entry.count;
-  return entry.complete === false ? `${count}+` : String(count);
-}
 
 /**
  * One 48px destination row: `[icon] [label] ……… [count]`, full-bleed so the
@@ -66,14 +45,13 @@ function countLabel(entry, surf) {
  * are stacked, and pseudo-boxes on stacked siblings overlap, which is exactly
  * how the old chip row let 14 of 19 adjacent pairs steal each other's taps.
  */
-function SurfaceRow({ surf, active, absent, count, onGo }) {
+function SurfaceRow({ surf, active, count, onGo }) {
   return (
     <li>
       <button
         type="button"
         className="wb-sheet-row"
         data-open={active ? '' : undefined}
-        data-absent={absent ? '' : undefined}
         aria-current={active ? 'page' : undefined}
         onClick={() => onGo(surf)}
       >
@@ -102,7 +80,7 @@ function SurfaceRow({ surf, active, absent, count, onGo }) {
 export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }) {
   const { agent, did, dataRev, surface: current, go, confirmLeave, recents } = useAdminShell();
   const { home, groups } = useSurfaceList();
-  const { countFor, isAbsent } = useAdminData({ agent, did, dataRev });
+  const { countFor } = useAdminData({ agent, did, dataRev });
   const [showLegacy, setShowLegacy] = useState(false);
   const [askingNsid, setAskingNsid] = useState(false);
 
@@ -146,8 +124,7 @@ export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }
       key={surf.key}
       surf={surf}
       active={surf.key === current.key}
-      absent={isAbsent(surf)}
-      count={countLabel(countFor(surf), surf)}
+      count={railCount(surf, countFor(surf))}
       onGo={goSurface}
     />
   );

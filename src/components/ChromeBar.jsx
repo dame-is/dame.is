@@ -1153,6 +1153,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                     type="button"
                     className="chrome-nav chrome-admin-action"
                     data-tone={adminPrimary.danger ? 'danger' : 'primary'}
+                    data-dirty={adminState?.dirty ? '' : undefined}
                     disabled={adminPrimary.disabled}
                     aria-busy={adminPrimary.busy ? 'true' : undefined}
                     onClick={adminPrimary.run}
