@@ -215,137 +215,54 @@
   border-bottom: 1px solid var(--rule);
 }
 
-/* `min-height` rather than more padding: the mark is a link, and its painted box
-   plus the `.wb-hit` growth has to clear 44px on a phone. 28 + 8 + 8 = 44. */
+/* The mark and the wordmark are the site's own (`.chrome-title`, ChromeBar.css),
+   which already carries the 44px coarse-pointer target. */
 .wb-top-mark {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   flex: 0 0 auto;
-  min-height: 1.75rem;
-  color: var(--ink);
-  text-decoration: none;
 }
 
-.wb-top-mark-dot {
-  width: 1.1rem;
-  height: 1.1rem;
-  background: var(--accent);
-}
-
-.wb-top-mark b {
-  font-weight: 600;
-}
-
-.wb-top-mark-tag,
-.wb-rail-heading {
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  font-size: 0.75rem;
-  color: var(--ink-faint);
-}
-
+/* The running head, in the public trail's classes. The desk sets that trail at
+   the small step while reading (ChromeBar.css `.chrome-head-trail`), and so
+   does this bar; the rkey stays in the serif, as the public trail prints it. */
 .wb-crumbs {
-  min-width: 0;
-  flex: 1;
-}
-
-.wb-crumbs ol {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.wb-crumbs li {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  min-width: 0;
+.wb-crumbs .chrome-crumbs {
+  flex-wrap: nowrap;
   font-size: var(--text-sm);
-  color: var(--ink-muted);
 }
 
-.wb-crumbs li:last-child {
-  overflow: hidden;
+.wb-crumbs .chrome-crumb:last-child {
+  min-width: 0;
 }
 
-.wb-crumbs a {
-  color: var(--ink-soft);
-  text-decoration: none;
-}
-
-.wb-crumbs a:hover {
-  color: var(--accent);
-}
-
-.wb-crumbs [aria-current='page'] {
-  color: var(--ink);
+.wb-crumbs .chrome-crumb-current {
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.wb-crumb-sep {
-  color: var(--ink-faint);
-}
-
-.wb-crumbs code {
-  font-family: var(--code);
-  font-size: 0.78rem;
-  color: var(--ink-muted);
-}
-
 .wb-top-end {
   margin-left: auto;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
 
-/* A LABEL, not a control: it names the hour the palette is tracking and does
-   nothing when clicked. The border it used to carry made it read as a button
-   beside the one real button in the corner, so the border is gone and the type is
-   on the scale. */
-.wb-top-hour {
-  font-family: var(--mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.04em;
-  color: var(--ink-faint);
-  padding: 0.1rem 0;
+.wb-top-nsid {
+  padding: 0;
 }
 
-/* Same arithmetic as the mark: 28px painted + `.wb-hit`'s 8px on each side is the
-   44px floor, without repainting a control the desk has been using for months. */
-.wb-top-out {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.75rem;
-  gap: 0.3rem;
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  font-size: var(--text-xs);
-  color: var(--ink-soft);
-  text-decoration: none;
-  border: 1px solid var(--rule);
-  padding: 0.15rem var(--space-3);
-  transition: color 120ms ease, border-color 120ms ease;
-}
-
-.wb-top-out:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-.wb-top-out-glyph {
-  width: 0.8rem;
-  height: 0.8rem;
+/* On the bar's raised surface a quiet button keeps the page under it, as the
+   bottom bar's chips do. */
+.wb-top .btn {
+  flex: 0 0 auto;
+  background: var(--page);
 }
 
 /* ------------------------------------------------------------------ */
@@ -494,10 +411,9 @@
 /* Rail                                                                 */
 /* ------------------------------------------------------------------ */
 
-/* Panes paint on `--page`; the rail paints on `--surface-raised` with
-   `--ink-soft` glyphs only. That is why theme.css needs no new selector — its
-   raised-surface ink re-tune is for MUTED TEXT on a raised surface, and the rail
-   has none. */
+/* Panes paint on `--page`; the rail paints on `--surface-raised`, the same
+   surface as the site's chrome, and takes the same raised-surface re-tune of
+   its muted and faint inks (theme.css) for its group heads and counts. */
 .wb-rail {
   display: flex;
   flex-direction: column;
@@ -505,8 +421,8 @@
   /* Tight on purpose. There are twenty-one surfaces, and the rail is its own
      scroll container — every rem of slack here is a row that falls below the
      fold on a laptop. */
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-2);
+  gap: 0;
+  padding: var(--space-2) var(--space-2) var(--space-2);
   background: var(--surface-raised);
   border-right: 1px solid var(--rule);
 }
@@ -528,7 +444,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--space-2);
+  gap: 0;
   width: 100%;
   min-height: 0;
   overflow-y: auto;
@@ -555,15 +471,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--space-1);
   width: 100%;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--rule-soft);
-}
-
-.wb-rail-scroll > .wb-rail-group:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
 }
 
 /* The "open any collection" control sits at the foot of the rail, outside the
@@ -572,42 +480,45 @@
 .wb-rail-group-end {
   flex: 0 0 auto;
   margin-top: auto;
-  padding-top: var(--space-2);
-  padding-bottom: 0;
+  padding: var(--space-2) var(--space-2) 0;
   border-top: 1px solid var(--rule-soft);
-  border-bottom: 0;
 }
 
-/* Geometry and states copied from the public chrome's `.chrome-nav` so the admin
-   reads as the same site — but under a NEW class name, because `.chrome-nav`
-   belongs to the public chrome and must stay reachable only from there. */
+.wb-rail-any {
+  justify-content: flex-start;
+}
+
+/* One row of the directory, as AdminDirectoryBody draws it on a public page:
+   glyph, label and a count on a hairline. The border is drawn on all four
+   sides and left transparent on three, so the "on" row's accent hairline
+   closes round it without the row changing size. */
 .wb-rail-btn {
   position: relative;
   flex: 0 0 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: flex-start;
   gap: var(--space-2);
   width: 100%;
   min-height: 1.75rem;
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
+  border-bottom-color: var(--rule-soft);
   border-radius: 0;
   background: transparent;
   color: var(--ink-soft);
+  font-family: var(--sans);
   font-size: var(--text-sm);
   text-align: left;
   cursor: pointer;
   text-decoration: none;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease,
-    opacity 120ms ease;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-/* Drawn INSIDE the chip. The rail is its own scroll container and its inline
-   bounds are the chip's inline bounds, so the global `outline-offset: 2px` put
+/* Drawn INSIDE the row. The rail is its own scroll container and its inline
+   bounds are the row's inline bounds, so the global `outline-offset: 2px` put
    the ring's left and right edges outside the scrollport, where they were
-   clipped away — keyboard focus on the admin's primary navigation read as two
-   stray accent rules rather than a ring. */
+   clipped away. */
 .wb-rail-btn:focus-visible {
   outline-offset: -2px;
 }
@@ -617,32 +528,41 @@
   flex: 0 0 auto;
 }
 
-.wb-rail-btn:hover,
-.wb-rail-btn:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  /* Over the chip fill, hover must be an opaque LIGHTEN — a see-through accent
-     tint would let the darker rail show through and read as the button getting
-     darker on hover. */
-  background: color-mix(in srgb, var(--accent) 14%, var(--page));
+/* The kit's hover and "on" (controls.css): the 8% wash for a pointer, the 16%
+   wash with an accent hairline and ink text for where you are. Restated here
+   because this sheet loads after controls.css and the row's own border and
+   colour would otherwise win at equal specificity. Both washes are mixed into
+   --page, so they lighten the rail's raised surface rather than letting it
+   show through. */
+@media (hover: hover) {
+  .wb-rail-btn:hover:not(.is-on) {
+    color: var(--ink);
+    background: var(--wash-hover);
+  }
 }
 
-.wb-rail-btn.is-open {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 20%, var(--page));
+.wb-rail-btn:focus-visible:not(.is-on) {
+  color: var(--ink);
+  background: var(--wash-hover);
 }
 
-/* A collection that came back empty. Dimmed, never disabled: an absent
-   collection and an empty one are indistinguishable at the API, and either way
-   the owner may want to create the first record. */
-.wb-rail-btn[data-absent] {
-  opacity: 0.55;
+.wb-rail-btn.is-on {
+  color: var(--ink);
+  background: var(--wash-selected);
+  border-color: var(--accent);
 }
 
-.wb-rail-btn[data-absent]:hover,
-.wb-rail-btn[data-absent]:focus-visible {
-  opacity: 1;
+/* The collection's count, as the Front Desk tile prints it: quiet tabular
+   figures at the meta size. The rail's raised-surface re-tune (theme.css) is
+   what keeps --ink-faint legible here. */
+.wb-rail-count {
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.wb-rail-btn.is-on .wb-rail-count {
+  color: var(--ink-muted);
 }
 
 /* ------------------------------------------------------------------ */
@@ -658,19 +578,17 @@
      - Coarse pointers only: on a mouse an invisible 8px halo would swallow
        hovers meant for the element beside it.
      - The GROWN box must not overlap a sibling's. Where controls are stacked
-       (sheet rows, the Front Desk's need rows) use `padding-block` instead —
-       overlapping pseudo-boxes are exactly how the old chip row let 14 of 19
-       adjacent pairs steal each other's taps.
+       (sheet rows, the rail, the Front Desk's need rows) use `min-height` or
+       `padding-block` instead — overlapping pseudo-boxes are exactly how the
+       old chip row let 14 of 19 adjacent pairs steal each other's taps.
      - The element needs a positioning context; `.wb-hit` sets `position:
        relative` itself, so adding the class is the whole change. */
 @media (pointer: coarse) {
-  .wb-hit,
-  .wb-rail-btn {
+  .wb-hit {
     position: relative;
   }
 
-  .wb-hit::before,
-  .wb-rail-btn::before {
+  .wb-hit::before {
     content: '';
     position: absolute;
     inset: -8px;
@@ -679,10 +597,13 @@
   .wb-hit-lg::before {
     inset: -14px;
   }
+
+  /* Stacked rows take the floor in their own height, never a grown box. */
+  .wb-rail-btn {
+    min-height: var(--wb-hit);
+  }
 }
 
-/* The label is in the DOM at every width — it is the accessible name's visible
-   twin, revealed when the rail becomes a chip row. */
 .wb-rail-label {
   min-width: 0;
   overflow: hidden;
@@ -690,14 +611,14 @@
   white-space: nowrap;
 }
 
-/* The group's name, in the site's small-caps signal voice. Purely a divider
-   with a word on it — the groups already carry a rule. */
+/* The group's name, in the eyebrow voice (typography.css `.eyebrow`, which the
+   markup carries); this rule only spaces it. */
 .wb-rail-heading {
-  padding: 0 var(--space-2) var(--space-1);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  font-size: 0.75rem;
-  color: var(--ink-faint);
+  padding: var(--space-3) var(--space-2) var(--space-1);
+}
+
+.wb-rail-scroll > .wb-rail-group:first-child .wb-rail-btn {
+  margin-bottom: var(--space-1);
 }
 
 /* ------------------------------------------------------------------ */
@@ -742,43 +663,111 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Tab bar (Edit · Preview · JSON)                                      */
+/* The shared editor, inside the workbench                              */
 /* ------------------------------------------------------------------ */
 
-.wb-tabs {
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--rule);
-}
+/* RecordEditor, its field cards and the blocks editor are shared with the
+   public quick-edit sheet, which portals to <body>, outside `.wb`, and keeps
+   their `.admin-*` look exactly as it is (docs/admin-rebuild-decisions.md §4).
+   Inside the workbench the same parts take the kit's voice instead, and every
+   rule here is scoped to `.wb` so not one of them can reach the sheet.
 
-.wb-tab {
-  appearance: none;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+   Labels: the eyebrow (typography.css), at its 0.1em rather than the 0.16em
+   these rules carried. The required mark is the label's own faint ink: under
+   the sky, --tan computes the same teal as the hint below the field. */
+.wb .admin-field-label,
+.wb .rf-inline-label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
   color: var(--ink-muted);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
 }
 
-.wb-tab:hover:not(:disabled) {
-  color: var(--accent);
+.wb .admin-field-required {
+  color: var(--ink-faint);
 }
 
-.wb-tab[aria-selected='true'] {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
+/* Identifiers in running text lose the site's tinted code chip: in the admin
+   they are data beside a name, set as `.ident` is (controls.css). A JSON dump
+   in a <pre> keeps its own box. */
+.wb :not(pre) > code {
+  background: none;
+  padding: 0;
 }
 
-.wb-tab:disabled {
-  opacity: 0.45;
-  cursor: default;
+/* Any `.admin-gate-button` still drawn inside the workbench (the editor's own,
+   the blocks editor's) is the kit's quiet small Button: sentence case on a
+   hairline, never the filled ink slab, which at 7 pm turned near white. The
+   danger tier and the dashed disabled state follow controls.css. */
+.wb .admin-gate-button {
+  min-height: var(--control-h-sm);
+  padding: 0.2em 0.625rem;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  font-variant: normal;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+}
+
+/* Admin.css fills the button on any :hover, which a touch screen leaves stuck
+   after a tap; inside the workbench that fill is cancelled outright, and only a
+   real pointer gets the kit's wash. */
+.wb .admin-gate-button:hover:not(:disabled) {
+  color: var(--ink-soft);
+  background: transparent;
+  border-color: var(--rule);
+}
+
+.wb .admin-gate-button.admin-danger:hover:not(:disabled) {
+  color: var(--danger);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
+}
+
+@media (hover: hover) {
+  .wb .admin-gate-button:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--wash-hover);
+    border-color: var(--accent-soft);
+  }
+
+  .wb .admin-gate-button.admin-danger:hover:not(:disabled) {
+    color: var(--danger);
+    background: var(--danger-wash);
+    border-color: var(--danger);
+  }
+}
+
+.wb .admin-gate-button.admin-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
+}
+
+.wb .admin-gate-button:disabled {
+  opacity: 1;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px dashed var(--rule);
+}
+
+@media (pointer: coarse) {
+  .wb .admin-gate-button {
+    min-height: var(--wb-hit);
+  }
+}
+
+/* "20 loaded" beside "Select all", wherever a studio draws the toolbar: plain
+   meta in tabular figures rather than wide small caps. */
+.wb .admin-multiselect-count {
+  font-size: var(--text-meta);
+  font-variant: normal;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb .admin-collection-group-heading {
+  letter-spacing: 0.1em;
 }
 
 /* ------------------------------------------------------------------ */
@@ -796,7 +785,12 @@
    so the title, the NSID and the rkey were painted over and an empty band sat
    above. The pane is the scrollport and it starts where the top bar ends; nothing
    on this route is measured against chrome. z-index 5 sits above pane content and
-   below every chrome surface. */
+   below every chrome surface.
+
+   It sits on the page with one hairline under it, as a sheet's header does
+   (BottomSheet.css `.sheet-head`), rather than in a raised, boxed band: it is
+   the head of the record below it, not a second toolbar. Opaque, because the
+   form scrolls under it. */
 .wb-strip {
   position: sticky;
   top: 0;
@@ -805,9 +799,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--rule);
-  background: var(--surface-raised);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--page);
 }
 
 .wb-strip-state {

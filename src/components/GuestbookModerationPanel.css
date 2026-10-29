@@ -1,0 +1,86 @@
+/* The guestbook moderation desk (GuestbookModerationPanel.jsx). The entries
+   are the public GuestbookEntryRow, drawn as /welcoming draws them; only its
+   moderation controls are restyled here, and only under `.gbm-list`, so the
+   same controls in /welcoming's owner edit mode keep their own look.
+
+   - "hide" / "unhide" is the kit's small quiet button (controls.css .btn--sm).
+   - "hidden" is a plain tag, and "auto-hidden" a danger tag (.tag, .tag--danger).
+   - A benched entry stays at full contrast with its words set back a step,
+     where the public rule fades the whole row to 45% and takes its text
+     under the contrast floor. */
+
+.gbm-list .guestbook-entry-moderate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-h-sm);
+  padding: 0.2em 0.625rem;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-weight: 500;
+  font-variant: normal;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  /* The label reads "hide" / "unhide" in the row's own markup; the kit's
+     buttons are in sentence case, and each label is one word. */
+  text-transform: capitalize;
+}
+
+@media (hover: hover) {
+  .gbm-list .guestbook-entry-moderate:hover:not(:disabled) {
+    color: var(--ink);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
+}
+
+.gbm-list .guestbook-entry-moderate:disabled {
+  color: var(--ink-muted);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.gbm-list .guestbook-entry-hidden-badge,
+.gbm-list .guestbook-entry-flagged-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.25rem;
+  padding: 0 0.4em;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: var(--ink-muted);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+}
+
+.gbm-list .guestbook-entry-flagged-badge {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
+}
+
+.gbm-list .guestbook-entry-is-hidden {
+  opacity: 1;
+}
+
+.gbm-list .guestbook-entry-is-hidden .guestbook-entry-text,
+.gbm-list .guestbook-entry-is-hidden .guestbook-entry-mark {
+  color: var(--ink-muted);
+}
+
+/* Under a finger the hide control is a 44px target, painted rather than
+   haloed, since it sits a few pixels from the entry's time link. */
+@media (pointer: coarse) {
+  .gbm-list .guestbook-entry-moderate {
+    min-height: var(--control-h-touch);
+    padding-inline: 1rem;
+  }
+}

@@ -8,6 +8,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
+import Button from '../Button.jsx';
+import Time from '../Time.jsx';
 import {
   planAdd,
   planDetail,
@@ -23,10 +25,8 @@ import {
   Skeleton,
   Tag,
   compact,
-  day,
   fmt,
   invalidate,
-  timeAgo,
   useCached,
   useToast,
 } from './ui.jsx';
@@ -75,7 +75,11 @@ function PlanCard({ p, onOpen }) {
       <button type="button" className="mh-plan" onClick={() => onOpen(p.code)}>
         <span className="mh-plan-head">
           <span className="mh-plan-title">{planTitle(p)}</span>
-          <span className="mh-plan-when">{timeAgo(p.createdAt)}</span>
+          <Time
+            className="mh-plan-when"
+            value={p.createdAt}
+            variant="relative"
+          />
         </span>
         <span className="mh-plan-stats">
           <span>
@@ -108,7 +112,7 @@ function PlanCard({ p, onOpen }) {
             ))}
           </span>
         )}
-        <span className="mh-plan-code">{p.code}</span>
+        <span className="mh-plan-code ident">{p.code}</span>
       </button>
     </li>
   );
@@ -215,14 +219,10 @@ function PlanDetail({
   return (
     <section className="mh-view" aria-label={`Plan ${code}`}>
       <div className="mh-detail-head">
-        <button
-          type="button"
-          className="mh-button mh-button--quiet"
-          onClick={onBack}
-        >
-          <ArrowLeft size={16} aria-hidden="true" /> All activity
-        </button>
-        <span className="mh-plan-code">{code}</span>
+        <Button size="sm" onClick={onBack}>
+          <ArrowLeft size={14} aria-hidden="true" /> All activity
+        </Button>
+        <span className="mh-plan-code ident">{code}</span>
       </div>
 
       {loading && <Skeleton rows={5} />}
@@ -243,19 +243,21 @@ function PlanDetail({
             </p>
             {data.counts.labelled > 0 && <LabelBar {...data.byLabel} />}
             <p className="mh-small mh-muted">
-              {day(data.createdAt)}
+              <Time value={data.createdAt} variant="dateShort" />
               {data.webUrl && (
                 <>
                   {' · '}
-                  <a
+                  <Button
+                    as="a"
+                    variant="text"
+                    size="sm"
                     href={data.webUrl}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="mh-link"
                   >
                     the post it came from{' '}
                     <ExternalLink size={11} aria-hidden="true" />
-                  </a>
+                  </Button>
                 </>
               )}
             </p>
@@ -361,41 +363,39 @@ function PlanDetail({
           </ul>
 
           <div className="mh-pager">
-            <button
-              type="button"
-              className="mh-button mh-button--quiet"
+            <Button
+              size="sm"
               disabled={!data.offset}
               onClick={() =>
                 setOffset(Math.max(0, data.offset - data.pageSize))
               }
             >
               Previous
-            </button>
+            </Button>
             <span className="mh-small mh-muted">
               {data.matched
                 ? `${fmt(data.offset + 1)}–${fmt(Math.min(data.matched, data.offset + data.pageSize))} of ${fmt(data.matched)}`
                 : ''}
             </span>
-            <button
-              type="button"
-              className="mh-button mh-button--quiet"
+            <Button
+              size="sm"
               disabled={data.offset + data.pageSize >= data.matched}
               onClick={() => setOffset(data.offset + data.pageSize)}
             >
               Next
-            </button>
+            </Button>
           </div>
 
           {data.counts.added > 0 && (
             <div className="mh-danger-zone">
-              <button
-                type="button"
-                className="mh-button mh-button--quiet"
+              <Button
+                variant="danger"
+                size="sm"
                 disabled={busy}
                 onClick={undoAll}
               >
                 Undo everything this plan added ({fmt(data.counts.added)})
-              </button>
+              </Button>
             </div>
           )}
 
@@ -404,21 +404,17 @@ function PlanDetail({
               <span>
                 <strong>{picked.size}</strong> selected
               </span>
-              <button
-                type="button"
-                className="mh-button mh-button--quiet"
-                onClick={() => setPicked(new Set())}
-              >
+              <Button size="sm" onClick={() => setPicked(new Set())}>
                 Clear
-              </button>
-              <button
-                type="button"
-                className="mh-button mh-button--danger"
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
                 disabled={busy}
                 onClick={addPicked}
               >
                 {busy ? 'Adding…' : `Add ${picked.size} to the list`}
-              </button>
+              </Button>
             </div>
           )}
         </>
@@ -532,13 +528,9 @@ export default function ActivityView({
           <ErrorNote error={older.error} onRetry={loadOlder} compact />
           {older.loading && <Skeleton rows={2} avatar={false} />}
           {!older.loading && next && (
-            <button
-              type="button"
-              className="mh-button mh-button--quiet"
-              onClick={loadOlder}
-            >
+            <Button size="sm" onClick={loadOlder}>
               Show older
-            </button>
+            </Button>
           )}
         </div>
       )}

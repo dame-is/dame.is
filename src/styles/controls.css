@@ -166,6 +166,51 @@
   text-decoration-style: dashed;
 }
 
+/* Danger: a destructive action (Delete, Remove, Revert to local). The quiet
+   tier with its label and hairline in --danger, which keeps a fixed hue at
+   every hour where --tan and --accent turn with the sky (theme.css). Never
+   filled: a fill is the view's one primary, and a destructive action is never
+   that. Hover takes the full --danger hairline over the danger wash instead of
+   the accent's. It sits after the disabled rule but carries less specificity
+   than `.btn:disabled`, so a disabled Delete still reads as a dashed line. */
+.btn--danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
+}
+
+@media (hover: hover) {
+  .btn--danger:hover:not(:disabled, [aria-disabled='true'], .is-on) {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: var(--danger-wash);
+  }
+}
+
+.btn--danger:focus-visible:not(.is-on),
+.btn--danger:active:not(:disabled, [aria-disabled='true']) {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-wash);
+}
+
+/* A destructive action set in a line of type ("Remove" beside a name). */
+.btn--text.btn--danger {
+  text-decoration-color: color-mix(in srgb, var(--danger) 45%, var(--rule));
+}
+
+@media (hover: hover) {
+  .btn--text.btn--danger:hover:not(:disabled, [aria-disabled='true'], .is-on) {
+    background: none;
+    text-decoration-color: var(--danger);
+  }
+}
+
+.btn--text.btn--danger:focus-visible:not(.is-on),
+.btn--text.btn--danger:active:not(:disabled, [aria-disabled='true']) {
+  background: none;
+  text-decoration-color: var(--danger);
+}
+
 /* Under a finger every tier is 44px tall. The small tier keeps its painted
    28px, as the bottom bar's chips do, and reaches the 44px through a
    transparent margin instead, so a row of record actions doesn't double in
@@ -299,6 +344,55 @@
     min-height: var(--control-h-touch);
     padding-inline: 1rem;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Tag                                                                  */
+/* ------------------------------------------------------------------ */
+
+/* A record's state where it's listed (Tag.jsx): draft, private, on PDS,
+   connected. The label voice in a hairline box, 20px tall. A live state
+   takes the shared "on" look below; a state that warns (hidden by the
+   filter, disputed) takes --danger. Never filled, since a fill means the
+   primary action, and never a control: a tag that does something is a
+   Button. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.25rem;
+  padding: 0 0.4em;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.tag--danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
+}
+
+/* ------------------------------------------------------------------ */
+/* Identifier                                                           */
+/* ------------------------------------------------------------------ */
+
+/* An rkey, an NSID or an at:// URI set as data beside the thing it names:
+   quiet mono with no box or tint, the way the record page sets its URI
+   folio. --code rather than --mono, because --mono folds into the serif in
+   the serif font mode and an identifier has to stay copyable as written. */
+.ident {
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
 }
 
 /* ------------------------------------------------------------------ */

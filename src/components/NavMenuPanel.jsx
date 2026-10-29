@@ -22,10 +22,12 @@ import {
   Undo2,
 } from 'lucide-react';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import Button from './Button.jsx';
 import { NAV_NSID } from '../config.js';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { DEFAULT_ROUTES } from '../lib/navRoutes.js';
 import { getRecordIfExists, isSwapConflict } from '../lib/recordWrites.js';
+import './siteStudios.css';
 import './NavMenuPanel.css';
 
 const toItem = (r) => ({ to: r.to, label: r.label, hidden: false });
@@ -355,27 +357,19 @@ export default function NavMenuPanel({ agent, did }) {
 
   return (
     <>
-      {error && <p className="admin-error">{error}</p>}
+      {error && <p className="ss-error">{error}</p>}
 
       {loading ? (
         <AdminRecordListSkeleton rows={4} />
       ) : loadError ? (
-        // A block of its own, not a fragment: the pane's blurb is a <p> just
-        // above, and a sibling paragraph takes the prose indent.
-        <div>
-          <p className="placeholder-card">
+        <div className="ss-section">
+          <p className="ss-empty">
             The nav override could not be read, so the editor stays closed
             rather than opening on the built-in routes.
           </p>
-          <p className="admin-field-hint">{loadError}</p>
-          <div className="admin-actions">
-            <button
-              type="button"
-              className="admin-gate-button"
-              onClick={retryLoad}
-            >
-              Try again
-            </button>
+          <p className="ss-hint">{loadError}</p>
+          <div className="ss-actions">
+            <Button onClick={retryLoad}>Try again</Button>
           </div>
         </div>
       ) : (
@@ -406,17 +400,18 @@ export default function NavMenuPanel({ agent, did }) {
             // Deleting the last row used to leave a bare hairline and no words
             // at all, on the one surface where "empty" is a decision with
             // consequences rather than a state you are waiting out.
-            <p className="placeholder-card">
+            <p className="ss-empty">
               No entries. Add one below, or turn the override off to fall back to the site’s
               built-in routes.
             </p>
           ) : (
-            <ul className={`nav-items ${enabled ? '' : 'is-dormant'}`} ref={listRef}>
+            <ul className="nav-items" ref={listRef}>
               {items.map((it, i) => (
                 <li key={it.uid} className={`nav-item ${it.hidden ? 'is-hidden' : ''}`}>
                   <div className="nav-item-reorder">
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="icon"
                       className="nav-item-btn"
                       data-uid={it.uid}
                       data-move="up"
@@ -426,9 +421,10 @@ export default function NavMenuPanel({ agent, did }) {
                       title="Move up"
                     >
                       <ChevronUp size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="icon"
                       className="nav-item-btn"
                       data-uid={it.uid}
                       data-move="down"
@@ -438,7 +434,7 @@ export default function NavMenuPanel({ agent, did }) {
                       title="Move down"
                     >
                       <ChevronDown size={15} aria-hidden="true" />
-                    </button>
+                    </Button>
                   </div>
 
                   <div className="nav-item-fields">
@@ -460,25 +456,34 @@ export default function NavMenuPanel({ agent, did }) {
                   </div>
 
                   <div className="nav-item-actions">
-                    <button
-                      type="button"
-                      className={`nav-item-btn ${it.hidden ? 'is-on' : ''}`}
+                    {/* "Hidden" is a state of the entry, so the eye wears the
+                        kit's "on" while it is hidden (aria-pressed says the
+                        same to a screen reader). */}
+                    <Button
+                      size="sm"
+                      variant="icon"
+                      on={it.hidden}
+                      className="nav-item-btn"
                       onClick={() => patchItem(i, { hidden: !it.hidden })}
                       aria-pressed={it.hidden}
                       aria-label={it.hidden ? 'Show in menu' : 'Hide from menu'}
                       title={it.hidden ? 'Hidden — click to show' : 'Visible — click to hide'}
                     >
                       {it.hidden ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
-                    </button>
-                    <button
-                      type="button"
-                      className="nav-item-btn nav-item-remove"
+                    </Button>
+                    {/* The one destructive control in the row, beside a benign
+                        toggle of the same size: the danger tier tells them
+                        apart at rest, which a phone with no hover needs. */}
+                    <Button
+                      size="sm"
+                      variant="icon"
+                      className="nav-item-btn btn--danger"
                       onClick={() => removeItem(i)}
                       aria-label="Remove entry"
                       title="Remove"
                     >
                       <Trash2 size={15} aria-hidden="true" />
-                    </button>
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -486,27 +491,27 @@ export default function NavMenuPanel({ agent, did }) {
           )}
 
           <div className="nav-list-actions">
-            <button type="button" className="admin-link-subtle nav-add" onClick={addItem}>
+            <Button size="sm" onClick={addItem}>
               <Plus size={14} aria-hidden="true" /> Add entry
-            </button>
-            <button type="button" className="admin-link-subtle" onClick={resetDefaults}>
+            </Button>
+            <Button size="sm" variant="text" className="btn--danger" onClick={resetDefaults}>
               <RotateCcw size={13} aria-hidden="true" /> Reset to site defaults
-            </button>
+            </Button>
             {/* The one control that reverses a removal. It names the entry it
                 would put back, because a trash glyph on a phone is a 44px
                 target beside another 44px target and the tap that lands on it
                 is not always the tap that was aimed. */}
             {removed && (
-              <button type="button" className="admin-link-subtle nav-undo" onClick={undoRemove}>
+              <Button size="sm" variant="text" className="nav-undo" onClick={undoRemove}>
                 <Undo2 size={13} aria-hidden="true" /> Undo removing{' '}
                 <strong>{removed.item.label || removed.item.to || 'that entry'}</strong>
-              </button>
+              </Button>
             )}
             {/* Save lives on the shell's status strip now, so the confirmation
                 it used to give inside its own button label needs somewhere to
                 land — an empty row otherwise, not a layout shift. */}
             <span className="nav-flash" aria-live="polite">
-              {flash ? <span className="admin-success">Saved ✓</span> : null}
+              {flash ? <span className="ss-saved">Saved</span> : null}
             </span>
           </div>
         </>

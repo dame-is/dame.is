@@ -14,7 +14,7 @@
 // ?tab=why&actor=… opens that account.
 
 import { useCallback, useEffect, useState } from 'react';
-import { History, Inbox, ScanSearch, Settings2, UserX } from 'lucide-react';
+import Segmented from '../Segmented.jsx';
 import { hubOverview } from '../../lib/moderation/client.js';
 import AccountSheet from './AccountSheet.jsx';
 import ActivityView from './ActivityView.jsx';
@@ -31,15 +31,9 @@ import {
   useCached,
 } from './ui.jsx';
 import { TAB_KEYS, paramsForRoute, routeFromParams } from './routes.js';
+import '../Figures.css';
 import './moderation.css';
 
-const ICONS = {
-  queue: Inbox,
-  blocked: UserX,
-  activity: History,
-  check: ScanSearch,
-  settings: Settings2,
-};
 const LABELS = {
   queue: 'Queue',
   blocked: 'Blocked',
@@ -48,12 +42,8 @@ const LABELS = {
   settings: 'Settings',
 };
 
-/** The tab bar, built from the same keys the router accepts. */
-const TABS = TAB_KEYS.map((key) => ({
-  key,
-  label: LABELS[key],
-  icon: ICONS[key],
-}));
+/** The section keys, built from the same keys the router accepts. */
+const TABS = TAB_KEYS.map((key) => ({ key, label: LABELS[key] }));
 
 function initialRoute() {
   if (typeof window === 'undefined')
@@ -74,51 +64,75 @@ function writeUrl(route) {
   }
 }
 
+/**
+ * The hub in four figures, set as the kit's ruled Figures band.
+ *
+ * Drawn with Figures' own classes (Figures.css) rather than through the
+ * component, because each figure here is a BUTTON: it changes the hub's
+ * section, which is state this component owns, not a route the router could
+ * follow. Every figure can be followed, so every numeral takes the accent, as
+ * the kit gives any figure you can follow. A stale snapshot says so in words
+ * under its figure instead of the red edge it used to wear.
+ */
 function Stats({ data, onGo }) {
   if (!data)
     return <div className="mh-stats mh-stats--loading" aria-hidden="true" />;
   const snapAge = data.snapshot?.ageHours;
+  const stale = snapAge > SNAPSHOT_STALE_HOURS;
+  const figures = [
+    {
+      key: 'queue',
+      tab: 'queue',
+      label: 'To review',
+      value: data.queue ? fmt(data.queue.total ?? 0) : '—',
+      // A queue that could not be read is not an empty one. The overview
+      // answers null for it, and "0 to review" said the opposite.
+      title: data.queue ? undefined : 'The queue could not be read',
+    },
+    {
+      key: 'list',
+      tab: 'blocked',
+      label: 'On the list',
+      value: compact(data.listInfo?.count ?? null),
+    },
+    {
+      key: 'spend',
+      tab: 'settings',
+      label: 'This week',
+      value: data.cost?.priced ? usd(data.cost.week) : '—',
+    },
+    {
+      key: 'snapshot',
+      tab: 'settings',
+      label: 'Snapshot',
+      value: snapAge != null ? `${snapAge}h` : '—',
+      note: stale ? 'stale' : null,
+    },
+  ];
   return (
-    <div className="mh-stats">
-      <button
-        type="button"
-        className="mh-stat"
-        onClick={() => onGo('queue')}
-        // A queue that could not be read is not an empty one. The overview
-        // answers null for it, and "0 to review" said the opposite.
-        title={data.queue ? undefined : 'The queue could not be read'}
+    <div className="figures mh-stats" data-layout="ruled">
+      <dl
+        className="figures-grid"
+        aria-label="The hub in figures"
+        style={{ '--figures-cols': figures.length }}
       >
-        <span className="mh-stat-n">
-          {data.queue ? fmt(data.queue.total ?? 0) : '—'}
-        </span>
-        <span className="mh-stat-label">to review</span>
-      </button>
-      <button type="button" className="mh-stat" onClick={() => onGo('blocked')}>
-        <span className="mh-stat-n">
-          {compact(data.listInfo?.count ?? null)}
-        </span>
-        <span className="mh-stat-label">on the list</span>
-      </button>
-      <button
-        type="button"
-        className="mh-stat"
-        onClick={() => onGo('settings')}
-      >
-        <span className="mh-stat-n">
-          {data.cost?.priced ? usd(data.cost.week) : '—'}
-        </span>
-        <span className="mh-stat-label">this week</span>
-      </button>
-      <button
-        type="button"
-        className={`mh-stat${snapAge > SNAPSHOT_STALE_HOURS ? ' is-warn' : ''}`}
-        onClick={() => onGo('settings')}
-      >
-        <span className="mh-stat-n">
-          {snapAge != null ? `${snapAge}h` : '—'}
-        </span>
-        <span className="mh-stat-label">snapshot</span>
-      </button>
+        {figures.map((f) => (
+          <div key={f.key} className="figures-cell is-link">
+            <dt className="figures-label eyebrow">{f.label}</dt>
+            <dd className="figures-value">
+              <button
+                type="button"
+                className="figures-link mh-figure-button"
+                title={f.title}
+                onClick={() => onGo(f.tab)}
+              >
+                {f.value}
+              </button>
+            </dd>
+            {f.note && <dd className="figures-note mh-figure-warn">{f.note}</dd>}
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -170,23 +184,26 @@ export default function ModerationApp({ agent }) {
         <Stats data={overview.data} onGo={go} />
 
         <nav className="mh-tabs" aria-label="Moderation">
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={`mh-tab${route.tab === key ? ' is-on' : ''}`}
-              aria-current={route.tab === key ? 'page' : undefined}
-              onClick={() => go(key)}
-            >
-              <Icon size={18} aria-hidden="true" />
-              <span className="mh-tab-label">{label}</span>
-              {key === 'queue' && queueCount > 0 && (
-                <span className="mh-tab-badge">
-                  {queueCount > 999 ? '999+' : queueCount}
-                </span>
-              )}
-            </button>
-          ))}
+          <Segmented
+            className="mh-segmented mh-sections"
+            label="Sections"
+            value={route.tab}
+            onChange={go}
+            options={TABS.map(({ key, label }) => ({
+              value: key,
+              label:
+                key === 'queue' && queueCount > 0 ? (
+                  <>
+                    {label}
+                    <span className="mh-count">
+                      {queueCount > 999 ? '999+' : fmt(queueCount)}
+                    </span>
+                  </>
+                ) : (
+                  label
+                ),
+            }))}
+          />
         </nav>
 
         <div className="mh-body">

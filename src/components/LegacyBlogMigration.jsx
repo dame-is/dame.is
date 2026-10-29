@@ -16,7 +16,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { LEGACY_POSTS, migratedSlugs, migratePost } from '../lib/legacyBlog.js';
-import { formatDateFull } from '../lib/time.js';
+import Button from './Button.jsx';
+import Tag from './Tag.jsx';
+import Time from './Time.jsx';
+import './siteStudios.css';
+import './LegacyBlogMigration.css';
 
 const STANDARD_DOC = 'site.standard.document';
 
@@ -108,8 +112,8 @@ export default function LegacyBlogMigration({ agent, did }) {
   if (stacked) {
     return (
       <>
-        {loadError && <p className="admin-error">Couldn’t check existing posts: {loadError}</p>}
-        <p className="admin-field-hint">
+        {loadError && <p className="ss-error">Couldn’t check existing posts: {loadError}</p>}
+        <p className="ss-hint">
           {LEGACY_POSTS.length === 0
             ? 'No legacy posts are bundled in this build.'
             : migrated == null
@@ -118,17 +122,17 @@ export default function LegacyBlogMigration({ agent, did }) {
                 ? `All ${LEGACY_POSTS.length} legacy posts are migrated.`
                 : `${pendingCount} of ${LEGACY_POSTS.length} legacy posts still to migrate.`}
         </p>
-        <p className="placeholder-card">Migration runs from a desktop.</p>
+        <p className="ss-empty">Migration runs from a desktop.</p>
       </>
     );
   }
 
   return (
     <>
-      <div className="admin-toolbar">
-        <button
-          type="button"
-          className="admin-gate-button admin-gate-button-tight"
+      {/* The tool's one commit, so the view's one primary. */}
+      <div className="ss-actions">
+        <Button
+          variant="primary"
           onClick={runAll}
           disabled={runningAll || migrated == null || pendingCount === 0}
         >
@@ -137,68 +141,57 @@ export default function LegacyBlogMigration({ agent, did }) {
             : pendingCount === 0
               ? 'All migrated'
               : `Migrate all (${pendingCount})`}
-        </button>
+        </Button>
       </div>
 
-      {loadError && <p className="admin-error">Couldn’t check existing posts: {loadError}</p>}
+      {loadError && <p className="ss-error">Couldn’t check existing posts: {loadError}</p>}
 
-      <ul className="admin-record-list legacy-blog-list">
+      <ul className="ss-rows lbm-list">
         {LEGACY_POSTS.map((post) => {
           const st = state[post.slug];
           const isMigrated = migrated?.has(post.slug);
           const busy = st?.status === 'running' || runningAll;
           return (
-            <li key={post.slug} className="admin-record-row legacy-blog-row">
-              <div className="legacy-blog-main">
-                <div className="legacy-blog-head">
-                  <span className="legacy-blog-title">{post.title}</span>
-                  {isMigrated && <span className="small-caps legacy-blog-badge">migrated</span>}
+            <li key={post.slug} className="ss-row lbm-row">
+              <div className="lbm-main">
+                <div className="lbm-head">
+                  <span className="lbm-title">{post.title}</span>
+                  {isMigrated && <Tag on>migrated</Tag>}
                 </div>
-                {/* `small-caps` sits on the DATE and the COUNT, not on the row.
-                    On the row it also caught the slug, so a path rendered
-                    uppercased in Crimson Pro — an rkey-shaped string in the
-                    prose voice.
-
-                    And the slug is `.admin-collection-nsid`, not
-                    `.admin-record-rkey`: the latter is the record LIST's fixed
-                    left gutter (`flex-shrink: 0; width: 14ch`), so a real
-                    45–60-character slug stacked inside an 84px box 6–8 lines
-                    tall and dragged the whole row to 194–262px. This one is
-                    mono, faint and `word-break: break-all` — it shrinks and
-                    wraps like the text it is. */}
-                <div className="legacy-blog-meta">
-                  <span className="small-caps">{formatDateFull(post.publishedAt)}</span>
-                  <span className="legacy-blog-dot">·</span>
-                  <code className="admin-collection-nsid">/blogging/{post.slug}</code>
+                {/* The slug is an identifier and wraps like one; a real
+                    45–60-character slug in a fixed key column used to stack
+                    6–8 lines tall and drag the row to 260px. */}
+                <div className="lbm-meta">
+                  <Time value={post.publishedAt} variant="dateShort" />
+                  <span className="ident">/blogging/{post.slug}</span>
                   {post.images.length > 0 && (
-                    <>
-                      <span className="legacy-blog-dot">·</span>
-                      <span className="small-caps">
-                        {post.images.length} image{post.images.length === 1 ? '' : 's'}
-                      </span>
-                    </>
+                    <span>
+                      {post.images.length} image{post.images.length === 1 ? '' : 's'}
+                    </span>
                   )}
                 </div>
-                {post.description && (
-                  <p className="legacy-blog-excerpt">{post.description}</p>
-                )}
+                {post.description && <p className="lbm-excerpt">{post.description}</p>}
                 {st?.message && (
                   <p
-                    className={`legacy-blog-status${st.status === 'error' ? ' admin-error-inline' : ''}${
-                      st.status === 'done' ? ' admin-success' : ''
+                    className={`lbm-status${st.status === 'error' ? ' ss-error' : ''}${
+                      st.status === 'done' ? ' ss-saved' : ''
                     }`}
                   >
                     {st.message}{' '}
                     {st.status === 'done' && st.href && (
-                      <Link to={st.href} className="admin-link-subtle">View →</Link>
+                      <Button as={Link} to={st.href} variant="text" size="sm">
+                        View →
+                      </Button>
                     )}
                   </p>
                 )}
               </div>
-              <div className="legacy-blog-actions">
-                <button
-                  type="button"
-                  className="admin-gate-button admin-gate-button-tight"
+              <div className="lbm-actions">
+                {/* Re-migrating writes over every edit made since, so it wears
+                    the danger tier; a first migration is an everyday action. */}
+                <Button
+                  size="sm"
+                  variant={isMigrated ? 'danger' : 'quiet'}
                   onClick={() => {
                     // A second migration writes the same rkey (migratePost
                     // overwrites rather than duplicating), so on a post that is
@@ -222,7 +215,7 @@ export default function LegacyBlogMigration({ agent, did }) {
                     : isMigrated
                       ? 'Re-migrate'
                       : 'Migrate'}
-                </button>
+                </Button>
               </div>
             </li>
           );

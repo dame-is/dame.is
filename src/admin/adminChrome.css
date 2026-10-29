@@ -179,7 +179,7 @@
 .wb-sheet-heading {
   margin: var(--space-5) 0 var(--space-2);
   font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.1em;
   font-size: var(--text-xs);
   color: var(--ink-soft);
 }
@@ -227,7 +227,9 @@
   gap: var(--space-3);
   width: 100%;
   min-height: 3rem;
-  padding: var(--space-2) 0;
+  /* A little inline room, so the "on" row's accent hairline (below) has air
+     between it and the glyph and the count. */
+  padding: var(--space-2) var(--space-2);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -279,8 +281,9 @@
    hairline in the list. An inset shadow occupies no layout at all, so it also
    costs the glyphs the 2px they used to be pushed over by. */
 .wb-sheet-row[data-open] {
-  color: var(--accent);
-  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--ink);
+  background: var(--wash-selected);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .wb-sheet-row[data-open] > svg,
@@ -288,12 +291,8 @@
   color: inherit;
 }
 
-/* Dimmed, never disabled: an absent collection and an empty one are
-   indistinguishable at the API, and either way the owner may want to create the
-   first record. Same 0.55 the rail uses. */
-.wb-sheet-row[data-absent] {
-  opacity: 0.55;
-}
+/* An empty collection says "0" at full ink, as the rail does; the row used to
+   fade to 55%, which put its label under 3:1. */
 
 .wb-sheet-row[data-tone='danger'],
 .wb-sheet-row[data-tone='danger'] > svg {
@@ -301,7 +300,7 @@
 }
 
 .wb-sheet-row:disabled {
-  opacity: 0.45;
+  color: var(--ink-muted);
   cursor: default;
 }
 
@@ -478,9 +477,9 @@
 
 .wb-nsid-label {
   font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.1em;
   font-size: var(--text-xs);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 .wb-nsid-row {
@@ -499,29 +498,10 @@
 /* The row's buttons carry the 44px floor in their PAINT rather than in a grown
    `::before`. They sit 8px apart, and two grown boxes 8px apart overlap by 16px —
    the later sibling then wins the overlap and swallows taps meant for its
-   neighbour, which is the exact failure the old chip row shipped. Scoped to this
-   row: `.admin-gate-button` is frozen public API and is not being edited, only
-   given a floor where the admin's own form uses it. */
-.wb-nsid-row .admin-gate-button,
-.wb-nsid-cancel {
-  min-height: var(--wb-hit);
-}
-
-.wb-nsid-cancel {
+   neighbour, which is the exact failure the old chip row shipped. */
+.wb-nsid-row .btn {
   flex: 0 0 auto;
-  position: relative;
-  padding: var(--space-1) var(--space-2);
-  border: 0;
-  background: none;
-  color: var(--ink-faint);
-  font-family: var(--serif);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.wb-nsid-cancel:hover,
-.wb-nsid-cancel:focus-visible {
-  color: var(--accent);
+  min-height: var(--wb-hit);
 }
 
 .wb-nsid-error {

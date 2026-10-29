@@ -1,18 +1,20 @@
-/* Admin Nav-menu editor. Matches the admin panels' flat, ruled, square look. */
+/* Admin Nav-menu editor, in the kit's idiom: the override is a plain checkbox
+   row between two hairlines, the entries are ruled rows, and every control is
+   a Button (controls.css), so the square icon buttons share their size, their
+   hover and their "on" with the rest of the site. */
 
 .nav-enable {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--rule);
-  background: var(--surface-raised);
-  margin-bottom: var(--space-5);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
   cursor: pointer;
 }
 
 .nav-enable input {
-  margin-top: 0.2em;
+  margin-top: 0.3em;
   flex: 0 0 auto;
 }
 
@@ -23,6 +25,7 @@
 }
 
 .nav-enable strong {
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -37,39 +40,27 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--rule);
-  transition: opacity 0.2s ease;
-}
-
-.nav-items.is-dormant {
-  opacity: 0.62;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: var(--page);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
 }
 
-.nav-item + .nav-item {
-  border-top: 1px solid var(--rule-soft);
+/* A hidden entry stays in the list, its words set back a step. The eye
+   button beside it wears the "on" look and says the rest. */
+.nav-item.is-hidden .admin-input {
+  color: var(--ink-muted);
+  font-style: italic;
 }
 
-.nav-item.is-hidden {
-  background: repeating-linear-gradient(
-    135deg,
-    var(--page),
-    var(--page) 8px,
-    var(--surface-raised) 8px,
-    var(--surface-raised) 9px
-  );
-}
-
+/* Up and down side by side, so a row is one control high rather than two. */
 .nav-item-reorder {
   display: flex;
-  flex-direction: column;
+  gap: var(--space-1);
   flex: 0 0 auto;
 }
 
@@ -97,59 +88,6 @@
   flex: 0 0 auto;
 }
 
-/* Square icon buttons in the admin's muted vocabulary. */
-.nav-item-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.7rem;
-  height: 1.7rem;
-  padding: 0;
-  border: 1px solid var(--rule);
-  background: var(--surface-raised);
-  color: var(--ink-muted);
-  cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
-}
-
-.nav-item-reorder .nav-item-btn {
-  width: 1.7rem;
-  height: 1.25rem;
-}
-
-.nav-item-btn:hover:not(:disabled) {
-  color: var(--ink);
-  border-color: var(--accent-soft);
-}
-
-.nav-item-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.nav-item-btn.is-on {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-/* The one destructive control in the row, and it sits beside a benign toggle
-   drawn in the same square box. It used to be identical to that toggle until
-   you hovered it — and a phone has no hover — so the only thing distinguishing
-   "hide this entry" from "delete this entry" was the glyph inside a 27px box.
-   It carries the danger tone at rest now. `--danger` is a theme token: the old
-   literal `#c17d3f` was one hard-coded warm brown against a palette that is
-   recomputed every hour, so for most of the day it was neither the admin's tan
-   nor anything else on the page. */
-.nav-item-remove {
-  color: var(--danger);
-}
-
-.nav-item-remove:hover:not(:disabled) {
-  color: var(--danger);
-  border-color: var(--danger);
-  background: var(--danger-wash);
-}
-
 /* Reversing the removal, in the footer row beside Add entry. */
 .nav-undo strong {
   color: var(--ink);
@@ -161,18 +99,11 @@
 .nav-list-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
-  margin-top: var(--space-3);
-}
-
-.nav-add,
-.nav-list-actions .admin-link-subtle {
-  display: inline-flex;
   align-items: center;
-  gap: 0.35em;
+  gap: var(--space-2) var(--space-4);
 }
 
-/* Pushed to the end of the footer row so the "Saved ✓" confirmation appears
+/* Pushed to the end of the footer row so the "Saved" confirmation appears
    away from the two destructive-ish buttons rather than between them. */
 .nav-flash {
   margin-left: auto;
@@ -191,30 +122,25 @@
     order: 3;
     flex-basis: 100%;
   }
-  /* Side by side once the fields have dropped to their own line. Stacked, two
-     44px reorder buttons make a 92px-tall row before the fields are even drawn;
-     laid out as a pair they cost one 44px line, and the row is the same height
-     as the one below it. */
-  .nav-item-reorder {
-    flex-direction: row;
-  }
 }
 
 /* ---- touch ---------------------------------------------------------- */
 
 /* Under the workbench's stacked breakpoint every control in a row has to clear
-   44px. These four are drawn 27x27 and 27x20, and the two reorder buttons SHARE
-   AN EDGE — measured at 390 their centres are 20px apart, which is a coin flip
-   under a thumb. They are painted out to 44px rather than given `.wb-hit`
-   halos: the halo trick grows the target without moving the paint, and two
-   grown boxes this close would overlap by 16px and the later sibling would win
-   the tap — the exact failure it exists to prevent. A phone has the room; a
-   nav row is three controls and two fields. */
+   44px. The kit's small button reaches 44px under a finger with a transparent
+   halo above and below its painted 28px, but these sit in a row a few pixels
+   apart, and two halos that close overlap: the later sibling would win the
+   tap meant for its neighbour. So they are painted out to the full 44px and
+   the halo is dropped. A phone has the room; a nav row is four controls and
+   two fields. */
 @media (max-width: 61.99rem) {
-  .nav-item-btn,
-  .nav-item-reorder .nav-item-btn {
+  .nav-item .nav-item-btn.btn {
     width: var(--wb-hit, 2.75rem);
-    height: var(--wb-hit, 2.75rem);
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  .nav-item .nav-item-btn.btn::before {
+    content: none;
   }
 
   /* Real space between the hit rects, not just between the paint: at this size

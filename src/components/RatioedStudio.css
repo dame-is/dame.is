@@ -22,100 +22,98 @@
   min-width: 0;
 }
 
-.rs-h2 {
-  font-size: var(--text-lg);
+/* The studio's prose about itself: what a template is for, why a scan
+   stopped, what a repair can't close. The site's hint voice, at the
+   metadata size, in place of the admin's 12px faint hint. */
+.rs-note {
   margin: 0 0 var(--space-2);
+  max-width: var(--measure);
+  /* A note is not the second paragraph of a passage, so the book indent
+     typography.css gives `p + p` doesn't apply. */
+  text-indent: 0;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: 1.45;
+  color: var(--ink-muted);
 }
 
-/* ONE ROW, ONE BASELINE, TWO GROUPS.
-   Most action rows in this studio mix a filled `.admin-gate-button` (or
-   `.rs-seal`) with one or two `.admin-link-subtle` text buttons, and the three
-   disagreed on all three counts: the primary was 40–42px tall and the
-   secondaries 22–29px, so the row's bottom edge was ragged by 9px; the gap was
-   9–10px throughout, so "cancel" and "restore the built-in" read as one phrase
-   with the button they follow; and a bare `.admin-link-subtle` has no border,
-   no underline and hover-only colour, which on a touch screen is prose, not a
-   control.
+/* A failed write. --danger, which keeps its hue at every hour, where the
+   admin's error box was --tan and turned with the sky. */
+.rs-error {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--danger);
+  background: var(--danger-wash);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--rule-soft));
+  overflow-wrap: anywhere;
+}
 
-   `align-items: stretch` + one `min-height` gives the row a shared bottom edge;
-   the underline says these are controls; and the margin after the last filled
-   button separates the primary from its alternatives. Scoped to `.rs-actions`
-   so `.admin-link-subtle` is untouched everywhere else it is used — including
-   the public quick-edit sheet, which reuses these same admin classes. */
+/* What a template check found wrong, one line each, under the field. */
+.rs-problem {
+  margin: var(--space-1) 0 0;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--danger);
+}
+
+/* A field's label: the eyebrow voice (typography.css) on its own line. */
+.rs-label {
+  display: block;
+  margin-top: var(--space-4);
+}
+
+/* Identifiers in the studio's sentences take the kit's quiet mono and drop
+   the tinted box every inline <code> wears (typography.css). */
+.rs-root code.ident {
+  padding: 0;
+  background: none;
+}
+
+/* The sections space themselves with the SectionHead's own rule and a gap
+   above it, rather than a second rule of their own. */
+.rs-root > section > .section-head {
+  margin-bottom: var(--space-3);
+}
+
+/* ONE ROW, TWO GROUPS. Each action row holds the kit's Buttons: at most one
+   primary (post, seal, post the reply), quiet ones for the rest, and text
+   buttons for the ways out (cancel, dismiss, restore). The heights are the
+   kit's own, 36px on a mouse and 44px under a finger, so the row only has to
+   centre them and keep the alternatives apart from the button they follow. */
 .rs-actions {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
   margin-top: var(--space-4);
 }
-.rs-actions > * {
-  min-height: 2.5rem;
-}
-.rs-actions .admin-link-subtle {
-  display: inline-flex;
-  align-items: center;
-  padding-inline: var(--space-1);
-  text-decoration: underline;
-  text-underline-offset: 0.25em;
-  text-decoration-color: var(--rule);
-}
-.rs-actions .admin-link-subtle:hover {
-  text-decoration-color: currentColor;
-}
-.rs-actions .admin-gate-button + .admin-link-subtle,
-.rs-actions .rs-seal + .admin-link-subtle {
+.rs-actions > .btn:not(.btn--text) + .btn--text {
   margin-inline-start: var(--space-3);
-}
-@media (pointer: coarse) {
-  .rs-actions > * {
-    min-height: var(--wb-hit, 2.75rem);
-  }
 }
 
 /* Beside the seal, not under it: the post, the page and the wake lock are one
-   glyph each in a bordered square, so the live piece's whole verb row is one
-   line and the seal keeps the only words. The squares sit flush — shared
-   hairlines, like the feed rows' own act cluster — because three touch-sized
-   boxes with gaps between them plus the seal is wider than a phone; flush,
-   the trio wraps as one unit on the screens where it still must. Height comes
-   from the row's stretch + min-height, and the width matches it so a square
-   stays square. The wake toggle wears its state as the admin checkbox does —
-   accent fill — because a phone has no hover to ask what a grey coffee cup
-   means. */
+   icon Button each, so the live piece's whole verb row is one line and the
+   seal keeps the only words. The squares sit flush, sharing hairlines like the
+   feed rows' own act cluster, because three touch-sized boxes with gaps
+   between them plus the seal is wider than a phone; flush, the trio wraps as
+   one unit on the screens where it still must. The wake toggle wears the kit's
+   "on" look while the screen is held awake. */
 .rs-live-acts {
   display: inline-flex;
   align-items: stretch;
 }
 .rs-live-act {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  border: 1px solid var(--rule);
-  background: none;
-  color: var(--ink-soft);
-  cursor: pointer;
   position: relative;
 }
 .rs-live-act + .rs-live-act {
   margin-left: -1px;
 }
-.rs-live-act:hover {
-  color: var(--ink);
-  border-color: var(--ink-muted);
+.rs-live-act:hover,
+.rs-live-act:focus-visible,
+.rs-live-act.is-on {
   z-index: 1;
-}
-.rs-live-act.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--page);
-  z-index: 1;
-}
-@media (pointer: coarse) {
-  .rs-live-act {
-    width: var(--wb-hit, 2.75rem);
-  }
 }
 
 /* The degraded-read notice: a sentence and one action, boxed so it reads as a
@@ -135,13 +133,8 @@
   margin: 0;
   flex: 1 1 20rem;
 }
-.rs-degraded > button {
-  display: inline-flex;
-  align-items: center;
+.rs-degraded > .btn {
   min-height: var(--wb-hit, 2.75rem);
-  text-decoration: underline;
-  text-underline-offset: 0.25em;
-  text-decoration-color: var(--rule);
 }
 
 .rs-draft {
@@ -191,22 +184,12 @@
   margin-bottom: var(--space-6);
 }
 
-.rs-live-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  /* Wrapping is the backstop the narrow layout used to hardcode: two words and
-     a stopwatch fit one line at 320px with room to spare, and if a take number
-     or a lifespan ever outgrows that, the clock drops to its own line by
-     itself rather than by a breakpoint deciding in advance that it must. */
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  border-bottom: 1px solid var(--rule-soft);
-  padding-bottom: var(--space-2);
-}
-.rs-live-take {
-  font-size: var(--text-lg);
-  font-variant-caps: small-caps;
+/* The panel's head is the kit's SectionHead, which wraps on its own: if a
+   take number or a lifespan ever outgrows one line, the clock drops to a line
+   of its own rather than a breakpoint deciding in advance that it must. The
+   stopwatch sits in the meta slot at the size of a figure, not of a caption. */
+.rs-live-head .section-head-meta {
+  color: var(--ink);
 }
 .rs-live-clock {
   font-family: var(--mono, monospace);
@@ -230,29 +213,10 @@
    the alarm box is up, and the alarm speaks for the panel — see the state line
    in RatioedStudio.jsx, which is not rendered underneath it. */
 
-/* The seal button takes `.admin-gate-button`'s voice — 14px sans, all-small-caps,
-   0.18em — rather than the 15.2px sentence-case serif it had, so the studio's
-   filled buttons all speak alike. Its weight is the dark fill and, once the
-   piece has been liked, the seal's own red oxide. The pad came down when the
-   live row went one-line: the width it gave up is what pays for the icon
-   squares beside it on a phone. */
-.rs-seal {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--ink);
-  background: var(--ink);
-  color: var(--page);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.rs-seal:hover { opacity: 0.85; }
-.rs-seal:disabled { opacity: 0.5; }
+/* The seal is the kit's primary Button: the one filled control in the panel,
+   in the hour's accent fill, so it reads at 7pm as it does at 1pm.
 
-/* Somebody has liked it. The same button in the same place, louder: the seal's
+   Somebody has liked it. The same button in the same place, louder: the seal's
    own red, a step up in type, and back onto the 44px touch floor the rest of
    this row gives up. It is the only control on the screen that is now urgent,
    and every second between noticing it and pressing it is in the reaction time
@@ -261,7 +225,7 @@
    against the page, so the page is the one text colour guaranteed to clear it
    at whatever hour the sky is on. Large and bold, so 3:1 is the bar it has to
    clear rather than 4.5:1. */
-.rs-live.liked .rs-seal {
+.rs-live.liked .btn.rs-seal {
   background: var(--ratioed-seal);
   border-color: var(--ratioed-seal);
   color: var(--page);
@@ -283,7 +247,7 @@
    IS urgent takes the floor back the moment it matters (see
    `.rs-live.liked .rs-seal` above). */
 .rs-live .rs-actions > * { min-height: 2.25rem; }
-.rs-live .rs-live-act { width: 2.25rem; }
+.rs-live .rs-live-act { width: 2.25rem; min-height: 0; }
 @media (pointer: coarse) {
   .rs-live .rs-actions > * { min-height: 2.5rem; }
   .rs-live .rs-live-act { width: 2.5rem; }
@@ -399,21 +363,9 @@
   margin-bottom: var(--space-6);
 }
 
-.rs-figures {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--space-3);
-  margin: 0 0 var(--space-4);
-}
-.rs-figures dt {
-  font-size: var(--text-xs);
-  color: var(--ink-muted);
-  margin-bottom: 2px;
-}
-.rs-figures dd {
-  margin: 0;
-  font-size: var(--text-lg);
-  overflow-wrap: anywhere;
+/* The sealed piece's figures are the kit's band, tight under the head. */
+.rs-announce .figures {
+  margin-bottom: var(--space-4);
 }
 
 /* --- the series ----------------------------------------------------- */
@@ -526,6 +478,10 @@
    (It was written against `.rs-feed-acts` back when the studio had its own row
    markup, and stayed pointed at a class no JSX renders once the two feeds were
    merged — the buttons lost both, visibly so on a row with no text.) */
+/* Quieter than the kit's icon Button on purpose: no hairline until a pointer
+   reaches it, because there are three on every row of the feed. Hover, "on"
+   and "nothing to do" are the kit's: the 8% wash, the selected wash with an
+   accent hairline, and a dashed line. */
 .rs-act {
   display: inline-flex;
   align-items: center;
@@ -537,9 +493,18 @@
   color: var(--ink-faint);
   cursor: pointer;
 }
-.rs-act:hover:not(:disabled) { color: var(--ink); border-color: var(--rule); }
-.rs-act:disabled { opacity: 0.4; cursor: default; }
-.rs-act.on { color: var(--ratioed-seal, #8c3a2e); border-color: var(--rule); }
+@media (hover: hover) {
+  .rs-act:hover:not(:disabled, .is-on) {
+    color: var(--ink);
+    border-color: var(--accent-soft);
+    background: var(--wash-hover);
+  }
+}
+.rs-act:disabled {
+  color: var(--ink-muted);
+  border: 1px dashed var(--rule);
+  cursor: default;
+}
 
 /* 26px is a mouse target. A coarse pointer needs the 44px floor the rest of
    the admin holds; see the collected touch block in Admin.css. The glyph inside
@@ -595,12 +560,7 @@
 
 /* --- the template --------------------------------------------------- */
 
-.rs-template {
-  margin-top: var(--space-6);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--rule);
-}
-.rs-template .rs-h2 { display: flex; align-items: center; gap: var(--space-2); }
+.rs-template { margin-top: var(--space-6); }
 
 .rs-template-preview {
   font-family: var(--mono, monospace);
@@ -608,7 +568,9 @@
   line-height: 1.7;
   white-space: pre-wrap;
   color: var(--ink-soft);
-  background: var(--page-edge);
+  /* A hairline and no fill: the site sets a quoted block on the page itself
+     rather than on a tinted card. */
+  background: none;
   border: 1px solid var(--rule-soft);
   padding: var(--space-3);
   margin: 0;
@@ -641,7 +603,7 @@
   flex-wrap: wrap;
   margin-left: auto;
 }
-.rs-series-acts button {
+.rs-series-acts .btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -656,6 +618,12 @@
 /* The one form in this studio that writes something nobody measured: the
    breaker's name. Full width under the row it belongs to, so it reads as an
    edit to that piece rather than as a search box. */
+/* The row has to wrap while the form is open, or the form's 100% basis
+   refuses to shrink and squeezes the take and its figures beside it down to a
+   column one letter wide (the same fault the feed's composer row had; see
+   `.ratioed-live-row:has(.rs-reply-box)` above). Scoped to the open row, so a
+   closed one stays one line. */
+.rs-series-list li:has(.rs-series-name) { flex-wrap: wrap; }
 .rs-series-name {
   display: flex;
   align-items: center;
@@ -684,15 +652,12 @@
   display: block;
   margin-top: var(--space-4);
 }
+/* The caption's name, in the eyebrow voice (the .eyebrow class it carries),
+   on a line of its own. */
 .rs-copy-label {
   display: block;
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
-  color: var(--ink-soft);
 }
-.rs-copy-field .admin-field-hint { margin: 2px 0 var(--space-1); }
+.rs-copy-field .rs-note { display: block; margin: 2px 0 var(--space-1); }
 .rs-copy-field .admin-input {
   width: 100%;
   font-size: var(--text-sm);

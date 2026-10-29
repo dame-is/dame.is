@@ -565,16 +565,9 @@
    `height` prop — which defaults to `1em` — as an inline style, and an inline
    style beats any class, so a height set here would silently do nothing. The
    workbench rows therefore pass their heights as props at the JSX, matched to
-   the measured line boxes of `.wb-list-dot` (6.4px), `.wb-list-label` (19.8px),
-   `.wb-list-rkey` (21.6px) and `.wb-list-time` (19.2px). Widths are the
-   opposite: the `width` prop defaults to undefined, so they belong here. */
-
-/* The visibility square, at `.wb-list-dot`'s size so the title beside it starts
-   on the same pixel it will start on once the row resolves. */
-.skeleton-admin-dot {
-  flex: 0 0 auto;
-  width: 0.4rem;
-}
+   the measured line boxes of `.wb-list-label` (19.8px) and the meta line's
+   date and rkey (19.2px). Widths are the opposite: the `width` prop defaults
+   to undefined, so they belong here. */
 
 /* One line of `.wb-list-label`. The real label may run to two before it clamps,
    but one is the common case, and over-drawing a placeholder is the more
@@ -591,70 +584,19 @@
 }
 
 /* Unlike `.skeleton-admin-rkey` this is not a fixed 14ch column — the workbench
-   rkey is an ellipsizing inline `<code>` on the meta line, so the placeholder
-   claims a plausible width rather than a reserved one. 6rem is a 13-character
-   TID at `--text-xs`, plus the padding the global `code` rule adds. */
+   rkey is an ellipsizing quiet identifier on the meta line, after the date, so
+   the placeholder claims a plausible width rather than a reserved one: a
+   13-character TID at `--text-xs`. */
 .skeleton-admin-rkey-inline {
   flex: 0 1 auto;
   width: 6rem;
 }
 
-/* The relative timestamp, pushed to the far right by `.wb-list-time`'s
-   `margin-left: auto`. Sized for the "4mo ago" that both the fixture repo and
-   the real one mostly produce. */
+/* The date, first on the meta line as `.wb-list-time` is. Sized for the
+   "Apr 1, 2026" a record older than a month prints. */
 .skeleton-admin-when {
   flex: 0 0 auto;
-  margin-left: auto;
-  width: 2.7rem;
-}
-
-/* Variant: admin "Local vs PDS" page panels. Mirrors .admin-page-panel —
-   a bordered block with a label + badge head, a description line, and an
-   actions row. */
-.skeleton-admin-panels {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.skeleton-admin-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border: 1px solid var(--rule-soft);
-}
-
-.skeleton-admin-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.skeleton-admin-panel-label {
-  height: 1.2rem;
-}
-
-.skeleton-admin-panel-badge {
-  flex: 0 0 auto;
-  width: 2.75rem;
-  height: 1.2rem;
-}
-
-.skeleton-admin-panel-desc {
-  height: 0.85em;
-}
-
-.skeleton-admin-panel-actions {
-  display: flex;
-  gap: var(--space-3);
-  margin-top: var(--space-1);
-}
-
-.skeleton-admin-panel-btn {
   width: 4.5rem;
-  height: 1.6rem;
 }
 
 /* Variant: admin record-editor form. Mirrors the .admin-form field stack —
@@ -884,7 +826,6 @@
 .skeleton-grid-cell:nth-child(3n)         .skeleton,
 .skeleton-mothing-cell:nth-child(3n)      .skeleton,
 .skeleton-admin-row:nth-child(3n)         .skeleton,
-.skeleton-admin-panel:nth-child(3n)       .skeleton,
 .skeleton-resume-org:nth-child(3n)        .skeleton,
 .skeleton-resume-skill-group:nth-child(3n)     .skeleton,
 .skeleton-comments-item:nth-child(3n)     .skeleton { animation-delay: -0.5s; }
@@ -894,7 +835,6 @@
 .skeleton-grid-cell:nth-child(3n + 1)     .skeleton,
 .skeleton-mothing-cell:nth-child(3n + 1)  .skeleton,
 .skeleton-admin-row:nth-child(3n + 1)     .skeleton,
-.skeleton-admin-panel:nth-child(3n + 1)   .skeleton,
 .skeleton-resume-org:nth-child(3n + 1)    .skeleton,
 .skeleton-resume-skill-group:nth-child(3n + 1) .skeleton,
 .skeleton-comments-item:nth-child(3n + 1) .skeleton { animation-delay: -1.2s; }
@@ -904,7 +844,6 @@
 .skeleton-grid-cell:nth-child(3n + 2)     .skeleton,
 .skeleton-mothing-cell:nth-child(3n + 2)  .skeleton,
 .skeleton-admin-row:nth-child(3n + 2)     .skeleton,
-.skeleton-admin-panel:nth-child(3n + 2)   .skeleton,
 .skeleton-resume-org:nth-child(3n + 2)    .skeleton,
 .skeleton-resume-skill-group:nth-child(3n + 2) .skeleton,
 .skeleton-comments-item:nth-child(3n + 2) .skeleton { animation-delay: -1.9s; }

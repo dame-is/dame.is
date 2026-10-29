@@ -9,18 +9,16 @@
    1. `Admin.css` is NOT admin-only — RecordEditor imports it, EditSheet renders
       RecordEditor app-wide, and Exploring.css @imports the whole file into a
       public route. The `.admin-*` classes this pane reuses (`.admin-record-list`,
-      `.admin-record-row`, `.admin-record-chip`, `.admin-multiselect-*`,
-      `.admin-input`, `.admin-gate-button`) are frozen public API: reuse them,
-      never restyle them. Where this column needs different geometry it adds a
-      `.wb-list-*` class ALONGSIDE, so the shared rule keeps doing exactly what it
-      does everywhere else — including the two rules below that repaint a
-      gate-button, which are qualified by a `.wb-list-*` class precisely so no
-      public rendering moves by a pixel.
+      `.admin-record-row`, `.admin-multiselect-*`, `.admin-input`) are frozen
+      public API: reuse them, never restyle them. Where this column needs
+      different geometry it adds a `.wb-list-*` class ALONGSIDE, so the shared
+      rule keeps doing exactly what it does everywhere else. Its controls are the
+      site's kit (Button, Segmented, Tag, Time); nothing here draws a button of
+      its own.
 
    2. Colours come from theme.css tokens only. The live theme is
       `data-theme="sky"`, an hour-computed palette, so a hardcoded hex would be
-      wrong for 23 hours of the day. Tints are `color-mix` over `--accent` /
-      `--ink`, which follow the palette; the literals below are all opacities.
+      wrong for 23 hours of the day. Hover and "on" are the kit's two washes.
 
    3. This column is 22rem on desktop and full width on a phone, and it is the
       pane the shell makes an overflow scroller. Nothing in here may set a width
@@ -31,22 +29,19 @@
    properties and used by exactly three rules:
 
      --wb-list-check   the selection checkbox's column (box + the row's gap)
-     --wb-list-marker  the status square's column (square + its gap)
+     --wb-list-marker  a status marker's column; 0 now that a hidden record says
+                       so with a tag instead of a square, kept so the gutter
+                       arithmetic below stays one expression
 
    `.wb-list` pads itself by their sum, and the rows pull themselves back out by
-   the same amount. The consequence is that the head's title, filter and toolbar
-   share a left edge with the row TITLES — which they did not: the checkbox
-   gutter and the inline status square between them started every record 50px
-   right of everything else in the column, and 14.4px right of the row's own
-   rkey on the four surfaces that draw a square. Both markers now hang in the
-   gutter, where a marker belongs. */
+   the same amount, so the head's title, filter and toolbar share a left edge
+   with the row TITLES while the checkbox hangs in the gutter. */
 
 .wb-list {
   /* 13px checkbox + the row's `--space-2` gap. Set to zero below 62rem outside
      selection mode, where there is no checkbox to make room for, and to 2rem
      inside it, where the box is 24px. */
   --wb-list-check: 1.3125rem;
-  /* 0.4rem square + its `--space-2` gap, on the four surfaces that draw one. */
   --wb-list-marker: 0rem;
 
   display: flex;
@@ -60,10 +55,6 @@
      way down an otherwise empty column and read as a stray mark rather than as a
      seam. The head's bottom rule and the row hairlines carry the separation. */
   padding-right: var(--space-4);
-}
-
-.wb-list[data-marker] {
-  --wb-list-marker: 0.9rem;
 }
 
 /* ------------------------------------------------------------------ */
@@ -103,6 +94,10 @@
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
+  /* The column's head is a SectionHead (controls.css): the title on a hairline,
+     its controls in the meta slot at the right of the same rule. */
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
 }
 
 /* Smaller than the shell's `--text-2xl` pane title. This is a column header
@@ -127,36 +122,16 @@
   flex: 1 1 auto;
   min-width: 0;
   margin-block: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-/* A rare control, so the top of the screen is honest for it — but a target, not
-   a glyph. It painted a 14px icon in a 14px box with `padding: 0`, which is the
-   whole button. */
-.wb-list-refresh {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  min-width: 1.75rem;
-  min-height: 1.75rem;
-}
-
-.wb-list-refresh:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
+/* The refresh glyph and New are the kit's small Buttons (controls.css). */
+.wb-list-refresh,
 .wb-list-new {
   flex: 0 0 auto;
 }
-
-/* The `.wb-list a.admin-gate-button:hover` override that used to sit here — the
-   one that kept "New" from becoming an empty filled rectangle under the pointer
-   — is gone: Admin.css now carries `a.admin-gate-button:hover:not(:disabled)`
-   unscoped, which covers this column and the eight other anchor gate-buttons in
-   the admin that a `.wb-list` scope could never reach. */
 
 .wb-list-controls {
   display: flex;
@@ -183,56 +158,20 @@
   width: auto;
 }
 
-/* A `<code>` in a flex column is a flex item, and a stretched one reads as an
-   input field rather than as the collection's name. */
-.wb-list .wb-list-nsid {
+/* The visibility switch is the kit's Segmented, in the open collection's own
+   words (hero phrases say Enabled / Disabled), each key carrying its count. */
+.wb-list .wb-list-seg {
   align-self: flex-start;
   max-width: 100%;
 }
 
-/* Segmented visibility filter — All / Visible / Hidden, in the OPEN
-   COLLECTION's vocabulary (hero phrases say Enabled / Disabled, because their
-   rows say DISABLED). One box divided by hairlines rather than three separate
-   chips, because the three are one choice. Zero radius, like everything else. */
-.wb-list-seg {
-  display: flex;
-  align-self: flex-start;
-  max-width: 100%;
-  border: 1px solid var(--rule);
+.wb-list-seg-n {
+  margin-left: 0.35em;
+  color: var(--ink-faint);
 }
 
-/* 22px tall was under every touch minimum there is. NOT the `.wb-hit` growth
-   utility: these three are adjacent siblings sharing a hairline, and two grown
-   pseudo-boxes 0px apart overlap by 16px with the later sibling winning — which
-   is exactly how the old chip row let 14 of 19 adjacent pairs steal each other's
-   taps. The painted box grows instead. */
-.wb-list-seg-btn {
-  appearance: none;
-  min-height: 2rem;
-  padding: var(--space-1) var(--space-2);
-  border: 0;
-  border-left: 1px solid var(--rule);
-  background: none;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+.segmented-key.is-on .wb-list-seg-n {
   color: var(--ink-muted);
-  cursor: pointer;
-  transition: color 120ms ease, background 120ms ease;
-}
-
-.wb-list-seg-btn:first-child {
-  border-left: 0;
-}
-
-.wb-list-seg-btn:hover {
-  color: var(--accent);
-}
-
-.wb-list-seg-btn.is-on {
-  color: var(--ink);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 /* The shared multiselect toolbar, tightened for a narrow column: its default
@@ -250,10 +189,18 @@
 
 .wb-list-all {
   flex: 0 0 auto;
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+  font-size: var(--text-meta);
   color: var(--ink-muted);
   cursor: pointer;
+}
+
+/* "20 loaded" as plain meta, beside "Select all", not in the toolbar's
+   small caps (Admin.css). */
+.wb-list .admin-multiselect-count {
+  font-size: var(--text-meta);
+  font-variant: normal;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
 }
 
 /* The destructive cluster keeps its line whether or not anything is ticked.
@@ -273,7 +220,7 @@
   visibility: hidden;
 }
 
-.wb-list .wb-list-actions .admin-gate-button {
+.wb-list .wb-list-actions .btn {
   white-space: nowrap;
 }
 
@@ -281,36 +228,9 @@
   visibility: visible;
 }
 
-/* Weights, inverted before: Hide and Unhide were solid `--ink` fills — the same
-   treatment as the surface's "New" — while the irreversible Delete was the light
-   outline. Two reversible toggles are not the primary action of anything, so
-   they take the quiet outline and Delete carries the only colour in the row. */
-.wb-list .wb-list-toggle-btn {
-  color: var(--ink);
-  background: transparent;
-  border-color: var(--rule);
-}
-
-.wb-list .wb-list-toggle-btn:hover:not(:disabled) {
-  color: var(--page);
-  background: var(--ink);
-  border-color: var(--ink);
-}
-
-/* `--danger`, not `--tan`: under `data-theme="sky"` the tan is derived from the
-   hour's own hue, so at 9am `--tan` and `--accent` both compute to #22…a0 and a
-   bulk delete was painted the same blue as everything else on the screen. */
-.wb-list .wb-list-danger {
-  color: var(--danger);
-  background: transparent;
-  border-color: var(--danger);
-}
-
-.wb-list .wb-list-danger:hover:not(:disabled) {
-  color: var(--page);
-  background: var(--danger);
-  border-color: var(--danger);
-}
+/* Hide and Show are quiet Buttons and Delete the danger one (controls.css):
+   two reversible toggles are not the primary action of anything, and the
+   irreversible one carries the only colour in the row. */
 
 /* The filter can only see what has been fetched. This line says so, and only
    while it is actually misleading — and it now sits next to the Load more button
@@ -328,17 +248,14 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
 }
 
 .wb-list-empty-line {
   margin: 0;
-}
-
-.wb-list-empty-nsid {
-  font-family: var(--code);
-  font-size: var(--text-xs);
+  font-style: italic;
+  color: var(--ink-muted);
 }
 
 /* Padding, not a grown `::before`: these sit under a line of prose in a stacked
@@ -370,21 +287,26 @@
   transition: background 120ms ease;
 }
 
-.wb-list-row:hover {
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
+@media (hover: hover) {
+  .wb-list-row:hover:not(.is-on) {
+    background: var(--wash-hover);
+  }
 }
 
-/* The record the detail pane is editing. An accent edge inside the row's own box
-   rather than a border, so it costs no layout. */
-.wb-list-row.is-open {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  box-shadow: inset 2px 0 0 var(--accent);
+/* The record the detail pane is editing, in the kit's "on": the 16% wash and an
+   accent hairline all round. The hairline is an inset shadow, so it costs no
+   layout, and the row's own top rule steps aside for it rather than doubling. */
+.wb-list-row.is-on {
+  background: var(--wash-selected);
+  border-top-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-/* Ticked for a bulk action. Deliberately a different signal from `is-open`: one
-   is where you are, the other is what you are about to hide or delete. */
-.wb-list-row.is-selected {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+/* Ticked for a bulk action. Deliberately a different signal from the open row:
+   one is where you are, the other is what you are about to hide or delete, so
+   it takes the wash without the hairline. */
+.wb-list-row.is-selected:not(.is-on) {
+  background: var(--wash-selected);
 }
 
 /* In selection mode the whole row is a `<label>` for its own checkbox, so the
@@ -443,36 +365,11 @@
   color: var(--ink);
 }
 
-.wb-list-link:hover .wb-list-label {
-  color: var(--accent);
-}
-
 .wb-list-line {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
-}
-
-/* A square, not a dot — nothing on this site is round. It is drawn only for the
-   four collections that express "hidden from the site" at all; a marker that
-   always means nothing is noise in a column this narrow.
-
-   It HANGS: in the flow it pushed the title 14.4px right of the rkey directly
-   beneath it, so one row read as two different left edges on the four surfaces
-   that draw it and as one on the four that do not. Positioned against the link
-   rather than the line so it keeps its place when a title wraps to two lines. */
-.wb-list-dot {
-  position: absolute;
-  left: 0;
-  top: calc(var(--space-3) + 0.4rem);
-  width: 0.4rem;
-  height: 0.4rem;
-  background: var(--accent-soft);
-}
-
-.wb-list-dot[data-hidden] {
-  background: var(--tan);
 }
 
 .wb-list-label {
@@ -504,23 +401,20 @@
    — which is the mode main.jsx always sets. (The frozen `.admin-record-rkey` in
    Admin.css is deliberately serif; this is a new rule, so it follows the rule for
    new rules.) */
+/* The rkey wears `.ident` (controls.css); this only keeps it to one line. */
 .wb-list-rkey {
   min-width: 0;
-  font-family: var(--code);
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* In the house style through <Time> ("Apr 1, 2026", "3d ago"), in sentence
+   case like every other date on the site. */
 .wb-list-time {
   flex: 0 0 auto;
-  margin-left: auto;
   font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
+  font-size: var(--text-meta);
   color: var(--ink-faint);
   white-space: nowrap;
 }
@@ -554,16 +448,6 @@
   color: var(--accent);
 }
 
-/* The panel's own label is `--text-lg`: the same size as this pane's <h1>, which
-   below 62rem is the page's only heading. A card at the foot of a column cannot
-   be the typographic equal of the column's title — measured at 390, where the
-   panel label read as the MORE prominent of the two because it had more space
-   around it. Scoped to this column, because the panel is also rendered
-   standalone in the Site-pages studio, where it IS the heading of its card. */
-.wb-list .admin-page-panel-label {
-  font-size: var(--text-base);
-}
-
 /* `display: flex` on a <summary> drops the UA disclosure triangle, so the state
    is drawn explicitly — the same caret, and the same quarter turn, the surfaces
    sheet uses for its collapsed Legacy group. */
@@ -592,33 +476,14 @@
    there is room — two grown pseudo-boxes 8px apart overlap by 16px, and the
    later sibling wins the tap. */
 @media (pointer: coarse) {
-  .wb-list-refresh {
-    min-width: var(--wb-hit, 2.75rem);
-    min-height: var(--wb-hit, 2.75rem);
-  }
-
-  .wb-list-seg-btn {
-    min-width: var(--wb-hit, 2.75rem);
-    min-height: var(--wb-hit, 2.75rem);
-    padding-inline: var(--space-3);
-  }
-
+  /* The Buttons and the Segmented carry their own 44px (controls.css); the
+     inputs and the master checkbox's label take it here. */
   .wb-list .wb-list-filter,
-  .wb-list .wb-list-sort,
-  .wb-list .wb-list-new,
-  .wb-list .wb-list-more,
-  .wb-list .wb-list-actions .admin-gate-button {
+  .wb-list .wb-list-sort {
     min-height: var(--wb-hit, 2.75rem);
   }
 
   .wb-list-all {
-    min-height: var(--wb-hit, 2.75rem);
-  }
-
-  /* PageContentPanel's own Edit / Revert / Migrate buttons, which land inside
-     this column. The panel is shared with the Site-pages studio, so the rule is
-     qualified by `.wb-list`: nothing outside this column changes. */
-  .wb-list .admin-page-panel .admin-gate-button {
     min-height: var(--wb-hit, 2.75rem);
   }
 
@@ -721,26 +586,15 @@
   /* One row, two controls: `⌕ Filter` and `Newest · All ▾`. A permanent input, a
      three-button segment and a sort select could not share 358px, and the input
      was eating the first screen of a list you opened to read. */
-  .wb-list-ctl {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
+  /* Small quiet Buttons (controls.css), held at the 44px floor on a phone
+     whatever the pointer reports. */
+  .wb-list .wb-list-ctl {
     flex: 0 0 auto;
     min-height: var(--wb-hit, 2.75rem);
     min-width: var(--wb-hit, 2.75rem);
-    padding: 0 var(--space-3);
-    border: 1px solid var(--rule);
-    background: none;
-    font-family: var(--sans);
-    font-size: var(--text-xs);
-    font-variant: all-small-caps;
-    letter-spacing: 0.18em;
-    color: var(--ink-muted);
-    cursor: pointer;
   }
 
-  .wb-list-ctl-grow {
+  .wb-list .wb-list-ctl-grow {
     flex: 1 1 auto;
     justify-content: flex-start;
     min-width: 0;
@@ -755,10 +609,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .wb-list-ctl:hover {
-    color: var(--accent);
   }
 
   /* The filter input, when it is open, is the whole row. */

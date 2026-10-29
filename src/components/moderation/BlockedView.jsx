@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
+import Button from '../Button.jsx';
+import Time from '../Time.jsx';
 import { listPage, searchList } from '../../lib/moderation/client.js';
 import {
   Avatar,
@@ -16,7 +18,6 @@ import {
   Skeleton,
   Tag,
   fmt,
-  timeAgo,
   useCached,
   useNearEnd,
   viaTag,
@@ -41,7 +42,11 @@ function MemberRow({ m, onOpen }) {
           {m.reviewed === 'keep' && <Tag tone="muted">kept</Tag>}
           {m.onList === false && <Tag tone="muted">not on list</Tag>}
           {m.addedAt && (
-            <span className="mh-row-when">{timeAgo(m.addedAt)}</span>
+            <Time
+              className="mh-row-when"
+              value={m.addedAt}
+              variant="relative"
+            />
           )}
         </span>
       </button>
@@ -113,14 +118,15 @@ export default function BlockedView({ agent, onOpenAccount }) {
             aria-label="Search the list"
           />
           {query && (
-            <button
-              type="button"
-              className="mh-icon-button"
+            <Button
+              variant="icon"
+              size="sm"
+              className="mh-search-clear"
               aria-label="Clear search"
               onClick={() => setQuery('')}
             >
-              <X size={16} />
-            </button>
+              <X size={14} aria-hidden="true" />
+            </Button>
           )}
         </label>
         <p className="mh-small mh-muted">
@@ -168,13 +174,9 @@ export default function BlockedView({ agent, onOpenAccount }) {
               <ErrorNote error={more.error} onRetry={loadMore} compact />
               {more.loading && <Skeleton rows={2} />}
               {!more.loading && cursor && (
-                <button
-                  type="button"
-                  className="mh-button mh-button--quiet"
-                  onClick={loadMore}
-                >
+                <Button size="sm" onClick={loadMore}>
                   Load more
-                </button>
+                </Button>
               )}
               {!cursor && (
                 <p className="mh-small mh-muted">That is the whole list.</p>

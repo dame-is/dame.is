@@ -5,8 +5,13 @@
 // this person blocked" is one tap from anywhere it can be asked.
 
 import { useState } from 'react';
-import { ExternalLink, X } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import { SheetHeader } from '../BottomSheet.jsx';
+import Button from '../Button.jsx';
 import Modal from '../Modal.jsx';
+import SectionHead from '../SectionHead.jsx';
+import Time from '../Time.jsx';
+import '../BottomSheet.css';
 import { accountDetail, queueDecide } from '../../lib/moderation/client.js';
 import {
   Avatar,
@@ -16,11 +21,10 @@ import {
   Tag,
   age,
   compact,
-  day,
   decisionText,
+  fmt,
   invalidate,
   profileUrl,
-  timeAgo,
   useCached,
   useToast,
 } from './ui.jsx';
@@ -93,17 +97,7 @@ export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
       variant="anchored"
       className="mh-sheet"
     >
-      <div className="mh-sheet-head">
-        <span className="mh-label">Account</span>
-        <button
-          type="button"
-          className="mh-icon-button"
-          aria-label="Close"
-          onClick={onClose}
-        >
-          <X size={18} />
-        </button>
-      </div>
+      <SheetHeader title="Account" onClose={onClose} />
 
       {loading && <Skeleton rows={3} />}
       <ErrorNote error={error} onRetry={reload} />
@@ -157,43 +151,50 @@ export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
             {data.score && (
               <p className="mh-small">
                 {data.score.vouches ?? 0} of the people you follow follow them
-                {data.scoredAt ? ` · scored ${timeAgo(data.scoredAt)}` : ''}
+                {data.scoredAt && (
+                  <>
+                    {' · scored '}
+                    <Time value={data.scoredAt} variant="relative" />
+                  </>
+                )}
               </p>
             )}
             {data.review && (
               <p className="mh-small">
                 You chose to <strong>{data.review.decision}</strong>{' '}
-                {timeAgo(data.review.decided_at)}
+                <Time value={data.review.decided_at} variant="relative" />
                 {data.review.note ? ` (${data.review.note})` : ''}.
               </p>
             )}
             <div className="mh-actions">
               {data.onList && (
-                <button
-                  type="button"
-                  className="mh-button mh-button--danger"
+                <Button
+                  variant="danger"
                   disabled={busy}
                   onClick={() => act('remove')}
                 >
                   {busy ? 'Working…' : 'Remove from list'}
-                </button>
+                </Button>
               )}
               {data.onList === false &&
                 data.decisions.some((d) => d.acted_at) && (
-                  <button
-                    type="button"
-                    className="mh-button"
+                  <Button
                     disabled={busy || Boolean(data.protected)}
                     onClick={() => act('restore')}
                   >
                     {busy ? 'Working…' : 'Put back on the list'}
-                  </button>
+                  </Button>
                 )}
             </div>
           </section>
 
           <section className="mh-record">
-            <h3 className="mh-label">How they got here</h3>
+            <SectionHead
+              as="h3"
+              title="How they got here"
+              meta={data.decisions.length ? fmt(data.decisions.length) : null}
+              className="mh-section-head"
+            />
             {!data.decisions.length && (
               <p className="mh-small">
                 {data.onList
@@ -215,24 +216,31 @@ export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
                       className="mh-timeline-item"
                     >
                       <span className="mh-timeline-when">
-                        {d.acted_at ? day(d.acted_at) : 'proposed'}
+                        {d.acted_at ? (
+                          <Time value={d.acted_at} variant="dateShort" />
+                        ) : (
+                          'proposed'
+                        )}
                       </span>
                       <span className="mh-timeline-what">
                         {decisionText(d)}
                         {d.undone_at && (
-                          <Tag tone="muted">undone {timeAgo(d.undone_at)}</Tag>
+                          <Tag tone="muted">
+                            undone{' '}
+                            <Time value={d.undone_at} variant="relative" />
+                          </Tag>
                         )}
                       </span>
                       <span className="mh-timeline-meta">
                         <BandBadge band={d.band} />
                         {plan?.code && (
-                          <button
-                            type="button"
-                            className="mh-link"
+                          <Button
+                            variant="text"
+                            size="sm"
                             onClick={() => onOpenPlan?.(plan.code)}
                           >
-                            plan {plan.code}
-                          </button>
+                            plan <span className="ident">{plan.code}</span>
+                          </Button>
                         )}
                       </span>
                       {plan?.note && !/^bulk /.test(plan.note) && (

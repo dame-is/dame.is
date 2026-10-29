@@ -527,12 +527,6 @@ export function ResumeSkeleton({ orgs = 3, education = 1, skillGroups = 3 }) {
  * block on opposite sides of the column, so a mismatched placeholder reads as
  * the list jumping sideways the instant the real rows arrive.
  *
- * `marker` is the workbench variant's one piece of caller knowledge: the real
- * row draws a small visibility square before the name, but only for the four
- * collections that have a visibility model at all (`hasState` in RecordRow).
- * Drawing it unconditionally would indent every title by 14px in the lists
- * that never show one; omitting it would under-indent the ones that do.
- *
  * Pass `toolbar` to prepend a `.admin-toolbar`-shaped bar, used when the
  * whole page is still resolving (e.g. the session-restore gate) and the
  * real toolbar hasn't rendered yet.
@@ -541,7 +535,6 @@ export function AdminRecordListSkeleton({
   rows = 6,
   toolbar = false,
   variant = 'classic',
-  marker = false,
   label = 'Loading records',
 }) {
   const workbench = variant === 'workbench';
@@ -583,7 +576,6 @@ export function AdminRecordListSkeleton({
                   those do belong in the class. */}
               <span className="skeleton-admin-stack">
                 <span className="skeleton-admin-line">
-                  {marker && <Skeleton className="skeleton-admin-dot" height="0.4rem" />}
                   <Skeleton
                     className="skeleton-admin-label"
                     height="calc(var(--text-base) * var(--leading-tight))"
@@ -591,8 +583,8 @@ export function AdminRecordListSkeleton({
                   />
                 </span>
                 <span className="skeleton-admin-meta">
-                  <Skeleton className="skeleton-admin-rkey-inline" height="1.35rem" />
                   <Skeleton className="skeleton-admin-when" height="1.2rem" />
+                  <Skeleton className="skeleton-admin-rkey-inline" height="1.2rem" />
                 </span>
               </span>
             </li>
@@ -625,41 +617,6 @@ export function AdminRecordListSkeleton({
           ),
         )}
       </ul>
-    </SkeletonShell>
-  );
-}
-
-/**
- * Skeleton for the Site-pages "Local vs PDS" grid. Mirrors the
- * `.admin-page-panel` cards — bordered blocks with a label + status badge,
- * a description line, and an actions row.
- */
-export function AdminPagePanelsSkeleton({ panels = 4 }) {
-  return (
-    <SkeletonShell label="Loading pages">
-      <div className="skeleton-admin-panels">
-        {Array.from({ length: panels }, (_, i) => (
-          <div key={i} className="skeleton-admin-panel">
-            <div className="skeleton-admin-panel-head">
-              <Skeleton
-                className="skeleton-admin-panel-label"
-                style={{ width: `${8 + ((i * 3) % 6)}rem` }}
-              />
-              <Skeleton className="skeleton-admin-panel-badge" />
-            </div>
-            <Skeleton
-              className="skeleton-admin-panel-desc"
-              style={{ width: `${60 + ((i * 11) % 30)}%` }}
-            />
-            <div className="skeleton-admin-panel-actions">
-              <Skeleton className="skeleton-admin-panel-btn" />
-              {i % 2 === 0 && (
-                <Skeleton className="skeleton-admin-panel-btn" style={{ width: '6.5rem' }} />
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
     </SkeletonShell>
   );
 }

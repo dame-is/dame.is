@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUp, Compass, SlidersHorizontal } from 'lucide-react';
+import { ArrowUp, Compass, SlidersHorizontal, Trash2 } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import Button from '../components/Button.jsx';
 import Segmented from '../components/Segmented.jsx';
 import Figures from '../components/Figures.jsx';
 import SectionHead from '../components/SectionHead.jsx';
+import Tag from '../components/Tag.jsx';
 import LinkCard from '../components/LinkCard.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
 import { SheetHeader } from '../components/BottomSheet.jsx';
@@ -130,6 +131,17 @@ function KitHour({ hour, range, onRange }) {
             Disabled
           </Button>
         </div>
+        <div className="kit-row">
+          <Button size="sm" variant="danger">
+            <Trash2 size={14} strokeWidth={1.5} aria-hidden="true" /> Delete
+          </Button>
+          <Button size="sm" variant="danger">
+            Revert to local
+          </Button>
+          <Button size="sm" variant="text" className="btn--danger">
+            Remove
+          </Button>
+        </div>
       </KitPart>
 
       <KitPart title="On">
@@ -147,6 +159,20 @@ function KitHour({ hour, range, onRange }) {
           <Button on aria-pressed="true">
             <Compass size={16} strokeWidth={1.5} aria-hidden="true" /> Open
           </Button>
+        </div>
+      </KitPart>
+
+      <KitPart title="Tags and identifiers">
+        <div className="kit-row">
+          <Tag on>active</Tag>
+          <Tag on>on PDS</Tag>
+          <Tag>draft</Tag>
+          <Tag>private</Tag>
+          <Tag tone="danger">auto-hidden</Tag>
+        </div>
+        <div className="kit-row">
+          <span className="ident">3l22xtpllitk</span>
+          <span className="ident">at://dame.is/site.standard.document/3l22xtpllitk</span>
         </div>
       </KitPart>
 

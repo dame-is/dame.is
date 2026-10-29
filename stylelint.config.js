@@ -51,20 +51,13 @@ const BREAKPOINTS = {
 // breakpoint rules. Move a file's sizes onto --text-* and take it off this
 // list; nothing new goes on it.
 const LEGACY_TYPE = [
-  'src/admin/adminShell.css',
   'src/components/ActionDock.css',
-  'src/components/AnalyticsStudio.css',
   'src/components/ChromeBar.css',
   'src/components/DebugOverlay.css',
   'src/components/EditModeBar.css',
-  'src/components/PublicationsManager.css',
-  'src/components/RatioedPanel.css',
-  'src/components/SkyThemeStudio.css',
   'src/components/Xray.css',
   'src/components/blocks/RatioedBlock.css',
   'src/components/blocks/blocks.css',
-  'src/components/moderation/moderation.css',
-  'src/components/resume/resumeStudio.css',
   'src/pages/Admin.css',
   'src/pages/Blogging.css',
   'src/pages/Guestbook.css',

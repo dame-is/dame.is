@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Copy, PenLine, ExternalLink, MoreHorizontal, Plus } from 'lucide-react';
 import { AdminRecordListSkeleton } from '../Skeleton.jsx';
+import Button from '../Button.jsx';
+import SectionHead from '../SectionHead.jsx';
+import Tag from '../Tag.jsx';
 import { rkeyFromUri } from '../RecordEditor.jsx';
 import { COLLECTIONS } from '../../config.js';
 import AdminSheet from '../../admin/AdminSheet.jsx';
@@ -198,9 +201,9 @@ export default function ResumeStudio({ agent, did, bundle }) {
 /** The versions note, said once for both the loading state and the loaded one. */
 function VersionsNote() {
   return (
-    <p className="admin-collection-group-note">
+    <p className="rs-note">
       Each version selects, orders, and phrases its own view of the shared records. The
-      active one is what <code>/available</code> shows.
+      active one is what /available shows.
     </p>
   );
 }
@@ -218,15 +221,15 @@ function VersionsNote() {
 function StudioSkeleton() {
   return (
     <>
-      <section className="admin-page-section rs-section">
-        <h2 className="admin-collection-group-heading small-caps">{SECTIONS.versions.heading}</h2>
+      <section className="rs-section">
+        <SectionHead title={SECTIONS.versions.heading} />
         <VersionsNote />
         <AdminRecordListSkeleton rows={SECTIONS.versions.rows} label="Loading resume versions" />
       </section>
       {['jobs', 'education'].map((key) => (
-        <section className="admin-page-section rs-section" key={key}>
-          <h2 className="admin-collection-group-heading small-caps">{SECTIONS[key].heading}</h2>
-          <p className="admin-collection-group-note">{SECTIONS[key].note}</p>
+        <section className="rs-section" key={key}>
+          <SectionHead title={SECTIONS[key].heading} />
+          <p className="rs-note">{SECTIONS[key].note}</p>
           <AdminRecordListSkeleton
             rows={SECTIONS[key].rows}
             label={`Loading ${SECTIONS[key].heading.toLowerCase()}`}
@@ -312,16 +315,12 @@ function KeyForm({ label, from, taken, sameKeyMessage, noteFor, submitLabel, bus
         {problem || noteFor(key)}
       </p>
       <div className="rs-keyform-actions">
-        <button
-          type="submit"
-          className="admin-gate-button admin-gate-button-tight"
-          disabled={!!problem || busy}
-        >
+        <Button type="submit" variant="primary" size="sm" disabled={!!problem || busy}>
           {busy ? 'Working…' : submitLabel}
-        </button>
-        <button type="button" className="admin-link-subtle" onClick={onCancel} disabled={busy}>
+        </Button>
+        <Button variant="text" size="sm" onClick={onCancel} disabled={busy}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -479,13 +478,13 @@ function VersionsSection({
   const menuName = menuRec ? versionName(menuRec.value) : '';
 
   return (
-    <section className="admin-page-section rs-section">
-      <h2 className="admin-collection-group-heading small-caps">{SECTIONS.versions.heading}</h2>
+    <section className="rs-section">
+      <SectionHead title={SECTIONS.versions.heading} meta={(resumes || []).length || null} />
       <VersionsNote />
       {(resumes || []).length === 0 ? (
         // The "create the first one" link that used to live in this sentence is
         // now the add link below, which is on screen either way.
-        <p className="placeholder-card">No resume versions yet.</p>
+        <p className="rs-empty">No resume versions yet.</p>
       ) : (
         <ul className="rs-version-list reveal-stagger">
           {resumes.map((rec) => {
@@ -533,15 +532,15 @@ function VersionsSection({
                     >
                       {versionName(v)}
                     </Link>
-                    {isActive && <span className="rs-chip rs-chip-accent small-caps">active</span>}
-                    {vis !== 'public' && <span className="rs-chip small-caps">{vis}</span>}
-                    {rowBusy && <span className="rs-chip small-caps">saving…</span>}
+                    {isActive && <Tag on>active</Tag>}
+                    {vis !== 'public' && <Tag>{vis}</Tag>}
+                    {rowBusy && <Tag>saving…</Tag>}
                   </div>
                   {/* Separators are drawn by the items themselves (::before), so
                       a middle dot can never be the last thing on a wrapped line
                       the way a free-standing <span> could. */}
                   <div className="rs-version-meta">
-                    <code className="admin-record-rkey">{slug}</code>
+                    <span className="ident">{slug}</span>
                     <span>
                       {counts.jobs} job{counts.jobs === 1 ? '' : 's'}
                     </span>
@@ -557,8 +556,8 @@ function VersionsSection({
                     than in the button cluster — at 320 the cluster is already
                     16px wider than the column. */}
                 {stacked && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="icon"
                     className="rs-row-more"
                     onClick={() => {
                       setMenuUri(rec.uri);
@@ -568,7 +567,7 @@ function VersionsSection({
                     aria-label={`More actions for ${versionLabel(v, r)}`}
                   >
                     <MoreHorizontal size={16} aria-hidden="true" />
-                  </button>
+                  </Button>
                 )}
                 <div className="rs-version-actions">
                   {/* Two buttons and nothing else in this row: it is the same
@@ -578,50 +577,50 @@ function VersionsSection({
                       them — which measured 48px, and moved every button on that
                       row by all of it. */}
                   <div className="rs-version-buttons">
-                    <Link
-                      className="admin-gate-button admin-gate-button-tight"
-                      to={`/admin?view=resume-tailor&r=${encodeURIComponent(r)}`}
-                    >
-                      <PenLine size={13} aria-hidden="true" /> Tailor
-                    </Link>
-                    <button
-                      type="button"
-                      className="admin-gate-button admin-gate-button-tight"
+                    <Button as={Link} size="sm" to={`/admin?view=resume-tailor&r=${encodeURIComponent(r)}`}>
+                      <PenLine size={14} aria-hidden="true" /> Tailor
+                    </Button>
+                    <Button
+                      size="sm"
                       onClick={() => openForm(rec.uri, 'duplicate')}
                       disabled={!!busy || !!renamingUri}
                       title="Fork this version under a new slug"
                     >
-                      <Copy size={13} aria-hidden="true" /> Duplicate
-                    </button>
+                      <Copy size={14} aria-hidden="true" /> Duplicate
+                    </Button>
                   </div>
                   {!stacked && (
                     <div className="rs-version-links">
-                      <Link
-                        className="admin-link-subtle rs-version-raw"
+                      <Button
+                        as={Link}
+                        variant="text"
+                        size="sm"
                         to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&r=${encodeURIComponent(r)}`}
                         title="Open the raw record editor"
                       >
-                        record
-                      </Link>
+                        Record
+                      </Button>
                       {onRename && (
-                        <button
-                          type="button"
-                          className="admin-link-subtle rs-version-raw"
+                        <Button
+                          variant="text"
+                          size="sm"
                           onClick={() => openForm(rec.uri, 'rename')}
                           disabled={!!busy || !!renamingUri}
                           title="Change this version's key + slug (/available URL)"
                         >
-                          {renamingUri === rec.uri ? 'renaming…' : 'rename'}
-                        </button>
+                          {renamingUri === rec.uri ? 'Renaming…' : 'Rename'}
+                        </Button>
                       )}
                       {vis !== 'private' && (
-                        <Link
-                          className="admin-link-subtle rs-version-raw"
+                        <Button
+                          as={Link}
+                          variant="text"
+                          size="sm"
                           to={`/available/${encodeURIComponent(slug)}`}
                           title="View on the site"
                         >
-                          <ExternalLink size={12} aria-hidden="true" /> view
-                        </Link>
+                          View <ExternalLink size={12} aria-hidden="true" />
+                        </Button>
                       )}
                     </div>
                   )}
@@ -714,12 +713,14 @@ function VersionsSection({
       {/* "New version" used to sit in the studio's own toolbar, next to a back
           link the rail replaced. It belongs at the foot of the list it adds to
           anyway — exactly where Jobs and Education already put theirs. */}
-      <Link
-        className="rf-add rs-section-add"
+      <Button
+        as={Link}
+        size="sm"
+        className="rs-section-add"
         to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&mode=new`}
       >
-        <Plus size={15} aria-hidden="true" /> New version
-      </Link>
+        <Plus size={14} aria-hidden="true" /> New version
+      </Button>
     </section>
   );
 }
@@ -746,13 +747,13 @@ function RecordsSection({
   );
 
   return (
-    <section className="admin-page-section rs-section">
-      <h2 className="admin-collection-group-heading small-caps">{heading}</h2>
-      <p className="admin-collection-group-note">{note}</p>
+    <section className="rs-section">
+      <SectionHead title={heading} meta={(records || []).length || null} />
+      <p className="rs-note">{note}</p>
       {(records || []).length === 0 ? (
-        <p className="placeholder-card">Nothing here yet.</p>
+        <p className="rs-empty">Nothing here yet.</p>
       ) : (
-        <ul className="admin-record-list reveal-stagger">
+        <ul className="rs-record-list reveal-stagger">
           {records.map((rec) => {
             const r = rkeyFromUri(rec.uri);
             const v = rec.value || {};
@@ -764,19 +765,19 @@ function RecordsSection({
             const linkCount = Array.isArray(v.links) ? v.links.length : 0;
             const dates = formatDateRange(v);
             return (
-              <li key={rec.uri} className="admin-record-row rs-record-row">
+              <li key={rec.uri} className="rs-record-row">
                 <Link
                   to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(r)}`}
-                  className="admin-record-link"
+                  className="rs-record-link"
                 >
                   {/* Name first, key underneath — the same order as the version
                       rows above and as every row in the record list. This list
                       used to lead with the rkey, so one studio drew three
                       different row shapes. */}
-                  <span className="admin-record-main">
-                    <span className="admin-record-preview">{labelFor(v) || r}</span>
+                  <span className="rs-record-main">
+                    <span className="rs-record-name">{labelFor(v) || r}</span>
                     <span className="rs-record-counts">
-                      <code className="admin-record-rkey">{r}</code>
+                      <span className="ident">{r}</span>
                       <span>
                         {highlights.length} bullet{highlights.length === 1 ? '' : 's'}
                       </span>
@@ -792,19 +793,21 @@ function RecordsSection({
                       )}
                     </span>
                   </span>
-                  {dates && <span className="admin-record-time small-caps">{dates}</span>}
+                  {dates && <span className="rs-record-dates">{dates}</span>}
                 </Link>
                 {onRename && (
-                  <button
-                    type="button"
-                    className="admin-link-subtle rs-rename"
+                  <Button
+                    variant="text"
+                    size="sm"
+                    className="rs-rename"
+                    on={formUri === rec.uri}
                     onClick={() => setFormUri((open) => (open === rec.uri ? null : rec.uri))}
                     disabled={!!renamingUri}
                     aria-expanded={formUri === rec.uri}
                     title="Change this record's key (slug), updating every version that references it"
                   >
-                    {renamingUri === rec.uri ? 'renaming…' : 'rename key'}
-                  </button>
+                    {renamingUri === rec.uri ? 'Renaming…' : 'Rename key'}
+                  </Button>
                 )}
                 {formUri === rec.uri && onRename && (
                   <KeyForm
@@ -827,12 +830,14 @@ function RecordsSection({
           })}
         </ul>
       )}
-      <Link
-        className="rf-add rs-section-add"
+      <Button
+        as={Link}
+        size="sm"
+        className="rs-section-add"
         to={`/admin?c=${encodeURIComponent(collection)}&mode=new`}
       >
-        <Plus size={15} aria-hidden="true" /> {newLabel}
-      </Link>
+        <Plus size={14} aria-hidden="true" /> {newLabel}
+      </Button>
     </section>
   );
 }

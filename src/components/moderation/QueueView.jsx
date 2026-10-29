@@ -10,6 +10,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, ExternalLink } from 'lucide-react';
+import Button from '../Button.jsx';
+import Time from '../Time.jsx';
 import { queueDecide, queuePage } from '../../lib/moderation/client.js';
 import {
   Avatar,
@@ -25,7 +27,6 @@ import {
   invalidate,
   profileUrl,
   setCached,
-  timeAgo,
   useCached,
   useNearEnd,
   useToast,
@@ -130,29 +131,23 @@ function QueueCard({ item, busy, onDecide, onOpen, cardRef, onFocus }) {
       </p>
 
       <div className="mh-card-actions">
-        <button
-          type="button"
-          className="mh-button"
-          disabled={busy}
-          onClick={() => onDecide(item, 'keep')}
-        >
+        <Button disabled={busy} onClick={() => onDecide(item, 'keep')}>
           Keep on list
-        </button>
-        <button
-          type="button"
-          className="mh-button mh-button--danger"
+        </Button>
+        <Button
+          variant="danger"
           disabled={busy}
           onClick={() => onDecide(item, 'remove')}
         >
           Remove
-        </button>
-        <button
-          type="button"
-          className="mh-button mh-button--quiet mh-card-more"
+        </Button>
+        <Button
+          variant="text"
+          className="mh-card-more"
           onClick={() => onOpen(item.did)}
         >
           Details <ChevronRight size={14} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
     </li>
   );
@@ -417,8 +412,8 @@ export default function QueueView({ agent, onOpenAccount }) {
         </p>
         {page?.audit && (
           <p className="mh-small mh-muted">
-            List re-scored {timeAgo(page.audit.at)} ({fmt(page.audit.total)}{' '}
-            accounts)
+            List re-scored <Time value={page.audit.at} variant="relative" /> (
+            {fmt(page.audit.total)} accounts)
             {tally.keep + tally.remove > 0 &&
               ` · this session: ${tally.keep} kept, ${tally.remove} removed`}
           </p>
@@ -467,13 +462,9 @@ export default function QueueView({ agent, onOpenAccount }) {
           <ErrorNote error={more.error} onRetry={loadMore} compact />
           {more.loading && <Skeleton rows={2} />}
           {!more.loading && !done && items.length < matched && (
-            <button
-              type="button"
-              className="mh-button mh-button--quiet"
-              onClick={loadMore}
-            >
+            <Button size="sm" onClick={loadMore}>
               Show more ({fmt(matched - items.length)} left)
-            </button>
+            </Button>
           )}
           {(items.length >= matched || done) && (
             <p className="mh-small mh-muted">That is everyone in this view.</p>

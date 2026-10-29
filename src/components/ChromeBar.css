@@ -869,11 +869,13 @@
   color: var(--danger);
 }
 
-/* The primary action. A TEXT button like the hour chip, not a glyph: Save,
-   Create, New and Refresh differ by a word, and a bar that makes the owner guess
-   which one their thumb is on is worse than one that spends 30px on the word.
-   Filled, because it is the control the thumb is aiming for — and the only
-   filled thing in this cluster, so it does not have to compete. */
+/* The admin's primary action. A TEXT button like the hour chip, not a glyph:
+   Save, Create, New and Refresh differ by a word, and a bar that makes the owner
+   guess which one their thumb is on is worse than one that spends 30px on the
+   word. Set as the kit's quiet small Button (controls.css), in sentence case:
+   the compass is this bar's one filled control, and the 20% wash it used to
+   wear is the kit's look for "selected". Unsaved work shows the way the ⋯
+   beside it does, in the label's colour and an accent hairline. */
 .chrome-nav.chrome-admin-action {
   /* The one control in this bar whose width is set by a STRING, and the strings
      grow under the owner's thumb: Save becomes Saving…, Create becomes
@@ -891,12 +893,12 @@
   min-width: 1.75rem;
   max-width: 100%;
   padding: 0 var(--space-2);
-  font-size: 0.72rem;
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 20%, var(--page));
-  color: var(--accent);
+  font-size: var(--text-meta);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-color: var(--rule);
+  background: var(--page);
+  color: var(--ink-soft);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -908,15 +910,25 @@
    NON-destructive control as its primary and sends the rest to the panel. The
    rule stands because a surface may one day have nothing else to offer, and a
    Delete painted in the accent would be the worst possible way to find out. */
+.chrome-nav.chrome-admin-action[data-dirty] .chrome-nav-face {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
 .chrome-nav.chrome-admin-action[data-tone='danger'] .chrome-nav-face {
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 16%, var(--page));
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
+  background: var(--page);
   color: var(--danger);
 }
 
+/* Disabled is a line not yet drawn, as the kit draws it. */
 .chrome-nav.chrome-admin-action:disabled {
-  opacity: 0.45;
   cursor: default;
+}
+
+.chrome-nav.chrome-admin-action:disabled .chrome-nav-face {
+  border-style: dashed;
+  color: var(--ink-muted);
 }
 
 /* The compass, the menu: filled, the bar's primary control, and the one chip

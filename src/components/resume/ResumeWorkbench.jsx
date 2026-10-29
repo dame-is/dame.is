@@ -2,6 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, GitBranch, PenLine, Plus, RotateCcw, X } from 'lucide-react';
 import { AdminEditorSkeleton, AdminRecordListSkeleton } from '../Skeleton.jsx';
+import Button from '../Button.jsx';
+import SectionHead from '../SectionHead.jsx';
+import Tag from '../Tag.jsx';
 import { SkillGroupsField, ContactField, TagsInput } from '../resumeFields.jsx';
 import { COLLECTIONS } from '../../config.js';
 import { useAdminShell } from '../../admin/useAdminShell.jsx';
@@ -609,19 +612,12 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
   if (loadError && !draft) {
     return (
       <div className="rw-studio">
-        <p className="placeholder-card">
-          The resume records could not be loaded.
-        </p>
+        <p className="rs-empty">The resume records could not be loaded.</p>
         <p className="admin-field-hint">{loadError}</p>
         <div className="admin-actions">
-          <button
-            type="button"
-            className="admin-gate-button"
-            onClick={retryLoad}
-            disabled={retrying}
-          >
+          <Button onClick={retryLoad} disabled={retrying}>
             {retrying ? 'Trying again…' : 'Try again'}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -629,7 +625,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
 
   if (notFound) {
     return (
-      <p className="placeholder-card">
+      <p className="rs-empty">
         {/* Two ways to land here: a version that no longer exists, or the bare
             surface with no `&r=` at all — which says nothing about a missing
             record and should not pretend it does.
@@ -641,7 +637,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
             to it. */}
         {rkey ? (
           <>
-            No resume version has the key <code>{rkey}</code> — it may have been renamed or
+            No resume version has the key <span className="ident">{rkey}</span> — it may have been renamed or
             deleted.{' '}
           </>
         ) : (
@@ -665,19 +661,26 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
         {/* A version with no title falls back to its rkey for the name, and
             printing the same string twice side by side reads as a rendering
             bug rather than as two facts. */}
-        {draft?.title && <code className="admin-record-rkey">{rkey}</code>}
-        {savedFlash && <span className="rs-chip rs-chip-accent small-caps">saved</span>}
+        {draft?.title && <span className="ident">{rkey}</span>}
+        {savedFlash && <Tag on>saved</Tag>}
         <span className="rw-toolbar-links">
-          <Link
-            className="admin-link-subtle"
+          <Button
+            as={Link}
+            variant="text"
+            size="sm"
             to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&r=${encodeURIComponent(rkey)}`}
           >
-            raw record
-          </Link>
+            Raw record
+          </Button>
           {draft && (draft.visibility || 'private') !== 'private' && (
-            <Link className="admin-link-subtle" to={`/available/${encodeURIComponent(draft.slug || rkey)}`}>
-              view ↗
-            </Link>
+            <Button
+              as={Link}
+              variant="text"
+              size="sm"
+              to={`/available/${encodeURIComponent(draft.slug || rkey)}`}
+            >
+              View ↗
+            </Button>
           )}
         </span>
       </div>
@@ -685,14 +688,14 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
       {error && <p className="admin-error">{error}</p>}
       {conflict && (
         <div className="admin-actions">
-          <button
-            type="button"
-            className="admin-gate-button admin-gate-button-tight admin-danger"
+          <Button
+            size="sm"
+            variant="danger"
             onClick={() => saveRef.current?.({ overwrite: true })}
             disabled={saving}
           >
             Save mine over it
-          </button>
+          </Button>
         </div>
       )}
       {loadError && <p className="admin-error">{loadError}</p>}
@@ -726,8 +729,8 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
           ))}
 
           <section className="rw-section">
-            <h2 className="admin-collection-group-heading small-caps">Skills</h2>
-            <p className="admin-collection-group-note">{NOTES.skills}</p>
+            <SectionHead title="Skills" />
+            <p className="rs-note">{NOTES.skills}</p>
             <SkillGroupsField
               value={draft?.skills}
               onChange={(v) => patchDraft({ skills: v })}
@@ -735,8 +738,8 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
           </section>
 
           <section className="rw-section">
-            <h2 className="admin-collection-group-heading small-caps">Contact</h2>
-            <p className="admin-collection-group-note">{NOTES.contact}</p>
+            <SectionHead title="Contact" />
+            <p className="rs-note">{NOTES.contact}</p>
             <ContactField
               value={draft?.contact}
               onChange={(v) => patchDraft({ contact: v })}
@@ -766,14 +769,14 @@ function TailorSkeleton() {
   return (
     <div className="rw">
       <section className="rw-section">
-        <h2 className="admin-collection-group-heading small-caps">Framing</h2>
-        <p className="admin-collection-group-note">{NOTES.framing}</p>
+        <SectionHead title="Framing" />
+        <p className="rs-note">{NOTES.framing}</p>
         <AdminEditorSkeleton fields={5} />
       </section>
       {['job', 'education'].map((kind) => (
         <section className="rw-section" key={kind}>
-          <h2 className="admin-collection-group-heading small-caps">{KINDS[kind].heading}</h2>
-          <p className="admin-collection-group-note">{KINDS[kind].note}</p>
+          <SectionHead title={KINDS[kind].heading} />
+          <p className="rs-note">{KINDS[kind].note}</p>
           <AdminRecordListSkeleton
             rows={kind === 'job' ? 3 : 1}
             label={`Loading ${KINDS[kind].heading.toLowerCase()}`}
@@ -785,8 +788,8 @@ function TailorSkeleton() {
         ['Contact', NOTES.contact],
       ].map(([heading, note]) => (
         <section className="rw-section" key={heading}>
-          <h2 className="admin-collection-group-heading small-caps">{heading}</h2>
-          <p className="admin-collection-group-note">{note}</p>
+          <SectionHead title={heading} />
+          <p className="rs-note">{note}</p>
           <AdminRecordListSkeleton rows={1} label={`Loading ${heading.toLowerCase()}`} />
         </section>
       ))}
@@ -801,8 +804,8 @@ function TailorSkeleton() {
 function FramingSection({ draft, patchDraft }) {
   return (
     <section className="rw-section">
-      <h2 className="admin-collection-group-heading small-caps">Framing</h2>
-      <p className="admin-collection-group-note">{NOTES.framing}</p>
+      <SectionHead title="Framing" />
+      <p className="rs-note">{NOTES.framing}</p>
       <div className="rw-framing">
         <label className="rf-inline-field rf-inline-field-block">
           <span className="rf-inline-label">Title (internal name)</span>
@@ -966,8 +969,11 @@ function EntriesSection({
 
   return (
     <section className="rw-section" ref={sectionRef}>
-      <h2 className="admin-collection-group-heading small-caps">{heading}</h2>
-      <p className="admin-collection-group-note">{note}</p>
+      <SectionHead
+        title={heading}
+        meta={entries.length ? `${entries.length} of ${records.length}` : null}
+      />
+      <p className="rs-note">{note}</p>
 
       {entries.length === 0 && (
         <p className="admin-field-hint">No {noun} on this version yet — add one below.</p>
@@ -1039,30 +1045,31 @@ function AddEntryRow({ kind, available, collection, onAdd }) {
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            className="admin-gate-button admin-gate-button-tight"
+          <Button
             disabled={!pick}
             onClick={() => {
               onAdd(pick);
               setPick('');
             }}
           >
-            <Plus size={13} aria-hidden="true" /> Add
-          </button>
+            <Plus size={14} aria-hidden="true" /> Add
+          </Button>
         </>
       ) : (
         <p className="admin-field-hint">
           Every {noun} is already on this version.
         </p>
       )}
-      <Link
-        className="admin-link-subtle rw-add-entry-new"
+      <Button
+        as={Link}
+        variant="text"
+        size="sm"
+        className="rw-add-entry-new"
         data-add-focus=""
         to={`/admin?c=${encodeURIComponent(collection)}&mode=new`}
       >
         New {noun} record →
-      </Link>
+      </Button>
     </div>
   );
 }
@@ -1183,16 +1190,17 @@ function EntryCard({
             Referenced record not found: <code>{recordUri}</code>
           </p>
           <div className="rf-controls">
-            <button
-              type="button"
-              className="rf-icon-btn rf-icon-btn-danger"
+            <Button
+              size="sm"
+              variant="icon"
+              className="btn--danger"
               data-ctl="remove"
               onClick={() => onRemove(index)}
               aria-label="Remove entry"
               title="Remove entry"
             >
-              <X size={15} aria-hidden="true" />
-            </button>
+              <X size={14} aria-hidden="true" />
+            </Button>
           </div>
         </div>
       </div>
@@ -1210,56 +1218,57 @@ function EntryCard({
           <strong>{entryName}</strong>
           <span className="rw-entry-dates">{formatDateRange(recordValue)}</span>
           {recordDirty && (
-            <span className="rs-chip rs-chip-warn small-caps" title="This shared record has staged copy edits — Save writes them.">
-              edited
-            </span>
+            <Tag title="This shared record has staged copy edits — Save writes them.">edited</Tag>
           )}
         </div>
         {/* Every control names the entry it acts on. Four glyph buttons in a row
             all read "Move up" to a screen reader otherwise, and on a version
             with three jobs that is three identical announcements. */}
         <div className="rf-controls">
-          <Link
-            className="rf-icon-btn"
+          <Button
+            as={Link}
+            size="sm"
+            variant="icon"
             data-ctl="open"
             to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey || '')}`}
             aria-label={`Open the full record for ${entryName}`}
             title="Open the full record (facts, dates, all bullets)"
           >
-            <PenLine size={15} aria-hidden="true" />
-          </Link>
-          <button
-            type="button"
-            className="rf-icon-btn"
+            <PenLine size={14} aria-hidden="true" />
+          </Button>
+          <Button
+            size="sm"
+            variant="icon"
             data-ctl="up"
             onClick={() => onMove(index, index - 1, 'up')}
             disabled={index === 0}
             aria-label={`Move ${entryName} up`}
             title="Move up"
           >
-            <ChevronUp size={15} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="rf-icon-btn"
+            <ChevronUp size={14} aria-hidden="true" />
+          </Button>
+          <Button
+            size="sm"
+            variant="icon"
             data-ctl="down"
             onClick={() => onMove(index, index + 1, 'down')}
             disabled={index === count - 1}
             aria-label={`Move ${entryName} down`}
             title="Move down"
           >
-            <ChevronDown size={15} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="rf-icon-btn rf-icon-btn-danger"
+            <ChevronDown size={14} aria-hidden="true" />
+          </Button>
+          <Button
+            size="sm"
+            variant="icon"
+            className="btn--danger"
             data-ctl="remove"
             onClick={() => onRemove(index)}
             aria-label={`Remove ${entryName} from this version`}
             title="Remove from this version (the record itself stays)"
           >
-            <X size={15} aria-hidden="true" />
-          </button>
+            <X size={14} aria-hidden="true" />
+          </Button>
         </div>
       </div>
 
@@ -1301,17 +1310,18 @@ function EntryCard({
         }`}
         reset={
           explicit && (
-            <button
-              type="button"
-              className="admin-link-subtle rw-reset"
+            <Button
+              variant="text"
+              size="sm"
+              className="rw-reset"
               onClick={() => {
                 setEditingKey(null);
                 patchEntry(listKey, index, { highlightIds: undefined });
               }}
               title="Back to the default: every non-private bullet, in the job's order, canonical phrasing"
             >
-              <RotateCcw size={12} aria-hidden="true" /> reset to default
-            </button>
+              <RotateCcw size={12} aria-hidden="true" /> Reset to default
+            </Button>
           )
         }
       >
@@ -1329,13 +1339,14 @@ function EntryCard({
                   <span className="admin-error-inline">
                     Unknown bullet <code>{ref}</code>
                   </span>
-                  <button
-                    type="button"
-                    className="admin-link-subtle"
+                  <Button
+                    variant="text"
+                    size="sm"
+                    className="btn--danger"
                     onClick={() => setRefs(refs.filter((r) => r !== ref))}
                   >
-                    remove
-                  </button>
+                    Remove
+                  </Button>
                 </li>
               );
             }
@@ -1369,7 +1380,7 @@ function EntryCard({
 
         {excluded.length > 0 && (
           <>
-            <div className="rw-excluded-divider small-caps">not on this version</div>
+            <div className="rw-excluded-divider eyebrow">not on this version</div>
             <ul className="rw-bullet-list rw-bullet-list-excluded">
               {excluded.map((h) => (
                 <BulletRow
@@ -1388,10 +1399,10 @@ function EntryCard({
           </>
         )}
 
-        <button type="button" className="rf-add rw-add-bullet" onClick={addBullet}>
-          <Plus size={15} aria-hidden="true" /> Add bullet
+        <Button size="sm" className="rw-add-bullet" onClick={addBullet}>
+          <Plus size={14} aria-hidden="true" /> Add bullet
           <span className="rw-add-bullet-note">(added to the shared {KINDS[kind].noun} record)</span>
-        </button>
+        </Button>
       </BoardShell>
 
       {kind === 'job' && (
@@ -1500,14 +1511,15 @@ function LinkBoard({ links, entry, stacked, docByUri, collection, rkey, onChange
       }`}
       reset={
         explicit && (
-          <button
-            type="button"
-            className="admin-link-subtle rw-reset"
+          <Button
+            variant="text"
+            size="sm"
+            className="rw-reset"
             onClick={() => onChange(undefined)}
             title="Back to the default: every non-private link, in the job's order"
           >
-            <RotateCcw size={12} aria-hidden="true" /> reset to default
-          </button>
+            <RotateCcw size={12} aria-hidden="true" /> Reset to default
+          </Button>
         )
       }
     >
@@ -1529,13 +1541,14 @@ function LinkBoard({ links, entry, stacked, docByUri, collection, rkey, onChange
                     <span className="admin-error-inline">
                       Unknown link <code>{id}</code>
                     </span>
-                    <button
-                      type="button"
-                      className="admin-link-subtle"
+                    <Button
+                      variant="text"
+                      size="sm"
+                      className="btn--danger"
                       onClick={() => onChange(refs.filter((r) => r !== id))}
                     >
-                      remove
-                    </button>
+                      Remove
+                    </Button>
                   </li>
                 );
               }
@@ -1555,7 +1568,7 @@ function LinkBoard({ links, entry, stacked, docByUri, collection, rkey, onChange
           </ul>
           {excluded.length > 0 && (
             <>
-              <div className="rw-excluded-divider small-caps">not on this version</div>
+              <div className="rw-excluded-divider eyebrow">not on this version</div>
               <ul className="rw-bullet-list rw-bullet-list-excluded">
                 {excluded.map((link) => (
                   <LinkRow
@@ -1586,35 +1599,33 @@ function LinkRow({ included, link, docByUri, pos = 0, lastPos = 0, onToggle, onM
       <div className="rw-bullet-body">
         <span className="rw-link-title">{label}</span>
         <div className="rw-bullet-meta">
-          <span className="rf-badge">{kind}</span>
-          {(link.visibility || 'public') !== 'public' && (
-            <span className="rf-badge">{link.visibility}</span>
-          )}
+          <Tag>{kind}</Tag>
+          {(link.visibility || 'public') !== 'public' && <Tag>{link.visibility}</Tag>}
           {link.description && <span className="rw-link-desc">{link.description}</span>}
         </div>
       </div>
       {included && onMove && (
         <div className="rf-controls rw-bullet-order">
-          <button
-            type="button"
-            className="rf-icon-btn"
+          <Button
+            size="sm"
+            variant="icon"
             onClick={() => onMove(-1)}
             disabled={pos === 0}
             aria-label="Move up"
             title="Move up"
           >
-            <ChevronUp size={15} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="rf-icon-btn"
+            <ChevronUp size={14} aria-hidden="true" />
+          </Button>
+          <Button
+            size="sm"
+            variant="icon"
             onClick={() => onMove(1)}
             disabled={pos === lastPos}
             aria-label="Move down"
             title="Move down"
           >
-            <ChevronDown size={15} aria-hidden="true" />
-          </button>
+            <ChevronDown size={14} aria-hidden="true" />
+          </Button>
         </div>
       )}
     </li>
@@ -1706,13 +1717,13 @@ function BulletRow({
               )}
               <div className="rw-bullet-editor-actions">
                 {!variantId && (
-                  <button type="button" className="admin-link-subtle" onClick={onFork}>
-                    <GitBranch size={12} aria-hidden="true" /> fork instead
-                  </button>
+                  <Button variant="text" size="sm" onClick={onFork}>
+                    <GitBranch size={12} aria-hidden="true" /> Fork instead
+                  </Button>
                 )}
-                <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={onStopEdit}>
+                <Button size="sm" onClick={onStopEdit}>
                   Done
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1728,10 +1739,10 @@ function BulletRow({
         )}
 
         <div className="rw-bullet-meta">
-          <code className="rf-id">{refString}</code>
-          {h.featured && <span className="rf-badge rf-badge-accent">featured</span>}
-          {h.metric && <span className="rf-badge">metric</span>}
-          {(h.visibility || 'public') !== 'public' && <span className="rf-badge">{h.visibility}</span>}
+          <span className="ident">{refString}</span>
+          {h.featured && <Tag on>featured</Tag>}
+          {h.metric && <Tag>metric</Tag>}
+          {(h.visibility || 'public') !== 'public' && <Tag>{h.visibility}</Tag>}
           {included && variants.length > 0 && (
             <label className="rf-inline-field rw-phrasing">
               <span className="rf-inline-label">phrasing</span>
@@ -1750,34 +1761,39 @@ function BulletRow({
             </label>
           )}
           {!included && variants.length > 0 && (
-            <span className="rf-badge">{variants.length} fork{variants.length === 1 ? '' : 's'}</span>
+            <Tag>
+              {variants.length} fork{variants.length === 1 ? '' : 's'}
+            </Tag>
           )}
           {included && !editing && (
             <>
-              <button type="button" className="admin-link-subtle rw-bullet-action" onClick={onStartEdit}>
-                <PenLine size={12} aria-hidden="true" /> reword
-              </button>
-              <button
-                type="button"
-                className="admin-link-subtle rw-bullet-action"
+              <Button variant="text" size="sm" className="rw-bullet-action" onClick={onStartEdit}>
+                <PenLine size={12} aria-hidden="true" /> Reword
+              </Button>
+              <Button
+                variant="text"
+                size="sm"
+                className="rw-bullet-action"
                 onClick={onFork}
                 title="Copy this phrasing into a new variant only this version uses"
               >
-                <GitBranch size={12} aria-hidden="true" /> fork
-              </button>
+                <GitBranch size={12} aria-hidden="true" /> Fork
+              </Button>
             </>
           )}
           {!editing && onPatchHighlight && (
-            <button
-              type="button"
-              className={`admin-link-subtle rw-bullet-action${showOptions ? ' is-open' : ''}`}
+            <Button
+              variant="text"
+              size="sm"
+              on={showOptions}
+              className="rw-bullet-action"
               onClick={() => setShowOptions((v) => !v)}
               aria-expanded={showOptions}
               title="Featured, metric, visibility, and tags for this bullet"
             >
               {showOptions ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}{' '}
-              options
-            </button>
+              Options
+            </Button>
           )}
           {othersOnBullet.length > 0 && (
             <span className="rf-usage" title={`Also shown on: ${othersOnBullet.map((u) => u.label).join(', ')}`}>
@@ -1850,26 +1866,26 @@ function BulletRow({
 
       {included && onMove && (
         <div className="rf-controls rw-bullet-order">
-          <button
-            type="button"
-            className="rf-icon-btn"
+          <Button
+            size="sm"
+            variant="icon"
             onClick={() => onMove(-1)}
             disabled={pos === 0}
             aria-label="Move bullet up"
             title="Move up"
           >
-            <ChevronUp size={15} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="rf-icon-btn"
+            <ChevronUp size={14} aria-hidden="true" />
+          </Button>
+          <Button
+            size="sm"
+            variant="icon"
             onClick={() => onMove(1)}
             disabled={pos === lastPos}
             aria-label="Move bullet down"
             title="Move down"
           >
-            <ChevronDown size={15} aria-hidden="true" />
-          </button>
+            <ChevronDown size={14} aria-hidden="true" />
+          </Button>
         </div>
       )}
     </li>

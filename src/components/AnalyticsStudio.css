@@ -1,7 +1,9 @@
 /* Analytics studio — admin-only, so it composes with adminShell/StudioPane.
-   Same vocabulary as StateStats/ListeningStats: flat and ruled, serif numbers
-   in the accent, mono small-caps labels, single-hue marks, square corners.
-   Tokens only — the sky theme recomputes the palette hourly. */
+   Set in the kit (controls.css, Figures.css): Segmented keys for the
+   sections, the window and every chart's mode, a Figures band for the
+   numbers, a SectionHead over each chart, Buttons for the sync, and labels in
+   the eyebrow voice. Single-hue marks, square corners, tokens only — the sky
+   theme recomputes the palette hourly. */
 
 .an {
   display: flex;
@@ -12,28 +14,29 @@
 
 .an-loading,
 .an-empty {
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   font-style: italic;
   margin: 0;
 }
 
 /* ---- sync strip --------------------------------------------------- */
 
+/* A line of status between two hairlines, as a sheet header sits: no box and
+   no fill, the Buttons at its right. */
 .an-strip {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--rule);
-  background: var(--surface-deep);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule-soft);
 }
 
 .an-strip-label {
-  font-family: var(--mono-ui);
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
+  font-family: var(--sans);
   font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-muted);
 }
 
@@ -80,79 +83,27 @@
   }
 }
 
-.an-strip-cancel,
-.an-strip-rebuild,
-.an-strip-export {
-  font-family: var(--mono-ui);
-  font-variant: all-small-caps;
-  letter-spacing: 0.12em;
-  font-size: var(--text-xs);
-  background: transparent;
-  border: 1px solid var(--rule);
-  color: var(--ink-muted);
-  padding: 0.25rem 0.6rem;
-  cursor: pointer;
-}
+/* ---- first run / atmosphere --------------------------------------- */
 
-.an-strip-cancel:hover,
-.an-strip-rebuild:hover,
-.an-strip-export:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-/* ---- first run / atmosphere hero ---------------------------------- */
-
-.an-hero {
-  border: 1px solid var(--rule);
-  padding: var(--space-6);
+/* What to do before there is anything to chart: a section head, the why, and
+   the view's one primary. No box around it. */
+.an-first {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   max-width: 44rem;
 }
 
-.an-hero-glyph {
-  color: var(--accent);
-}
-
-.an-hero-title {
-  font-family: var(--serif);
-  font-size: var(--text-xl);
-  margin: var(--space-2) 0;
-  color: var(--ink);
+.an-first > .section-head {
+  margin-bottom: 0;
 }
 
 .an-hero-body {
   color: var(--ink-soft);
-  margin: 0 0 var(--space-4);
+  margin: 0;
 }
 
-/* ---- tabs + filters ----------------------------------------------- */
-
-.an-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--rule);
-}
-
-.an-tab {
-  font-family: var(--serif);
-  font-size: var(--text-base);
-  padding: var(--space-2) var(--space-4);
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  color: var(--ink-muted);
-  cursor: pointer;
-}
-
-.an-tab:hover {
-  color: var(--ink);
-}
-
-.an-tab.is-active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
+/* ---- sections and filters ----------------------------------------- */
 
 .an-filters {
   display: flex;
@@ -160,42 +111,7 @@
   gap: var(--space-2) var(--space-5);
 }
 
-.an-chiprow {
-  display: inline-flex;
-  border: 1px solid var(--rule);
-}
-
-.an-chip {
-  font-family: var(--mono-ui);
-  font-variant: all-small-caps;
-  letter-spacing: 0.1em;
-  font-size: var(--text-xs);
-  padding: 0.3rem 0.7rem;
-  background: transparent;
-  border: 0;
-  color: var(--ink-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.an-chip + .an-chip {
-  border-left: 1px solid var(--rule);
-}
-
-.an-chip:hover {
-  color: var(--ink);
-}
-
-.an-chip.is-active {
-  background: var(--accent);
-  color: var(--page);
-}
-
-.an-chiprow-tight .an-chip {
-  padding: 0.2rem 0.55rem;
-}
-
-/* ---- panels, cards, tiles ----------------------------------------- */
+/* ---- panels, figures, charts --------------------------------------- */
 
 .an-panel {
   display: flex;
@@ -204,115 +120,53 @@
   min-width: 0;
 }
 
-.an-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
-  gap: 1px;
-  background: var(--rule);
-  border: 1px solid var(--rule);
+/* The panel's gap spaces the band; Figures' own page-level margin would add
+   to it. */
+.an .an-figures {
+  margin-bottom: 0;
 }
 
-.an-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-  padding: var(--space-4) var(--space-2);
-  background: var(--page);
-  text-align: center;
-  min-width: 0;
-}
-
-.an-tile-value {
-  font-family: var(--serif);
-  font-size: var(--text-2xl);
-  line-height: 1;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.an-tile-inline-unit {
+/* "%" after a share, a step down from the numeral it qualifies. */
+.an-fig-unit {
   font-size: var(--text-base);
-  color: var(--accent-soft);
+  color: var(--ink-muted);
   margin-left: 0.1em;
 }
 
-.an-tile-label {
-  font-family: var(--mono-ui);
-  font-variant: all-small-caps;
-  letter-spacing: 0.1em;
-  font-size: var(--text-xs);
-  color: var(--ink-muted);
-}
-
-.an-tile-delta {
-  font-family: var(--mono);
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
+/* The change against the previous window, in the note under its figure:
+   upright, so it reads as a number rather than as the note's prose. */
+.an-fig-delta {
+  font-style: normal;
   font-variant-numeric: tabular-nums;
 }
 
-/* A qualifying footnote under a tile's label — e.g. the Followers tile
-   naming Bluesky's own (higher) profile counter so the two numbers can
-   disagree in the open. The full why lives in the panel's an-note. */
-.an-tile-sub {
-  font-family: var(--mono);
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.an-tile-delta.is-up {
+.an-fig-delta.is-up {
   color: var(--accent);
 }
 
-.an-tile-delta.is-down {
+.an-fig-delta.is-down {
   color: var(--tan);
 }
 
+/* A chart and the SectionHead over it. No box: the head's hairline is the
+   chart's top edge, as on /logging's "Recent state". */
 .an-card {
-  border: 1px solid var(--rule-soft);
-  padding: var(--space-4);
   min-width: 0;
 }
 
-.an-card-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
-  margin-bottom: var(--space-3);
-}
-
-.an-card-title {
-  display: flex;
-  align-items: center;
-  gap: 0.45em;
-  font-family: var(--mono-ui);
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-  margin: 0;
-}
-
-.an-card > .an-card-title {
-  margin-bottom: var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--rule-soft);
-}
-
+/* Inline with the heading's words: the site's svg reset makes an icon a
+   block, which put the glyph on a line of its own above the title. */
 .an-card-glyph {
+  display: inline-block;
   color: var(--accent);
-  flex: 0 0 auto;
+  margin-right: 0.4em;
+  vertical-align: -0.12em;
 }
 
 .an-card-caption,
 .an-note {
   font-size: var(--text-sm);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   margin: var(--space-3) 0 0;
   max-width: 60ch;
 }
@@ -332,9 +186,9 @@
   justify-content: flex-end;
   gap: var(--space-3);
   margin-bottom: var(--space-1);
-  font-family: var(--mono-ui);
+  font-family: var(--sans);
   font-variant: all-small-caps;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   font-size: var(--text-xs);
   color: var(--ink-muted);
 }
@@ -372,9 +226,10 @@
   stroke-width: 1;
 }
 
+/* SVG text at the site's 11px floor (--text-2xs). */
 .an-chart-ylabel {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   fill: var(--ink-faint);
 }
 
@@ -441,7 +296,7 @@
 
 .an-chart-trendlabel {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   fill: var(--tan);
 }
 
@@ -466,7 +321,7 @@
 
 .an-chart-ghost-label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   fill: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -540,11 +395,11 @@
 }
 
 .an-tableview summary {
-  font-family: var(--mono-ui);
+  font-family: var(--sans);
   font-variant: all-small-caps;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   font-size: var(--text-xs);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   cursor: pointer;
   width: max-content;
 }
@@ -576,7 +431,7 @@
 }
 
 .an-tableview thead th {
-  font-family: var(--mono-ui);
+  font-family: var(--sans);
   font-variant: all-small-caps;
   letter-spacing: 0.1em;
   font-size: var(--text-xs);
@@ -691,9 +546,10 @@
   color: var(--accent-soft);
 }
 
+/* A kind with nothing in it: the faint ink, at full opacity, so the zero stays
+   above the contrast floor. */
 .an-kindcount.is-dim {
   color: var(--ink-faint);
-  opacity: 0.55;
 }
 
 /* ---- people + collections ----------------------------------------- */
@@ -800,10 +656,6 @@
 /* ---- responsive --------------------------------------------------- */
 
 @media (max-width: 700px) {
-  .an-tile-value {
-    font-size: var(--text-xl);
-  }
-
   .an-actor {
     grid-template-columns: auto minmax(6rem, 1fr) 2.6rem;
   }

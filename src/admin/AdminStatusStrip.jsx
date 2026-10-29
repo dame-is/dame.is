@@ -17,7 +17,8 @@
 // renders this file's `StatusMessage` with this file's classes, so the dirty
 // sentence is defined exactly once.
 //
-// **Save is a plain `<button type="button" onClick>` rendered outside
+// **Save is a plain `<button type="button" onClick>` (the kit's Button, which
+// renders exactly that) rendered outside
 // `.blocks-editor`, and must stay that way.** BlocksEditor's outside-press
 // dismisser runs on capture-phase `click` with a `flushSync`, so a markdown
 // block is resolved to real blocks BEFORE this handler reads the value. Wiring
@@ -26,6 +27,7 @@
 // source.
 
 import { Save, Trash2 } from 'lucide-react';
+import Button from '../components/Button.jsx';
 import { useAdminShell } from './useAdminShell.jsx';
 
 /**
@@ -110,24 +112,16 @@ export default function AdminStatusStrip() {
 
       {actions && (
         <div className="wb-strip-actions">
+          {/* The kit's tiers (controls.css): Delete is the quiet danger
+              button, Save the view's one primary. */}
           {actions.canDelete && (
-            <button
-              type="button"
-              className="admin-gate-button admin-gate-button-tight admin-danger"
-              onClick={() => actions.remove?.()}
-              disabled={busy}
-            >
-              <Trash2 size={15} aria-hidden="true" />
+            <Button size="sm" variant="danger" onClick={() => actions.remove?.()} disabled={busy}>
+              <Trash2 size={14} strokeWidth={1.5} aria-hidden="true" />
               <span>{actions.deleting ? 'Deleting…' : 'Delete'}</span>
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="admin-gate-button admin-gate-button-tight"
-            onClick={() => actions.save?.()}
-            disabled={busy}
-          >
-            <Save size={15} aria-hidden="true" />
+          <Button size="sm" variant="primary" onClick={() => actions.save?.()} disabled={busy}>
+            <Save size={14} strokeWidth={1.5} aria-hidden="true" />
             <span>
               {actions.saving
                 ? actions.isNew
@@ -137,7 +131,7 @@ export default function AdminStatusStrip() {
                   ? 'Create'
                   : 'Save'}
             </span>
-          </button>
+          </Button>
         </div>
       )}
     </div>

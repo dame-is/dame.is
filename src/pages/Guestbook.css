@@ -222,19 +222,6 @@
   margin-bottom: 0;
 }
 
-/* Kept for the admin moderation desk, which still heads its list this way. */
-.guestbook-entries-heading {
-  font-family: var(--sans);
-  /* A section label, sized like the site's other small-caps labels (résumé
-     sections, the explorer's) rather than the global 28px h2 it would
-     otherwise inherit. Stays an <h2> for the outline. */
-  font-size: var(--text-sm);
-  font-weight: 400;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
-  margin: 0 0 var(--space-4);
-}
-
 /* The book's error state reads as prose here, so keep it on the left margin
    instead of the feed's centered treatment. */
 .guestbook-entries .feed-empty {
