@@ -180,7 +180,8 @@ html {
      ink so the paper feel reads without competing with the text. The
      trailing `border-bottom` guarantees a closing rule under the last
      row regardless of whether the box height is an exact multiple of
-     the line-height. */
+     the line-height, and the gradient stops a pixel short so it doesn't
+     also draw that row's rule, which doubled it. */
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0,
@@ -188,6 +189,8 @@ html {
     color-mix(in srgb, var(--ink) 14%, transparent) calc(1.1em - 1px),
     color-mix(in srgb, var(--ink) 14%, transparent) 1.1em
   );
+  background-size: 100% calc(100% - 1px);
+  background-repeat: no-repeat;
   border-bottom: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
 }
 

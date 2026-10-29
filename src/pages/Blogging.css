@@ -620,6 +620,10 @@
     color-mix(in srgb, var(--ink) 14%, transparent) calc(1.2em - 1px),
     color-mix(in srgb, var(--ink) 14%, transparent) 1.2em
   );
+  /* The gradient stops a pixel short, so the last line's rule is the border
+     alone; drawn under it as well, the two read as one rule twice as thick. */
+  background-size: 100% calc(100% - 1px);
+  background-repeat: no-repeat;
   border-bottom: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
   text-wrap: balance;
 }
