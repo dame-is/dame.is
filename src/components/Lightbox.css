@@ -28,7 +28,7 @@
   padding-bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px) + var(--space-3));
 }
 
-@media (max-width: 540px) {
+@media (max-width: 700px) {
   .modal-variant-centered:has(.lightbox-panel) {
     padding: var(--space-1, 4px);
     padding-bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px) + var(--space-2));

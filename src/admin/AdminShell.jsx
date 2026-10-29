@@ -8,11 +8,11 @@
 //
 // THE FRAME WEARS ONE OF TWO CHROMES, and which one is the whole of `stacked`:
 //
-//   own   (above 60rem)  `.wb-top` + `.wb-shell`. The admin takes the viewport,
+//   own   (above 62rem)  `.wb-top` + `.wb-shell`. The admin takes the viewport,
 //                        App.jsx withholds ChromeBar, and the workbench draws
 //                        its own top bar because three panes want the width and
 //                        the breadcrumb has nowhere else to live.
-//   site  (below 60rem)  `.wb-shell` alone, sitting between ChromeBar's two
+//   site  (below 62rem)  `.wb-shell` alone, sitting between ChromeBar's two
 //                        bars. There is one column either way at this width, so
 //                        the admin gains nothing by owning the frame — and it
 //                        loses the site's hour, theme and home controls, and

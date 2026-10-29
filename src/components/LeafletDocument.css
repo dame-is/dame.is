@@ -107,6 +107,79 @@
   font-style: italic;
   font-weight: 500;
 }
+
+/* A long piece's contents (LeafletDocument `contents`): one wrapping line of
+   numbered section titles between hairlines, just before the first section,
+   so a 14,000px data essay says what it holds before the reader commits to
+   the scroll (COL-13). */
+.leaflet-contents {
+  margin: var(--space-6) 0 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.leaflet-doc p.leaflet-contents-label {
+  margin: 0 0 var(--space-2);
+  text-indent: 0;
+}
+
+.leaflet-contents-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+}
+
+.leaflet-contents-list a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.leaflet-contents-list a:focus-visible {
+  color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .leaflet-contents-list a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+    text-underline-offset: 3px;
+  }
+}
+
+/* The section's number, the same in the contents and on its head: an
+   oldstyle figure in the accent, a quiet ordinal rather than a label. */
+.leaflet-contents-num,
+.leaflet-section-num {
+  font-variant-numeric: oldstyle-nums;
+  font-weight: 400;
+  color: var(--accent);
+}
+
+.leaflet-section-num {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-right: 0.3em;
+}
+
+/* Where a piece's figures break out of the measure, its section heads come
+   out with them, to the frame the charts are drawn on, so a title sits over
+   the figure it names instead of 200px inside it. Its rule spans that frame
+   too, as a part divider. The pull is the figures' own (RatioedBlock.css), so
+   on a phone, or in an essay hung from the left, nothing moves. */
+.leaflet-doc-sectioned:has(> .ratioed:not(.ratioed-hidden), > .leaflet-gallery[data-layout='justified'])
+  > .leaflet-heading[data-section] {
+  margin-inline-start: calc(-1 * var(--doc-overhang-start, var(--doc-overhang, 0px)));
+  margin-inline-end: calc(-1 * var(--doc-overhang-end, var(--doc-overhang, 0px)));
+}
 .leaflet-heading-4 {
   font-size: 1em;
   font-weight: 600;
@@ -386,7 +459,7 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   color: var(--ink-muted);
 }
 
-@media (max-width: 34rem) {
+@media (max-width: 700px) {
   .leaflet-gallery[data-layout="justified"] {
     --row-h: 8rem;
   }
@@ -410,7 +483,7 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   scroll-snap-align: start;
 }
 
-@media (max-width: 34rem) {
+@media (max-width: 700px) {
   /* Column counts are deliberately NOT collapsed here — see the note above.
      Only the gap tightens, so three or four across stays legible on a phone
      instead of losing most of each frame to gutters. */

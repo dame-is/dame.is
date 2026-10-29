@@ -16,6 +16,7 @@ import { verbIndexIntro } from '../lib/recordPlate.js';
 import Lightbox from '../components/Lightbox.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
+import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import {
   readFeedCache,
@@ -926,6 +927,9 @@ export default function Home({ verb: presetVerb = null } = {}) {
         src: large,
         thumb: photoUrl(photo, 'medium'),
         alt: sci && sci !== name ? `${name} — ${sci}` : name,
+        caption: name,
+        credit: sci && sci !== name ? sci : undefined,
+        recordHref: recordPathFromAtUri(item.atUri) || undefined,
       });
     }
     return { images, indexByUri };

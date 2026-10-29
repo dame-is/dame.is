@@ -11,6 +11,9 @@ export const ME_HANDLE = 'dame.is';
 // moment (`new Date(BIRTHDATE)`) it lands on May 6 anywhere west of UTC.
 export const BIRTHDATE = '1993-05-07';
 export const GITHUB_REPO = 'dame-is/dame.is';
+// The essay that says why Dame is looking for work and what for. /available,
+// the hiring page, links to it from its margin; the essay links back.
+export const HIRING_ESSAY_PATH = '/blogging/3mqrsdovjjf2d';
 export const APPVIEW = 'https://public.api.bsky.app';
 export const PLC_DIRECTORY = 'https://plc.directory';
 // Where the ATProto OAuth flow lands on the way back. Registered as the

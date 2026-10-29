@@ -19,7 +19,7 @@
   padding: var(--space-4);
 }
 
-@media (max-width: 540px) {
+@media (max-width: 700px) {
   /* Phones: drop the gutter from 16px to 8px so panels can grow
      closer to the screen edges. */
   .modal-variant-centered {
@@ -116,7 +116,7 @@
   max-height: calc(100dvh - 2 * var(--space-4));
 }
 
-@media (max-width: 540px) {
+@media (max-width: 700px) {
   .modal-variant-centered .modal-panel {
     max-height: calc(100dvh - 2 * var(--space-2));
   }

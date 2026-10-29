@@ -869,7 +869,7 @@
   height: 1.5rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .skeleton-resume-skill-group {
     grid-template-columns: 1fr;
     gap: var(--space-1);

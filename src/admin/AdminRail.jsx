@@ -352,7 +352,7 @@ export default function AdminRail() {
     };
   }, [stacked, current.key]);
 
-  // Nothing at all below 60rem — the bottom bar and its sheet are the phone's
+  // Nothing at all below 62rem — the bottom bar and its sheet are the phone's
   // navigation. Rendered after the hooks, never before them.
   if (stacked) return null;
 

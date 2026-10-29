@@ -178,7 +178,7 @@ export default function CreatingWork() {
           <p className="page-intro">{v.summary}</p>
         )}
         {v?.content?.pages ? (
-          <LeafletDocument doc={v.content} />
+          <LeafletDocument doc={v.content} contents />
         ) : (
           <>
             {Array.isArray(v?.media) && v.media.length > 0 && (

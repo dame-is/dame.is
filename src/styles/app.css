@@ -65,6 +65,7 @@ html {
   input,
   textarea,
   select {
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- iOS zooms into any field set under 16px, whatever the scale says */
     font-size: 16px !important;
   }
 }

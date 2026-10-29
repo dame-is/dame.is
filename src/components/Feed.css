@@ -86,7 +86,7 @@
   position: relative;
   cursor: pointer;
   padding-left: calc(var(--space-5) + 4px);
-  border-radius: 4px;
+  border-radius: var(--radius-1);
   transition: background 120ms ease;
 }
 
@@ -108,7 +108,7 @@
   width: 1rem;
   height: 1rem;
   border: 1px solid var(--accent-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-1);
   background: var(--page);
   color: var(--page);
 }
@@ -530,7 +530,7 @@ a.post-card-author-link:focus-visible {
   width: 0.95rem;
   height: 0.95rem;
   border: 1px solid var(--accent-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-1);
   background: var(--page);
   color: var(--page);
 }
@@ -544,7 +544,7 @@ a.post-card-author-link:focus-visible {
   width: 0.5rem;
   height: 2px;
   background: var(--accent);
-  border-radius: 1px;
+  border-radius: var(--radius-1);
 }
 
 .listen-row-child {
@@ -560,7 +560,7 @@ a.post-card-author-link:focus-visible {
 
 .listen-row-selectable .listen-row-child {
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-1);
 }
 
 .listen-row-child.is-selected {
@@ -2567,20 +2567,22 @@ a.ledger-time:focus-visible {
   margin-top: var(--space-3);
 }
 
-/* Pictures share the 26rem measure of the quote box and link card below, so
-   a post's embeds end on one right edge (and fill a phone's column). */
+/* Pictures, link cards and quote boxes all run to the body's own right
+   edge, the text measure, so a row's text and what it shares end on one
+   line instead of three (LAY-04). On a phone that edge is the column's. */
 .ledger-embed .post-embed-images {
   gap: var(--space-1);
-  max-width: 26rem;
 }
 
 /* A lone image sizes its frame from --embed-image-max-h (see PostEmbed.css).
    In the ledger the picture fills the measure at its true ratio, uncropped.
    The height cap is four thirds of the width (the percentage resolves
    against the measure), so a phone's 3:4 portrait still fills it and only a
-   taller picture, a screenshot say, comes out narrower. */
+   taller picture, a screenshot say, comes out narrower. At a desk's measure
+   that would let a portrait stand nearly 800px tall, so the height also stops
+   at 32rem there, about a screen's worth less the chrome. */
 .ledger-embed .post-embed-images[data-count='1'] {
-  --embed-image-max-h: calc(100% * 4 / 3);
+  --embed-image-max-h: min(calc(100% * 4 / 3), 32rem);
 }
 
 /* A picture whose record has no ratio is capped by height alone, where a
@@ -2611,7 +2613,6 @@ a.ledger-time:focus-visible {
   grid-template-columns: minmax(0, 3.75rem) 1fr;
   gap: var(--space-2);
   padding: var(--space-2);
-  max-width: 26rem;
 }
 
 .ledger-embed .post-embed-link-card-thumb img {
@@ -2633,7 +2634,6 @@ a.ledger-time:focus-visible {
 .ledger-embed .post-embed-quote {
   gap: var(--space-1);
   padding: var(--space-2);
-  max-width: 26rem;
 }
 
 .ledger-embed .post-embed-quote-avatar {
@@ -2724,7 +2724,7 @@ a.ledger-time:focus-visible {
   padding-top: 0.1rem;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   /* Narrower label columns give the content column the extra width. The
      labels keep the one --text-meta size: they used to step down to 9.6px
      here to fit, which is under any reading floor. */
@@ -2732,10 +2732,6 @@ a.ledger-time:focus-visible {
     --ledger-verb-col: 5rem;
     --ledger-time-col: 3.5rem;
     --ledger-col-gap: var(--space-2);
-  }
-
-  .feed-ledger .day-header {
-    font-size: 1.0625rem;
   }
 
   /* Side by side, a collapsed run leaves the species line about twenty
@@ -2856,7 +2852,7 @@ a.ledger-time:focus-visible {
    page prints no gerund, so its caption is the time, unless the row is an
    exception ("replying · 3:17 pm"). X-ray keeps its own placement of these
    cells (Xray.css), so the column applies only while it's off. */
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger {
     grid-template-columns: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
@@ -2925,6 +2921,84 @@ a.ledger-time:focus-visible {
     .feed-item-ledger
     > .ledger-track-row {
     grid-column: 2;
+  }
+}
+
+/* On a desk the same feed pages set the gerund and the time as one margin
+   note: the gerund on the record's first line, the time under it, both in
+   the left column, like a date pencilled beside an entry. The time used to
+   stand alone at the row's far right, 200–480px from what it dated (LAY-04,
+   FEED-07). The record keeps the measure, so the right margin is left clear.
+
+   The body spans both of the note's rows, and the second is `1fr`: a grid
+   gives a spanning item's extra height to the flexible track it crosses, so
+   the first row stays one label tall and the time sits directly under the
+   gerund however long the post runs. A row with no gerund (a single-kind
+   page's ordinary row) prints the time on the first line instead. Counts,
+   an open session's songs and a night's sightings follow under the body. */
+@media (min-width: 701px) {
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger {
+    grid-template-columns: var(--ledger-verb-col) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-verb {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-body {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  /* The note's two lines sit at the labels' own tight leading, so the time
+     reads as the gerund's second line rather than a separate cell. */
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > :is(.ledger-verb, .ledger-time) {
+    line-height: var(--leading-tight);
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-time {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    justify-self: start;
+    text-align: left;
+  }
+
+  :root:not([data-xray='on'])
+    .feed-ledger-column
+    .feed-item-ledger:has(> .ledger-verb:empty)
+    > .ledger-time {
+    grid-row: 1;
+    align-self: baseline;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-track-row {
+    grid-column: 2;
+    max-width: var(--measure);
+  }
+
+  /* /listening's margin is the session's cover, too narrow for a time, so
+     there the time closes the song line as it does on a phone. */
+  :root:not([data-xray='on']) .feed-ledger-covers.feed-ledger-column .feed-item-ledger {
+    grid-template-rows: auto auto;
+    row-gap: var(--space-1);
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-covers.feed-ledger-column .feed-item-ledger > .ledger-verb {
+    grid-row: 1 / span 2;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-covers.feed-ledger-column .feed-item-ledger > .ledger-body {
+    grid-row: 1;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-covers.feed-ledger-column .feed-item-ledger > .ledger-time {
+    grid-column: 2;
+    grid-row: 2;
+    padding-top: 0;
+    margin-top: 0;
   }
 }
 

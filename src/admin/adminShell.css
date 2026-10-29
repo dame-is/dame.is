@@ -781,7 +781,7 @@
 /* ------------------------------------------------------------------ */
 
 /* First child of `.wb-pane-detail`, DESKTOP ONLY — AdminStatusStrip renders null
-   below 60rem, where the action bar carries the same sentence and the same Save.
+   below 62rem, where the action bar carries the same sentence and the same Save.
 
    `top: 0`, and that zero is load-bearing. The offset here used to be
    `calc(var(--chrome-top-h, var(--chrome-h)) + var(--space-3))`, both terms
@@ -878,10 +878,10 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Stacked (drill-down) — 60rem / 960px                                 */
+/* Stacked (drill-down) — 62rem / 992px                                 */
 /* ------------------------------------------------------------------ */
 
-/* Deliberately catches tablets: between 701px and 960px a 13.5rem rail plus a
+/* Deliberately catches tablets: between 701px and 992px a 13.5rem rail plus a
    23rem list column leaves the detail pane under 20rem wide, which is unusable
    for the blocks editor. Pane-internal reflow is a CONTAINER query against
    `wbpane` and is independent of this breakpoint — that is the point.
@@ -898,7 +898,7 @@
    the rest of the actions as two panels of it (AdminChromePanels.jsx). See
    docs/admin-mobile-design.md §2, and the frame-mode block near the top of this
    file for the geometry. */
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   /* One column, one row: the visible pane takes everything between the two bars.
      `minmax(0, 1fr)` rather than `1fr` so the pane may shrink below its content
      and scroll, instead of growing the frame.

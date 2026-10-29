@@ -21,7 +21,7 @@
   color: var(--ink-faint);
 }
 
-@media (max-width: 400px) {
+@media (max-width: 380px) {
   .filter-meta-defaults {
     display: none;
   }

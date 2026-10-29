@@ -360,7 +360,7 @@
   margin-bottom: var(--space-2);
 }
 
-@media (max-width: 540px) {
+@media (max-width: 700px) {
   /* Tighten the sheet's top padding on phones and give routes a slightly
      taller tap target. Horizontal padding stays locked to --chrome-pad-x
      (which is --space-4 at this width) so the menu items keep aligning

@@ -228,7 +228,7 @@
 /* Counts, as a scanline                                                */
 /* ------------------------------------------------------------------ */
 
-/* What the counts row becomes below 60rem. FrontDesk renders EITHER this or
+/* What the counts row becomes below 62rem. FrontDesk renders EITHER this or
    `.fd-counts`, never both, so these rules live here rather than in the stacked
    block at the foot — the element does not exist above the breakpoint.
 
@@ -710,7 +710,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Stacked (drill-down) — 60rem / 960px                                 */
+/* Stacked (drill-down) — 62rem / 992px                                 */
 /* ------------------------------------------------------------------ */
 
 /* Nothing in here sheds CONTENT any more, which is the other half of why the
@@ -723,7 +723,7 @@
    needs, which is as true at 768 as at 390; the touch floors are in their own
    block after this one, and the two rules that really are about a phone are
    behind a phone-sized query after that. */
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   /* Needs you first, then Latest records — both are order 0 and first in the
      DOM, so the single column already puts them ahead of the counts scanline
      (`order: 1`) and the surfaces door (`order: 2`). */
@@ -784,7 +784,7 @@
    later sibling wins the tap, which is exactly how the old chip row let 14 of
    19 adjacent pairs steal each other's taps. A control that can simply be 44px
    tall should be 44px tall. */
-@media (max-width: 60rem), (pointer: coarse) {
+@media (max-width: 61.99rem), (pointer: coarse) {
   .fd-action,
   .fd-need-link,
   .fd-surface-link {
@@ -799,22 +799,22 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Phone only — 30rem / 480px                                           */
+/* Phone only — 700px                                                  */
 /* ------------------------------------------------------------------ */
 
 /* Two rules that are about a PHONE rather than about the stacked breakpoint,
    and are therefore behind a phone-sized query. Everything else that used to
-   fire at 60rem — hiding the surface blurbs, the "Open →" marks, the "no
+   fire at 62rem — hiding the surface blurbs, the "Open →" marks, the "no
    records yet" — was written about a 390px phone and fired on a 768px tablet
    with a 676px pane; those are gone rather than moved, because the grid they
    styled is not rendered when stacked at all.
 
    The rkey one survives because it is true: the rkey track is a fixed 14ch,
    which is a third of a 358px row, and a title squeezed into what is left wraps
-   to three lines. Above 480px there is room for all four columns and they stay.
+   to three lines. Above 700px there is room for all four columns and they stay.
    The label, the surface and the time are what identify a row on a phone; the
    rkey is one tap away on the record itself. */
-@media (max-width: 30rem) {
+@media (max-width: 700px) {
   .fd .admin-record-list {
     grid-template-columns: minmax(0, 1fr) max-content max-content;
   }
@@ -828,7 +828,7 @@
      three lines while the verb keeps its own, and `margin-left: auto` collapses
      to the flex gap, so the row reads "3 page records" → "REVIEW THE RECORDS →"
      → "the site never reads" with ~54px of empty space under the verb. Stacked
-     it reads in order. Above 480px the row is wide enough for both on one line
+     it reads in order. Above 700px the row is wide enough for both on one line
      — and where the label still wraps, `last baseline` above keeps the verb
      beside its last line rather than its first. No row gap: a serif sentence
      over a small-caps verb is already two voices, and a phone screen is not

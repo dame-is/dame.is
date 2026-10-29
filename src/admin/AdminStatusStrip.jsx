@@ -8,7 +8,7 @@
 // It is the FIRST CHILD of `.wb-pane-detail`, never a grid sibling of the panes,
 // and on DESKTOP it pins to the top of that scrollport.
 //
-// **It renders nothing below 60rem.** The phone's status and its Save live in
+// **It renders nothing below 62rem.** The phone's status and its Save live in
 // the site's bottom bar, published there by AdminChromePanels.jsx — a fixed bar
 // outside the frame rather than a sticky box inside a scrollport. Being sticky
 // is what put this strip 64px above the bottom of the frame with live form

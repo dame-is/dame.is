@@ -93,7 +93,7 @@
 }
 /* Painted to 44px on a touch screen rather than grown with `.wb-hit`: on a
    phone this pair IS the hour picker (the 24-cell arc is gated out below
-   60rem), so the target has to be visible, not just present. Two `.wb-hit`
+   62rem), so the target has to be visible, not just present. Two `.wb-hit`
    pseudo-boxes 12px apart would also overlap by 4px and the later sibling would
    take both taps. */
 .sky-step {
@@ -617,13 +617,13 @@
 }
 
 /* The hour bar reflows on the pane too, now that it is inside it. The old rule
-   here was a viewport `@media (max-width: 560px)` that made the 24 arc cells
+   here was a viewport `@media (max-width: 700px)` that made the 24 arc cells
    SHORTER on a phone — 26px down to 22px, i.e. the one width where the cells
    were already 13px wide got the smaller target. The arc is not rendered below
-   60rem at all any more (SkyThemeStudio.jsx swaps in the read-only swatch
+   62rem at all any more (SkyThemeStudio.jsx swaps in the read-only swatch
    strip), so what is left is the count, which has nothing to sit beside once
    the stepper has taken the row. */
-@container wbpane (max-width: 30rem) {
+@container wbpane (max-width: 700px) {
   .sky-hourbar-meta {
     display: none;
   }

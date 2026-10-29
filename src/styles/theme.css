@@ -80,6 +80,9 @@
      their on-screen size. 1 = no change — the default mono voice. */
   --mono-scale: 1;
 
+  /* Breakpoints can't be custom properties (a media query can't read one),
+     so the two the site uses live in stylelint.config.js, which says what
+     each is for and refuses any other: phone ≤ 700px, desk ≥ 62rem. */
   --measure: 65ch;
   /* Long-form's reading measure, in em of the body rather than ch of the
      zero: Crimson's zero is wide, so 65ch ran essays at about 85 characters

@@ -115,7 +115,7 @@ blockquote {
    labels, the filter index's group heads, a link card's host), with a size of
    its own since those have no other rule to set one.
 
-   The served Crimson Pro has no small-caps glyphs, so the browser draws these
+   Crimson Pro has no small-caps glyphs, even upstream, so the browser draws these
    by shrinking capitals. The design audit (c-11, TYP-05) proposes real
    capitals at an 11px floor, weight 500, tracked 0.1em instead. That switch
    is held back until Dame has seen it on real pages: about a hundred labels
@@ -242,11 +242,27 @@ blockquote {
 }
 
 /* An essay's opening line runs on from its initial in letterspaced small
-   caps, the book convention for where the text begins. The web subset of
-   Crimson Pro has no smcp, so these are synthesised and read a little light. */
+   caps, the book convention for where the text begins. Crimson Pro has no
+   smcp, so these are synthesised and read a little light. */
 .leaflet-doc > .first-paragraph::first-line {
   font-variant-caps: all-small-caps;
   letter-spacing: 0.04em;
+}
+
+/* Figures in running text are oldstyle, the book convention: "in November of
+   2007" sits on the x-height instead of standing as tall as the capitals. The
+   self-hosted Crimson Pro carries `onum`; Google's build didn't, which is why
+   this waited (TYP-06). Headings, tables, captions and code keep lining
+   figures, and the ledger, stat and time columns set their own tabular ones. */
+.leaflet-doc,
+.blog-prose,
+.about-longform {
+  font-variant-numeric: oldstyle-nums proportional-nums;
+}
+
+:is(.leaflet-doc, .blog-prose, .about-longform)
+  :is(h1, h2, h3, h4, h5, h6, table, figcaption, code, pre, .small-caps, .eyebrow) {
+  font-variant-numeric: lining-nums;
 }
 
 .hairline {

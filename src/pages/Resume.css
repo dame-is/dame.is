@@ -84,6 +84,118 @@
   display: none;
 }
 
+/* --- The hiring margin (Resume.jsx HiringMargin) ---------------------
+
+   On screen the header's contact line keeps the place and the inbox, and its
+   links move to the margin, where the site's own address is dropped: a
+   "Website" link to the page you are reading is only worth printing. Paper
+   keeps the whole line and never shows the margin. */
+@media screen {
+  .resume-contact li.resume-contact-link {
+    display: none;
+  }
+}
+
+.resume-margin .document-meta {
+  margin: 0;
+}
+
+/* A phone has no margin, so there the notes sit under the header as the
+   essays' colophon band does, and a note may wrap there. */
+.resume-margin .document-meta-value {
+  white-space: normal;
+}
+
+.resume-margin-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+}
+
+.resume-margin a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .resume-margin a:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+  }
+}
+
+/* On a desk the résumé hangs from the left edge at the measure, and the
+   notes take the room beside it, staying in view down the page, where the
+   right 390px used to stand empty (GAP-05, LAY-05). The column spans every
+   row the résumé can have; the rows carry their own gap so the empty ones
+   cost nothing. */
+@media (min-width: 62rem) {
+  .resume {
+    display: grid;
+    grid-template-columns: minmax(0, var(--measure)) minmax(14rem, 18rem);
+    column-gap: var(--space-7);
+    row-gap: 0;
+    max-width: none;
+    align-items: start;
+  }
+
+  .resume > * {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .resume > :not(:first-child, .resume-margin) {
+    margin-top: var(--space-6);
+  }
+
+  .resume > .resume-margin {
+    grid-column: 2;
+    grid-row: 1 / span 8;
+    align-self: stretch;
+  }
+
+  .resume-margin .document-meta {
+    position: sticky;
+    top: calc(var(--chrome-top-h, var(--chrome-h, 0px)) + var(--space-5));
+    padding-top: 0.35rem;
+  }
+
+  .resume-margin .document-meta,
+  .resume-margin .document-meta[data-columns] {
+    grid-template-columns: 1fr;
+    border-top: 0;
+    border-bottom: 0;
+  }
+
+  .resume-margin .document-meta-pair,
+  .resume-margin .document-meta-pair:first-child {
+    padding: var(--space-2) 0;
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+  }
+
+  .resume-margin .document-meta-pair:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  /* The essays' margin size (Blogging.css .blog-margin), relative to the
+     body it annotates. */
+  .resume-margin .document-meta-value {
+    font-size: 0.9375em;
+    line-height: 1.45;
+  }
+}
+
+@media print {
+  .resume-margin {
+    display: none;
+  }
+}
+
 /* --- Sections ------------------------------------------------------- */
 .resume-section {
   display: flex;
@@ -355,7 +467,7 @@
   max-width: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .resume-skill-group {
     grid-template-columns: 1fr;
     gap: var(--space-1);

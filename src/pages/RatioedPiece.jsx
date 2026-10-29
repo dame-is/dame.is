@@ -1084,7 +1084,7 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY, parent })
 
       {/* Four columns, and on a phone they become rows: the cells carry their
           own labels (see `data-label`) and the stylesheet re-lays them as a
-          block per account under 34rem. `.ratioed-piece-scroll` is the backstop
+          block per account at phone width. `.ratioed-piece-scroll` is the backstop
           for the widths in between.
 
           It was six. An "audience" column sat beside the reach one and printed

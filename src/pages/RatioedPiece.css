@@ -229,7 +229,7 @@
   overflow-x: auto;
 }
 
-@media (max-width: 34rem) {
+@media (max-width: 700px) {
   .ratioed-piece-hidden li { grid-template-columns: 1fr; gap: var(--space-1); }
   .ratioed-piece-kv { grid-template-columns: 1fr; }
   .ratioed-piece-kv dd { margin-bottom: var(--space-2); }

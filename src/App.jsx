@@ -93,6 +93,8 @@ const Admin = lazy(recoverable(() => import('./pages/Admin.jsx')));
 const OauthCallback = lazy(
   recoverable(() => import('./pages/OauthCallback.jsx')),
 );
+// Lazy and owner-only: the kit under four hours of sky.
+const Colophon = lazy(recoverable(() => import('./pages/Colophon.jsx')));
 // Lazy: the explorer transitively imports RecordEditor + @atproto/api.
 const Exploring = lazy(recoverable(() => import('./pages/Exploring.jsx')));
 // Lazy: the quick-edit sheet and the edit-mode bar are the owner's alone. See
@@ -327,7 +329,7 @@ export default function App() {
   // admin publishes its surface, its primary action and its state into the
   // bottom bar through AdminChromeProvider.
   //
-  // `useStackedViewport` duplicates the admin's 60rem query rather than
+  // `useStackedViewport` duplicates the admin's 62rem query rather than
   // importing it, and that is deliberate: importing the admin's copy would pull
   // the whole admin — and with it @atproto/api — into the eager bundle and undo
   // the `lazy()` above. The two must stay in step; useAdminChrome.jsx says so at
@@ -419,6 +421,7 @@ export default function App() {
                     element={<Navigate to={`/creating/${RATIOED_PATH}/participants`} replace />}
                   />
                   {generatedRecordRoutes()}
+                  <Route path="/colophon" element={<Colophon />} />
                   <Route
                     path="/admin"
                     element={

@@ -185,7 +185,8 @@
   text-wrap: balance;
 }
 
-.blog-margin .document-meta {
+.blog-margin .document-meta,
+.record-margin .document-meta {
   margin-top: 0;
 }
 
@@ -284,30 +285,30 @@
     max-width: 18rem;
     padding-top: 0.35rem;
   }
-  .blog-margin .document-meta,
-  .blog-margin .document-meta[data-columns] {
+  :is(.blog-margin, .record-margin) .document-meta,
+  :is(.blog-margin, .record-margin) .document-meta[data-columns] {
     grid-template-columns: 1fr;
     border-top: 0;
     border-bottom: 0;
   }
-  .blog-margin .document-meta-pair,
-  .blog-margin .document-meta-pair:first-child {
+  :is(.blog-margin, .record-margin) .document-meta-pair,
+  :is(.blog-margin, .record-margin) .document-meta-pair:first-child {
     padding: var(--space-2) 0;
     border-left: 0;
     border-top: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
   }
-  .blog-margin .document-meta-pair:first-child {
+  :is(.blog-margin, .record-margin) .document-meta-pair:first-child {
     border-top: 0;
     padding-top: 0;
   }
-  .blog-margin .document-meta-value {
+  :is(.blog-margin, .record-margin) .document-meta-value {
     font-size: 0.9375rem;
     line-height: 1.45;
   }
-  .blog-margin .document-meta-short {
+  :is(.blog-margin, .record-margin) .document-meta-short {
     display: none;
   }
-  .blog-margin .document-meta-long {
+  :is(.blog-margin, .record-margin) .document-meta-long {
     display: inline;
   }
   /* A link that hides its destination gets the host in the margin, level
@@ -441,7 +442,7 @@
 
    Note it's `font-variant`, not a hand-cased string: the words stay "Created"
    and "Elapsed" in the DOM, so what's announced is a heading, not shouting.
-   Crimson Pro's web subset carries no `smcp` table, so the browser synthesises
+   Crimson Pro carries no `smcp` table, so the browser synthesises
    these — as it does for every other small-caps label on the site, which is
    exactly why matching the declaration matters more than matching a pixel.
 
@@ -607,6 +608,54 @@
   width: 100%;
   max-width: var(--measure);
   margin-inline: 0;
+}
+
+/* The record's margin (Record.jsx .record-margin): what the record is rather
+   than what it says, set as the essay's colophon is (.blog-margin above):
+   how long ago it was written, its edition (the CID, with x-ray one tap
+   away) and its address. On a desk it stands beside the title in the room
+   the measure leaves on the right, and the address leaves the page's foot
+   for it; below 62rem there is no room, and the foot keeps the address. */
+.record-margin {
+  display: none;
+}
+
+@media (min-width: 62rem) {
+  .page:has(> .record-margin) {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, var(--measure)) minmax(14rem, 18rem);
+    column-gap: var(--space-7);
+    row-gap: var(--space-5);
+    align-items: start;
+  }
+  .page:has(> .record-margin) > * {
+    grid-column: 1;
+    min-width: 0;
+  }
+  .page:has(> .record-margin) > .record-margin {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 0.35rem;
+  }
+  .page:has(> .page-title + .record-page) > .record-margin {
+    grid-row: 1 / span 2;
+  }
+  .page:has(> .record-margin) .record-page-aturi {
+    display: none;
+  }
+  .record-margin .document-meta-address code {
+    font-family: var(--code);
+    font-size: 0.8em;
+    background: none;
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+  .record-margin .document-meta-address a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 .record-title {

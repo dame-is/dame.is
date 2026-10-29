@@ -7,7 +7,7 @@
   gap: 0.35rem;
   min-width: 0;
   font-family: var(--sans);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-variant: all-small-caps;
   letter-spacing: 0.1em;
   color: var(--ink-muted);

@@ -12,9 +12,12 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from '../src/App.jsx';
 import { applySkyTheme, easternHour } from '../src/lib/skyTheme.js';
+import { restoreLabelPreview } from '../src/lib/labelPreview.js';
+import '../src/styles/fonts.css';
 import '../src/styles/reset.css';
 import '../src/styles/theme.css';
 import '../src/styles/typography.css';
+import '../src/styles/controls.css';
 import '../src/styles/app.css';
 import '../src/styles/paper.css';
 
@@ -74,6 +77,8 @@ if (Number.isInteger(pinnedHour) && pinnedHour >= 0 && pinnedHour <= 23) {
 
 document.documentElement.setAttribute('data-theme', 'sky');
 applySkyTheme(hour);
+// The label-voice preview /colophon switches, as the real entry restores it.
+restoreLabelPreview();
 document.documentElement.setAttribute('data-paper', 'blank');
 document.documentElement.setAttribute('data-font', 'serif');
 

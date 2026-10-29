@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import { renderLeafletText } from '../lib/leafletRichText.jsx';
-import { countStraightMarks } from '../lib/smartPunctuation.js';
+import { countStraightMarks, smartenText } from '../lib/smartPunctuation.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { getPostThread } from '../lib/atproto.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
@@ -58,6 +58,39 @@ const RatioedBlockLazy = lazy(loadRatioedBlock);
 // at its own image. Null when a block is rendered outside a full document
 // (e.g. the admin block-editor preview) — there the image stays static.
 const LeafletLightboxContext = createContext(null);
+
+// A long document's sections (`contents` on LeafletDocument): each level-2
+// heading block mapped to its anchor id and number, and which one opens the
+// first section, where the contents row goes. Null when the document keeps
+// no contents.
+const LeafletSectionsContext = createContext(null);
+
+// Fewer sections than this and a contents row is longer than the walk.
+const CONTENTS_MIN_SECTIONS = 4;
+
+/** The document's sections: every level-2 heading, numbered from 1, with an
+ *  id that reads as its title and never repeats. */
+export function documentSections(pages) {
+  const byBlock = new Map();
+  const list = [];
+  const used = new Set();
+  for (const page of pages || []) {
+    for (const wrap of Array.isArray(page?.blocks) ? page.blocks : []) {
+      const block = wrap?.block;
+      if (block?.$type !== 'pub.leaflet.blocks.header' || clampLevel(block.level) !== 2) continue;
+      const text = (block.plaintext || '').trim();
+      if (!text) continue;
+      const base = `section-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || list.length + 1}`;
+      let id = base;
+      for (let n = 2; used.has(id); n += 1) id = `${base}-${n}`;
+      used.add(id);
+      const section = { id, text, number: list.length + 1 };
+      byBlock.set(block, section);
+      list.push(section);
+    }
+  }
+  return { list, byBlock, first: list[0] ? [...byBlock.keys()][0] : null };
+}
 
 function imageBlockUrl(block) {
   // `_url` is set by annotateLeafletBlobs once the blob ref is resolved
@@ -109,8 +142,16 @@ function collectImages(pages) {
  *
  * Empty text blocks act as paragraph breaks.
  */
-export default function LeafletDocument({ doc }) {
+export default function LeafletDocument({ doc, contents = false }) {
   const pages = useMemo(() => (Array.isArray(doc?.pages) ? doc.pages : []), [doc?.pages]);
+  // A long piece opens with its contents, and its section heads carry their
+  // numbers (COL-13). Only where the caller asks: an essay reads straight
+  // through.
+  const sections = useMemo(() => {
+    if (!contents) return null;
+    const found = documentSections(pages);
+    return found.list.length >= CONTENTS_MIN_SECTIONS ? found : null;
+  }, [contents, pages]);
   const images = useMemo(() => collectImages(pages), [pages]);
   const cutoff = useEmbedCutoff(pages);
   const indexBySrc = useMemo(() => {
@@ -134,26 +175,28 @@ export default function LeafletDocument({ doc }) {
 
   return (
     <LeafletLightboxContext.Provider value={ctx}>
-      <div className="leaflet-doc">
-        {pages.map((page, pi) =>
-          cutoff && pi > cutoff.page ? null : (
-            <LeafletPage
-              key={pi}
-              page={page}
-              firstIndex={pi === 0 ? firstIndex : -1}
-              upTo={cutoff && pi === cutoff.page ? cutoff.block : null}
-            />
-          ),
+      <LeafletSectionsContext.Provider value={sections}>
+        <div className={sections ? 'leaflet-doc leaflet-doc-sectioned' : 'leaflet-doc'}>
+          {pages.map((page, pi) =>
+            cutoff && pi > cutoff.page ? null : (
+              <LeafletPage
+                key={pi}
+                page={page}
+                firstIndex={pi === 0 ? firstIndex : -1}
+                upTo={cutoff && pi === cutoff.page ? cutoff.block : null}
+              />
+            ),
+          )}
+        </div>
+        {images.length > 0 && (
+          <Lightbox
+            open={lightbox >= 0}
+            index={Math.max(0, lightbox)}
+            onClose={() => setLightbox(-1)}
+            images={images}
+          />
         )}
-      </div>
-      {images.length > 0 && (
-        <Lightbox
-          open={lightbox >= 0}
-          index={Math.max(0, lightbox)}
-          onClose={() => setLightbox(-1)}
-          images={images}
-        />
-      )}
+      </LeafletSectionsContext.Provider>
     </LeafletLightboxContext.Provider>
   );
 }
@@ -382,6 +425,7 @@ function firstTextIndex(page) {
 }
 
 function LeafletPage({ page, firstIndex = -1, upTo = null }) {
+  const sections = useContext(LeafletSectionsContext);
   const all = Array.isArray(page?.blocks) ? page.blocks : [];
   // `upTo` is the last block to draw while an embed holds the rest back.
   const blocks = upTo == null ? all : all.slice(0, upTo + 1);
@@ -409,6 +453,9 @@ function LeafletPage({ page, firstIndex = -1, upTo = null }) {
       );
       i = run.end + 1;
       continue;
+    }
+    if (sections?.first && blocks[i]?.block === sections.first) {
+      out.push(<LeafletContents key="contents" sections={sections.list} />);
     }
     out.push(<LeafletBlock key={`b-${i}`} block={blocks[i]?.block} first={i === firstIndex} />);
     i += 1;
@@ -589,10 +636,53 @@ function HeaderBlock({ block, style }) {
   const level = clampLevel(block.level);
   const Tag = `h${level}`;
   const text = block.plaintext || '';
+  const section = useContext(LeafletSectionsContext)?.byBlock.get(block);
   return (
-    <Tag className={`leaflet-heading leaflet-heading-${level}`} style={style || undefined}>
+    <Tag
+      className={`leaflet-heading leaflet-heading-${level}`}
+      style={style || undefined}
+      id={section?.id}
+      tabIndex={section ? -1 : undefined}
+      data-section={section?.number}
+    >
+      {section && (
+        <span className="leaflet-section-num" aria-hidden="true">
+          {section.number}
+        </span>
+      )}
       {renderLeafletText(text, block.facets, { smart: true })}
     </Tag>
+  );
+}
+
+/**
+ * The contents row a long piece opens on, just before its first section: each
+ * section's number and title, in one wrapping line. A tap scrolls to the
+ * section and moves focus there rather than changing the URL, so the router
+ * never sees a navigation and Back still leaves the page.
+ */
+function LeafletContents({ sections }) {
+  const go = (e, id) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    e.preventDefault();
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    target.focus({ preventScroll: true });
+  };
+  return (
+    <nav className="leaflet-contents" aria-label="Contents">
+      <p className="leaflet-contents-label eyebrow">Contents</p>
+      <ol className="leaflet-contents-list">
+        {sections.map((s) => (
+          <li key={s.id}>
+            <a href={`#${s.id}`} onClick={(e) => go(e, s.id)}>
+              <span className="leaflet-contents-num">{s.number}</span> {smartenText(s.text)}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
@@ -687,15 +777,11 @@ function CodeBlock({ block, style }) {
   useEffect(() => {
     let cancelled = false;
     if (!code.trim()) return undefined;
-    import('highlight.js/lib/common')
-      .then(({ default: hljs }) => {
+    import('../lib/highlight.js')
+      .then(({ highlightCode }) => {
         if (cancelled) return;
         try {
-          const res =
-            lang && hljs.getLanguage(lang)
-              ? hljs.highlight(code, { language: lang })
-              : hljs.highlightAuto(code);
-          setHtml(res.value);
+          setHtml(highlightCode(code, lang.toLowerCase()));
         } catch {
           setHtml(null);
         }

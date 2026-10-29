@@ -394,7 +394,7 @@ const HALO_MAX = 7;
 // fitting. Its viewBox is 720 units, so below roughly this width the browser
 // scales the whole thing — labels included — down past legibility. The tall
 // build has no such floor: it gets taller, not smaller.
-const NARROW_QUERY = '(max-width: 44rem)';
+const NARROW_QUERY = '(max-width: 700px)';
 
 /** Live viewport test, so the chart flips orientation on rotate or resize. */
 function useNarrow(query) {
@@ -641,7 +641,7 @@ function SampleMark({ core, halo }) {
 //
 // Never three: with four figures to a row, three columns strand a single tile
 // on a row of its own with two empty cells beside it.
-const TWO_UP = '(max-width: 54rem)';
+const TWO_UP = '(max-width: 61.99rem)';
 
 function Summary({ stats, people, shape, roster }) {
   // The grid's own column count, live, so a rotate or a resize re-fills it. It

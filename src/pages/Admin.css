@@ -1172,7 +1172,7 @@ select.admin-input {
  * The select is written to three times in this file, deliberately and without
  * conflict: here for its DESKTOP height, in the block below for how it is
  * PAINTED, and in the touch block at the foot for the 44px floor that replaces
- * this height under 60rem. Three questions, three answers, each with the reason
+ * this height under 62rem. Three questions, three answers, each with the reason
  * beside it — merging them would put three unrelated rationales in one comment. */
 .wb select.admin-input {
   min-height: calc(var(--text-sm) * 1.6 + var(--space-2) * 2 + 2px);
@@ -1333,7 +1333,7 @@ select.admin-input {
  * quick-edit sheet (portalled to <body>, outside the shell) and /exploring pick
  * up none of them. The per-studio duplicates are deleted with this commit; what
  * stays in those files is only what is genuinely local to a surface. */
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   .wb .admin-multiselect-check {
     display: flex;
     align-items: center;
@@ -1399,7 +1399,7 @@ select.admin-input {
 
   /* `<select class="admin-input">` and the datetime inputs. Plain text inputs
      already stand 44px from app.css's ≤700px form-control rule, but that rule
-     stops at 700px and this breakpoint runs to 960px, so a tablet in the
+     stops at 700px and this breakpoint runs to 992px, so a tablet in the
      stacked layout had 35px selects beside 40px inputs.
 
      `input` and `select` are named rather than the bare class because
@@ -1514,7 +1514,7 @@ select.admin-input {
   border-color: var(--accent-soft);
 }
 
-@media (max-width: 34rem) {
+@media (max-width: 700px) {
   .pf-row {
     flex-direction: column;
   }

@@ -360,6 +360,12 @@ export function pickDefaultResume(resumes) {
   );
 }
 
+/** The versions anyone may be pointed at: `public` ones only, since an
+ *  `unlisted` version is reachable by its address but not to be listed. */
+export function publicResumes(resumes) {
+  return (resumes || []).filter((r) => Boolean(r?.value) && visibilityOf(r) === 'public');
+}
+
 /** Find a resume by slug (or record key). Skips `private` resumes. */
 export function findResumeBySlug(resumes, slug) {
   return (

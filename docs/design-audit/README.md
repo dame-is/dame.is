@@ -365,7 +365,7 @@ Ten clusters, ordered by impact. In each "Covers" list, the first ID of each gro
 
 ## Roadmap
 
-Effort: **S** is under a day, **M** a few days, **L** a week or more. The "Now" items are the most visible problems with the cheapest fixes, plus the two structural fixes that unblock the rest: the contrast floor and the responsive ledger. The Status column was checked against the code after #331 and #332, and updated again after the batch that implemented c-05, c-10, c-11, one clock and share cards; done rows are struck through.
+Effort: **S** is under a day, **M** a few days, **L** a week or more. The "Now" items are the most visible problems with the cheapest fixes, plus the two structural fixes that unblock the rest: the contrast floor and the responsive ledger. The Status column was checked against the code after #331 and #332, updated after the batch that implemented c-05, c-10, c-11, one clock and share cards, and again after the batch that set the desktop ledger, record margins, the hiring page, Ratioed's contents, self-hosted fonts and the style guards; done rows are struck through.
 
 | Bucket | Item | Effort | Findings | Status |
 |---|---|---|---|---|
@@ -383,8 +383,8 @@ Effort: **S** is under a day, **M** a few days, **L** a week or more. The "Now" 
 | **Now** | ~~Never 404 an existing post: title from image alt text when the text is empty; add reposting and the other verbs to `RECORD_SECTIONS`~~ | S | GAP-01 | ✓ Done |
 | **Next** | ~~Ledger horizon: stop at the completeness date with a colophon; label capped counts "100+" / "since Oct 25"~~ | M | FEED-02 | ✓ Done: Closing colophon; capped counts read "100+" |
 | **Next** | Reposts and quotes typeset as citations; one clock per row; no repeated URL on link-only posts | M | FEED-05, IDN-05, FEED-11, FEED-12 | Partly: Link-only posts print the link once. Citations and one clock per row were built, then put back to the earlier boxes at Dame's request |
-| **Next** | Threads bracketed with a time range and cross-day dates; one day-header format; an "Earlier works" coda for year-only works | M | FEED-06, FEED-09, FEED-13 | Partly: One day-header format and the "Earlier works" coda are done. The thread bracket and folio were built, then put back to the earlier rows at Dame's request |
-| **Next** | Desktop ledger: one right edge for all content; verb and time as a left-margin note | S | LAY-04, FEED-07 | Open |
+| **Next** | Threads bracketed with a time range and cross-day dates; one day-header format; an "Earlier works" coda for year-only works | M | FEED-06, FEED-09, FEED-13 | Partly: One day-header format and the "Earlier works" coda are done. A self-thread is one numbered row with combined counts and its start date (#336). The bracket and folio were built, then put back at Dame's request |
+| **Next** | ~~Desktop ledger: one right edge for all content; verb and time as a left-margin note~~ | S | LAY-04, FEED-07 | ✓ Done: Pictures, link cards and quotes run to the text measure; gerund over time in the left margin on home, /posting, /logging; /listening keeps its cover and closes the song line with the time |
 | **Next** | ~~Filter sheet as an index (■/□, gloss, dot leaders, counts, a separate "only")~~ | M | FEED-08, LAY-12, INT-08, MOB-13 | ✓ Done |
 | **Next** | ~~Single-kind pages: honour `showVerb={false}`; /logging as a diary with running dates; covers on /listening sessions~~ | S | FEED-10, COL-09, LAY-08 | ✓ Done; /logging later went back to a day header like the other pages |
 | **Next** | Native section layouts by default (plates, contact sheet, numbered contents) with a visible per-section "plates · index" switch; album tiles with a folio line | M | COL-01, IDN-04, COL-10 | Partly: Section switch, plates, contact sheet, almanac; album folio line open |
@@ -397,24 +397,24 @@ Effort: **S** is under a day, **M** a few days, **L** a week or more. The "Now" 
 | **Next** | ~~Route transition: reset scroll after the exit fade, or fade in only~~ | S | INT-05 | ✓ Done |
 | **Next** | ~~One clock and one date style: a `<Time>` component on America/New_York, dayOfLife from Eastern calendar days shared with og/time.js~~ | M | GAP-02, TYP-10, COL-08, SYS-11 | ✓ Done |
 | **Next** | ~~Long-form setting: 20px with an em measure, indent-only paragraphs, display-only smart punctuation, a styled heading ladder~~ | M | TYP-03, TYP-04, TYP-07, TYP-08 | ✓ Done |
-| **Next** | The kit: Button, the selected state, Segmented, Figures, Eyebrow/SectionHead, the label style, LinkCard | M | SYS-01, SYS-03, SYS-05, TYP-05, TYP-09, LAY-06, COL-07, IDN-11, TYP-06, SYS-07 | Partly: Built and in use; the switch to real-capital labels is held for Dame to see first (typography.css) |
+| **Next** | The kit: Button, the selected state, Segmented, Figures, Eyebrow/SectionHead, the label style, LinkCard | M | SYS-01, SYS-03, SYS-05, TYP-05, TYP-09, LAY-06, COL-07, IDN-11, TYP-06, SYS-07 | Partly: Built and in use. The owner-only /colophon sets it under four hours, the two label voices side by side, and previews real capitals across the site in one browser; the switch itself waits on Dame |
 | **Next** | ~~First visit: a fixed standfirst under the hero; ⓘ rewritten to start with Dame and the sections~~ | S | NAV-02 | ✓ Done: ⓘ rewritten; standfirst dropped by choice in #332 |
 | **Next** | ~~Share cards with photo plates; repost cards with the original author~~ | M | GAP-01 | ✓ Done |
 | **Later** | ~~/mothing as an almanac of nights (tallies, most-seen plates, a filmstrip per night, months collapsed)~~ | L | COL-03 | ✓ Done |
 | **Later** | ~~X-ray as marginalia on every page, including the chrome signals and the hero; the URI as an accessible description~~ | L | INT-03, IDN-10, TYP-14 | ✓ Done: URI description on ledger rows only |
 | **Later** | Guestbook: compose first with a live preview, register-style entries, CID moved to x-ray | M | INT-10, COL-14, MOB-14 | Partly: Live preview open |
-| **Later** | Plates: galleries break the measure as justified rows; lightbox swipe, caption and record link | M | COL-04, LAY-09, IDN-06, INT-14 | Partly: Lightbox record link open |
-| **Later** | One text block: long-form and records hang from the breadcrumb edge, with a marginalia column | L | LAY-05, COL-06 | Partly: Essays done; record pages open |
-| **Later** | Ratioed: a contents row, headings aligned with their breakout figures, shared tracks for the participants board | M | COL-13, COL-12, LAY-11 | Partly: Participants board tracks done; contents row, heading alignment, bar label column open |
+| **Later** | ~~Plates: galleries break the measure as justified rows; lightbox swipe, caption and record link~~ | M | COL-04, LAY-09, IDN-06, INT-14 | ✓ Done: Moth, observation and post photos link to their record; moth plates carry their name, binomial and time |
+| **Later** | ~~One text block: long-form and records hang from the breadcrumb edge, with a marginalia column~~ | L | LAY-05, COL-06 | ✓ Done: Record pages carry a margin of elapsed, edition and address beside the title |
+| **Later** | ~~Ratioed: a contents row, headings aligned with their breakout figures, shared tracks for the participants board~~ | M | COL-13, COL-12, LAY-11 | ✓ Done: A numbered contents row; numbered section heads hang to the charts' edge; /logging's activity bars share one zero line |
 | **Later** | Sky sheet: a labelled scrubber, frozen vs live, a remembered hour, an opt-in "your sky" | M | INT-06, MOB-07, GAP-06 | Partly: Remembered hour and "your sky" open |
 | **Later** | Night treatment for content images | S | GAP-10 | Open |
 | **Later** | One ornament family (❧ or a moth-wing) for end-marks, day dividers and empty images; retire 🦋 | S | IDN-12 | Partly: Fleuron on essay ends, the ledger's end and missing moth photos; 🦋 retired; day dividers open |
 | **Later** | ~~Print styles for long-form, with a printed colophon~~ | S | GAP-08 | ✓ Done |
-| **Later** | /available as the hiring hub (marginalia column, link to the essay, Bluesky and GitHub) | S | GAP-05 | Open |
+| **Later** | ~~/available as the hiring hub (marginalia column, link to the essay, Bluesky and GitHub)~~ | S | GAP-05 | ✓ Done: A margin (a band on a phone) with the essay, Bluesky, GitHub and the other résumé versions; the "Website" line prints only. Open to Dame: one inbox, and the roles in the essay's words |
 | **Later** | The "Open in…" chooser explains itself and remembers | S | GAP-09 | Open |
 | **Later** | Cursor-paginated collections so the ledger horizon moves as the reader scrolls | L | FEED-02 | Open |
-| **Later** | Oldstyle prose figures (self-host upstream Crimson Pro) | M | TYP-06 | Open |
-| **Later** | Guards: stylelint allow-lists, two breakpoints, an owner-only kit/colophon page | S | SYS-09 | Open |
+| **Later** | ~~Oldstyle prose figures (self-host upstream Crimson Pro)~~ | M | TYP-06 | ✓ Done: Upstream Crimson Pro and Plex Mono served from /assets (scripts/gen-fonts.py), preloaded; oldstyle figures in essays and long-form |
+| **Later** | ~~Guards: stylelint allow-lists, two breakpoints, an owner-only kit/colophon page~~ | S | SYS-09 | ✓ Done: stylelint.config.js (corners, tracking, type sizes, breakpoints) blocking in CI; phone ≤ 700px and desk ≥ 62rem, plus a 380px fit; /colophon. Twenty stylesheets still carry pre-scale type sizes and are listed in the config |
 
 ---
 
