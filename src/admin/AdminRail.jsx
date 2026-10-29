@@ -11,12 +11,11 @@
 // here, so there is one grouped, filtered, icon-mapped surface list in the
 // codebase rather than one per consumer.
 //
-// The button vocabulary is borrowed from the public chrome's `.chrome-nav`
-// (ChromeBar.css): a `--rule` hairline, zero radius, `--ink-soft` glyphs and an
-// accent-mixed `is-open` state. The CLASS is new — `.chrome-nav` belongs to the
-// public chrome and must stay reachable only from there — but the geometry is
-// deliberately the same, so the admin reads as part of the same site rather than
-// a second design.
+// The rows are the directory sheet's (AdminDirectoryBody, the admin's way in
+// from a public page): icon and label on a hairline, the group's name above in
+// the eyebrow voice, and the kit's one "on" (controls.css `.is-on`) for where
+// you are. Each countable surface carries its record count at the right, the
+// same number its Front Desk tile prints.
 //
 // Icons arrive from surfaces.js as NAMES, not components, so that registry stays
 // importable from the node test environment. The name → component map lives here
@@ -51,8 +50,9 @@ import {
   Sparkles,
   User,
 } from 'lucide-react';
+import Button from '../components/Button.jsx';
 import { DASHBOARD_SURFACE, SURFACE_GROUPS, allSurfaces } from './surfaces.js';
-import { useAdminData } from './useAdminData.js';
+import { surfaceCount, useAdminData } from './useAdminData.js';
 import { useAdminShell } from './useAdminShell.jsx';
 
 /**
@@ -200,16 +200,13 @@ export function NsidForm({
             if (error) setError(null);
           }}
         />
-        <button
-          type="submit"
-          className="admin-gate-button admin-gate-button-tight"
-        >
+        <Button type="submit" size="sm">
           Go
-        </button>
+        </Button>
         {onCancel && (
-          <button
-            type="button"
-            className="wb-nsid-cancel"
+          <Button
+            variant="text"
+            size="sm"
             onClick={() => {
               setValue('');
               setError(null);
@@ -217,7 +214,7 @@ export function NsidForm({
             }}
           >
             Cancel
-          </button>
+          </Button>
         )}
       </div>
       {error && (
@@ -262,20 +259,43 @@ export function useSurfaceList() {
 }
 
 /**
+ * Surfaces whose count would say nothing in the rail. Nav menu, Sky theme and
+ * About each edit a single `self` record, so their count is always 1; the
+ * Ratioed studio works on the same collection the catalogue counts, and one
+ * number for it belongs on the catalogue's row. Keyed by surface key, which
+ * surfaces.js keeps frozen.
+ */
+const UNCOUNTED_IN_RAIL = new Set(['nav', 'sky', 'about', 'ratioed-studio']);
+
+/**
+ * A surface's count as the rail prints it: the number, with a `+` when it is a
+ * floor (a full first page), and nothing at all for a surface that is never
+ * counted, still loading or failed. An empty collection says "0" in full ink;
+ * it used to fade the whole row to 55% opacity, which put its label at 2.78:1.
+ *
+ * @returns {string|null}
+ */
+export function railCount(surf, entry) {
+  if (!surf?.countable || surf.offRepo || UNCOUNTED_IN_RAIL.has(surf.key)) return null;
+  const count = surfaceCount(surf, entry);
+  if (!count || count.error != null || typeof count.value !== 'number') return null;
+  const value = count.value.toLocaleString('en-US');
+  return count.complete ? value : `${value}+`;
+}
+
+/**
  * One rail button. It is a real `<Link>` so middle-click and cmd-click open a new
  * tab the way the owner expects, but its onClick goes through `go()` — which
  * runs the unsaved-changes guard — and preventDefault()s the link's own
  * navigation.
  */
-function RailButton({ surface, active, absent, onGo, buttonRef }) {
+function RailButton({ surface, active, count, onGo, buttonRef }) {
   return (
     <Link
       to={surface.href}
       ref={buttonRef}
-      className={`wb-rail-btn${active ? ' is-open' : ''}`}
-      data-absent={absent ? '' : undefined}
+      className={`wb-rail-btn${active ? ' is-on' : ''}`}
       title={surface.label}
-      aria-label={surface.label}
       aria-current={active ? 'page' : undefined}
       onClick={(event) => {
         if (
@@ -291,6 +311,11 @@ function RailButton({ surface, active, absent, onGo, buttonRef }) {
     >
       <SurfaceIcon name={surface.icon} />
       <span className="wb-rail-label">{surface.label}</span>
+      {count != null && (
+        <span className="wb-rail-count">
+          {count}
+        </span>
+      )}
     </Link>
   );
 }
@@ -307,9 +332,7 @@ export default function AdminRail() {
   } = useAdminShell();
   // Counts are shared: useAdminData de-duplicates in-flight requests by NSID, so
   // the rail asking the same question as the Front Desk costs nothing extra.
-  // Here they answer exactly one question — is this collection empty? — which
-  // dims the button without disabling it.
-  const { isAbsent } = useAdminData({ agent, did, dataRev });
+  const { countFor } = useAdminData({ agent, did, dataRev });
   const { home, groups } = useSurfaceList();
   const [askingNsid, setAskingNsid] = useState(false);
 
@@ -370,9 +393,8 @@ export default function AdminRail() {
         <div className="wb-rail-group">
           <Link
             to="/admin"
-            className={`wb-rail-btn${homeActive ? ' is-open' : ''}`}
+            className={`wb-rail-btn${homeActive ? ' is-on' : ''}`}
             title={home.label}
-            aria-label={home.label}
             aria-current={homeActive ? 'page' : undefined}
             ref={homeActive ? activeRef : undefined}
             onClick={(event) => {
@@ -398,7 +420,7 @@ export default function AdminRail() {
                 group is already conveyed to assistive tech by the surface
                 order and each button's own accessible name, and announcing
                 "Content" as a heading before every jump would be noise. */}
-            <span className="wb-rail-heading" aria-hidden="true">
+            <span className="wb-rail-heading eyebrow" aria-hidden="true">
               {group.heading}
             </span>
             {group.items.map((surf) => {
@@ -408,7 +430,7 @@ export default function AdminRail() {
                   key={surf.key}
                   surface={surf}
                   active={active}
-                  absent={isAbsent(surf)}
+                  count={railCount(surf, countFor(surf))}
                   onGo={goSurface}
                   buttonRef={active ? activeRef : undefined}
                 />
@@ -430,17 +452,16 @@ export default function AdminRail() {
             }}
           />
         ) : (
-          <button
-            type="button"
-            className="wb-rail-btn"
+          <Button
+            variant="text"
+            size="sm"
+            className="wb-rail-any"
             onClick={() => setAskingNsid(true)}
-            title="Open any collection"
-            aria-label="Open any collection"
             aria-expanded={false}
           >
-            <Database size={GLYPH} aria-hidden="true" />
-            <span className="wb-rail-label">Any collection</span>
-          </button>
+            <Database size={14} aria-hidden="true" />
+            Open any collection…
+          </Button>
         )}
       </div>
     </nav>

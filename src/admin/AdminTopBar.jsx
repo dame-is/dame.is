@@ -2,8 +2,9 @@
 // site's ChromeBar (App.jsx withholds it), so this replaces the two things the
 // public chrome was carrying that the owner still needs here:
 //
-//   - where am I  → the breadcrumb, which in the admin is always
-//                   Admin / <group> / <surface> [/ <rkey>]
+//   - where am I  → the running head, which in the admin is always
+//                   / admin / <surface> [/ <rkey>], with the collection's
+//                   NSID at the right, as a public record page sets it
 //   - how do I leave → "View site", the only way back out to the public pages
 //
 // Everything else the bottom bar offered (x-ray, the sky hour sheet, the font
@@ -20,32 +21,31 @@
 
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
-import { SURFACE_GROUPS } from './surfaces.js';
+import Button from '../components/Button.jsx';
+import { useTheme } from '../hooks/useTheme.jsx';
+import { skyMarkUrl } from '../lib/skyAvatars.js';
+import { skyHourLabel } from '../lib/skyTheme.js';
 import { useAdminShell } from './useAdminShell.jsx';
 
-/** Eastern hour, formatted the way the chrome bar's chip formats it. */
-function hourLabel() {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      timeZone: 'America/New_York',
-    })
-      .format(new Date())
-      .replace(/\s/g, '');
-  } catch {
-    return null;
-  }
+/** A crumb's words: the surface's label in the trail's lower case, as the
+ *  site's running head prints its sections ("/ logging / 3mz22ky5jbu25"). */
+function crumbLabel(label) {
+  return String(label || '').toLowerCase();
 }
 
 export default function AdminTopBar() {
-  const { surface, rkey, isNew, stacked, confirmLeave } = useAdminShell();
-  const group = SURFACE_GROUPS.find((g) => g.key === surface.group);
+  const { surface, collection, rkey, isNew, confirmLeave } = useAdminShell();
+  const { skyDisplayHour, showSkyMark } = useTheme();
   const isDashboard = surface.kind === 'dashboard';
-  const hour = hourLabel();
   // A `new` crumb is a claim about a creation flow. Only a records surface has
   // one: `?view=sky&mode=new` used to draw "… / Sky theme studio / new" for a
   // studio that has no concept of creating a record.
   const creating = isNew && surface.kind === 'records-list';
+  // The collection in view, at the right of the trail where a public record
+  // page prints its own. The open collection when there is one (an NSID typed
+  // into the escape hatch has no registry entry of its own), else the surface's.
+  const nsid = isDashboard ? null : collection || surface.nsid || null;
+  const mark = showSkyMark ? skyMarkUrl(skyDisplayHour) : null;
 
   /**
    * Cancel a link click when there is unsaved work the owner wants to keep.
@@ -59,69 +59,84 @@ export default function AdminTopBar() {
 
   return (
     <header className="wb-top">
-      <Link to="/admin" className="wb-top-mark wb-hit" onClick={guard}>
-        <span className="wb-top-mark-dot" aria-hidden="true" />
-        <b>dame.is</b>
-        <span className="wb-top-mark-tag">admin</span>
+      {/* The site's own mark and wordmark (ChromeBar.css), so the admin's bar
+          reads as the bar every other page wears. It goes to the front desk,
+          the admin's home, as the public one goes to the site's. */}
+      <Link to="/admin" className="chrome-title wb-top-mark" onClick={guard} aria-label="dame.is admin, front desk">
+        {mark && (
+          <span className="chrome-mark chrome-mark-avatar" aria-hidden="true">
+            <img className="chrome-mark-img" src={mark} alt="" />
+          </span>
+        )}
+        <span className="chrome-name">dame.is</span>
       </Link>
 
-      <nav className="wb-crumbs" aria-label="Breadcrumb">
-        <ol>
-          <li>
+      {/* The running head, in the public trail's own classes: a leading slash,
+          the sections in ink-soft, the page in ink. The group ("Content") is
+          left out because the rail already says it. */}
+      <nav className="chrome-breadcrumb wb-crumbs" aria-label="Breadcrumb">
+        <ol className="chrome-crumbs">
+          <li className="chrome-crumb">
+            <span className="chrome-crumb-sep" aria-hidden="true">
+              /
+            </span>
             {isDashboard ? (
-              <span aria-current="page">Front desk</span>
+              <span className="chrome-crumb-current" aria-current="page">
+                admin
+              </span>
             ) : (
-              <Link to="/admin" onClick={guard}>
-                Front desk
+              <Link className="chrome-crumb-link" to="/admin" onClick={guard}>
+                admin
               </Link>
             )}
           </li>
-          {!isDashboard && group && (
-            <li>
-              <span className="wb-crumb-sep" aria-hidden="true">
-                /
-              </span>
-              <span className="wb-crumb-group">{group.heading}</span>
-            </li>
-          )}
           {!isDashboard && (
-            <li>
-              <span className="wb-crumb-sep" aria-hidden="true">
+            <li className="chrome-crumb">
+              <span className="chrome-crumb-sep" aria-hidden="true">
                 /
               </span>
               {rkey || creating ? (
-                <Link to={surface.href} onClick={guard}>
-                  {surface.label}
+                <Link className="chrome-crumb-link" to={surface.href} onClick={guard}>
+                  {crumbLabel(surface.label)}
                 </Link>
               ) : (
-                <span aria-current="page">{surface.label}</span>
+                <span className="chrome-crumb-current" aria-current="page">
+                  {crumbLabel(surface.label)}
+                </span>
               )}
             </li>
           )}
           {(rkey || creating) && (
-            <li>
-              <span className="wb-crumb-sep" aria-hidden="true">
+            <li className="chrome-crumb">
+              <span className="chrome-crumb-sep" aria-hidden="true">
                 /
               </span>
-              <code aria-current="page">{creating ? 'new' : rkey}</code>
+              <span className="chrome-crumb-current" aria-current="page">
+                {creating ? 'new' : rkey}
+              </span>
             </li>
           )}
         </ol>
       </nav>
 
       <div className="wb-top-end">
-        {/* The hour the site's palette is tracking. Desk only: on a phone it is
-            an inert 11px chip duplicating what the sky studio says properly, and
-            the bar below needs the room more. */}
-        {hour && !stacked && (
-          <span className="wb-top-hour" title="The hour the site's palette is tracking">
-            {hour}
-          </span>
-        )}
-        <Link to="/" className="wb-top-out wb-hit" onClick={guard}>
+        {nsid && <span className="chrome-crumb-nsid wb-top-nsid">{nsid}</span>}
+        {/* The hour the palette is showing, as the bottom bar's chip prints it
+            ("1 pm"), and the way into the studio that tunes it. */}
+        <Button
+          as={Link}
+          to="/admin?view=sky"
+          size="sm"
+          className="wb-top-hour"
+          onClick={guard}
+          title="The hour the site's palette is showing. Open the sky theme studio."
+        >
+          {skyHourLabel(skyDisplayHour)}
+        </Button>
+        <Button as={Link} to="/" size="sm" className="wb-top-out" onClick={guard}>
           View site
-          <ArrowUpRight className="wb-top-out-glyph" aria-hidden="true" strokeWidth={1.75} />
-        </Link>
+          <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden="true" />
+        </Button>
       </div>
     </header>
   );

@@ -478,9 +478,9 @@
 
 .wb-nsid-label {
   font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.1em;
   font-size: var(--text-xs);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 .wb-nsid-row {
@@ -499,29 +499,10 @@
 /* The row's buttons carry the 44px floor in their PAINT rather than in a grown
    `::before`. They sit 8px apart, and two grown boxes 8px apart overlap by 16px —
    the later sibling then wins the overlap and swallows taps meant for its
-   neighbour, which is the exact failure the old chip row shipped. Scoped to this
-   row: `.admin-gate-button` is frozen public API and is not being edited, only
-   given a floor where the admin's own form uses it. */
-.wb-nsid-row .admin-gate-button,
-.wb-nsid-cancel {
-  min-height: var(--wb-hit);
-}
-
-.wb-nsid-cancel {
+   neighbour, which is the exact failure the old chip row shipped. */
+.wb-nsid-row .btn {
   flex: 0 0 auto;
-  position: relative;
-  padding: var(--space-1) var(--space-2);
-  border: 0;
-  background: none;
-  color: var(--ink-faint);
-  font-family: var(--serif);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.wb-nsid-cancel:hover,
-.wb-nsid-cancel:focus-visible {
-  color: var(--accent);
+  min-height: var(--wb-hit);
 }
 
 .wb-nsid-error {

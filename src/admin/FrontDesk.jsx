@@ -73,7 +73,7 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '../components/Skeleton.jsx';
 import { relativeTime } from '../lib/time.js';
 import { DASHBOARD_SURFACE, SURFACE_GROUPS, allSurfaces } from './surfaces.js';
-import { LATEST_CAPTION, LATEST_LIMIT, NEEDS_YOU_EMPTY, useAdminData } from './useAdminData.js';
+import { LATEST_CAPTION, LATEST_LIMIT, NEEDS_YOU_EMPTY, surfaceCount, useAdminData } from './useAdminData.js';
 import { useAdminShell } from './useAdminShell.jsx';
 import './frontDesk.css';
 
@@ -377,30 +377,6 @@ function CountsScanline({ items, guestbook }) {
       </li>
     </ul>
   );
-}
-
-/**
- * The count drawn on one surface tile.
- *
- * `countFor` answers per NSID, but a surface is not always a whole collection:
- * Blogging and Creating split ONE collection client-side on `value.site`, so
- * handing both of them the raw document count would print the same wrong number
- * twice. Applying the surface's own `recordFilter` — the same predicate the
- * list column applies after fetching — is what makes this tile agree with the
- * list you land on when you click it.
- *
- * `complete` still governs the `+`: a filtered slice of a full page is a floor
- * as well.
- *
- * @returns {{value:number, complete:boolean}|{error:string}|null} null ⇒ still in flight.
- */
-function surfaceCount(surf, entry) {
-  if (!entry) return null;
-  if (entry.error) return { error: entry.error };
-  const value = surf.recordFilter
-    ? entry.records.filter((rec) => surf.recordFilter(rec.value)).length
-    : entry.count;
-  return { value, complete: entry.complete };
 }
 
 /**
