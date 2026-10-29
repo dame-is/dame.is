@@ -155,7 +155,7 @@
 
 /* ---- Responsive -------------------------------------------------- */
 
-@media (max-width: 720px) {
+@media (max-width: 700px) {
   .listen-stats-cols {
     grid-template-columns: 1fr;
     gap: var(--space-5);

@@ -348,6 +348,16 @@ Real craft already: `@atproto/api` and the admin/explorer are lazy; images carry
 all live surfaces; serverless cache headers are tiered. The costs concentrate on
 the home feed and the eager bundle.
 
+> **Status, October 2026.** 6.1–6.3 have landed: home seeds from a trimmed,
+> cacheable snapshot; one module-level subject resolver and a repo-rev check
+> stand between the 30 s tick and a rebuild; the OAuth stack, the admin editor
+> and the guestbook's profanity filter load only when used. From the medium
+> list, the brand mark is a 1 KB WebP, the fonts are self-hosted and preloaded
+> (no Google request before first paint), and highlight.js registers only HTML,
+> JSON, CSS and JavaScript (15.7 KB gzip, from 54). Still open: no service
+> worker behind the manifest's `display: standalone`, and no windowing on long
+> home feeds.
+
 ### 6.1 Home first paint pulls a 5.9 MB uncacheable snapshot — **high**
 `Home.jsx:75` → `fetchSnapshot('unifiedFeed')` fetches `/data/unifiedFeed.json`
 with `cache:'no-store'` (`snapshot.js:42`): **5.9 MB raw / ~1.04 MB gzip**,

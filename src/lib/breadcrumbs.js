@@ -50,6 +50,7 @@ export const DECLARED_ROUTES = [
   '/welcoming',
   '/guestbook',
   '/participants',
+  '/colophon',
   '/admin',
   '/exploring',
   '/exploring/:repo',

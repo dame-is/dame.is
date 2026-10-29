@@ -8,7 +8,7 @@ import { MothingSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useFeedWindow } from '../hooks/useFeedWindow.js';
 import { usePageContent } from '../hooks/usePageContent.js';
-import { useSectionView } from '../hooks/useFeedLayout.jsx';
+import { useSectionView } from '../hooks/useSectionView.js';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import FirstSightingChip from '../components/FirstSightingChip.jsx';

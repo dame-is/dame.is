@@ -6,7 +6,7 @@ import { subscribeRefreshTick } from '../lib/refreshTick.js';
 // page-side memos keyed on `newKeys` then stay stable between refreshes.
 const EMPTY_KEYS = new Set();
 // How long a freshly-arrived row stays flagged, so the entrance animation
-// plays once and unrelated later re-renders (search, layout toggle) don't
+// plays once and unrelated later re-renders (search, filters) don't
 // replay it.
 const ARRIVAL_HOLD_MS = 1200;
 // How long a live-first read runs before its fallback snapshot is fetched

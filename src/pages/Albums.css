@@ -257,7 +257,7 @@
 
 /* ---- Responsive --------------------------------------------------- */
 
-@media (max-width: 560px) {
+@media (max-width: 700px) {
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
   }

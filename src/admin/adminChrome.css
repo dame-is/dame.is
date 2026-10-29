@@ -6,7 +6,7 @@
    where the top chrome ends.
 
    This file used to lead with the phone admin's own three-slot action bar, and
-   that bar is gone: below 60rem the admin wears ChromeBar and publishes its
+   that bar is gone: below 62rem the admin wears ChromeBar and publishes its
    surface into it. The sheets stayed, because a sheet resting on a bar does not
    care whose bar it is.
 

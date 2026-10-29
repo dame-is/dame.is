@@ -1219,5 +1219,215 @@
       "measuredAt": "2026-09-18T14:20:29.307Z",
       "announceLagMs": 4196
     }
+  },
+  {
+    "rkey": "3mwf2x7zg4w2o",
+    "record": {
+      "take": 36,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:6ux4vme7ecwpah2z7ge37tog",
+        "handle": "wdefoor.bsky.social",
+        "reactionMs": 1547,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 1
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mwf2x7zg4w2o",
+      "postSeal": {
+        "likes": 0,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 0
+      },
+      "postedAt": "2026-09-26T00:51:06.490Z",
+      "sealedAt": "2026-09-26T00:51:31.887Z",
+      "audienceAt": "2026-09-26T00:51:32.532Z",
+      "lifespanMs": 25397,
+      "measuredAt": "2026-09-26T00:51:32.532Z",
+      "announceLagMs": 3614
+    }
+  },
+  {
+    "rkey": "3mwgfypkmmb2o",
+    "record": {
+      "take": 37,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:lmkzmvv6sdxntwtyxpg7fqqq",
+        "handle": "noz.am",
+        "reactionMs": 6374,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 1,
+        "reposts": 11,
+        "threadPosts": 28,
+        "participants": 32
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mwgfypkmmb2o",
+      "postSeal": {
+        "likes": 0,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 0
+      },
+      "postedAt": "2026-09-26T13:41:27.236Z",
+      "sealedAt": "2026-09-26T14:00:15.759Z",
+      "audienceAt": "2026-09-26T14:00:19.643Z",
+      "lifespanMs": 1128523,
+      "measuredAt": "2026-09-26T14:00:19.643Z",
+      "announceLagMs": 7986
+    }
+  },
+  {
+    "rkey": "3mwoxvb5pdz2o",
+    "record": {
+      "take": 38,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:q7suwaz53ztc4mbiqyygbn43",
+        "handle": "xan.lol",
+        "reactionMs": 1615,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 0,
+        "quotes": 1,
+        "reposts": 0,
+        "threadPosts": 7,
+        "participants": 8
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mwoxvb5pdz2o",
+      "postSeal": {
+        "likes": 0,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 0
+      },
+      "postedAt": "2026-09-29T23:22:56.729Z",
+      "sealedAt": "2026-09-29T23:34:56.227Z",
+      "audienceAt": "2026-09-29T23:34:57.395Z",
+      "lifespanMs": 719498,
+      "measuredAt": "2026-09-29T23:34:57.395Z",
+      "announceLagMs": 4378
+    }
+  },
+  {
+    "rkey": "3mxkerr4ub224",
+    "record": {
+      "take": 39,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:2sytfln2xm62mwwpzcgnctbv",
+        "handle": "alexjf12.bsky.social",
+        "reactionMs": 1998,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 4,
+        "threadPosts": 2,
+        "participants": 7
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mxkerr4ub224",
+      "postSeal": {
+        "likes": 0,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 0
+      },
+      "postedAt": "2026-10-10T20:55:30.840Z",
+      "sealedAt": "2026-10-10T21:04:54.383Z",
+      "audienceAt": "2026-10-10T21:04:56.920Z",
+      "lifespanMs": 563543,
+      "measuredAt": "2026-10-10T21:04:56.920Z",
+      "announceLagMs": 4918
+    }
+  },
+  {
+    "rkey": "3mxm4s6uhme24",
+    "record": {
+      "take": 40,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:n4mr5xclsdxolbgynwxaanq5",
+        "handle": "donohoe.dev",
+        "reactionMs": 1478,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 13,
+        "participants": 12
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mxm4s6uhme24",
+      "postSeal": {
+        "likes": 0,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 0
+      },
+      "postedAt": "2026-10-11T13:37:54.787Z",
+      "sealedAt": "2026-10-11T14:03:00.369Z",
+      "audienceAt": "2026-10-11T14:03:01.184Z",
+      "lifespanMs": 1505582,
+      "measuredAt": "2026-10-11T14:03:01.184Z",
+      "announceLagMs": 3323
+    }
+  },
+  {
+    "rkey": "3myszxai47n23",
+    "record": {
+      "take": 41,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:kwohq43qsebtgpzjwdp65xfz",
+        "handle": "punishedtj.cryptoanarchy.network",
+        "reactionMs": 3756,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 2,
+        "threadPosts": 1,
+        "participants": 3
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3myszxai47n23",
+      "postSeal": {
+        "likes": 0,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 0
+      },
+      "postedAt": "2026-10-27T01:00:52.823Z",
+      "sealedAt": "2026-10-27T01:03:04.188Z",
+      "audienceAt": "2026-10-27T01:03:05.784Z",
+      "lifespanMs": 131365,
+      "measuredAt": "2026-10-27T01:03:05.784Z",
+      "announceLagMs": 4211
+    }
   }
 ]

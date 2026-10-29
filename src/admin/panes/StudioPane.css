@@ -165,7 +165,7 @@
  * beside it moved to Admin.css under `.wb`, where they cover the record list,
  * the record detail and the blocks editor as well as the studios — see the
  * collected touch block at the foot of that file. */
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   .wb-studio .studio-out {
     min-height: var(--wb-hit, 2.75rem);
   }

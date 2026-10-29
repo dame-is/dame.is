@@ -253,7 +253,7 @@
 
 /* With a margin to hang it in, the number sits outside the text column, so
    the notes line up with the intro above them. */
-@media (min-width: 760px) {
+@media (min-width: 701px) {
   .guestbook-entries .guestbook-list {
     margin-left: calc(-1 * (var(--gb-num-col) + var(--space-3)));
   }

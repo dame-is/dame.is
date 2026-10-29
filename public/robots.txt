@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /colophon
 Disallow: /oauth-callback
 Disallow: /oauth/callback
 # The functions stay out of the index, except the three that every page points

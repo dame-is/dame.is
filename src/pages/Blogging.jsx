@@ -1,16 +1,15 @@
 import { useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import Time from '../components/Time.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
-import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { compareIsoDesc, isRecent } from '../lib/time.js';
+import { compareIsoDesc } from '../lib/time.js';
 import { showOnBlog, isDraft } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { smartenText } from '../lib/smartPunctuation.js';
@@ -48,8 +47,6 @@ export default function Blogging() {
     mapItems: mergeBlogEntries,
   });
 
-  const { layout } = useFeedLayout();
-  const ledger = layout === 'ledger';
   const loading = status === 'loading';
   const safeEntries = useMemo(() => entries || [], [entries]);
   const filtered = useMemo(
@@ -82,7 +79,7 @@ export default function Blogging() {
         <p className="feed-empty">
           {q ? 'No blog posts match that search.' : 'No blog posts yet.'}
         </p>
-      ) : ledger ? (
+      ) : (
         <FlatLedger
           rows={filtered.map((e, i) => ({
             key: e.uri || i,
@@ -94,36 +91,6 @@ export default function Blogging() {
             cid: e.cid || null,
           }))}
         />
-      ) : (
-        <ol className="blogging-toc reveal-stagger">
-          {filtered.map((e, i) => (
-            <li
-              key={e.uri || i}
-              className="blogging-toc-entry"
-              data-nsid={nsidFromAtUri(e.uri) || undefined}
-            >
-              <Link to={e.href} className="blogging-toc-link">
-                <span className="blogging-toc-num gutter">{String(i + 1).padStart(2, '0')}</span>
-                <span className="blogging-toc-body">
-                  <h3 className="blogging-toc-title">{e.title}</h3>
-                  {e.summary && <p className="blogging-toc-summary">{e.summary}</p>}
-                </span>
-                <span className="blogging-toc-meta gutter">
-                  {e.createdAt && (
-                    <>
-                      {/* The age only while it's news; past 30 days it would
-                          be the date again, and the date is right there. */}
-                      {isRecent(e.createdAt) && (
-                        <Time className="blogging-toc-rel" value={e.createdAt} variant="relative" />
-                      )}
-                      <Time className="blogging-toc-date" value={e.createdAt} variant="date" />
-                    </>
-                  )}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ol>
       )}
     </PageShell>
   );

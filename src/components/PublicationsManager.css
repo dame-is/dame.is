@@ -178,7 +178,7 @@
   padding: 2px var(--space-3);
   font-family: var(--sans);
   font-size: var(--text-xs);
-  border-radius: 999px;
+  border-radius: var(--radius-1);
 }
 
 /* ---- icon ---- */
@@ -300,7 +300,7 @@
    The 34px colour swatches are the interesting case: they carry no label of
    their own inside the box, so growing them to 44 costs nothing but room, and
    four of them in a wrapping row is exactly where a thumb needs the margin. */
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   .pub-check {
     min-height: var(--wb-hit, 2.75rem);
   }

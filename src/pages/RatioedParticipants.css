@@ -187,7 +187,7 @@ a.ratioed-board-who:hover .ratioed-board-handle { color: var(--ink); text-decora
    it in the order the header named them, which is why the header is hidden
    here rather than wrapped — a strip of labels over a two-line row labels
    nothing. */
-@media (max-width: 40rem) {
+@media (max-width: 700px) {
   .ratioed-board-head { display: none; }
   .ratioed-board-row {
     grid-template-columns: var(--board-rank) minmax(0, 1fr) auto;

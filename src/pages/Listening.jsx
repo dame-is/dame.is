@@ -13,7 +13,6 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useFeedWindow } from '../hooks/useFeedWindow.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
-import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { formatTime, groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
@@ -58,12 +57,7 @@ export default function Listening() {
     mapItems: toListeningItems,
   });
 
-  const { removedUris, active: editActive } = useEditMode();
-  const { layout } = useFeedLayout();
-  // Match the home feed: the compact ledger is the default, but owner edit
-  // mode steps aside to the full cards (their selection UI isn't wired into
-  // the ledger rows).
-  const ledger = layout === 'ledger' && !editActive;
+  const { removedUris } = useEditMode();
   const loading = status === 'loading';
   const safeItems = useMemo(() => items || [], [items]);
   // Stats reflect all listening (minus any owner-removed plays), independent
@@ -129,7 +123,7 @@ export default function Listening() {
       {!loading && statsItems.length > 0 && <ListeningStats items={statsItems} />}
       <QueryNote noun="plays" />
       {loading ? (
-        <FeedSkeleton rows={6} label="Loading plays" />
+        <FeedSkeleton rows={6} label="Loading plays" ledger />
       ) : status === 'error' ? (
         <p className="feed-empty">Live refresh failed and no cached snapshot is available.</p>
       ) : groups.length === 0 ? (
@@ -139,12 +133,12 @@ export default function Listening() {
       ) : (
         // The ledger's margin holds each session's cover here, not the word
         // "listening" on every row.
-        <div className={ledger ? 'feed-ledger feed-ledger-column feed-ledger-covers' : undefined}>
+        <div className="feed-ledger feed-ledger-column feed-ledger-covers">
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
-                <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
+                <DayOfLifeHeader date={group.date} variant="ledger" />
+                <ul className="feed-list">
                   {group.items.map((item) => {
                     // FeedItem is the list item itself, and memoized, as on the
                     // home feed: no wrapping <li> (a list item inside a list
@@ -164,7 +158,6 @@ export default function Listening() {
                         key={uri}
                         item={item}
                         showVerb={false}
-                        layout={ledger ? 'ledger' : 'cards'}
                         arriving={isNew}
                         arrivalDelay={step * 0.06}
                       />

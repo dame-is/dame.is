@@ -117,7 +117,7 @@ a.post-embed-link-card:focus-visible {
   -webkit-line-clamp: 3;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 700px) {
   .post-embed-link-card {
     grid-template-columns: 1fr;
   }
@@ -126,7 +126,7 @@ a.post-embed-link-card:focus-visible {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   .post-embed-link-card.is-full {
     grid-template-columns: 1fr;
   }

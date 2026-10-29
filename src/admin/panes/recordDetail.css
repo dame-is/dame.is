@@ -212,10 +212,10 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Stacked (drill-down) — 60rem / 960px                                 */
+/* Stacked (drill-down) — 62rem / 992px                                 */
 /* ------------------------------------------------------------------ */
 
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   /* Pinned FLUSH at the top of the pane's scrollport, which is viewport y=56 —
      the bottom edge of the admin's top bar.
 

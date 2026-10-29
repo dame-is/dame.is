@@ -72,7 +72,7 @@
   text-decoration-color: var(--accent-soft);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 700px) {
   .sequence-foot {
     grid-template-columns: 1fr;
   }

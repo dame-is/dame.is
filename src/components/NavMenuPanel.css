@@ -210,7 +210,7 @@
    grown boxes this close would overlap by 16px and the later sibling would win
    the tap — the exact failure it exists to prevent. A phone has the room; a
    nav row is three controls and two fields. */
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   .nav-item-btn,
   .nav-item-reorder .nav-item-btn {
     width: var(--wb-hit, 2.75rem);

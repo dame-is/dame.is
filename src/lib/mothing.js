@@ -15,6 +15,8 @@
 // *when* in the observer's day, never *where* — see inaturalist.js.
 
 import { buildSessions, photoUrl } from './inaturalist.js';
+import { ME_DID, MOTHING_OBSERVATION_NSID } from '../config.js';
+import { recordPathFromAtUri } from './recordRoutes.js';
 import { formatWallClockTime } from './time.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -156,6 +158,15 @@ export function mothLightboxImages(observations) {
         src: photoUrl(photo, 'large'),
         thumb: photoUrl(photo, 'medium'),
         alt: sci && sci !== name ? `${name} — ${sci}` : name,
+        // The plate's label in the viewer, as on its tile: the name, then
+        // the binomial and the time it came to the light.
+        caption: name,
+        credit: [sci && sci !== name ? sci : null, formatWallClockTime(o.observedTime) || null]
+          .filter(Boolean)
+          .join(' · ') || undefined,
+        recordHref: o.id
+          ? recordPathFromAtUri(`at://${ME_DID}/${MOTHING_OBSERVATION_NSID}/${o.id}`) || undefined
+          : undefined,
       };
     });
 }

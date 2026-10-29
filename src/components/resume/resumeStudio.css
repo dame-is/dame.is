@@ -846,7 +846,7 @@
  * repeated here, scoped to the two résumé roots because Admin.css was another
  * slot's file. They are collected in Admin.css under `.wb` now, one copy for the
  * whole admin. What is left below is this file's own classes. */
-@media (max-width: 60rem) {
+@media (max-width: 61.99rem) {
   .rs-studio .rf-add,
   .rw-studio .rf-add {
     min-height: var(--wb-hit, 2.75rem);
