@@ -521,6 +521,45 @@ html {
   }
 }
 
+/* A collection's sort and view switches on one line: the sort to the left,
+   "plates · index" kept at the right where it was, the pair pulled up beside
+   the intro the way the view switch alone was. On a narrow screen the sort
+   wraps above. */
+.collection-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  margin-top: calc(-1 * var(--space-4));
+}
+
+.collection-controls > .section-view-switch {
+  margin-top: 0;
+  align-self: auto;
+}
+
+.collection-controls > .section-view-switch:last-child {
+  margin-left: auto;
+}
+
+/* The sort switch's options wrap as units, separator and all, and its lead
+   word stays quieter than the choices. */
+.sort-switch {
+  flex-wrap: wrap;
+}
+
+.sort-switch-option {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45em;
+}
+
+.sort-switch-lead {
+  color: var(--ink-faint);
+  margin-right: 0.15em;
+}
+
 /* Text for screen readers only (a repeated year the index draws as a
    leader, say). */
 .visually-hidden {

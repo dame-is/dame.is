@@ -3,12 +3,21 @@ import { Link, useParams } from 'react-router-dom';
 import { Play } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
+import SortSwitch from '../components/SortSwitch.jsx';
 import { formatDateFull } from '../lib/time.js';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useSortParam } from '../hooks/useSortParam.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, toAtUri } from '../lib/atproto.js';
-import { fetchChannelMeta, fetchAllBlocks, arenaText, orderBlocks } from '../lib/arena.js';
+import {
+  fetchChannelMeta,
+  fetchAllBlocks,
+  arenaText,
+  orderBlocks,
+  resolveBlockOrder,
+  BLOCK_ORDERS,
+} from '../lib/arena.js';
 import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Curating.css';
@@ -118,14 +127,18 @@ export default function CuratingChannel() {
   // you come back.
   const [shuffleSeed] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const gallery = items?.notFound ? null : items?.gallery || null;
+  // The record's blockOrder is where the gallery starts (newest when it names
+  // none); the sort switch at the top lets a reader take it elsewhere. Pins
+  // lead whichever order is picked.
+  const [sort, setSort] = useSortParam(resolveBlockOrder(gallery?.blockOrder), resolveBlockOrder);
   const blocks = useMemo(
     () =>
       orderBlocks(gallery ? items?.blocks : [], {
-        order: gallery?.blockOrder,
+        order: sort,
         pinned: gallery?.pinnedBlockIds,
         seed: shuffleSeed,
       }),
-    [items, gallery, shuffleSeed],
+    [items, gallery, sort, shuffleSeed],
   );
 
   if (status === 'loading') {
@@ -187,6 +200,14 @@ export default function CuratingChannel() {
     >
       <div className="curating-channel-meta gutter">
         <span>{gallery.blockCount} {gallery.blockCount === 1 ? 'block' : 'blocks'}</span>
+        {gallery.blockCount > 1 && (
+          <SortSwitch
+            value={sort}
+            options={BLOCK_ORDERS}
+            onChange={setSort}
+            label="Sort the blocks by"
+          />
+        )}
       </div>
 
       {blocks.length === 0 ? (

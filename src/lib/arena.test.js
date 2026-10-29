@@ -5,6 +5,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   orderBlocks,
+  orderGalleries,
+  resolveBlockOrder,
+  resolveGalleryOrder,
   arenaText,
   pickCoverThumb,
   normalizeBlock,
@@ -27,9 +30,14 @@ const CHANNEL = [
 const ids = (list) => list.map((b) => b.id);
 
 describe('orderBlocks', () => {
-  it('leaves are.na’s own order alone by default', () => {
-    expect(ids(orderBlocks(CHANNEL))).toEqual([1, 2, 3, 4]);
-    expect(ids(orderBlocks(CHANNEL, { order: DEFAULT_BLOCK_ORDER }))).toEqual([1, 2, 3, 4]);
+  it('opens on the newest blocks by default', () => {
+    expect(DEFAULT_BLOCK_ORDER).toBe('newest');
+    expect(ids(orderBlocks(CHANNEL))).toEqual([2, 3, 4, 1]);
+    expect(ids(orderBlocks(CHANNEL, { order: DEFAULT_BLOCK_ORDER }))).toEqual([2, 3, 4, 1]);
+  });
+
+  it('leaves are.na’s own order alone when asked for curated, or for nothing it knows', () => {
+    expect(ids(orderBlocks(CHANNEL, { order: 'curated' }))).toEqual([1, 2, 3, 4]);
     expect(ids(orderBlocks(CHANNEL, { order: 'nonsense' }))).toEqual([1, 2, 3, 4]);
   });
 
@@ -63,15 +71,15 @@ describe('orderBlocks', () => {
   });
 
   it('places nothing for a pin whose block has left the channel', () => {
-    expect(ids(orderBlocks(CHANNEL, { pinned: [999, 2] }))).toEqual([2, 1, 3, 4]);
+    expect(ids(orderBlocks(CHANNEL, { order: 'curated', pinned: [999, 2] }))).toEqual([2, 1, 3, 4]);
   });
 
   it('pins each block once, however many times it is named', () => {
-    expect(ids(orderBlocks(CHANNEL, { pinned: [2, 2, 3] }))).toEqual([2, 3, 1, 4]);
+    expect(ids(orderBlocks(CHANNEL, { order: 'curated', pinned: [2, 2, 3] }))).toEqual([2, 3, 1, 4]);
   });
 
   it('matches pins across the string/number line', () => {
-    expect(ids(orderBlocks(CHANNEL, { pinned: ['3'] }))).toEqual([3, 1, 2, 4]);
+    expect(ids(orderBlocks(CHANNEL, { order: 'curated', pinned: ['3'] }))).toEqual([3, 1, 2, 4]);
   });
 
   it('never hands back the array it was given', () => {
@@ -86,6 +94,48 @@ describe('orderBlocks', () => {
     expect(orderBlocks([])).toEqual([]);
     expect(orderBlocks(undefined, { order: 'random', seed: 1 })).toEqual([]);
     expect(ids(orderBlocks([null, block(1, null), undefined]))).toEqual([1]);
+  });
+});
+
+describe('resolveBlockOrder / resolveGalleryOrder', () => {
+  it('passes a known order through and turns anything else into the default', () => {
+    expect(resolveBlockOrder('random')).toBe('random');
+    expect(resolveBlockOrder('curated')).toBe('curated');
+    expect(resolveBlockOrder(undefined)).toBe('newest');
+    expect(resolveBlockOrder('sideways')).toBe('newest');
+    expect(resolveGalleryOrder('title')).toBe('title');
+    expect(resolveGalleryOrder(null)).toBe('recent');
+    expect(resolveGalleryOrder('newest')).toBe('recent');
+  });
+});
+
+describe('orderGalleries', () => {
+  // In the records' `order`, the way loadGalleries hands them over.
+  const INDEX = [
+    { slug: 'b', title: 'Burned-in captions', order: 0, updatedAt: '2026-03-01T00:00:00Z' },
+    { slug: 'w', title: 'weird dog photos only', order: 0, updatedAt: '2026-10-20T00:00:00Z' },
+    { slug: 'n', title: 'No date', order: 0, updatedAt: null },
+    { slug: 'a', title: 'Annihilation', order: 0, updatedAt: '2026-07-11T00:00:00Z' },
+    { slug: 'f', title: 'Fires', order: 10, updatedAt: '2026-10-28T00:00:00Z' },
+  ];
+  const slugs = (list) => list.map((g) => g.slug);
+
+  it('puts the most recently changed channel first by default, undated last', () => {
+    expect(slugs(orderGalleries(INDEX))).toEqual(['f', 'w', 'a', 'b', 'n']);
+  });
+
+  it('keeps the records’ own order for curated, ties as they came', () => {
+    expect(slugs(orderGalleries(INDEX, 'curated'))).toEqual(['b', 'w', 'n', 'a', 'f']);
+  });
+
+  it('sorts a–z by title without caring about case', () => {
+    expect(slugs(orderGalleries(INDEX, 'title'))).toEqual(['a', 'b', 'f', 'n', 'w']);
+  });
+
+  it('never hands back the array it was given, and survives nothing', () => {
+    expect(orderGalleries(INDEX)).not.toBe(INDEX);
+    expect(slugs(INDEX)).toEqual(['b', 'w', 'n', 'a', 'f']);
+    expect(orderGalleries(null)).toEqual([]);
   });
 });
 

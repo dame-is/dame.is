@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
 import SectionViewSwitch from '../components/SectionViewSwitch.jsx';
+import SortSwitch from '../components/SortSwitch.jsx';
 import { CreatingGridSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useSectionView } from '../hooks/useFeedLayout.jsx';
+import { useSortParam } from '../hooks/useSortParam.js';
 import { formatDateFull } from '../lib/time.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
@@ -18,6 +20,10 @@ import {
   pickCoverThumb,
   channelStrip,
   arenaText,
+  orderGalleries,
+  resolveGalleryOrder,
+  GALLERY_ORDERS,
+  DEFAULT_GALLERY_ORDER,
 } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
@@ -128,7 +134,8 @@ export default function Curating() {
   const [view, setView] = useSectionView('curating', 'plates');
   const ledger = view === 'index';
   const loading = status === 'loading';
-  const list = useMemo(() => galleries || [], [galleries]);
+  const [sort, setSort] = useSortParam(DEFAULT_GALLERY_ORDER, resolveGalleryOrder);
+  const list = useMemo(() => orderGalleries(galleries || [], sort), [galleries, sort]);
 
   // Hold the skeleton until the first two rows' strips are ready, so the
   // rows don't swap in with blank cells that pop as they download.
@@ -160,7 +167,15 @@ export default function Curating() {
       atUri={`at://${ME_DID}/is.dame.page/curating`}
       headTitle="dame.is curating"
     >
-      <SectionViewSwitch view={view} onChange={setView} label="View the galleries as" />
+      <div className="collection-controls">
+        <SortSwitch
+          value={sort}
+          options={GALLERY_ORDERS}
+          onChange={setSort}
+          label="Sort the galleries by"
+        />
+        <SectionViewSwitch view={view} onChange={setView} label="View the galleries as" />
+      </div>
       {showSkeleton ? (
         ledger ? (
           <FeedSkeleton rows={6} label="Loading galleries" />
@@ -185,8 +200,8 @@ export default function Curating() {
           }))}
         />
       ) : (
-        // One row per channel, in the owner's order: what it holds, before
-        // its name is read.
+        // One row per channel, in the order the sort switch asks for: what it
+        // holds, before its name is read.
         <ul className="curating-rows reveal-stagger">
           {list.map((g) => (
             <ChannelRow key={g.slug} gallery={g} />
