@@ -26,7 +26,7 @@ function isAnisotaPost({ source, atUri }) {
  * to read as lined paper (a lone rule under a one-line status looks like a
  * stray underline). Inert while paper is 'blank' — no observers, no attr.
  */
-function useMultilineFlag(enabled, text) {
+export function useMultilineFlag(enabled, text) {
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
@@ -219,14 +219,23 @@ function PostCardBody({
  * them; see groupSelfReplyThreads' `selfReplies`).
  */
 export function postStatsLine(payload, ownReplies = 0) {
-  const tally = (n, one, many) => (n ? `${n} ${n === 1 ? one : many}` : null);
-  return [
-    tally(Math.max(0, (payload?.replyCount || 0) - ownReplies), 'reply', 'replies'),
-    tally(payload?.repostCount, 'repost', 'reposts'),
-    tally(payload?.likeCount, 'like', 'likes'),
-  ]
-    .filter(Boolean)
+  return postStatParts(payload, ownReplies)
+    .map((part) => part.text)
     .join(' · ');
+}
+
+/**
+ * postStatsLine's tallies one by one, `{ key, text }` with `key` one of
+ * 'replies', 'reposts' and 'likes', for a line that links one of them (a
+ * thread post's replies, to where they're filed).
+ */
+export function postStatParts(payload, ownReplies = 0) {
+  const tally = (key, n, one, many) => (n ? { key, text: `${n} ${n === 1 ? one : many}` } : null);
+  return [
+    tally('replies', Math.max(0, (payload?.replyCount || 0) - ownReplies), 'reply', 'replies'),
+    tally('reposts', payload?.repostCount, 'repost', 'reposts'),
+    tally('likes', payload?.likeCount, 'like', 'likes'),
+  ].filter(Boolean);
 }
 
 /**

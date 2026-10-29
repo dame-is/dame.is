@@ -170,6 +170,16 @@ let navigated = false;
 // say the bottom of a skeleton, as the place to restore to.
 let pending = null;
 
+/**
+ * Whether the page on screen is still being scrolled back to where the reader
+ * left it. A page that moves its own scroll once its content lands (a post's
+ * page bringing the linked post of a thread into view) leaves it alone then:
+ * a Back or a reload returns the reader to their place, not to the post.
+ */
+export function restoringScroll() {
+  return pending != null && pending.entry === shownEntry;
+}
+
 // How long a restore keeps waiting for a page to grow tall enough. Live-first
 // feeds wait on the network before they render a single row, so this is
 // generous; any input from the reader cancels it at once.

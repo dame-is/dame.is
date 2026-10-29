@@ -51,9 +51,17 @@ export async function subjectNames(values) {
  *
  * Returns `{ earlier, later, ready }`, each neighbour shaped for SequenceFoot
  * (`{ to, title, meta }`) or null at either end of the collection.
+ *
+ * `earlierFrom` / `laterFrom` (`{ rkey, createdAt }`) look either side of a
+ * run of records instead of this one: a post's page that shows its whole
+ * thread looks before the thread's first post and after its last.
  */
-export function useRecordNeighbours({ verb, collection, rkey, createdAt }) {
+export function useRecordNeighbours({ verb, collection, rkey, createdAt, earlierFrom = null, laterFrom = null }) {
   const [state, setState] = useState({ earlier: null, later: null, ready: false });
+  const olderThan = earlierFrom?.rkey || rkey;
+  const olderAt = earlierFrom?.createdAt || createdAt;
+  const newerThan = laterFrom?.rkey || rkey;
+  const newerAt = laterFrom?.createdAt || createdAt;
 
   useEffect(() => {
     if (!verb || !collection || !rkey) return undefined;
@@ -63,29 +71,33 @@ export function useRecordNeighbours({ verb, collection, rkey, createdAt }) {
       try {
         const pds = await resolvePds(ME_DID);
         const [older, newer] = await Promise.all([
-          listRecordsPage(pds, { repo: ME_DID, collection, limit: 1, cursor: rkey }).catch(() => null),
-          listRecordsPage(pds, { repo: ME_DID, collection, limit: 1, cursor: rkey, reverse: true }).catch(
+          listRecordsPage(pds, { repo: ME_DID, collection, limit: 1, cursor: olderThan }).catch(() => null),
+          listRecordsPage(pds, { repo: ME_DID, collection, limit: 1, cursor: newerThan, reverse: true }).catch(
             () => null,
           ),
         ]);
         const before = older?.records?.[0] || null;
         const after = newer?.records?.[0] || null;
         const nameOf = await subjectNames([before?.value, after?.value]);
-        const shape = (rec, dir) => {
+        const shape = (rec, dir, from) => {
           if (!rec) return null;
           const value = rec.value || {};
           const at = timeOf(value);
           const sentence = recordSentence(verb, value, { subject: nameOf(value) });
           const recRkey = rkeyFromAtUri(rec.uri);
-          const gap = at && createdAt ? `${gapBetween(at, createdAt)} ${dir}` : null;
+          const gap = at && from ? `${gapBetween(at, from)} ${dir}` : null;
           return {
             to: recordHrefFor(verb, { atUri: rec.uri, rkey: recRkey }) || null,
             title: sentenceText(sentence),
-            meta: [at ? neighbourWhen(at, createdAt) : null, gap].filter(Boolean).join(' · '),
+            meta: [at ? neighbourWhen(at, from) : null, gap].filter(Boolean).join(' · '),
           };
         };
         if (!cancelled) {
-          setState({ earlier: shape(before, 'earlier'), later: shape(after, 'later'), ready: true });
+          setState({
+            earlier: shape(before, 'earlier', olderAt),
+            later: shape(after, 'later', newerAt),
+            ready: true,
+          });
         }
       } catch {
         if (!cancelled) setState({ earlier: null, later: null, ready: true });
@@ -94,7 +106,7 @@ export function useRecordNeighbours({ verb, collection, rkey, createdAt }) {
     return () => {
       cancelled = true;
     };
-  }, [verb, collection, rkey, createdAt]);
+  }, [verb, collection, rkey, olderThan, olderAt, newerThan, newerAt]);
 
   return state;
 }
