@@ -1010,11 +1010,10 @@ div.feed-empty > .feed-load-more-btn {
 }
 
 /* Live-refresh indicator. Rather than a separate banner above the feed,
-   the most recent day's summary line reads "Fetching latest activity…"
-   while a refresh confirms the latest, then cross-fades to that day's
-   real stats (see DayActivityMeta in Home.jsx). On a cold load — before
-   any day group exists — the same copy stands alone in the feed region.
-   Both stay in the quiet meta voice so the signal takes minimal space. */
+   the most recent day's header reads "Updating…" before its folio while a
+   refresh confirms the latest, then the note fades out (see DayActivityMeta
+   in Home.jsx). On a cold load, before any day group exists, the feed shows
+   a skeleton instead. */
 /* A generated verb index's filter line (/reposting, /liking, …): what's
    showing, and the way back to everything. */
 .verb-index-filter {

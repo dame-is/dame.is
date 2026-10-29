@@ -22,7 +22,7 @@
 }
 
 /* The folio, and before it the home feed's passing note about itself
-   ("Fetching latest activity…") while there is one. */
+   ("Updating…") while there is one. */
 .day-header-meta {
   display: flex;
   flex-wrap: wrap;

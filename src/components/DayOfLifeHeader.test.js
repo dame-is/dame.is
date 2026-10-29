@@ -20,12 +20,12 @@ describe('dayHeaderLabels (viewer in New York)', () => {
 
   it('dates the local day in full, and keeps the name it goes by', () => {
     expect(dayHeaderLabels(evening, now)).toEqual({
-      date: 'Monday, October 26',
+      date: 'Monday, Oct 26',
       relative: 'Yesterday',
       short: 'Yesterday',
     });
     expect(dayHeaderLabels(now, now)).toEqual({
-      date: 'Tuesday, October 27',
+      date: 'Tuesday, Oct 27',
       relative: 'Today',
       short: 'Today',
     });
@@ -33,12 +33,12 @@ describe('dayHeaderLabels (viewer in New York)', () => {
 
   it('gives an older day no name, and a past year its year', () => {
     expect(dayHeaderLabels('2026-10-25T16:00:00Z', now)).toEqual({
-      date: 'Sunday, October 25',
+      date: 'Sunday, Oct 25',
       relative: null,
       short: 'Oct 25',
     });
     expect(dayHeaderLabels('2025-03-02T16:00:00Z', now)).toEqual({
-      date: 'Sunday, March 2, 2025',
+      date: 'Sunday, Mar 2, 2025',
       relative: null,
       short: 'Mar 2, 2025',
     });

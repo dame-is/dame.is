@@ -5,8 +5,8 @@ import { useNow } from '../hooks/useNow.js';
 import './DayOfLifeHeader.css';
 
 /**
- * What a day header says: the day's date in full ("Wednesday, October 28",
- * the year only when it isn't this one), the relative name it also goes by
+ * What a day header says: the day's date ("Wednesday, Oct 28", the year only
+ * when it isn't this one), the relative name it also goes by
  * ("Today", "Yesterday", else null), and `short`, the strip's compact form
  * ("Today", "Oct 25").
  *
@@ -18,7 +18,7 @@ import './DayOfLifeHeader.css';
 export function dayHeaderLabels(date, now = new Date()) {
   const rel = formatDayShortLabel(date, now);
   const relative = rel === 'Today' || rel === 'Yesterday' ? rel : null;
-  const full = longDay(date, now);
+  const full = longDay(date, now, { shortMonth: true });
   if (!full) return { date: rel, relative, short: rel };
   return { date: full, relative, short: relative || shortDay(date, now) };
 }
@@ -26,13 +26,13 @@ export function dayHeaderLabels(date, now = new Date()) {
 /**
  * The head of a day in a feed, set like a book's running head: the date on
  * the left and the day-of-life folio on the right, like a page number
- * ("Wednesday, October 28 … day 12,228"). Nothing else: what the day holds is
+ * ("Wednesday, Oct 28 … day 12,228"). Nothing else: what the day holds is
  * in the rows beneath it. `meta` is only for a passing note about the feed
- * itself (the home ledger's "Fetching latest activity…"), set before the
+ * itself (the home ledger's "Updating…"), set before the
  * folio. `variant="ledger"` rules it under for the ledger's rows (Feed.css).
  *
  * "Today" and "Yesterday" aren't printed, but they are what the day is called:
- * a screen reader hears "Today, Wednesday, October 28", and the chrome, which
+ * a screen reader hears "Today, Wednesday, Oct 28", and the chrome, which
  * reads the day in view from `.day-section-header .day-header`, takes
  * `data-day-label` ("Today", "Oct 25") for the ↑ beside it. Both follow a
  * clock that keeps running (useNow), so a page left open past midnight moves

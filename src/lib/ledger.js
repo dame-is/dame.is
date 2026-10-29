@@ -51,15 +51,17 @@ export function shortDay(at, ref = new Date()) {
 
 /**
  * "Sunday, October 25", the year added when it isn't `ref`'s. For the day
- * after `at` with `{ next: true }`: the first whole day past an instant.
+ * after `at` with `{ next: true }`: the first whole day past an instant. With
+ * `{ shortMonth: true }`, "Sunday, Oct 25": a day header's form.
  */
-export function longDay(at, ref = new Date(), { next = false } = {}) {
+export function longDay(at, ref = new Date(), { next = false, shortMonth = false } = {}) {
   const p = calendarDay(at);
   if (!p) return '';
   const day = new Date(Date.UTC(p.y, p.m, p.d + (next ? 1 : 0)));
   const y = day.getUTCFullYear();
   const refDay = calendarDay(ref);
-  const base = `${WEEKDAYS[day.getUTCDay()]}, ${MONTHS[day.getUTCMonth()]} ${day.getUTCDate()}`;
+  const month = MONTHS[day.getUTCMonth()];
+  const base = `${WEEKDAYS[day.getUTCDay()]}, ${shortMonth ? month.slice(0, 3) : month} ${day.getUTCDate()}`;
   return refDay && refDay.y === y ? base : `${base}, ${y}`;
 }
 

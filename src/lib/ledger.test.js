@@ -47,6 +47,11 @@ describe('dates beside a row', () => {
     expect(longDay('2025-12-31T20:00:00Z', NOW, { next: true })).toBe('Thursday, January 1');
     expect(longDay('2024-06-01T16:00:00Z', NOW)).toBe('Saturday, June 1, 2024');
   });
+
+  it('shortens the month for a day header', () => {
+    expect(longDay('2026-10-25T16:00:00Z', NOW, { shortMonth: true })).toBe('Sunday, Oct 25');
+    expect(longDay('2024-06-01T16:00:00Z', NOW, { shortMonth: true })).toBe('Saturday, Jun 1, 2024');
+  });
 });
 
 describe('trimLinkEcho', () => {

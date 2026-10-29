@@ -87,7 +87,7 @@ const MAX_PARTIAL_RETRIES = 3;
 // its own 15s timeout, but a run is dozens of them, some in series, and a
 // browser without AbortSignal.timeout gets no timeouts at all — while a run is
 // in flight every tick stands down, so one that never settles would freeze the
-// feed and leave "Fetching latest activity…" up for the rest of the visit. Far
+// feed and leave "Updating…" up for the rest of the visit. Far
 // past any real build; the subject caches a slow run warms survive it, so the
 // retry after it is faster.
 const REFRESH_WATCHDOG_MS = 90_000;
@@ -153,9 +153,9 @@ function loadUnifiedSnapshot() {
 
 /**
  * The newest day's header doubles as the live-refresh indicator. While a
- * refresh is confirming the latest activity it notes "Fetching latest
- * activity…" before the day's folio, and the note fades out once the live
- * result lands. This keeps the signal to a quiet aside on the day's own line
+ * refresh is confirming the latest activity it notes "Updating…" before the
+ * day's folio (one short word: on a phone the line holds the date as well),
+ * and the note fades out once the live result lands. This keeps the signal to a quiet aside on the day's own line
  * instead of a separate banner.
  *
  * A refresh that couldn't reach anything leaves the feed as it was and says
@@ -179,7 +179,7 @@ function DayActivityMeta({ checking, stale, reduce }) {
           aria-live="polite"
           {...fade}
         >
-          Fetching latest activity&hellip;
+          Updating&hellip;
         </motion.span>
       ) : stale ? (
         <motion.span
