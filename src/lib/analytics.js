@@ -22,6 +22,13 @@
 
 const DAY_MS = 86_400_000;
 
+/**
+ * How much of a post's text an archive row keeps. A snippet is all the studio
+ * draws, and it keeps ~25,000 rows small; the export names the cap so a
+ * downloaded file never passes a cut sentence off as the whole post.
+ */
+export const POST_TEXT_LIMIT = 200;
+
 /* ------------------------------------------------------------------ */
 /* Periods and kinds                                                    */
 /* ------------------------------------------------------------------ */
@@ -340,7 +347,7 @@ function postFacts(record) {
 
   return {
     at,
-    text: typeof record.text === 'string' ? record.text.slice(0, 200) : '',
+    text: typeof record.text === 'string' ? record.text.slice(0, POST_TEXT_LIMIT) : '',
     replyTo: didFromAtUri(record.reply?.parent?.uri),
     quoteOf: didFromAtUri(quotedUri),
     hasMedia: Boolean(media),
