@@ -766,27 +766,13 @@
   margin: auto;
 }
 
-/* The sky chip: a sliver of this hour's sky beside the hour, "1 pm et", in
-   lower case, so it reads as the hour on Dame's clock rather than the
-   visitor's own. */
+/* The sky chip: just the hour, "1 pm". */
 .chrome-nav.chrome-sky-hour .chrome-nav-face {
-  padding: 0 0.45rem 0 0.3rem;
+  padding: 0 0.45rem;
   font-family: var(--mono-ui);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.chrome-sky-swatch {
-  flex: 0 0 auto;
-  width: 4px;
-  height: 0.95rem;
-  background-color: var(--rule);
-}
-
-.chrome-sky-zone {
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
 }
 
 /* A held sky (picked in the hour sheet) keeps saying so after the sheet

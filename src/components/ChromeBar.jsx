@@ -921,7 +921,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
         ...TOOL_META[key],
         word: key === 'scroll' && atTop ? 'end' : TOOL_META[key].word,
         glyph: key === 'scroll' && atTop ? ArrowDown : TOOL_META[key].glyph,
-        face: key === 'sky' ? `${hourLabel} et` : null,
+        face: key === 'sky' ? hourLabel : null,
         run: () => actionsRef.current[key]?.(),
       })),
     );
@@ -1013,9 +1013,8 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
               >
                 {/* The sky chip. The site always runs the hour-tracking sky
                     theme; this chip shows the hour whose palette is on screen,
-                    with a sliver of that hour's sky, as "1 pm et": in Eastern
-                    time, and said so, because a bare "1PM" read as the clock
-                    to a visitor anywhere else. Outside the admin
+                    "1 pm", the hour in Eastern time (its label and tooltip
+                    say so). Outside the admin
                     SkyThemeStudio, tapping it opens the SkyHourSheet, where
                     any visitor can sample the palette at any hour. Inside the
                     studio, each tap advances one hour (the studio has its own
@@ -1036,15 +1035,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                   }
                 >
                   <ChipBody sheetOpen={skyPanelOpen}>
-                    <span
-                      className="chrome-sky-swatch"
-                      style={{ backgroundImage: skyBand(skyHour) }}
-                      aria-hidden="true"
-                    />
-                    <span className="chrome-sky-time">
-                      {hourLabel}
-                      <span className="chrome-sky-zone"> et</span>
-                    </span>
+                    <span className="chrome-sky-time">{hourLabel}</span>
                   </ChipBody>
                 </button>
                 {/* Font switcher. Hidden for now — the site runs serif-only
