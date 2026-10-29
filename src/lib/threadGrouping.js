@@ -126,6 +126,58 @@ export function groupSelfReplyThreads(items, myDid) {
 }
 
 /**
+ * The ledger's form of a self-thread: one row for the whole run. Takes the
+ * output of `groupSelfReplyThreads` and folds each thread's members (which it
+ * emits together, oldest first) into a single row that copies the oldest
+ * post's fields, so the row reads, dates and links like the thread's start,
+ * and carries every member, oldest first, as `_thread.posts`. Everything else
+ * passes through untouched.
+ */
+export function collapseSelfThreads(items) {
+  if (!Array.isArray(items)) return items;
+  const out = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const thread = item?._thread;
+    const posts = thread?.isFirst ? items.slice(i, i + thread.length) : null;
+    // Only a whole run folds: a member missing from the slice (it shouldn't
+    // be) leaves the rows as they were rather than dropping one.
+    const whole =
+      posts &&
+      posts.length === thread.length &&
+      posts.every((p, j) => p?._thread?.position === j);
+    if (!whole || posts.length < 2) {
+      out.push(item);
+      continue;
+    }
+    out.push({ ...item, _thread: { ...thread, posts } });
+    i += posts.length - 1;
+  }
+  return out;
+}
+
+/** Whether a row is a folded self-thread (see `collapseSelfThreads`). */
+export function isSelfThreadRow(item) {
+  return Array.isArray(item?._thread?.posts) && item._thread.posts.length > 1;
+}
+
+/**
+ * A folded thread's engagement, added up across its posts. Every post after
+ * the first is a reply to another post in the thread, and the AppView counts
+ * it in that parent's replies, so those come off: what's left is replies from
+ * anyone else (and any of Dame's that branch off the thread).
+ */
+export function threadEngagement(posts) {
+  const sum = (key) => posts.reduce((n, p) => n + (p?.payload?.[key] || 0), 0);
+  return {
+    likeCount: sum('likeCount'),
+    replyCount: Math.max(0, sum('replyCount') - (posts.length - 1)),
+    repostCount: sum('repostCount'),
+    quoteCount: sum('quoteCount'),
+  };
+}
+
+/**
  * Day-grouping key picker that pulls thread posts onto the newest
  * member's day, so a thread that crosses midnight stays together under
  * the most recent day header instead of splitting in two.

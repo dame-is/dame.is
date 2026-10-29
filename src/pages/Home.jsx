@@ -47,7 +47,11 @@ import {
 import { longDay } from '../lib/ledger.js';
 import { verbsWithEverySourceIn } from '../lib/verbRegistry.js';
 import { createSubjectResolver } from '../lib/subjectResolver.js';
-import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
+import {
+  collapseSelfThreads,
+  groupSelfReplyThreads,
+  threadAwareDateKey,
+} from '../lib/threadGrouping.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
@@ -930,7 +934,12 @@ export default function Home({ verb: presetVerb = null } = {}) {
     rowKeysRef.current = keys;
     return rows;
   }, [collapsed]);
-  const threaded = useMemo(() => groupSelfReplyThreads(keyed, ME_DID), [keyed]);
+  // The ledger sets each of Dame's self-threads as one row; the cards keep a
+  // card per post.
+  const threaded = useMemo(() => {
+    const grouped = groupSelfReplyThreads(keyed, ME_DID);
+    return ledger ? collapseSelfThreads(grouped) : grouped;
+  }, [keyed, ledger]);
   const groups = useMemo(() => groupByDay(threaded, threadAwareDateKey), [threaded]);
 
   // Stagger delays among the new arrivals (top-down cascade).

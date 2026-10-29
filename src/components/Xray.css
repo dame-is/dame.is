@@ -66,6 +66,18 @@
   grid-column: -3 / -2;
 }
 
+/* A folded self-thread keeps to that one column too: its posts stack, and
+   with the times gone each is marked by its number, as on a phone. */
+:root[data-xray="on"] .ledger-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+:root[data-xray="on"] .ledger-thread-post { display: block; }
+:root[data-xray="on"] .ledger-thread-time { display: none; }
+:root[data-xray="on"] .ledger-thread-num { display: inline; }
+
 /* Unfocused rows drop one step to the muted ink (6:1 by day) rather than
    vanishing or fading to an opacity that fails AA. The tapped row returns
    to full ink. */

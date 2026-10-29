@@ -6,6 +6,7 @@ import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
+import { isSelfThreadRow, threadEngagement } from '../lib/threadGrouping.js';
 import { photoUrl } from '../lib/inaturalist.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import {
@@ -126,11 +127,14 @@ export default function FeedLedgerRow({
   const isRedaction =
     item.verb === 'crafting' &&
     nsidFromAtUri(item.atUri) === 'net.anisota.lab.redaction';
+  // A self-thread folded into one row (see collapseSelfThreads) prints each
+  // of its posts in turn (ThreadLedgerBody) instead of the first one alone.
+  const threadPosts = isSelfThreadRow(item) ? item._thread.posts : null;
   const summary =
-    isRepost || isObservation || isBlog || isRedaction
+    isRepost || isObservation || isBlog || isRedaction || threadPosts
       ? null
       : summarize(item);
-  const embed = isRepost ? null : ledgerEmbed(item);
+  const embed = isRepost || threadPosts ? null : ledgerEmbed(item);
   // A work known only by its year shows the year, not a "12:00 am" nobody
   // recorded (see splitYearOnlyWorks, which also moves it to the ledger's end).
   const yearOnly = item.verb === 'creating' && isYearOnlyDate(ts);
@@ -162,7 +166,8 @@ export default function FeedLedgerRow({
       ) : (
         <span className="ledger-verb" aria-hidden="true" />
       )}
-      <div className="ledger-body">
+      <div className={threadPosts ? 'ledger-body ledger-thread' : 'ledger-body'}>
+        {threadPosts && <ThreadLedgerBody posts={threadPosts} />}
         {isRepost && <RepostQuote item={item} />}
         {isRedaction && (
           <div className="ledger-embed ledger-redaction">
@@ -200,7 +205,12 @@ export default function FeedLedgerRow({
       <TimeLink className="ledger-time" href={href} dateTime={machineTime}>
         {timeText}
       </TimeLink>
-      {item.verb === 'posting' && <EngagementCounts payload={item.payload} />}
+      {item.verb === 'posting' && (
+        <EngagementCounts
+          payload={threadPosts ? threadEngagement(threadPosts) : item.payload}
+          posts={threadPosts?.length || 1}
+        />
+      )}
       {/* X-ray marginalia: in x-ray the verb and time columns give way to
           the record's collection and its rkey over a short CID, and the row
           keeps its content (see Xray.css). */}
@@ -246,20 +256,23 @@ const countOf = (n, one, many) => `${n.toLocaleString('en-US')} ${n === 1 ? one 
  * desktop, the end of its caption on a phone (Feed.css `.ledger-counts`).
  * The figures come from the author feed's post views, so a
  * post that arrived some other way, without them, has none to show. A
- * screen reader hears the counts in words; the glyphs are decoration.
+ * screen reader hears the counts in words; the glyphs are decoration. A
+ * folded thread's are its posts' added together (threadEngagement), and say
+ * so in words.
  */
-function EngagementCounts({ payload }) {
+function EngagementCounts({ payload, posts = 1 }) {
   const likes = payload?.likeCount || 0;
   const replies = payload?.replyCount || 0;
   const passed = (payload?.repostCount || 0) + (payload?.quoteCount || 0);
   if (!likes && !replies && !passed) return null;
-  const said = [
-    likes && countOf(likes, 'like', 'likes'),
-    replies && countOf(replies, 'reply', 'replies'),
-    passed && countOf(passed, 'repost or quote', 'reposts and quotes'),
-  ]
-    .filter(Boolean)
-    .join(', ');
+  const said =
+    [
+      likes && countOf(likes, 'like', 'likes'),
+      replies && countOf(replies, 'reply', 'replies'),
+      passed && countOf(passed, 'repost or quote', 'reposts and quotes'),
+    ]
+      .filter(Boolean)
+      .join(', ') + (posts > 1 ? ` across ${posts} posts` : '');
   const figure = (n, Glyph) =>
     n > 0 && (
       <span className="ledger-count-item" aria-hidden="true">
@@ -275,6 +288,47 @@ function EngagementCounts({ payload }) {
       {figure(passed, Repeat2)}
     </span>
   );
+}
+
+/**
+ * A folded self-thread's posts, oldest first, as the paragraphs of one entry.
+ * Each keeps its own way to its record page: on a wide screen its time, set
+ * in the time column beside its first line, and on a phone, where the row's
+ * caption carries the thread's one time, a small number before it, the way a
+ * verse is numbered (Feed.css shows the one the width calls for).
+ */
+function ThreadLedgerBody({ posts }) {
+  return posts.map((post, i) => {
+    const href = recordPathFromAtUri(post.atUri);
+    const ts = post.createdAt || post.payload?.createdAt || post.payload?.indexedAt || null;
+    const time = ts ? formatTime(ts) : '';
+    const embed = ledgerEmbed(post);
+    const label = `Post ${i + 1} of ${posts.length}${time ? `, ${time}` : ''}`;
+    return (
+      <div className="ledger-thread-post" key={post.atUri || i}>
+        <div className="ledger-thread-content">
+          <p className="ledger-text">
+            {href ? (
+              <Link className="ledger-thread-num" to={href} aria-label={label}>
+                {i + 1}
+              </Link>
+            ) : (
+              <span className="ledger-thread-num">{i + 1}</span>
+            )}
+            {summarizePost(post)}
+          </p>
+          {embed && (
+            <div className="ledger-embed">
+              <PostEmbed embed={embed.embed} did={embed.did} postUri={post.atUri} />
+            </div>
+          )}
+        </div>
+        <TimeLink className="ledger-time ledger-thread-time" href={href} dateTime={ts}>
+          {time}
+        </TimeLink>
+      </div>
+    );
+  });
 }
 
 /**

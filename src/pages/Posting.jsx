@@ -16,7 +16,11 @@ import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.js
 import { formatTime, groupByDay } from '../lib/time.js';
 import { getAuthorFeed } from '../lib/atproto.js';
 import { blueskyPostToFeedItem } from '../lib/feedBuilder.js';
-import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
+import {
+  collapseSelfThreads,
+  groupSelfReplyThreads,
+  threadAwareDateKey,
+} from '../lib/threadGrouping.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -51,7 +55,11 @@ export default function Posting() {
   );
   const feedWindow = useFeedWindow(filtered, params.toString());
   const { visible } = feedWindow;
-  const threaded = useMemo(() => groupSelfReplyThreads(visible, ME_DID), [visible]);
+  // As on home, the ledger sets a self-thread as one row.
+  const threaded = useMemo(() => {
+    const grouped = groupSelfReplyThreads(visible, ME_DID);
+    return ledger ? collapseSelfThreads(grouped) : grouped;
+  }, [visible, ledger]);
   const groups = groupByDay(threaded, threadAwareDateKey);
 
   // Feed page: report the newest visible record's time in the global footer.

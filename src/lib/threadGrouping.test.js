@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   groupSelfReplyThreads,
+  collapseSelfThreads,
+  isSelfThreadRow,
+  threadEngagement,
   threadAwareDateKey,
   selfThreadMembers,
 } from './threadGrouping.js';
@@ -81,6 +84,48 @@ describe('groupSelfReplyThreads', () => {
     const b = post('b', '2020-01-01T00:02:00Z', { parent: uri('a'), parentDid: OTHER });
     const out = groupSelfReplyThreads([b, a], ME);
     expect(out.every((i) => i._thread === undefined)).toBe(true);
+  });
+});
+
+describe('collapseSelfThreads', () => {
+  it('folds a thread into one row that leads with its oldest post', () => {
+    const a = post('a', '2020-01-01T00:01:00Z');
+    const b = post('b', '2020-01-01T00:02:00Z', { parent: uri('a') });
+    const c = post('c', '2020-01-01T00:03:00Z', { parent: uri('b') });
+    const x = post('x', '2020-01-01T00:05:00Z');
+    const y = post('y', '2020-01-01T00:00:00Z');
+    const out = collapseSelfThreads(groupSelfReplyThreads([x, c, b, a, y], ME));
+
+    expect(out.map((i) => i.atUri)).toEqual([uri('x'), uri('a'), uri('y')]);
+    const row = out[1];
+    expect(isSelfThreadRow(row)).toBe(true);
+    expect(row._thread.posts.map((p) => p.atUri)).toEqual([uri('a'), uri('b'), uri('c')]);
+    // The row still files under the newest post's day.
+    expect(threadAwareDateKey(row)).toBe(c.createdAt);
+    expect(isSelfThreadRow(out[0])).toBe(false);
+  });
+
+  it('passes a feed with no threads through as it was', () => {
+    const items = [post('a', '2020-01-01T00:02:00Z'), post('b', '2020-01-01T00:01:00Z')];
+    expect(collapseSelfThreads(items)).toEqual(items);
+    expect(collapseSelfThreads(null)).toBeNull();
+  });
+});
+
+describe('threadEngagement', () => {
+  it('adds up the posts and drops the replies the thread makes to itself', () => {
+    const counts = (likeCount, replyCount, repostCount, quoteCount = 0) => ({
+      payload: { likeCount, replyCount, repostCount, quoteCount },
+    });
+    // The 404 thread: 3 + 1 + 1 replies, two of them its own continuations.
+    expect(threadEngagement([counts(28, 3, 2, 1), counts(11, 1, 2), counts(14, 1, 3)])).toEqual({
+      likeCount: 53,
+      replyCount: 3,
+      repostCount: 7,
+      quoteCount: 1,
+    });
+    // Counts that haven't caught up with the continuations never go negative.
+    expect(threadEngagement([counts(1, 0, 0), counts(0, 0, 0)]).replyCount).toBe(0);
   });
 });
 

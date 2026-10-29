@@ -2056,6 +2056,54 @@ a.reference-card-profile:focus-visible {
   border-bottom-style: dashed;
 }
 
+/* A self-thread folded into one row (collapseSelfThreads, ThreadLedgerBody):
+   its posts are the paragraphs of one entry, and each keeps its own time in
+   the time column beside its first line. The body takes the content and time
+   columns as a subgrid, so those times line up with every other row's. The
+   row's own time would only repeat the first post's, so it steps aside here;
+   a phone's caption shows it instead (see the column layout below). */
+.feed-ledger .ledger-thread {
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: var(--space-1);
+  max-width: none;
+}
+
+.feed-ledger .ledger-thread-post {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+}
+
+.ledger-thread-content {
+  min-width: 0;
+  max-width: var(--measure);
+}
+
+.feed-ledger .feed-item-ledger-thread > .ledger-time {
+  display: none;
+}
+
+/* A post's number: a phone's mark for where each post starts, in place of
+   the time it has no column for. Set small and raised, like a verse number,
+   and kept off the line's height. */
+.ledger-thread-num {
+  display: none;
+  margin-right: 0.3em;
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: 0.4em;
+  font-variant-numeric: lining-nums;
+}
+
+/* Both stay in the margin's faint ink, not the body's link accent. */
+.ledger-body a.ledger-thread-time,
+.ledger-body a.ledger-thread-num {
+  color: var(--ink-faint);
+}
+
 /* The margin's gerund links to its section; it keeps the column's ink. */
 .ledger-verb-link {
   color: inherit;
@@ -2856,6 +2904,31 @@ a.ledger-time:focus-visible {
   :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-counts {
     grid-area: counts;
     margin-top: 0;
+  }
+
+  /* A folded self-thread: its posts stack in the record's place, the caption
+     keeps the row's one time (the thread's first), and each post is marked
+     by its number rather than a time of its own. */
+  :root:not([data-xray='on']) .feed-ledger-column .ledger-thread {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .ledger-thread-post {
+    display: block;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .ledger-thread-time {
+    display: none;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger-thread > .ledger-time {
+    display: block;
+  }
+
+  :root:not([data-xray='on']) .feed-ledger-column .ledger-thread-num {
+    display: inline;
   }
 
   /* An opened session's songs and a night's sightings span the column,

@@ -21,6 +21,7 @@ import FlushCard from './cards/FlushCard.jsx';
 import VerbIcon from './VerbIcon.jsx';
 import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
 import { batchHref, isObservationBatch } from '../lib/observationBatches.js';
+import { isSelfThreadRow } from '../lib/threadGrouping.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor, nsidFromAtUri } from '../lib/verbRegistry.js';
@@ -318,6 +319,7 @@ function FeedItem({
     ledger ? 'feed-item-ledger' : '',
     ledgerBatch ? 'feed-item-ledger-expandable' : '',
     canLightbox ? 'feed-item-ledger-lightbox' : '',
+    ledger && isSelfThreadRow(item) ? 'feed-item-ledger-thread' : '',
     item._thread ? 'feed-item-thread' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
