@@ -24,7 +24,7 @@ The admin imports none of the kit: no `Button`, `Segmented`, `SectionHead`, `Fig
 | [a-04](index.html#a-04) | Controls | One primary per view (the commit), quiet buttons for everything else, a proposed danger tier, text buttons in a line, dashed for disabled |
 | [a-05](index.html#a-05) | Type | `.eyebrow` for every label, a proposed hairline tag for states, the NSID in the running head and the rkey in quiet mono, dates through `<Time>` |
 | [a-06](index.html#a-06) | Studios | Résumé, site pages, nav menu and moderation on the same head, section heads and rows |
-| [a-07](index.html#a-07) | Phone | The same parts between the site's own bars; the bar's Save as a quiet button with a real disabled state |
+| [a-07](index.html#a-07) | Phone | The same parts between the site's own bars; the bar's Save as a quiet button that shows unsaved work the way the ⋯ beside it does |
 
 ## Questions for Dame
 

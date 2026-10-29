@@ -1120,7 +1120,7 @@ body { margin: 0; background: var(--d-bg); color: var(--d-fg); font-family: var(
   <ul class="concept-notes">
     <li><strong>Figures go two-up</strong>, as the band does under 34rem on /logging. They keep their phone position after “Needs you”, which <code>FrontDesk.jsx:652</code> chose on purpose.</li>
     <li><strong>Needs you</strong> is a SectionHead with ruled rows and short text-button actions; the explanation paragraph goes.</li>
-    <li><strong>Save in the bar is a quiet button in sentence case.</strong> The compass is the bar’s one filled control, so Save can’t also be filled. When there is nothing to save it shows the kit’s dashed disabled hairline. Measured today: the chip’s styles are identical before and after an edit, so the bar doesn’t say whether anything is waiting (<code>ChromeBar.css:868</code>).</li>
+    <li><strong>Save in the bar is a quiet button in sentence case.</strong> The compass is the bar’s one filled control, so Save can’t also be filled. The ⋯ beside it already turns accent when something is unsaved, but the Save chip itself looks the same before and after an edit (<code>ChromeBar.css:868</code>). As built, Save takes the same cue as the ⋯ (ink and an accent hairline) and stays enabled, because a clean record can still be re-saved on purpose.</li>
     <li><strong>Edit · Preview</strong> is the same Segmented as the desk, and identity is the facts line and URI folio.</li>
   </ul>
 </section>
