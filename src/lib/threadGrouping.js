@@ -16,17 +16,13 @@
 //     length: total posts in this thread,
 //     position: 0-based index, 0 = oldest
 //     isFirst, isLast,
-//     anchorAt: createdAt of the newest post (used for day-grouping,
-//               and the thread's folio in the ledger),
-//     anchorAtUri: the atUri of that newest post (the folio's link),
-//     firstAt: createdAt of the oldest post (where the thread began),
+//     anchorAt: createdAt of the newest post (used for day-grouping),
 //     continuesPrev: true if this post's parent is the post directly
 //                    above it in the rendered thread,
 //     rootAtUri: the atUri of the oldest post in the thread (for keys),
 //   }
 
-import { compareIsoDesc, formatTime } from './time.js';
-import { clockBeside, sameDay, shortDay } from './ledger.js';
+import { compareIsoDesc } from './time.js';
 
 const POSTING_VERB = 'posting';
 
@@ -105,8 +101,6 @@ export function groupSelfReplyThreads(items, myDid) {
       (a, b) => -compareIsoDesc(items[a].createdAt, items[b].createdAt),
     );
     const anchorAt = items[sorted[sorted.length - 1]].createdAt;
-    const anchorAtUri = items[sorted[sorted.length - 1]].atUri || null;
-    const firstAt = items[sorted[0]].createdAt;
     const rootAtUri = items[sorted[0]].atUri || null;
     sorted.forEach((idx, pos) => {
       const parentIdx = directParent.get(idx);
@@ -120,8 +114,6 @@ export function groupSelfReplyThreads(items, myDid) {
           isFirst: pos === 0,
           isLast: pos === sorted.length - 1,
           anchorAt,
-          anchorAtUri,
-          firstAt,
           continuesPrev,
           rootAtUri,
         },
@@ -140,44 +132,6 @@ export function groupSelfReplyThreads(items, myDid) {
  */
 export function threadAwareDateKey(item) {
   return item?._thread?.anchorAt || item?.createdAt || null;
-}
-
-/**
- * A thread's folio in the ledger's time column. The feed files a thread at
- * its newest post, so the column shows that time and, beneath it, where the
- * thread began ("1:46 am" over "from 1:27"), and reads newest-first down the
- * page like every other row. A thread that began on another day says which
- * ("from Oct 26, 8:57 pm"). `{ at, from: { at, date, clock } }`; `date` is ''
- * when the thread began on the day it's filed under.
- */
-export function threadFolio(thread) {
-  const { anchorAt, firstAt } = thread || {};
-  const crossDay = !sameDay(firstAt, anchorAt);
-  return {
-    at: anchorAt,
-    from: {
-      at: firstAt,
-      date: crossDay ? shortDay(firstAt, anchorAt) : '',
-      clock: crossDay ? formatTime(firstAt) : clockBeside(firstAt, anchorAt),
-    },
-  };
-}
-
-/**
- * A thread member's own time, as the small margin note beside its tick: a
- * bare "1:29" when it shares the folio's day and half of the clock, and its
- * date ("Oct 26 · 8:59 pm") when the thread crossed midnight to reach it.
- * `{ at, date, clock }`.
- */
-export function threadMemberMark(item) {
-  const at = item?.createdAt;
-  const anchor = item?._thread?.anchorAt;
-  const crossDay = Boolean(anchor) && !sameDay(at, anchor);
-  return {
-    at,
-    date: crossDay ? shortDay(at, anchor) : '',
-    clock: crossDay ? formatTime(at) : clockBeside(at, anchor),
-  };
 }
 
 /**

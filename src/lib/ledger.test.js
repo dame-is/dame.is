@@ -1,12 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   calendarDay,
-  clockBeside,
-  hostOf,
   isYearOnlyDate,
   longDay,
-  refTitle,
-  sameDay,
   shortDay,
   trimLinkEcho,
   yearOf,
@@ -37,12 +33,6 @@ describe('dates beside a row', () => {
     expect(calendarDay('not a date')).toBeNull();
   });
 
-  it('compares days on that calendar, not UTC', () => {
-    expect(sameDay('2026-10-27T01:30:00Z', '2026-10-26T13:00:00Z')).toBe(true);
-    expect(sameDay('2026-10-27T05:30:00Z', '2026-10-27T01:30:00Z')).toBe(false);
-    expect(sameDay(null, null)).toBe(false);
-  });
-
   it('prints a short day, with the year only when it differs', () => {
     expect(shortDay('2026-10-27T01:30:00Z', NOW)).toBe('Oct 26');
     expect(shortDay('2025-03-02T15:00:00Z', NOW)).toBe('Mar 2, 2025');
@@ -56,31 +46,6 @@ describe('dates beside a row', () => {
     // Across a month and a year.
     expect(longDay('2025-12-31T20:00:00Z', NOW, { next: true })).toBe('Thursday, January 1');
     expect(longDay('2024-06-01T16:00:00Z', NOW)).toBe('Saturday, June 1, 2024');
-  });
-
-  it('drops the am/pm a time shares with the one it sits beside', () => {
-    const folio = '2026-10-27T05:46:00Z'; // 1:46 am
-    expect(clockBeside('2026-10-27T05:27:00Z', folio)).toMatch(/^1:27$/);
-    // 11:50 pm beside 1:46 am keeps its own half of the clock.
-    expect(clockBeside('2026-10-27T03:50:00Z', folio)).toMatch(/^11:50\sPM$/i);
-    expect(clockBeside('2026-10-27T05:27:00Z')).toMatch(/^1:27\sAM$/i);
-  });
-});
-
-describe('reference lines', () => {
-  it('takes the host from a link, without www', () => {
-    expect(hostOf('https://www.dame.is/curating/x')).toBe('dame.is');
-    expect(hostOf('not a url')).toBe('');
-  });
-
-  it('drops a title suffix that only repeats the host', () => {
-    expect(refTitle('random shit my youtube algorithm recommends me — dame.is', 'dame.is')).toBe(
-      'random shit my youtube algorithm recommends me',
-    );
-    expect(refTitle('Profile links | www.atpota.to', 'atpota.to')).toBe('Profile links');
-    expect(refTitle("A dispatch — Poe's Dispatch", 'atpota.to')).toBe("A dispatch — Poe's Dispatch");
-    // A title that is nothing but the host keeps it.
-    expect(refTitle('dame.is', 'dame.is')).toBe('dame.is');
   });
 });
 

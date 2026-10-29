@@ -1,19 +1,13 @@
-// Pure helpers behind the ledger's typesetting: the dates and clocks it prints
-// beside a row's own time, and the reference lines and citations it sets other
-// people's posts and links in. Nothing here renders; FeedLedgerRow,
-// LedgerCite and DayOfLifeHeader do. Kept apart so the rules can be tested
+// Pure helpers behind the ledger's typesetting: the days it names in its
+// margins and headers, where its labels link, the link a post's text needn't
+// repeat, and the year a year-only work is dated by. Nothing here renders;
+// FeedLedgerRow and DayOfLifeHeader do. Kept apart so the rules can be tested
 // without a browser.
 //
-// Every day here is read through time.js (`calendarDay`, `dateKey`,
-// `formatDateShort`) rather than a Date's own getters, so the ledger names the
+// Every day here is read through time.js (`calendarDay`, `formatDateShort`) rather than a Date's own getters, so the ledger names the
 // same day, on Dame's calendar, that its day headers and groups do.
 
-import {
-  calendarDay as timeCalendarDay,
-  dateKey,
-  formatDateShort,
-  formatTime,
-} from './time.js';
+import { calendarDay as timeCalendarDay, formatDateShort } from './time.js';
 import { indexPathForVerb } from './recordPlate.js';
 
 /**
@@ -44,17 +38,10 @@ export function calendarDay(at) {
   return { ...p, weekday: WEEKDAYS[new Date(Date.UTC(p.y, p.m, p.d)).getUTCDay()] };
 }
 
-/** Two instants on the same calendar day, by the day key time.js groups on. */
-export function sameDay(a, b) {
-  if (!a || !b) return false;
-  const da = dateKey(a);
-  return Boolean(da) && da === dateKey(b);
-}
-
 /**
  * "Oct 26": the day `at` falls on, with the year only when it isn't `ref`'s
- * ("Oct 26, 2025"). The ledger's one absolute short date: a citation's own
- * date, a thread member from another day. '' for a bad date.
+ * ("Oct 26, 2025"). The ledger's one absolute short date: a running date on
+ * /logging, a day header's short form. '' for a bad date.
  */
 export function shortDay(at, ref = new Date()) {
   const s = formatDateShort(at);
@@ -74,53 +61,6 @@ export function longDay(at, ref = new Date(), { next = false } = {}) {
   const refDay = calendarDay(ref);
   const base = `${WEEKDAYS[day.getUTCDay()]}, ${MONTHS[day.getUTCMonth()]} ${day.getUTCDate()}`;
   return refDay && refDay.y === y ? base : `${base}, ${y}`;
-}
-
-// The meridiem formatTime ends on, whatever spacing the locale puts before it
-// ("1:27 AM", "1:27 a.m.", or with a narrow no-break space before it,
-// which \s matches too). A 24-hour locale has none.
-const MERIDIEM = /\s*[ap]\.?\s?m\.?$/i;
-const meridiem = (s) => {
-  const m = MERIDIEM.exec(s);
-  return m ? { index: m.index, key: m[0].replace(/[\s.]/g, '').toLowerCase() } : null;
-};
-
-/**
- * `at`'s clock time, dropping the am/pm when it's the same as `ref`'s — a
- * time printed beside another reads "from 1:27" under "1:46 am", the way a
- * range is written. Keeps it when they differ, or when there's nothing to
- * compare against.
- */
-export function clockBeside(at, ref = null) {
-  const t = formatTime(at);
-  if (!t || !ref) return t;
-  const mine = meridiem(t);
-  const theirs = meridiem(formatTime(ref));
-  if (mine && theirs && mine.key === theirs.key) return t.slice(0, mine.index);
-  return t;
-}
-
-/** A link's host without its "www.", or '' when it won't parse. */
-export function hostOf(uri) {
-  try {
-    return new URL(uri).hostname.replace(/^www\./, '');
-  } catch {
-    return '';
-  }
-}
-
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/**
- * A reference line's title without the "— dame.is" a page puts after its own
- * name: the host already leads the line, so the site would be named twice.
- * Only a suffix that IS the host goes; "Poe's Dispatch" stays.
- */
-export function refTitle(title, host) {
-  const t = (title || '').trim();
-  if (!t || !host) return t;
-  const suffix = new RegExp(`\\s*[\\u2014\\u2013|\\u00b7:-]\\s*(?:www\\.)?${escapeRe(host)}\\s*$`, 'i');
-  return t.replace(suffix, '').trim() || t;
 }
 
 const urlish = (s) =>

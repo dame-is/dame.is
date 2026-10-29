@@ -382,8 +382,8 @@ Effort: **S** is under a day, **M** a few days, **L** a week or more. The "Now" 
 | **Now** | Small correctness fixes: reuse AlbumCover in /listening, define `--text-md`, sign-in error in `--danger`, `text-wrap`, upright code, scope the `p + p` indent to prose | S | SYS-08, IDN-09, SYS-09, TYP-08, TYP-13, TYP-14, LAY-10 | Partly: Upright code inside italics is still open |
 | **Now** | ~~Never 404 an existing post: title from image alt text when the text is empty; add reposting and the other verbs to `RECORD_SECTIONS`~~ | S | GAP-01 | ✓ Done |
 | **Next** | ~~Ledger horizon: stop at the completeness date with a colophon; label capped counts "100+" / "since Oct 25"~~ | M | FEED-02 | ✓ Done: Closing colophon; capped counts read "100+" |
-| **Next** | ~~Reposts and quotes typeset as citations; one clock per row; no repeated URL on link-only posts~~ | M | FEED-05, IDN-05, FEED-11, FEED-12 | ✓ Done |
-| **Next** | ~~Threads bracketed with a time range and cross-day dates; one day-header format; an "Earlier works" coda for year-only works~~ | M | FEED-06, FEED-09, FEED-13 | ✓ Done |
+| **Next** | Reposts and quotes typeset as citations; one clock per row; no repeated URL on link-only posts | M | FEED-05, IDN-05, FEED-11, FEED-12 | Partly: Link-only posts print the link once. Citations and one clock per row were built, then put back to the earlier boxes at Dame's request |
+| **Next** | Threads bracketed with a time range and cross-day dates; one day-header format; an "Earlier works" coda for year-only works | M | FEED-06, FEED-09, FEED-13 | Partly: One day-header format and the "Earlier works" coda are done. The thread bracket and folio were built, then put back to the earlier rows at Dame's request |
 | **Next** | Desktop ledger: one right edge for all content; verb and time as a left-margin note | S | LAY-04, FEED-07 | Open |
 | **Next** | ~~Filter sheet as an index (■/□, gloss, dot leaders, counts, a separate "only")~~ | M | FEED-08, LAY-12, INT-08, MOB-13 | ✓ Done |
 | **Next** | ~~Single-kind pages: honour `showVerb={false}`; /logging as a diary with running dates; covers on /listening sessions~~ | S | FEED-10, COL-09, LAY-08 | ✓ Done |

@@ -6,6 +6,7 @@ import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { photoUrl } from '../lib/inaturalist.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import {
   batchCountLabel,
   batchNameLine,
@@ -17,7 +18,6 @@ import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { playArtistLine, playTrackName, playedAtOf } from '../lib/teal.js';
 import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
 import { flushBody, isWordlessFlush } from '../lib/flushText.js';
-import { threadFolio, threadMemberMark } from '../lib/threadGrouping.js';
 import {
   isYearOnlyDate,
   longDay,
@@ -31,7 +31,8 @@ import InkblotFigure from './cards/InkblotFigure.jsx';
 import RedactedPost from './cards/RedactedPost.jsx';
 import AlbumCover from './AlbumCover.jsx';
 import Time from './Time.jsx';
-import { LedgerCite, LedgerEmbed, citeFromPostView, citeFromRepost } from './LedgerCite.jsx';
+import PostEmbed from './PostEmbed.jsx';
+import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID, ME_HANDLE } from '../config.js';
 
 /**
@@ -42,9 +43,9 @@ import { ME_DID, ME_HANDLE } from '../config.js';
  * component renders the cells inside it.
  *
  * Summaries are intentionally lossy: they compress each card down to the
- * line a reader can scan ("track — artist", "@handle"). Other people's posts
- * are set as citations (LedgerCite). The time links to the record page, which
- * keeps the full treatment, and the verb to its section.
+ * line a reader can scan ("track — artist", "@handle"). A repost renders the
+ * original post as a quote box (RepostQuote). The time links to the record
+ * page, which keeps the full treatment, and the verb to its section.
  */
 
 /**
@@ -84,7 +85,7 @@ const BATCH_LEDGER_NAMES = 2;
 /**
  * `showVerb={false}` is a single-kind page (/posting, /logging, /listening):
  * every row is the same verb, so the margin drops it and prints only the
- * exceptions ("replying", "thread · 3"). /listening fills the freed margin
+ * exception ("replying"). /listening fills the freed margin
  * with the session's cover, and /logging with a running date: `dayStart` is
  * the day a row opens, on a page that dates its rows in the margin instead of
  * heading each day.
@@ -100,23 +101,17 @@ export default function FeedLedgerRow({
   onOpenLightbox = null,
 }) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
-  // A self-thread is one entry: its first post carries the margin label and
-  // the thread's folio, and every later post a small time of its own beside
-  // the bracket that joins them (see Feed.css).
-  const thread = item.verb === 'posting' ? item._thread || null : null;
-  const threadMember = Boolean(thread && !thread.isFirst);
-  const label = threadMember
-    ? null
-    : replyHint && !thread?.continuesPrev
-      ? 'replying'
-      : item.verb;
+  // Self-thread follow-ons show no label at all: the dashed rule above the
+  // row (see Feed.css) marks them as connected to the post above.
+  const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
+  const label = threadContinuation ? null : replyHint ? 'replying' : item.verb;
   // On a single-kind page the label only prints when it says something the
   // page doesn't (a reply, on /posting).
   const showLabel = Boolean(label) && (showVerb || label !== item.verb);
   const ts =
     item.createdAt || item.payload?.createdAt || item.payload?.indexedAt || null;
-  // Reposts skip the inline text summary: the original post is set as a
-  // citation instead (RepostCite).
+  // Reposts skip the inline "@handle: text" summary entirely — the
+  // original post renders as a quote-style box instead (see RepostQuote).
   const isRepost = item.verb === 'reposting';
   // iNaturalist observations render a specimen thumbnail beside stacked
   // common/scientific names (see ObservationLedgerBody), not a text summary.
@@ -163,18 +158,11 @@ export default function FeedLedgerRow({
     <>
       {/* The margin. A row with nothing to say there keeps an empty cell so
           grid auto-placement still lands the body in column 2. */}
-      {threadMember ? (
-        <ThreadTick item={item} />
-      ) : dayStart && !showVerb ? (
+      {dayStart && !showVerb ? (
         <DiaryDate date={dayStart} />
       ) : listening && !showVerb ? (
         <span className="ledger-verb ledger-cover" aria-hidden="true">
           <AlbumCover payload={item.payload} size={100} className="ledger-cover-art" />
-        </span>
-      ) : thread?.isFirst ? (
-        <span className="ledger-verb ledger-verb-stack">
-          {showLabel && <VerbLabel label={label} />}
-          <span className="ledger-thread-n">thread · {thread.length}</span>
         </span>
       ) : showLabel ? (
         <VerbLabel label={label} className="ledger-verb" />
@@ -182,7 +170,7 @@ export default function FeedLedgerRow({
         <span className="ledger-verb" aria-hidden="true" />
       )}
       <div className="ledger-body">
-        {isRepost && <RepostCite item={item} />}
+        {isRepost && <RepostQuote item={item} />}
         {isRedaction && (
           <div className="ledger-embed ledger-redaction">
             <RedactedPost value={item.payload} subject={item.subject} />
@@ -208,21 +196,17 @@ export default function FeedLedgerRow({
         )}
         {embed && (
           <div className="ledger-embed">
-            <LedgerEmbed embed={embed.embed} did={embed.did} postUri={item.atUri} />
+            <PostEmbed
+              embed={embed.embed}
+              did={embed.did}
+              postUri={item.atUri}
+            />
           </div>
         )}
       </div>
-      {thread?.isFirst ? (
-        <ThreadFolio thread={thread} href={href} />
-      ) : threadMember ? (
-        // A member's own time is its tick in the margin. The column carries
-        // only the thread's folio, so it reads newest-first down the page.
-        <span className="ledger-time" aria-hidden="true" />
-      ) : (
-        <TimeLink className="ledger-time" href={href} dateTime={machineTime}>
-          {timeText}
-        </TimeLink>
-      )}
+      <TimeLink className="ledger-time" href={href} dateTime={machineTime}>
+        {timeText}
+      </TimeLink>
       {/* X-ray marginalia: in x-ray the verb and time columns give way to
           the record's collection and its rkey over a short CID, and the row
           keeps its content (see Xray.css). */}
@@ -265,9 +249,9 @@ export default function FeedLedgerRow({
  * time.
  */
 function TimeLink({ href, dateTime, className, children }) {
-  // <Time> keeps the printed text (the folio's "from 1:27" pieces, a
-  // member's date) and adds the full moment, on Dame's clock and the
-  // reader's, as its tooltip.
+  // <Time> keeps the printed text (an observation's recorded wall-clock, a
+  // work's year) and adds the full moment, on Dame's clock and the reader's,
+  // as its tooltip.
   const time = dateTime ? (
     <Time value={dateTime} variant="clock" tabular>
       {children}
@@ -297,55 +281,6 @@ function VerbLabel({ label, className = 'ledger-verb-link' }) {
 }
 
 /**
- * A thread's folio: its newest time, linking to its newest post, and where
- * it began beneath ("from 1:27"), linking to the first post, this row's own.
- */
-function ThreadFolio({ thread, href }) {
-  const folio = threadFolio(thread);
-  const newestHref = recordPathFromAtUri(thread.anchorAtUri) || href;
-  return (
-    <span className="ledger-time ledger-folio">
-      <TimeLink className="ledger-folio-at" href={newestHref} dateTime={folio.at}>
-        {folio.at ? formatTime(folio.at) : ''}
-      </TimeLink>
-      {/* Each piece keeps to itself, so where the column is too narrow the
-          line breaks between them ("from" / "Oct 26," / "8:57 pm") and never
-          inside one. */}
-      {folio.from.at && (
-        <TimeLink
-          className={`ledger-from${folio.from.date ? ' is-cross-day' : ''}`}
-          href={href}
-          dateTime={folio.from.at}
-        >
-          <span>from</span>{' '}
-          {folio.from.date && (
-            <>
-              <span className="ledger-from-date">{folio.from.date},</span>{' '}
-            </>
-          )}
-          <span>{folio.from.clock}</span>
-        </TimeLink>
-      )}
-    </span>
-  );
-}
-
-/** A later post in a thread: its own time in the margin, by its tick. */
-function ThreadTick({ item }) {
-  const mark = threadMemberMark(item);
-  const href = item.atUri && !item._live ? recordPathFromAtUri(item.atUri) : null;
-  return (
-    <span className="ledger-verb ledger-tick">
-      <TimeLink className="ledger-tick-at" href={href} dateTime={mark.at}>
-        {mark.date && <span className="ledger-tick-date">{mark.date}</span>}
-        {mark.date ? ' ' : ''}
-        {mark.clock}
-      </TimeLink>
-    </span>
-  );
-}
-
-/**
  * /logging's running date: the first status of each day carries the day and
  * its day of life in the margin, where the page used to head the day. It keeps
  * the day header's classes, which the chrome's strip reads the day in view
@@ -365,10 +300,10 @@ function DiaryDate({ date }) {
 }
 
 /**
- * Post embeds (images / video / link / quote) ride along under the summary
- * line: Dame's own pictures height-capped, links as reference lines and quotes
- * as citations (see LedgerEmbed). Only posting rows carry one; reposts cite
- * their whole post instead (RepostCite below).
+ * Post embeds (images / video / link card / quote) ride along under the
+ * summary line in a condensed, height-capped form (see the .ledger-embed
+ * rules in Feed.css). Only posting rows carry one — reposts render their
+ * whole payload as a quote box instead (RepostQuote below).
  */
 function ledgerEmbed(item) {
   if (item.verb !== 'posting') return null;
@@ -393,21 +328,20 @@ function embedLinkUri(payload) {
 }
 
 /**
- * A repost's body: the original post as a citation. The row reads as a
- * sentence, "reposting Poe", with Poe's words beneath at citation weight.
+ * A repost's body: the original post styled like a quote embed —
+ * mirrors PostEmbed's QuoteRecord markup so it inherits the condensed
+ * quote treatment wholesale. The head's timestamp links out to the
+ * original on bsky.app; unlike a quote nested inside a post, the box
+ * IS the row's content, so its text stays unclamped and its own media
+ * renders (see the .ledger-repost overrides in Feed.css).
  */
-function RepostCite({ item }) {
+function RepostQuote({ item }) {
   const payload = item.payload || {};
-  // An Anisota repost points at a post rather than carrying it; its subject
-  // is hydrated the way a like's is.
+  // An Anisota repost is a reference (a pointer at another post), not a
+  // carried copy of one: it has no author or text of its own to box, so it
+  // reads as its subject, the way a like does.
   if (item.source === 'anisota' && item.subject) {
-    const view = item.subject.kind === 'bsky.post' ? item.subject.view : null;
-    const post = citeFromPostView(view);
-    return post ? (
-      <LedgerCite post={post} />
-    ) : (
-      <p className="ledger-text">{summarizeSubject(item.subject, item.source)}</p>
-    );
+    return <p className="ledger-text">{summarizeSubject(item.subject, item.source)}</p>;
   }
   if (payload.subjectMissing) {
     return (
@@ -416,7 +350,64 @@ function RepostCite({ item }) {
       </p>
     );
   }
-  return <LedgerCite post={citeFromRepost(payload)} />;
+  const author = payload.author || {};
+  const ts = payload.indexedAt || null;
+  const externalHref =
+    author.handle && payload.subjectUri
+      ? `https://bsky.app/profile/${author.handle}/post/${String(payload.subjectUri).split('/').pop()}`
+      : author.handle
+        ? `https://bsky.app/profile/${author.handle}`
+        : null;
+  const embed = payload.embed || payload.embedRecord || null;
+  return (
+    <div className="ledger-embed ledger-repost">
+      <article className="post-embed-quote">
+        <header className="post-embed-quote-head">
+          {author.avatar && (
+            <img
+              className="post-embed-quote-avatar"
+              src={avatarThumb(author.avatar)}
+              alt=""
+              width={20}
+              height={20}
+              loading="lazy"
+            />
+          )}
+          <span className="post-embed-quote-author">
+            {author.displayName && (
+              <span className="post-embed-quote-name">{author.displayName}</span>
+            )}
+            {author.handle && (
+              <span className="post-embed-quote-handle">@{author.handle}</span>
+            )}
+          </span>
+          {ts && (
+            <span className="post-embed-quote-time gutter">
+              {externalHref ? (
+                <a href={externalHref} target="_blank" rel="noreferrer noopener">
+                  <RelativeTimeText value={ts} />
+                </a>
+              ) : (
+                <RelativeTimeText value={ts} />
+              )}
+            </span>
+          )}
+        </header>
+        {payload.text && (
+          <p className="post-embed-quote-text">
+            {renderPostText(payload.text, payload.facets || null)}
+          </p>
+        )}
+        {embed && (
+          <PostEmbed
+            embed={embed}
+            did={author.did}
+            postUri={payload.subjectUri}
+          />
+        )}
+      </article>
+    </div>
+  );
 }
 
 function summarize(item) {
@@ -499,8 +490,8 @@ function Placeholder({ children }) {
  * Posts keep their rich text (links / mentions render as anchors).
  * Text-less posts return null when an embed exists — the condensed
  * embed below carries the row on its own. A link the post's card already
- * shows isn't printed twice: a link-only post is just its reference line
- * (see trimLinkEcho). A post by someone else gets a leading @handle so
+ * shows isn't printed twice: a link-only post is just its card (see
+ * trimLinkEcho). A post by someone else gets a leading @handle so
  * attribution survives the loss of the card's author header.
  */
 function summarizePost(item) {
