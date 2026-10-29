@@ -700,10 +700,10 @@
   }
 }
 
-/* Where the page's gutter has room, the number hangs in it with its time
-   under it, the way the ledger hangs its verbs, and the stats line drops
+/* On a desk, where the page has its margin, the number hangs in it with its
+   time under it, the way the ledger hangs its verbs, and the stats line drops
    the time it carried on narrower screens. */
-@media (min-width: 1000px) {
+@media (min-width: 62rem) {
   .record-thread-num {
     position: absolute;
     top: calc(var(--thread-num-top, 0px) + 0.3em);
