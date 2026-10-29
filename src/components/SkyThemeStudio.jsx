@@ -45,7 +45,10 @@
 // the reason this file mirrors the site's own hour in a ref.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import Button from './Button.jsx';
+import SectionHead from './SectionHead.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import {
   paletteForHour,
@@ -556,19 +559,13 @@ export default function SkyThemeStudio({ agent, did }) {
 
       {loadError ? (
         <div>
-          <p className="placeholder-card">
+          <p className="sky-empty">
             The sky override could not be read, so the studio stays closed
             rather than opening on the default palette.
           </p>
           <p className="admin-field-hint">{loadError}</p>
           <div className="admin-actions">
-            <button
-              type="button"
-              className="admin-gate-button"
-              onClick={retryLoad}
-            >
-              Try again
-            </button>
+            <Button onClick={retryLoad}>Try again</Button>
           </div>
         </div>
       ) : loading || !byHour ? (
@@ -582,12 +579,16 @@ export default function SkyThemeStudio({ agent, did }) {
           <div className="sky-hourbar">
             <div className="sky-hourbar-inner">
               <div className="sky-hourbar-row">
-                <button type="button" className="sky-step" onClick={() => setHour((h) => (h + 23) % 24)} aria-label="Previous hour">‹</button>
+                <Button variant="icon" className="sky-step" onClick={() => setHour((h) => (h + 23) % 24)} aria-label="Previous hour" title="Previous hour">
+                  <ChevronLeft size={16} aria-hidden="true" />
+                </Button>
                 <span className="sky-hour-name">
                   {hourLabel(hour)}{' '}
                   <span className="sky-hour-tag">{isDay ? 'day' : 'night'}{hasOverride(cfg) ? ' · override' : ''}</span>
                 </span>
-                <button type="button" className="sky-step" onClick={() => setHour((h) => (h + 1) % 24)} aria-label="Next hour">›</button>
+                <Button variant="icon" className="sky-step" onClick={() => setHour((h) => (h + 1) % 24)} aria-label="Next hour" title="Next hour">
+                  <ChevronRight size={16} aria-hidden="true" />
+                </Button>
                 <span className="sky-hourbar-meta">{overriddenCount}/24 tuned</span>
               </div>
               {stacked ? (
@@ -707,9 +708,9 @@ export default function SkyThemeStudio({ agent, did }) {
                 <div key={r.name} className="sky-read-row">
                   <span className="sky-read-name">{r.name}</span>
                   <span className="sky-read-nums">
-                    <span className={`sky-chip ${grade(r.now, r.target)}`}>{r.now.toFixed(2)}</span>
+                    <span className={`sky-fig ${grade(r.now, r.target)}`}>{r.now.toFixed(2)}</span>
                     <span className="sky-read-arrow">→</span>
-                    <span className={`sky-chip ${grade(r.tuned, r.target)}`}>{r.tuned.toFixed(2)}</span>
+                    <span className={`sky-fig ${grade(r.tuned, r.target)}`}>{r.tuned.toFixed(2)}</span>
                     <span className="sky-read-target">/ {r.target.toFixed(1)}</span>
                     <span className="sky-read-swatch" style={{ background: r.shipped }} title={r.shipped} />
                   </span>
@@ -724,7 +725,7 @@ export default function SkyThemeStudio({ agent, did }) {
           ) : (
             <div className="sky-controls">
               <section className="sky-group">
-                <h3 className="admin-collection-group-heading small-caps">Background</h3>
+                <SectionHead as="h3" title="Background" />
                 <div className="sky-fields">
                   <ColorField
                     label="Page color"
@@ -738,7 +739,7 @@ export default function SkyThemeStudio({ agent, did }) {
               </section>
 
               <section className="sky-group">
-                <h3 className="admin-collection-group-heading small-caps">Horizon pop</h3>
+                <SectionHead as="h3" title="Horizon pop" />
                 <div className="sky-fields">
                   <ColorField
                     label="Pop color"
@@ -751,7 +752,7 @@ export default function SkyThemeStudio({ agent, did }) {
               </section>
 
               <section className="sky-group">
-                <h3 className="admin-collection-group-heading small-caps">Borders</h3>
+                <SectionHead as="h3" title="Borders" />
                 <div className="sky-fields">
                   <SliderField label="Warmth" value={Math.round(cfg.ruleWarmth * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.ruleWarmth * 100)}%`} onChange={(v) => patchHour({ ruleWarmth: v / 100 })} />
                   <SliderField label="Contrast" value={cfg.ruleContrast} min={0} max={0.45} step={0.02} display={cfg.ruleContrast.toFixed(2)} onChange={(v) => patchHour({ ruleContrast: v })} />
@@ -759,7 +760,7 @@ export default function SkyThemeStudio({ agent, did }) {
               </section>
 
               <section className="sky-group">
-                <h3 className="admin-collection-group-heading small-caps">Faint &amp; muted text</h3>
+                <SectionHead as="h3" title="Faint & muted text" />
                 <div className="sky-fields">
                   <SliderField label="Warmth" value={Math.round(cfg.inkWarmth * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.inkWarmth * 100)}%`} onChange={(v) => patchHour({ inkWarmth: v / 100 })} />
                   <SliderField label="Contrast" value={cfg.inkContrast} min={0} max={0.45} step={0.02} display={cfg.inkContrast.toFixed(2)} onChange={(v) => patchHour({ inkContrast: v })} />
@@ -767,14 +768,14 @@ export default function SkyThemeStudio({ agent, did }) {
               </section>
 
               <section className="sky-group">
-                <h3 className="admin-collection-group-heading small-caps">Glow / shine</h3>
+                <SectionHead as="h3" title="Glow / shine" />
                 <div className="sky-fields">
                   <ColorField label="Glow color" value={cfg.glowColor} onChange={(v) => patchHour({ glowColor: v })} onReset={cfg.glowColor !== cfg.pop ? () => patchHour({ glowColor: cfg.pop }) : null} />
                   <SliderField label="Size" value={cfg.glowSize} min={0} max={48} step={2} display={`${cfg.glowSize}px`} onChange={(v) => patchHour({ glowSize: v })} />
                   <SliderField label="Strength" value={Math.round(cfg.glowStrength * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.glowStrength * 100)}%`} onChange={(v) => patchHour({ glowStrength: v / 100 })} />
                 </div>
                 <div className="sky-targets">
-                  <span className="admin-field-label">Applies to</span>
+                  <span className="eyebrow">Applies to</span>
                   <div className="sky-targets-grid">
                     {GLOW_GROUPS.map((g) => (
                       <label key={g} className="sky-check">
@@ -793,12 +794,12 @@ export default function SkyThemeStudio({ agent, did }) {
               would be two save buttons for one record. */}
           {stacked ? null : (
             <div className="sky-actions">
-              <button type="button" className="admin-gate-button" onClick={handleSave} disabled={saving}>
+              <Button variant="primary" onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving…' : flash ? 'Saved ✓' : 'Save'}
-              </button>
-              <button type="button" className="admin-link-subtle" onClick={resetHour} disabled={saving}>
+              </Button>
+              <Button variant="text" size="sm" onClick={resetHour} disabled={saving}>
                 Reset {skyHourKey(hour)}
-              </button>
+              </Button>
             </div>
           )}
         </>
@@ -827,19 +828,21 @@ function ColorField({ label, hint, value, onChange, onReset }) {
     // four inputs (swatch + three sliders), and a label should only ever
     // imply an association with one.
     <div className="sky-field sky-color-field">
-      <span className="admin-field-label">
+      <span className="eyebrow">
         {label}
         {hint ? <span className="admin-field-hint"> {hint}</span> : null}
       </span>
       <span className="sky-color-row">
         <input type="color" value={value} onChange={(e) => onChange(e.target.value)} />
-        <code className="sky-color-hex">{value}</code>
+        <span className="sky-color-hex">{value}</span>
         {onReset ? (
-          <button type="button" className="sky-reset" onClick={onReset} title="Reset to default">reset</button>
+          <Button variant="text" size="sm" onClick={onReset} title="Reset to default">
+            Reset
+          </Button>
         ) : null}
       </span>
       <span className="sky-hsl-group">
-        <span className="admin-field-label sky-slider-label">
+        <span className="eyebrow sky-slider-label">
           <span>Hue</span>
           <span className="sky-field-val">{Math.round(h)}°</span>
         </span>
@@ -854,7 +857,7 @@ function ColorField({ label, hint, value, onChange, onReset }) {
         />
       </span>
       <span className="sky-hsl-group">
-        <span className="admin-field-label sky-slider-label">
+        <span className="eyebrow sky-slider-label">
           <span>Saturation</span>
           <span className="sky-field-val">{Math.round(s * 100)}%</span>
         </span>
@@ -870,7 +873,7 @@ function ColorField({ label, hint, value, onChange, onReset }) {
         />
       </span>
       <span className="sky-hsl-group">
-        <span className="admin-field-label sky-slider-label">
+        <span className="eyebrow sky-slider-label">
           <span>Brightness</span>
           <span className="sky-field-val">{Math.round(l * 100)}%</span>
         </span>
@@ -892,7 +895,7 @@ function ColorField({ label, hint, value, onChange, onReset }) {
 function SliderField({ label, hint, value, min, max, step, display, onChange }) {
   return (
     <label className="sky-field sky-slider-field">
-      <span className="admin-field-label sky-slider-label">
+      <span className="eyebrow sky-slider-label">
         <span>
           {label}
           {hint ? <span className="admin-field-hint"> {hint}</span> : null}

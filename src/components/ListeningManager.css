@@ -1,0 +1,57 @@
+/* The listening studio's own look (ListeningManager.jsx), in the kit's terms.
+   Its toolbar and rows keep the shared `.admin-multiselect-*` layout, which the
+   record list pane draws too; everything here is under an `lm-` name so it
+   reaches this studio and nothing else. */
+
+/* The two NSIDs the archive spans, as quiet mono beside their sentence. */
+.lm-nsids .ident {
+  white-space: nowrap;
+}
+
+/* "160 loaded · more to fetch", or the delete's progress: plain meta in
+   tabular figures at the toolbar's far end, not small caps. aria-live, so it
+   is also what a screen reader hears change. */
+.lm-count {
+  margin-left: auto;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+/* A ticked row takes the shared "on" wash. No hairline round it: the rows sit
+   hairline to hairline already, and a box drawn on one would double them. */
+.lm-row.is-selected {
+  background: var(--wash-selected);
+}
+
+/* WHY a definite width on a label that flexes to fill its row: below 62rem the
+   shell centres a clamped studio with `margin-inline: auto`, and an auto inline
+   margin disables flex `stretch` — so `.wb-studio` takes its own MIN-CONTENT
+   size and anything wider than the pane scrolls the whole pane sideways instead
+   of truncating. `flex: 1` sets a flex-basis of 0 but leaves `width: auto`, so
+   this label's min-content contribution was the full un-truncated track name:
+   the row's min-content was already 357.8px against a 358px pane at 390, and
+   the played-at column plus the release name took it to 460.2. A definite
+   `width` is what makes that contribution 0; `flex: 1` still grows the label
+   back to fill the row. Measured: pane scrollWidth 492 → 390 at 390 and
+   369 → 320 at 320, row height unchanged at 60px. It was an inline style while
+   this studio had no stylesheet of its own; `.admin-multiselect-check` itself
+   also renders on the record list pane, so the rule stays on this name. */
+.lm-check {
+  width: 0;
+}
+
+/* The pane is a flex column; the kit's button is as wide as its label. */
+.lm-more {
+  align-self: flex-start;
+}
+
+/* None loaded, or none at all: one italic line, as the site says an empty
+   list, rather than a dashed box (the kit's dashed line means "switched
+   off"). */
+.lm-empty {
+  margin: 0;
+  font-style: italic;
+  color: var(--ink-muted);
+}

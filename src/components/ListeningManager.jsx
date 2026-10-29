@@ -19,14 +19,22 @@
 // PageShell, no "← All collections" link and no second `<h1>` here. It registers
 // nothing with the status strip: its Delete acts on a SELECTION, not on the
 // record the pane is editing, which is what the strip's Delete means.
+//
+// Its controls are the kit's (Button, the shared "on" wash for a ticked row,
+// quiet mono for the two NSIDs). The row and toolbar keep the shared
+// `.admin-multiselect-*` classes for their layout, which the record list pane
+// also draws; what is this studio's own look lives in ListeningManager.css
+// under `lm-` names, so it reaches no other surface.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { rkeyFromUri } from './RecordEditor.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import Button from './Button.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { deleteEveryCopy } from '../lib/tealPlayDelete.js';
+import './ListeningManager.css';
 import {
   TEAL_PLAY_NSIDS,
   comparePlaysDesc,
@@ -358,12 +366,12 @@ export default function ListeningManager({ agent, did }) {
           paragraph, and typography.css indents `p + p` by 1.5em — correct for
           running prose, wrong for a labelled row of NSIDs that has to line up
           with the toolbar under it. */}
-      <div className="admin-field-hint">
+      <div className="admin-field-hint lm-nsids">
         Two lexicons, one archive:{' '}
         {TEAL_PLAY_NSIDS.map((nsid, i) => (
           <Fragment key={nsid}>
             {i > 0 && ' · '}
-            <code className="admin-collection-nsid">{nsid}</code>
+            <span className="ident">{nsid}</span>
           </Fragment>
         ))}
       </div>
@@ -389,14 +397,14 @@ export default function ListeningManager({ agent, did }) {
         {/* aria-live, because a bulk delete moves this number a hundred times
             and a screen reader had no other way to know the work had happened. */}
         {stacked ? null : (
-          <span className="admin-multiselect-count" aria-live="polite">
+          <span className="lm-count" aria-live="polite">
             {status}
           </span>
         )}
         {stacked ? null : (
-          <button
-            type="button"
-            className="admin-gate-button admin-gate-button-tight admin-danger"
+          <Button
+            size="sm"
+            variant="danger"
             ref={deleteRef}
             onClick={() => {
               takeFocusBack(deleteRef);
@@ -407,21 +415,21 @@ export default function ListeningManager({ agent, did }) {
             {deleting
               ? `Deleting ${progress?.done ?? 0} of ${progress?.total ?? selected.size}…`
               : `Delete${selected.size ? ` (${selected.size})` : ''}`}
-          </button>
+          </Button>
         )}
         {/* A serial delete of 200 records is a minute of work with no way out
             of it. Cancel stops the loop between calls; everything already
             deleted stays deleted, which is the only honest offer. */}
         {deleting && (
-          <button
-            type="button"
-            className="admin-link-subtle"
+          <Button
+            variant="text"
+            size="sm"
             onClick={() => {
               cancelRef.current = true;
             }}
           >
             Cancel
-          </button>
+          </Button>
         )}
       </div>
 
@@ -432,7 +440,7 @@ export default function ListeningManager({ agent, did }) {
         // yet." is only true when both lexicons are exhausted; with a live
         // cursor still in hand it means "none LOADED", which is what an
         // owner sees for a moment after deleting every row on screen.
-        <p className="placeholder-card">
+        <p className="lm-empty">
           {done
             ? 'No plays yet.'
             : 'Nothing loaded from this page. There are more plays on the PDS — load them below.'}
@@ -446,29 +454,13 @@ export default function ListeningManager({ agent, did }) {
             return (
               <li
                 key={rec.uri}
-                className={`admin-record-row admin-multiselect-row${checked ? ' is-selected' : ''}`}
+                className={`admin-record-row admin-multiselect-row lm-row${checked ? ' is-selected' : ''}`}
               >
                 <label
-                  className="admin-checkbox admin-multiselect-check"
-                  // The one inline style in this file. It belongs to THIS row
-                  // rather than to `.admin-multiselect-check`, which the public
-                  // quick-edit sheet also renders, and this studio has no
-                  // stylesheet of its own to scope it in.
-                  //
-                  // WHY: below 62rem the shell centres a clamped studio with
-                  // `margin-inline: auto`, and an auto inline margin disables
-                  // flex `stretch` — so `.wb-studio` takes its own MIN-CONTENT
-                  // size and anything wider than the pane scrolls the whole
-                  // pane sideways instead of truncating. `flex: 1` sets a
-                  // flex-basis of 0 but leaves `width: auto`, so this label's
-                  // min-content contribution was the full un-truncated track
-                  // name: the row's min-content was already 357.8px against a
-                  // 358px pane at 390, and the played-at column plus the
-                  // release name took it to 460.2. A definite `width` is what
-                  // makes that contribution 0; `flex: 1` still grows the label
-                  // back to fill the row. Measured: pane scrollWidth 492 → 390
-                  // at 390 and 369 → 320 at 320, row height unchanged at 60px.
-                  style={{ width: 0 }}
+                  // `.lm-check` carries this row's `width: 0`, which used to be
+                  // the one inline style in this file (ListeningManager.css says
+                  // why it is there).
+                  className="admin-checkbox admin-multiselect-check lm-check"
                 >
                   <input type="checkbox" checked={checked} onChange={() => toggle(rkey)} />
                   <span className="admin-record-preview">
@@ -483,12 +475,15 @@ export default function ListeningManager({ agent, did }) {
                     action link — which is exactly the column this list was
                     missing. */}
                 <span className="admin-record-time">{playedAtLabel(rec.value)}</span>
-                <Link
+                <Button
+                  as={Link}
+                  variant="text"
+                  size="sm"
                   to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey)}`}
-                  className="admin-link-subtle admin-multiselect-edit"
+                  className="admin-multiselect-edit"
                 >
                   Edit →
-                </Link>
+                </Button>
               </li>
             );
           })}
@@ -500,15 +495,9 @@ export default function ListeningManager({ agent, did }) {
           cursor still in `cursors` — and 140 unloaded records became
           unreachable without a page reload. */}
       {!done && (
-        <button
-          type="button"
-          className="admin-gate-button admin-gate-button-tight"
-          ref={loadMoreRef}
-          disabled={loading}
-          onClick={loadMore}
-        >
+        <Button size="sm" className="lm-more" ref={loadMoreRef} disabled={loading} onClick={loadMore}>
           {loading ? 'Loading…' : 'Load more'}
-        </button>
+        </Button>
       )}
     </>
   );

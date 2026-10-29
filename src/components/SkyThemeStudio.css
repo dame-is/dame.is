@@ -64,7 +64,7 @@
   position: sticky;
   top: 0;
   z-index: 4;
-  background: var(--surface-deep);
+  background: var(--page);
   border-bottom: 1px solid var(--rule);
   margin-bottom: var(--space-4);
 }
@@ -86,47 +86,30 @@
 }
 .sky-hourbar-meta {
   margin-left: auto;
-  font-family: var(--mono-ui);
-  font-size: var(--text-xs);
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-muted);
   white-space: nowrap;
 }
-/* Painted to 44px on a touch screen rather than grown with `.wb-hit`: on a
-   phone this pair IS the hour picker (the 24-cell arc is gated out below
-   62rem), so the target has to be visible, not just present. Two `.wb-hit`
-   pseudo-boxes 12px apart would also overlap by 4px and the later sibling would
-   take both taps. */
+/* The steppers are the kit's icon buttons at their full size, which paints
+   44px under a finger rather than growing a `.wb-hit` halo: on a phone this
+   pair IS the hour picker (the 24-cell arc is gated out below 62rem), so the
+   target has to be visible, not just present. */
 .sky-step {
-  width: 1.9rem;
-  height: 1.9rem;
   flex: none;
-  border: 1px solid var(--rule);
-  background: var(--surface-raised);
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-@media (pointer: coarse) {
-  .sky-step {
-    width: var(--wb-hit, 2.75rem);
-    height: var(--wb-hit, 2.75rem);
-    font-size: 1.3rem;
-  }
-}
-.sky-step:hover {
-  color: var(--ink);
-  border-color: var(--accent-soft);
 }
 .sky-hour-name {
   font-size: var(--text-base);
   font-weight: 600;
 }
+/* "day · override": the label voice, as the kit's eyebrow sets it. */
 .sky-hour-tag {
-  font-family: var(--mono-ui);
+  font-family: var(--sans);
   font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 400;
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
   color: var(--ink-muted);
 }
 .sky-arc {
@@ -192,8 +175,17 @@
 .sky-swatch-label {
   font-family: var(--sans);
   font-variant: all-small-caps;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+/* The studio could not open: one italic line, as the site says an empty or
+   missing thing, not a dashed box (the kit's dashed line means "switched
+   off"). */
+.sky-empty {
+  margin: 0;
+  font-style: italic;
   color: var(--ink-muted);
 }
 
@@ -328,17 +320,20 @@
   white-space: nowrap;
 }
 
-/* ---- contrast readout ---- */
+/* ---- contrast readout ----
+   Ruled rows between two hairlines, as the kit's figures band sits, rather
+   than a box: a table of numbers, not an object. */
 .sky-readout {
-  border: 1px solid var(--rule);
   margin: var(--space-4) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
 }
 .sky-read-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--rule-soft);
 }
 .sky-read-row:last-child {
@@ -351,9 +346,10 @@
 .sky-read-nums {
   display: inline-flex;
   align-items: center;
-  gap: 0.5em;
-  font-family: var(--mono-ui);
-  font-size: var(--text-xs);
+  gap: 0.6em;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums lining-nums;
 }
 .sky-read-arrow {
   color: var(--ink-faint);
@@ -367,28 +363,32 @@
   height: 0.9em;
   border: 1px solid var(--rule);
 }
+/* The table's caption row: its rule runs the table's width, so the paragraph
+   gives up the measure typography.css sets on a <p>. */
 .sky-read-note {
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-xs);
+  max-width: none;
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: var(--text-meta);
   color: var(--ink-muted);
   text-indent: 0;
 }
-.sky-chip {
-  padding: 0.15em 0.55em;
-  font-variant-numeric: tabular-nums;
-  border: 1px solid transparent;
+/* A ratio is a plain tabular figure in ink. One short of its floor is marked
+   in --danger, which keeps a fixed hue at every hour where a green or amber
+   would have to be re-checked against each page; one well short (under four
+   fifths of the floor) is also set heavier. */
+.sky-fig {
+  min-width: 2.6em;
+  text-align: right;
+  color: var(--ink);
 }
-.sky-chip.good {
-  color: #2f8f63;
-  background: color-mix(in srgb, #2f8f63 12%, transparent);
+.sky-fig.warn,
+.sky-fig.bad {
+  color: var(--danger);
 }
-.sky-chip.warn {
-  color: #a9701b;
-  background: color-mix(in srgb, #a9701b 12%, transparent);
-}
-.sky-chip.bad {
-  color: #bd453c;
-  background: color-mix(in srgb, #bd453c 12%, transparent);
+.sky-fig.bad {
+  font-weight: 600;
 }
 
 /* ---- controls ---- */
@@ -398,10 +398,8 @@
   gap: var(--space-5);
   margin: var(--space-5) 0;
 }
-.sky-group > .admin-collection-group-heading {
-  margin: 0 0 var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--rule);
+.sky-group > .section-head {
+  margin-bottom: var(--space-3);
 }
 /* A GRID, not a wrapping flex row, and the difference is the whole point: as
    `flex: 1 1 220px` in a wrapping row each field inherited whatever the field
@@ -444,26 +442,13 @@
   background: var(--page);
   cursor: pointer;
 }
+/* The hex is the value as written, so it is set as data: --code, which stays
+   monospace in every font mode. */
 .sky-color-hex {
-  font-family: var(--mono-ui);
+  font-family: var(--code);
   font-size: var(--text-sm);
   color: var(--ink-soft);
   text-transform: uppercase;
-}
-.sky-reset {
-  font-family: var(--mono-ui);
-  font-size: var(--text-xs);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  background: transparent;
-  border: 1px solid var(--rule);
-  padding: 0.25em 0.5em;
-  cursor: pointer;
-}
-.sky-reset:hover {
-  color: var(--ink);
-  border-color: var(--accent-soft);
 }
 /* Both field kinds are grid items now; the flex bases they carried are what the
    grid template replaces. `min-width: 0` because a grid item's automatic
@@ -484,10 +469,15 @@
   align-items: baseline;
   gap: var(--space-3);
 }
+/* A slider's reading, in the figure voice: ink and tabular, set in sentence
+   case against the small-caps label it shares a line with. Not the accent,
+   which the kit keeps for a figure you can follow. */
 .sky-field-val {
-  font-family: var(--mono-ui);
+  font-family: var(--sans);
   font-size: var(--text-sm);
-  color: var(--accent);
+  font-variant: normal;
+  letter-spacing: 0;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 /* A 2px LINE and a grabbable BOX are two different measurements, and this rule
