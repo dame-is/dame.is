@@ -5,6 +5,7 @@ import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
+import { xrayNotARecord } from '../lib/xray.js';
 import { usePaper } from '../hooks/usePaper.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import ReferenceCard from './ReferenceCard.jsx';
@@ -100,6 +101,9 @@ function PostCardBody({
   suppressReplyBadge = false,
   _thread = null,
   ownReplies = _thread?.selfReplies || 0,
+  // x-ray, on a page that opts the post into it (its own page): its media
+  // shows the blobs under it, and its counts say they aren't in the record.
+  inspect = false,
 }) {
   const anisota = isAnisotaPost({ source, atUri });
   const stats = postStatsLine(payload, ownReplies);
@@ -203,9 +207,15 @@ function PostCardBody({
           embed={embed}
           did={authorDid}
           postUri={payload?.subjectUri || atUri}
+          raw={payload?.embedRecord || null}
+          inspect={inspect}
         />
       )}
-      {stats && <footer className="post-card-stats">{stats}</footer>}
+      {stats && (
+        <footer className="post-card-stats" {...(inspect ? xrayNotARecord('AppView count') : null)}>
+          {stats}
+        </footer>
+      )}
     </article>
   );
 }

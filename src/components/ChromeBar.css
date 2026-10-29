@@ -1178,10 +1178,21 @@
   .chrome-masthead-trail .chrome-crumb-nsid {
     display: none;
   }
+  /* In x-ray it comes back on a line of its own under the trail, in the mono
+     and ink every other x-ray gloss wears, since here it is a revealed
+     collection rather than a label. A whole line, not a share of the
+     trail's: beside a post's date there was no room for it, and it sat
+     flush against the time, a step higher than it. */
   :root[data-xray='on'] .chrome-masthead-trail .chrome-crumb-nsid {
     display: block;
-    margin-left: 0;
-    padding-top: 0;
+    flex: 0 0 100%;
+    margin: calc(-1 * var(--space-1)) 0 0;
+    padding: 0 0 var(--space-2);
+    font-family: var(--code);
+    font-variant: normal;
+    font-size: var(--text-xs);
+    letter-spacing: 0;
+    color: var(--xr-ink);
     text-align: left;
     white-space: normal;
     overflow-wrap: anywhere;

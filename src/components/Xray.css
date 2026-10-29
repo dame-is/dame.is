@@ -309,6 +309,80 @@
 }
 
 /* ----------------------------------------------------------------------
+   Media in a post, on its own page (PostEmbed's BlobPlate / AltText). A
+   picture is a blob the record points at, so under x-ray it wears a plate
+   over its foot naming that blob: the field it sits in, its CID, and the
+   type, size and aspect ratio the record gives it. A video's plate runs
+   across the top, off its controls. The frame takes the x-ray hairline, and
+   the alt text the page only hands a screen reader is printed beneath.
+   ---------------------------------------------------------------------- */
+.post-embed-image,
+.post-embed-video { position: relative; }
+
+:root[data-xray="on"] .post-embed-image:has(> .post-embed-xray),
+:root[data-xray="on"] .post-embed-video:has(> .post-embed-xray) {
+  border-color: var(--xr-frame);
+}
+
+.post-embed-xray {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--ink-soft);
+  text-align: left;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  animation: post-embed-xray-in 0.3s var(--xr-ease) both;
+}
+.post-embed-xray-foot { bottom: 0; border-top: 1px solid var(--xr-frame); }
+.post-embed-xray-head { top: 0; border-bottom: 1px solid var(--xr-frame); }
+.post-embed-xray-field { color: var(--xr-ink); }
+.post-embed-xray-kind { color: var(--ink-muted); }
+.post-embed-xray-facts { color: var(--ink-muted); }
+@keyframes post-embed-xray-in {
+  from { opacity: 0; transform: translateY(0.35rem); }
+  to   { opacity: 1; transform: none; }
+}
+.post-embed-xray-head { animation-name: post-embed-xray-in-head; }
+@keyframes post-embed-xray-in-head {
+  from { opacity: 0; transform: translateY(-0.35rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Small tiles in a grid of three or four keep to the field and the CID. */
+.post-embed-images:is([data-count='3'], [data-count='4']) .post-embed-xray-facts { display: none; }
+
+.post-embed-xray-alts {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-3);
+  border-left: 1px dashed var(--xr-frame);
+  animation: doc-inspect-in 0.3s var(--xr-ease) both;
+}
+.post-embed-xray-alt { display: grid; gap: 2px; }
+.post-embed-xray-alt dt {
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  color: var(--xr-ink);
+}
+.post-embed-xray-alt dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.post-embed-xray-alt dd em { color: var(--ink-muted); }
+
+/* ----------------------------------------------------------------------
    A · DOCUMENT (resume) — backlinked composition. Each role/education
    entry is its own is.dame.resume.job/.education record that the resume
    version backlinks; x-ray keeps the structure, recedes the prose, and
@@ -602,7 +676,9 @@
   }
   .chrome-xray.is-open .chrome-nav-glyph { animation: none; }
   /* Keep the reveal (fade) but drop the travel on the document margin note. */
-  :root[data-xray="on"] .doc-inspect-margin { animation-name: doc-inspect-fade; }
+  :root[data-xray="on"] .doc-inspect-margin,
+  .post-embed-xray,
+  .post-embed-xray-alts { animation-name: doc-inspect-fade; }
 }
 @keyframes doc-inspect-fade { from { opacity: 0; } to { opacity: 1; } }
 

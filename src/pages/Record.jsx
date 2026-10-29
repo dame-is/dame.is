@@ -12,10 +12,12 @@ import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions, { OpenInButton } from '../components/AturiActions.jsx';
+import { InspectMargin, XrayTag } from '../components/XraySubstrate.jsx';
 import SequenceFoot from '../components/SequenceFoot.jsx';
 import VitalsChip from '../components/VitalsChip.jsx';
 import Time from '../components/Time.jsx';
 import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
+import { useXray } from '../hooks/useXray.jsx';
 import {
   colophon,
   indexPathForVerb,
@@ -48,6 +50,7 @@ import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { useFirstSightings } from '../hooks/useFirstSightings.js';
 import { isFirstSighting } from '../lib/firstSightings.js';
 import { renderPostText } from '../lib/postRichText.jsx';
+import { xrayNotARecord } from '../lib/xray.js';
 import PostEmbed from '../components/PostEmbed.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import './Blogging.css';
@@ -348,6 +351,11 @@ export default function Record({ verb, nsid, source }) {
           </div>
         )}
 
+        {/* Under x-ray, the record behind the page: where it sits in the
+            atmosphere (PDS, repo, collection, rkey, CID), and for a repost or
+            a like the record it points at. Takes no room until then. */}
+        <InspectMargin atUri={atUri} cid={cid} value={item?.payload} />
+
         {threadMode && parents.length > 0 && (
           <ParentChain parents={parents.slice(0, 1)} />
         )}
@@ -588,10 +596,20 @@ function LexiconList({ nsids }) {
 /* ------------------------------------------------------------------ */
 
 function RecordBody({ verb, item, ownReplies = 0 }) {
+  const { active: inspecting } = useXray();
   switch (verb) {
     case 'posting':
     case 'reposting':
-      return <PostCard {...item} variant="record" ownReplies={ownReplies} />;
+      // Only a post's own media is opted into x-ray's blob plates: on a
+      // repost's page the pictures are another record's, not the page's.
+      return (
+        <PostCard
+          {...item}
+          variant="record"
+          ownReplies={ownReplies}
+          inspect={inspecting && verb === 'posting'}
+        />
+      );
     case 'logging':
       // The status is the page's H1 and its body-state sits in the facts
       // under it, so there is no body.
@@ -783,6 +801,7 @@ function ParentChain({ parents }) {
 }
 
 function ParentPostCard({ parent, isRoot }) {
+  const { active: inspecting } = useXray();
   if (parent?.$type === 'app.bsky.feed.defs#notFoundPost') {
     return <div className="record-parent record-parent-missing gutter">↳ a deleted post</div>;
   }
@@ -806,6 +825,7 @@ function ParentPostCard({ parent, isRoot }) {
     : null;
   return (
     <article className="record-parent" data-at-uri={parent?.uri}>
+      {inspecting && parent?.uri && <XrayTag atUri={parent.uri} />}
       <header className="record-parent-head">
         <span className="record-parent-arrow" aria-hidden="true">↳</span>
         {isRoot && <span className="small-caps record-parent-tag">root</span>}
@@ -896,6 +916,7 @@ function splitSelfThread(rootNode, authorDid) {
  * replies its count includes.
  */
 function SelfThreadPost({ item, ownReplies = 0 }) {
+  const { active: inspecting } = useXray();
   const text = item.payload?.text || '';
   const facets = item.payload?.facets || null;
   const embed = item.payload?.embed || item.payload?.embedRecord || null;
@@ -903,9 +924,24 @@ function SelfThreadPost({ item, ownReplies = 0 }) {
   const stats = postStatsLine(item.payload, ownReplies);
   return (
     <article className="record-thread-post" data-at-uri={item.atUri}>
+      {/* Each continuation is a record of its own; x-ray names which. Only
+          mounted then: collapsed, the tag would still take a gap here. */}
+      {inspecting && <XrayTag atUri={item.atUri} />}
       {text && <p className="record-thread-text">{renderPostText(text, facets)}</p>}
-      {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
-      {stats && <footer className="post-card-stats">{stats}</footer>}
+      {embed && (
+        <PostEmbed
+          embed={embed}
+          did={authorDid}
+          collapsible
+          raw={item.payload?.embedRecord || null}
+          inspect={inspecting}
+        />
+      )}
+      {stats && (
+        <footer className="post-card-stats" {...(inspecting ? xrayNotARecord('AppView count') : null)}>
+          {stats}
+        </footer>
+      )}
     </article>
   );
 }

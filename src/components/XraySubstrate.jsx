@@ -47,9 +47,11 @@ export function XrayTag({ atUri, onOpen }) {
  * to disambiguate: under inspect it shows the full Atmosphere Record locus
  * (pds → repo → collection → record → cid) directly, with no intermediate
  * "tap to inspect" step. On narrow screens (no true margin) it stacks at the
- * top of the document; the document text itself is never dimmed.
+ * top of the document; the document text itself is never dimmed. `value`
+ * is the record's, for a reference record (a repost, a like) whose tree
+ * names the record it points at.
  */
-export function InspectMargin({ atUri, cid }) {
+export function InspectMargin({ atUri, cid, value }) {
   const xray = useXray();
   const parts = atUriParts(atUri);
   if (!parts) return null;
@@ -64,7 +66,7 @@ export function InspectMargin({ atUri, cid }) {
     >
       {/* The panel resolves the PDS, so only mount it once inspect is armed
           (the aside is display:none until then). */}
-      {xray.active && <XraySubstratePanel atUri={atUri} cid={cid} />}
+      {xray.active && <XraySubstratePanel atUri={atUri} cid={cid} value={value} />}
     </aside>
   );
 }
