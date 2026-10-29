@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
-import DocumentMeta from '../components/DocumentMeta.jsx';
 import { XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
@@ -23,10 +22,9 @@ import {
   pickDefaultResume,
   findResumeBySlug,
   printableUrl,
-  publicResumes,
 } from '../lib/resumeHelpers.js';
 import { atUriParts } from '../lib/xray.js';
-import { ME_DID, ME_HANDLE, COLLECTIONS, GITHUB_REPO, HIRING_ESSAY_PATH } from '../config.js';
+import { ME_DID, ME_HANDLE, COLLECTIONS, GITHUB_REPO } from '../config.js';
 import './Resume.css';
 
 const STANDARD_DOC = 'site.standard.document';
@@ -257,14 +255,13 @@ function ResumeIdentity({ screenTitle, printName, headline, contact }) {
               <a href={`mailto:${contact.email}`}>{contact.email}</a>
             </li>
           )}
-          {(contact.links || []).map((l) => {
+          {contactLinks(contact.links).map((l) => {
             // Paper can't follow a link, so a labelled one ("Website") prints
             // as its address instead — see .resume-contact-print in Resume.css.
-            // On screen these links live in the margin (HiringMargin), and
-            // the one to this site isn't one at all.
+            // A link to this site is only worth its place on paper.
             const printed = l.label ? printableUrl(l.url) : '';
             return (
-              <li key={l.url} className="resume-contact-link">
+              <li key={l.url} className={sameSite(l.url) ? 'resume-contact-paper' : undefined}>
                 <a href={l.url} target="_blank" rel="noreferrer noopener">
                   {printed ? (
                     <>
@@ -292,64 +289,20 @@ const sameSite = (url) => {
   }
 };
 
-/**
- * The hiring page's margin (GAP-05): why Dame is looking, in the essay that
- * says so; where else to find them; and the résumé's other versions. Beside
- * the résumé on a desk, a band under its header on a phone; never on paper,
- * where the header's contact line carries the same addresses.
- */
-function HiringMargin({ contact, versions }) {
+/** The contact line's links: the résumé's own, then Bluesky and GitHub
+ *  wherever the version doesn't already carry them, with no address twice. */
+function contactLinks(links) {
   const seen = new Set();
-  const elsewhere = [
+  return [
+    ...(links || []),
     { label: 'Bluesky', url: `https://bsky.app/profile/${ME_HANDLE}` },
     { label: 'GitHub', url: `https://github.com/${GITHUB_REPO.split('/')[0]}` },
-    ...(contact?.links || []),
   ].filter((l) => {
     const key = String(l?.url || '').replace(/\/+$/, '').toLowerCase();
-    if (!key || sameSite(l.url) || seen.has(key)) return false;
+    if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-  const columns = [
-    {
-      key: 'why',
-      label: 'Looking',
-      long: <Link to={HIRING_ESSAY_PATH}>Why I’m looking →</Link>,
-    },
-    {
-      key: 'elsewhere',
-      label: 'Elsewhere',
-      long: (
-        <span className="resume-margin-links">
-          {elsewhere.map((l) => (
-            <a key={l.url} href={l.url} target="_blank" rel="noreferrer noopener">
-              {l.label || printableUrl(l.url)}
-            </a>
-          ))}
-        </span>
-      ),
-    },
-    versions.length > 0 && {
-      key: 'versions',
-      label: 'Also as',
-      long: (
-        <span className="resume-margin-links">
-          {versions.map((r) => (
-            <Link key={r.uri} to={`/available/${r.value.slug || rkeyFromAtUri(r.uri)}`}>
-              {r.value.title || r.value.headline || r.value.slug}
-            </Link>
-          ))}
-        </span>
-      ),
-    },
-  ]
-    .filter(Boolean)
-    .map((col) => ({ ...col, short: col.long }));
-  return (
-    <aside className="resume-margin" aria-label="Hiring">
-      <DocumentMeta columns={columns} />
-    </aside>
-  );
 }
 
 export default function Resume() {
@@ -414,7 +367,6 @@ export default function Resume() {
 
   const v = resolved.value;
   const contact = resolved.contact;
-  const versions = publicResumes(items?.resumes).filter((r) => r.uri !== resolved.uri);
 
   return (
     <PageShell
@@ -431,8 +383,6 @@ export default function Resume() {
             contact={contact}
           />
         </header>
-
-        <HiringMargin contact={contact} versions={versions} />
 
         {summaryHtml && (
           <section className="resume-section resume-summary">

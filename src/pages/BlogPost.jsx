@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
@@ -221,38 +221,6 @@ function essayEntry(r) {
   };
 }
 
-/**
- * How far the colophon reaches down beside the text, written onto the essay
- * as --margin-clear. The colophon and the link sidenotes share the margin, but
- * the colophon is a grid item of its own while the sidenotes float out of the
- * paragraphs, so nothing kept the first notes from landing on it ("anisota.net"
- * printed across the edition's CID). Blogging.css stands a float this tall at
- * the top of the text's margin, and each sidenote clears it.
- *
- * Measured, because it moves: the title wraps differently at every width, the
- * colophon has three to five facts, and both shift when the font arrives.
- */
-function useMarginClearance(ref) {
-  useLayoutEffect(() => {
-    const article = ref.current;
-    if (!article || typeof ResizeObserver === 'undefined') return undefined;
-    const margin = article.querySelector(':scope > .blog-margin');
-    const doc = article.querySelector(':scope > .leaflet-doc');
-    if (!margin || !doc) return undefined;
-    const measure = () => {
-      const reach = margin.getBoundingClientRect().bottom - doc.getBoundingClientRect().top;
-      article.style.setProperty('--margin-clear', `${Math.max(0, Math.ceil(reach))}px`);
-    };
-    measure();
-    // The article resizes when the title rewraps (moving the text) or the text
-    // arrives; the colophon when its facts do.
-    const ro = new ResizeObserver(measure);
-    ro.observe(article);
-    ro.observe(margin);
-    return () => ro.disconnect();
-  }, [ref]);
-}
-
 function StandardPostBody({ record, essays = [], id, commentsUri, replies, repliesStatus, metrics }) {
   const value = record?.value || {};
   const created = value.publishedAt || value.createdAt;
@@ -260,8 +228,6 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
   // real apostrophes), including in the tab.
   const title = smartenText(value.title || id);
   const { toggle: toggleXray } = useXray();
-  const bookRef = useRef(null);
-  useMarginClearance(bookRef);
 
   const index = essays.findIndex((r) => r?.uri === record?.uri);
   const total = essays.length;
@@ -308,7 +274,7 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
       {/* A book page: the title and the text hang from the chrome's left edge
           in one 28em column, and the facts sit in the margin beside them
           (Blogging.css .blog-book). */}
-      <article ref={bookRef} className="blog-article blog-book reveal">
+      <article className="blog-article blog-book reveal">
         <h1 className="page-title blog-title">{title}</h1>
         <aside className="blog-margin">
           {columns && <DocumentMeta columns={columns.map((c) => ({ ...c, short: c.short ?? c.long }))} />}

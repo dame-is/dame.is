@@ -190,6 +190,9 @@ blockquote {
 .leaflet-doc > .first-paragraph::first-letter,
 .about-longform > p:first-of-type::first-letter {
   font-family: var(--serif);
+  /* Upright whatever the paragraph opens in: an opening in italics (an
+     essay that starts with an aside) slanted the cap with it. */
+  font-style: normal;
   font-variant-caps: normal;
   letter-spacing: 0;
   font-weight: 600;
@@ -241,12 +244,14 @@ blockquote {
   }
 }
 
-/* An essay's opening line runs on from its initial in letterspaced small
-   caps, the book convention for where the text begins. Crimson Pro has no
-   smcp, so these are synthesised and read a little light. */
-.leaflet-doc > .first-paragraph::first-line {
-  font-variant-caps: all-small-caps;
-  letter-spacing: 0.04em;
+/* An essay's opening phrase runs on from its initial in small caps, the book
+   convention for where the text begins: "In November of 2007", not the
+   whole first line, which read as shouting. Caps and small caps, so a
+   capital the author wrote stays the taller letter. Crimson Pro has no smcp,
+   so these are synthesised; the tracking opens them up to match. */
+.leaflet-lede {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
 }
 
 /* Figures in running text are oldstyle, the book convention: "in November of

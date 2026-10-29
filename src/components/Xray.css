@@ -183,20 +183,6 @@
   :root[data-xray="on"] .feed-item-ledger.is-xray-focus > .ledger-body { grid-row: 3; }
 }
 
-@media (min-width: 62rem) {
-  .feed-item-ledger > .xray-substrate {
-    grid-column: -3 / -2;
-    grid-row: 1;
-    justify-self: end;
-    align-self: start;
-    width: 21rem;
-    margin-top: 0;
-  }
-  :root[data-xray="on"] .feed-item-ledger.is-xray-focus > .ledger-body {
-    max-width: calc(100% - 22.5rem);
-  }
-}
-
 /* ----------------------------------------------------------------------
    B · CARDS — every card wears a calm substrate tag; focusing one opens
    the full panel and recedes the rest.
@@ -353,26 +339,6 @@
   border-left: 1px dashed var(--xr-frame);
 }
 
-/* Wide screens: true marginalia. The document column keeps its full measure;
-   the record note floats into the outer right margin beside the entry (like a
-   margin gloss in a book) rather than squeezing an inner gutter. The resume
-   column is capped at --measure and left-aligned in the 72rem main, so there's
-   ample right margin to sit in. */
-@media (min-width: 62rem) {
-  .resume-xray-tag {
-    position: absolute;
-    left: 100%;
-    top: 0;
-    width: 14rem;
-    max-height: none;
-    overflow: visible;
-    margin: 0 0 0 var(--space-5);
-    padding: 0 0 0 var(--space-4);
-    border-left: 1px dashed var(--xr-frame);
-  }
-  :root[data-xray="on"] .resume-xray-tag { opacity: 1; }
-}
-
 /* Focused role: the ambient note gives way to the full substrate panel below
    the (now fully-legible) entry, and the others recede. */
 :root[data-xray-focus="on"] .resume-xray.is-xray-focus .resume-xray-content { opacity: 1; }
@@ -380,9 +346,9 @@
 /* ----------------------------------------------------------------------
    Document marginalia (blog post / work) — see InspectMargin. The page is one
    record; a single margin note names it beside the prose like a book gloss,
-   and the document text is never dimmed (the note is additive). The reading
-   column is --measure, centred in the 72rem main, so on wide screens there's a
-   right margin to float into; narrower screens stack the note atop the doc.
+   and the document text is never dimmed (the note is additive). It opens in
+   the text column under the title at every width: the page is one column
+   (theme.css --frame), with no outer margin of its own to float a panel into.
    ---------------------------------------------------------------------- */
 .blog-article, .creating-work-page { position: relative; }
 
@@ -409,40 +375,6 @@
   to   { opacity: 1; transform: none; }
 }
 .doc-inspect-margin .xray-substrate { margin-top: 0; }
-
-/* Wide: float the record panel into the outer right margin as a true margin
-   gloss, clear of the reading column. */
-@media (min-width: 62rem) {
-  .doc-inspect-margin {
-    position: absolute;
-    top: 0;
-    left: 100%;
-    width: 18rem;
-    margin: 0 0 0 var(--space-5);
-  }
-
-  /* Two things want the same margin and only one can have it. A document's
-     figures widen out of the reading column into it (--doc-overhang, set in
-     Blogging.css), and at this width the gloss is out there too — an 18rem
-     panel starting exactly where the column ends, which is where a widened
-     ledger's right-hand columns now are. While inspect is armed the margin
-     belongs to the gloss, and the figures go back to the column they were
-     drawn for. */
-  :root[data-xray='on'] .blog-article,
-  :root[data-xray='on'] .creating-work-page {
-    --doc-overhang: 0px;
-    --doc-overhang-end: 0px;
-  }
-
-  /* An essay (.blog-book) has a margin column of its own, and gives it to
-     the block glosses: the record panel opens in the text column under the
-     title instead of floating past the article's edge. */
-  .blog-book > .doc-inspect-margin {
-    position: static;
-    width: auto;
-    margin: 0 0 var(--space-5);
-  }
-}
 
 /* ----------------------------------------------------------------------
    Block structure in the margin — each leaflet block of a document gets a
@@ -498,8 +430,8 @@
   :root[data-xray="on"] .leaflet-doc .leaflet-list::after { content: "blocks.list"; }
 
   /* On an essay the text hangs at the page's left edge, so there is no left
-     gutter to write in: the block tags move across into the margin beside
-     their blocks, where the essay's own notes are. */
+     gutter to write in: the block tags move across into the room the frame
+     leaves to the right of the prose measure. */
   :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-paragraph::after,
   :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-heading::after,
   :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-image::after,
@@ -511,7 +443,7 @@
     right: auto;
     left: 100%;
     margin-right: 0;
-    margin-left: var(--space-7);
+    margin-left: var(--space-5);
     text-indent: 0;
   }
 
@@ -526,8 +458,8 @@
     position: absolute;
     top: 1.35em;
     left: 100%;
-    width: 15rem;
-    margin-left: var(--space-7);
+    width: calc(var(--frame) - var(--measure-prose) - 2 * var(--space-5));
+    margin-left: var(--space-5);
     text-indent: 0;
     font-style: normal;
     font-variant-caps: normal;

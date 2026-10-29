@@ -270,13 +270,6 @@
   border-top: 1px solid var(--rule-soft);
 }
 
-/* The feed layout, when the open bar had no room for it: its words on a
-   line of their own. */
-.dock-overflow-layout {
-  flex: 1 0 100%;
-  display: flex;
-}
-
 .dock-overflow-tool {
   position: relative;
   display: inline-flex;

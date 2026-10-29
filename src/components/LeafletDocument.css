@@ -243,12 +243,6 @@
   color: var(--ink-muted);
 }
 
-/* Link sidenotes (leafletRichText): hidden by default, shown only in an
-   essay's margin (Blogging.css .blog-book). */
-.leaflet-sidenote {
-  display: none;
-}
-
 /* The x-ray manuscript note (LeafletDocument TextBlock): the record's own
    text, shown beside the typeset paragraph only while inspecting. See
    Xray.css for its placement. */

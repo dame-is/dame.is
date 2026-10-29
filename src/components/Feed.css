@@ -101,7 +101,9 @@
 .feed-item-select-mark {
   position: absolute;
   left: 0;
-  top: 0.15rem;
+  /* On the record's first line: the row's own top padding, plus the
+     difference between the line and the box. */
+  top: calc(var(--space-3) + 0.2rem);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -113,9 +115,31 @@
   color: var(--page);
 }
 
-.feed-item-select-mark.is-selected {
+.feed-item-select-mark.is-all {
   background: var(--accent);
   border-color: var(--accent);
+}
+
+/* Some of a listening session's plays picked: a dash, as a mixed box. */
+.feed-item-select-dash {
+  width: 0.5rem;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* A song inside an open session, in edit mode: its check box leads the
+   line, and a picked one takes the selected wash. */
+.ledger-track-row > .listen-row-select-mark {
+  align-self: center;
+  margin-right: calc(-1 * var(--ledger-col-gap) + var(--space-2));
+}
+
+.ledger-track-row > .listen-row-select-mark + .ledger-track {
+  flex: 1 1 auto;
+}
+
+.ledger-track-row.is-selected {
+  background: var(--wash-selected);
 }
 
 /* Visual break between consecutive day sections. The outer feed-list
@@ -123,100 +147,6 @@
    day-header reads as a fresh section rather than continuous flow. */
 .feed-day-group + .feed-day-group {
   margin-top: var(--space-7);
-}
-
-/* Verb badge — icon + gerund (or "replying to @handle", "continuing")
-   above the card body, matching how reply hints already render. Sits at
-   the row's start at every viewport width so the eye always finds the
-   gerund in the same place. */
-.feed-item-verb {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.45rem;
-  font-family: var(--sans);
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
-  color: var(--ink-faint);
-  font-size: var(--text-xs);
-  text-align: left;
-  align-self: flex-start;
-  max-width: 100%;
-}
-
-/* Head row for text-less posts (images / embed only): the verb gerund
-   sits at the start and the hoisted timestamp at the end, sharing one
-   line instead of leaving the time on a lonely row above the embed. */
-.feed-item-head {
-  display: flex;
-  flex-direction: row;
-  /* Center rather than baseline-align: the verb is an icon + small-caps
-     cluster and the time is lowercase mono with a descender, so their
-     text baselines don't optically center. Centering lines up the two
-     clusters' vertical midpoints instead. */
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.feed-item-head .feed-item-verb {
-  align-self: center;
-}
-
-.feed-item-head-time {
-  flex: 0 0 auto;
-  margin-left: auto;
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-/* The hoisted time is a copy of the card's own standalone-time row; show
-   exactly one — the hoisted copy wins. */
-.feed-item:has(.feed-item-head-time) .post-card-row-meta {
-  display: none;
-}
-
-.feed-item-verb-icon {
-  color: var(--ink-muted);
-  transition: color 120ms ease;
-}
-
-.feed-item-verb-label {
-  display: inline-block;
-  border-bottom: 1px solid transparent;
-  transition: border-color 120ms ease;
-}
-
-a.feed-item-verb {
-  text-decoration: none;
-  transition: color 120ms ease;
-}
-
-a.feed-item-verb:hover,
-a.feed-item-verb:focus-visible {
-  color: var(--ink-soft);
-}
-
-a.feed-item-verb:hover .feed-item-verb-icon,
-a.feed-item-verb:focus-visible .feed-item-verb-icon {
-  color: var(--accent);
-}
-
-a.feed-item-verb:hover .feed-item-verb-label,
-a.feed-item-verb:focus-visible .feed-item-verb-label {
-  border-bottom-color: var(--accent-soft);
-}
-
-.feed-item-verb-label-reply {
-  line-height: 1.35;
-  letter-spacing: 0.12em;
-  overflow-wrap: anywhere;
-  max-width: 100%;
-}
-
-.feed-item-verb-reply-handle {
-  color: var(--ink-soft);
-  letter-spacing: 0.08em;
 }
 
 /* Self-reply thread treatment.
@@ -236,14 +166,6 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
    margin.) The parent already drops its bottom rule + padding above. */
 .feed-item-thread-continuation {
   margin-top: calc(-1 * var(--space-4));
-}
-
-.feed-item-thread-continuation .feed-item-verb-thread {
-  color: var(--ink-faint);
-}
-
-.feed-item-thread-continuation .feed-item-verb-thread .feed-item-verb-icon {
-  color: var(--ink-faint);
 }
 
 .feed-card {
@@ -1913,15 +1835,13 @@ a.reference-card-profile:focus-visible {
 
 
 /* ----------------------------------------------------------------------
-   Ledger layout — the home feed's second layout (toggled from the nav
-   dock, see LayoutToggle / useFeedLayout). A condensed multi-column
-   typographic view: every record is one hairline-ruled row of three
-   aligned columns — verb · time · one-line summary — with no icons,
-   avatars, embeds, or stats.
+   The ledger — the one layout of every feed (home, /posting, /logging,
+   /listening; the cards it once alternated with are gone). Every record
+   is one hairline-ruled row: the gerund and the time as a margin note,
+   then the record at the measure.
 
-   Everything is scoped under .feed-ledger, which Home puts on the feed
-   region while the layout is active (and drops during owner edit mode,
-   which needs the full cards). The row cells themselves come from
+   Everything is scoped under .feed-ledger, which each feed puts on its
+   region, owner edit mode included. The row cells themselves come from
    FeedLedgerRow.jsx.
    ---------------------------------------------------------------------- */
 
@@ -1980,6 +1900,12 @@ a.reference-card-profile:focus-visible {
   padding: var(--space-3) 0;
   margin-top: 0; /* cancel the thread-continuation pull-up */
   border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+}
+
+/* In owner edit mode a row's check box takes the left of the row, so the
+   margin note moves over for it. */
+.feed-ledger .feed-item-ledger.feed-item-selectable {
+  padding-left: calc(var(--space-5) + 4px);
 }
 
 /* A row says it's a link. On hover (pointer devices only, see the note in
@@ -2198,7 +2124,7 @@ a.ledger-verb:focus-visible,
 }
 
 /* …except a quoted post's timestamp, which keeps the faint voice it has in
-   the card layout. The accent rule above outranks the embed's own `inherit`
+   a card on a record page. The accent rule above outranks the embed's own `inherit`
    (same specificity, later in the bundle), and made the time the loudest
    thing in the quote. */
 .ledger-body .post-embed-quote-time a {

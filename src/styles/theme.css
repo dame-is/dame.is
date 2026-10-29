@@ -80,6 +80,13 @@
      their on-screen size. 1 = no change — the default mono voice. */
   --mono-scale: 1;
 
+  /* The page: one column every route hangs in, chrome included (app.css
+     .main, ChromeBar.css --chrome-pad-x). Sized to the ledger, the widest
+     thing the site reads in a line: a 6.5rem margin note beside a 65ch
+     record, with a little to spare. Wide screens get wide outer margins
+     rather than a wider page, so a feed fills the page it's on instead of
+     floating in a frame built for something else. */
+  --frame: 46rem;
   /* Breakpoints can't be custom properties (a media query can't read one),
      so the two the site uses live in stylelint.config.js, which says what
      each is for and refuses any other: phone ≤ 700px, desk ≥ 62rem. */

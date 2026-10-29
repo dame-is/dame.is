@@ -14,7 +14,6 @@ import { useFeedWindow } from '../hooks/useFeedWindow.js';
 import { useStateHistory } from '../hooks/useStateHistory.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
-import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { formatTime, groupByDay } from '../lib/time.js';
 import { resolvePds, listRecords, getLatestCommit } from '../lib/atproto.js';
@@ -78,9 +77,7 @@ export default function Logging() {
       stateSource === 'snapshot' &&
       !hasSampleInLastDay(stateSamples));
 
-  const { removedUris, active: editActive } = useEditMode();
-  const { layout } = useFeedLayout();
-  const ledger = layout === 'ledger' && !editActive;
+  const { removedUris } = useEditMode();
   const loading = status === 'loading';
   const safeItems = useMemo(() => items || [], [items]);
   const filtered = useMemo(
@@ -129,7 +126,7 @@ export default function Logging() {
       )}
       <QueryNote noun="status records" />
       {loading ? (
-        <FeedSkeleton rows={5} label="Loading status updates" />
+        <FeedSkeleton rows={5} label="Loading status updates" ledger />
       ) : status === 'error' ? (
         <p className="feed-empty">Live refresh failed and no cached snapshot is available.</p>
       ) : groups.length === 0 ? (
@@ -137,12 +134,12 @@ export default function Logging() {
           {q ? 'No status records match that search.' : 'No status records yet.'}
         </p>
       ) : (
-        <div className={ledger ? 'feed-ledger feed-ledger-column' : undefined}>
+        <div className="feed-ledger feed-ledger-column">
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
-                <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
+                <DayOfLifeHeader date={group.date} variant="ledger" />
+                <ul className="feed-list">
                   {group.items.map((item) => {
                     // FeedItem is the list item itself, and memoized, as on the
                     // home feed: no wrapping <li> (a list item inside a list
@@ -161,8 +158,7 @@ export default function Logging() {
                       <FeedItem
                         key={uri}
                         item={item}
-                        showVerb={!ledger}
-                        layout={ledger ? 'ledger' : 'cards'}
+                        showVerb={false}
                         arriving={isNew}
                         arrivalDelay={step * 0.06}
                       />

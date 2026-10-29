@@ -114,7 +114,6 @@ import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ChromePanelProvider } from './hooks/useChromePanel.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { FontProvider } from './hooks/useFont.jsx';
-import { FeedLayoutProvider } from './hooks/useFeedLayout.jsx';
 import { PaperProvider } from './hooks/usePaper.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
@@ -343,7 +342,6 @@ export default function App() {
   return (
     <ThemeProvider>
       <FontProvider>
-      <FeedLayoutProvider>
       <PaperProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
@@ -473,7 +471,6 @@ export default function App() {
       </AtprotoSessionProvider>
       </ChromeBarProvider>
       </PaperProvider>
-      </FeedLayoutProvider>
       </FontProvider>
     </ThemeProvider>
   );

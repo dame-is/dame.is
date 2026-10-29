@@ -65,9 +65,14 @@
   min-height: 0;
 }
 
-/* `.main` caps the page at 72rem with generous padding — right for prose, wrong
-   for a workbench. It is emptied rather than restyled: the frame is `fixed`, so
-   `.main`'s own box no longer positions anything. */
+/* `.main` caps the page at the --frame with generous padding — right for
+   prose, wrong for a workbench. It is emptied rather than restyled: the frame
+   is `fixed`, so `.main`'s own box no longer positions anything. The chrome the
+   phone admin wears keeps the wide column it was laid out against. */
+:root[data-admin-shell] {
+  --frame: 72rem;
+}
+
 :root[data-admin-shell] .main {
   max-width: none;
   padding: 0;

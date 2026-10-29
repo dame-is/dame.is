@@ -8,7 +8,12 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { renderLeafletText } from '../lib/leafletRichText.jsx';
+import {
+  ledeEnd,
+  renderLeafletText,
+  splitLeafletText,
+  unlinkInitial,
+} from '../lib/leafletRichText.jsx';
 import { countStraightMarks, smartenText } from '../lib/smartPunctuation.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { getPostThread } from '../lib/atproto.js';
@@ -414,12 +419,26 @@ function useEmbeddedPost(uri) {
   return entry;
 }
 
+// A drop cap is three lines tall, so it waits for a paragraph that runs to
+// at least three: on a two-line note ("Note: you can also read this in…") it
+// hung past the paragraph's end. The essay's own opening is rarely further
+// than the second or third paragraph, so the search stops there.
+const DROP_CAP_MIN_CHARS = 140;
+const DROP_CAP_SEARCH = 3;
+
 function firstTextIndex(page) {
   const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
-  for (let i = 0; i < blocks.length; i += 1) {
+  let seen = 0;
+  for (let i = 0; i < blocks.length && seen < DROP_CAP_SEARCH; i += 1) {
     const block = blocks[i]?.block;
     if (block?.$type === 'pub.leaflet.blocks.header') return -1;
-    if (block?.$type === 'pub.leaflet.blocks.text' && (block.plaintext || '').trim()) return i;
+    if (block?.$type !== 'pub.leaflet.blocks.text') continue;
+    const text = (block.plaintext || '').trim();
+    if (!text) continue;
+    seen += 1;
+    // A quotation, a credit or a stacked line is never where the text begins.
+    if (TEXT_LAYOUT_VALUES.has(block.layout)) continue;
+    if (text.length >= DROP_CAP_MIN_CHARS) return i;
   }
   return -1;
 }
@@ -613,9 +632,21 @@ function TextBlock({ block, style, first = false }) {
   if (first) classes.push('first-paragraph');
   if (layout) classes.push(`leaflet-${layout}`);
   const marks = countStraightMarks(text);
+  // The opening paragraph sets its first phrase in small caps after the drop
+  // cap (Blogging.css .leaflet-lede), rather than its whole first line.
+  const [lede, rest] = first
+    ? splitLeafletText(text, unlinkInitial(text, facets), ledeEnd(text))
+    : [null, null];
   return (
     <p className={classes.join(' ')} style={style || undefined}>
-      {renderLeafletText(text, facets, { smart: true })}
+      {lede?.text ? (
+        <>
+          <span className="leaflet-lede">{renderLeafletText(lede.text, lede.facets, { smart: true })}</span>
+          {renderLeafletText(rest.text, rest.facets, { smart: true, prev: lede.text.slice(-1) })}
+        </>
+      ) : (
+        renderLeafletText(text, facets, { smart: true })
+      )}
       {/* The manuscript, for x-ray: the record's own text beside the typeset
           paragraph, so curling a quote on the page never hides what was
           written. Hidden until inspect is on. */}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
+import { Check, Heart, MessageCircle, Repeat2 } from 'lucide-react';
 import {
   dateKey,
   formatDateShort,
@@ -40,6 +40,7 @@ import Time from './Time.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID, ME_HANDLE } from '../config.js';
+import { useEditMode } from '../hooks/useEditMode.jsx';
 
 /**
  * The home feed's second layout ("ledger"): each record renders as one
@@ -104,6 +105,7 @@ export default function FeedLedgerRow({
   onOpenLightbox = null,
   arrivingPosts = '',
 }) {
+  const edit = useEditMode();
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
   // Self-thread follow-ons show no label at all: the dashed rule above the
   // row (see Feed.css) marks them as connected to the post above.
@@ -235,17 +237,29 @@ export default function FeedLedgerRow({
         />
       ))}
       {/* An open session lists the rest of its songs, newest first: the
-          newest is already the row's own line. */}
-      {expanded && isListenBatch(item) && item.plays.slice(1).map((play) => {
+          newest is already the row's own line. In owner edit mode it lists
+          every song, the newest too, each marked as picked or not, since a
+          tap on a song selects that play alone (FeedItem). */}
+      {expanded && isListenBatch(item) && (edit.active ? item.plays : item.plays.slice(1)).map((play) => {
         const playTs = play?.createdAt || playedAtOf(play?.payload) || null;
         const playHref = recordPathFromAtUri(play?.atUri);
         const line = trackLine(play?.payload);
+        const picked = edit.active && edit.isSelected(play?.atUri);
         // Each play is its own compact sub-row spanning the summary + time
         // columns, split from the one above by a thin dashed rule (see
         // .ledger-track-row in Feed.css) so the song list reads tight. Its
         // time is its permalink, as a row's is.
         return (
-          <div className="ledger-track-row" key={play?.atUri || playTs}>
+          <div
+            className={`ledger-track-row${picked ? ' is-selected' : ''}`}
+            key={play?.atUri || playTs}
+            data-play-uri={edit.active ? play?.atUri : undefined}
+          >
+            {edit.active && (
+              <span className={`listen-row-select-mark is-${picked ? 'all' : 'none'}`} aria-hidden="true">
+                {picked && <Check size={11} strokeWidth={2.5} />}
+              </span>
+            )}
             <p className="ledger-text ledger-track">
               {playHref ? <Link to={playHref}>{line || <em>—</em>}</Link> : line || <em>—</em>}
             </p>

@@ -1,72 +1,13 @@
 import { memo, useId, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Check, CornerDownRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Check } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useXray } from '../hooks/useXray.jsx';
-import { XrayTag, XraySubstratePanel } from './XraySubstrate.jsx';
-import StatusEntry from './StatusEntry.jsx';
-import PostCard, { postCardShowsStandaloneTime } from './PostCard.jsx';
-import RelativeTimeText from './RelativeTimeText.jsx';
-import BlogCard from './BlogCard.jsx';
-import ListenRow from './ListenRow.jsx';
-import CreatingCard from './CreatingCard.jsx';
-import ReferenceCard from './ReferenceCard.jsx';
-import MediaCard from './cards/MediaCard.jsx';
-import ObservationCard from './cards/ObservationCard.jsx';
-import ListCard from './cards/ListCard.jsx';
-import GeneratorCard from './cards/GeneratorCard.jsx';
-import CommentCard from './cards/CommentCard.jsx';
-import AnisotaLabCard from './cards/AnisotaLabCard.jsx';
-import FlushCard from './cards/FlushCard.jsx';
-import VerbIcon from './VerbIcon.jsx';
+import { XraySubstratePanel } from './XraySubstrate.jsx';
 import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
 import { batchHref, isObservationBatch } from '../lib/observationBatches.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
-import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor, nsidFromAtUri } from '../lib/verbRegistry.js';
-import { formatWallClockTime } from '../lib/time.js';
-
-/**
- * Per-verb label overrides for the feed's verb column. Most verbs read
- * fine as their registry gerund ("posting", "blogging") but a few want
- * a more natural phrase in front of the card content ("listening to
- * <song>" instead of just "listening | <song>").
- */
-const VERB_LABEL_OVERRIDES = {
-  listening: 'listening to',
-};
-
-/**
- * Renderer name (in the registry) -> component. Adding a new renderer
- * means importing it here and dropping it in this map.
- */
-const RENDERERS = {
-  StatusEntry,
-  PostCard,
-  BlogCard,
-  ListenRow,
-  CreatingCard,
-  ReferenceCard,
-  MediaCard,
-  ObservationCard,
-  ListCard,
-  GeneratorCard,
-  CommentCard,
-  AnisotaLabCard,
-  FlushCard,
-};
-
-/**
- * Renderers that print the row's own time (PostCard's, when a post has no
- * text, is hoisted onto the verb line — see `hoistTime`). Every other card
- * gets its time on the verb line from FeedItem.
- */
-const OWN_TIME_RENDERERS = new Set([
-  'StatusEntry',
-  'PostCard',
-  'ReferenceCard',
-  'FlushCard',
-]);
 
 /**
  * What a tap on the row leaves alone: anything with a behaviour of its own.
@@ -76,23 +17,6 @@ const OWN_TIME_RENDERERS = new Set([
  */
 const ROW_CLICK_IGNORE =
   'a, button, input, textarea, label, select, video, audio, iframe, [role="button"], [role="link"]';
-
-function postingReplyVerbLabel(reply) {
-  switch (reply.kind) {
-    case 'resolved':
-      return (
-        <>
-          replying to{' '}
-          <span className="feed-item-verb-reply-handle">@{reply.handle}</span>
-        </>
-      );
-    case 'missing':
-      return <>replying to {reply.label}</>;
-    case 'unresolved':
-    default:
-      return <>replying to a post</>;
-  }
-}
 
 /**
  * Per-record route. Verbs may declare a custom `recordHref` template in
@@ -120,33 +44,25 @@ function hrefFor(item) {
 }
 
 /**
- * Polymorphic dispatcher — pick the component for `item.verb` from the
- * registry. The verb badge doubles as the link to the underlying record
- * page (or generic JSON fallback for verbs without a specialized one).
+ * One feed row: the ledger's (FeedLedgerRow.jsx), on every feed. The cards
+ * that once stood beside it as a second layout are gone; the card components
+ * live on where a record is shown alone (Record.jsx).
  *
- * `layout` switches the row treatment: 'cards' renders the full card
- * (verb badge + per-verb component), 'ledger' renders the condensed
- * multi-column row (see FeedLedgerRow.jsx). Home decides which to pass
- * — including falling back to 'cards' while owner edit mode is active,
- * so this component never has to reconcile ledger rows with the
- * selection UI.
- *
- * `showVerb={false}` is a single-kind page: the cards drop their verb badge
- * and the ledger its repeated gerund.
+ * `showVerb={false}` is a single-kind page: the ledger drops its repeated
+ * gerund.
  *
  * The component renders the list item itself, so a list hands it straight
  * to a <ul>. `arriving` (with `arrivalDelay`, in seconds) plays the slide-in
  * for a record that just landed; it's read once, on mount, so the row plays
  * it on its first appearance only, whatever the prop does afterwards.
  * `arrivingPosts` (the at:// URIs of a folded thread's posts that just
- * landed, space-separated) does the same for posts joining a ledger row
- * that's already on screen.
+ * landed, space-separated) does the same for posts joining a row that's
+ * already on screen.
  * Memoized: a feed re-renders for many reasons that don't touch a given row.
  */
 function FeedItem({
   item,
   showVerb = true,
-  layout = 'cards',
   onOpenLightbox = null,
   arriving = false,
   arrivalDelay = 0,
@@ -155,10 +71,10 @@ function FeedItem({
   const navigate = useNavigate();
   const edit = useEditMode();
   const xray = useXray();
-  // Ledger-only: whether a collapsed run — a listening session or a night of
-  // moths — is showing its full list (see handleRowClick / FeedLedgerRow).
-  const [ledgerExpanded, setLedgerExpanded] = useState(false);
-  // Ids for the ledger row's x-ray cells, which describe the row in x-ray.
+  // Whether a collapsed run (a listening session or a night of moths) is
+  // showing its full list (see handleRowClick / FeedLedgerRow).
+  const [expanded, setExpanded] = useState(false);
+  // Ids for the row's x-ray cells, which describe the row in x-ray.
   const xrayId = useId();
   // The slide-in's delay while it plays; null once it's done (or if it never
   // started). Dropping the class afterwards matters: a list reorder moves the
@@ -168,9 +84,7 @@ function FeedItem({
     arriving ? arrivalDelay : null,
   );
   const cfg = verbConfig(item.verb);
-  if (!cfg) return null;
-  const Component = cfg.renderer ? RENDERERS[cfg.renderer] : null;
-  if (!Component) return null;
+  if (!cfg?.renderer) return null;
   const href = hrefFor(item);
 
   // Owner edit mode: rows become selectable instead of navigable. A tap
@@ -178,13 +92,17 @@ function FeedItem({
   // capture phase) toggles selection; the EditModeBar handles the bulk
   // delete / edit actions on whatever is selected.
   //
-  // Listening rows are the exception: a batch stands in for many teal play
-  // records, so ListenRow owns its own per-song / whole-group selection and
-  // FeedItem steps aside (no row-level select, and the verb badge stops
-  // linking so nothing navigates out mid-selection).
+  // A listening row stands for a session of teal plays, so it selects them
+  // all at once, and with its songs listed (edit mode opens the session) a
+  // tap on one song selects that play alone.
+  const listenBatch = isListenBatch(item);
   const listeningEdit = edit.active && item.verb === 'listening';
-  const selectable = edit.active && !!item.atUri && !listeningEdit;
-  const selected = selectable && edit.isSelected(item.atUri);
+  const plays = listeningEdit ? playsOf(item) : [];
+  const playsSelected = plays.filter((p) => edit.isSelected(p.atUri)).length;
+  const groupState =
+    playsSelected === 0 ? 'none' : playsSelected === plays.length ? 'all' : 'some';
+  const selectable = edit.active && (listeningEdit ? plays.length > 0 : Boolean(item.atUri));
+  const selected = listeningEdit ? groupState === 'all' : selectable && edit.isSelected(item.atUri);
 
   // Atmosphere x-ray: while the mode is on, a record-backed row is inspectable.
   // A tap anywhere on it (outside its own links) drills into the substrate
@@ -209,41 +127,41 @@ function FeedItem({
     if (sel && sel.toString().length > 0) return;
     e.preventDefault();
     e.stopPropagation();
-    edit.toggleSelect(item);
+    if (!listeningEdit) {
+      edit.toggleSelect(item);
+      return;
+    }
+    const song = e.target.closest('[data-play-uri]')?.getAttribute('data-play-uri');
+    const play = song && plays.find((p) => p.atUri === song);
+    if (play) edit.toggleSelect(play);
+    else if (groupState === 'all') edit.deselectMany(plays.map((p) => p.atUri));
+    else edit.selectMany(plays);
   }
 
-  // Condensed ledger row — verb · time · one-line summary. Skips the
-  // verb badge / card component entirely; the whole row still
-  // navigates via handleRowClick below.
-  const ledger = layout === 'ledger';
-  // In the ledger, a collapsed listening session repurposes the row tap:
-  // instead of navigating, it expands/collapses the session's track list
-  // (each expanded track links to its own record page, and the verb cell
-  // still links to the session's record).
-  const ledgerListenBatch = ledger && isListenBatch(item);
+  // A collapsed listening session repurposes the row tap: instead of
+  // navigating, it expands/collapses the session's track list (each track
+  // links to its own record page, and the verb cell still links to the
+  // session's record).
   // A collapsed run of observations does the same: the tap opens the run
   // rather than following it, and each sighting inside gets its own tap.
-  const ledgerObsBatch = ledger && isObservationBatch(item);
-  const ledgerBatch = ledgerListenBatch || ledgerObsBatch;
+  const runBatch = listenBatch || isObservationBatch(item);
   // A photographed observation opens the in-feed image lightbox on tap
   // (like the /mothing page) instead of navigating to its record page. The
   // verb cell keeps linking to the record, so both paths stay reachable.
   const isObservation = item.verb === 'mothing' || item.verb === 'observing';
   const canLightbox =
-    ledger &&
     isObservation &&
-    !ledgerObsBatch &&
+    !isObservationBatch(item) &&
     typeof onOpenLightbox === 'function' &&
     Boolean(item.payload?.photos?.[0]);
 
   // Make the whole row tappable as a convenience — handy on mobile where the
-  // verb badge / timestamp are small hit targets. We bail when the click
-  // landed on a nested interactive element (so links inside the card keep
-  // working), when text is being selected, or when the click was modified
-  // (Cmd/Ctrl/middle-click — let the browser open it in a new tab via the
-  // verb badge / timestamp links instead).
+  // verb and time are small hit targets. We bail when the click landed on a
+  // nested interactive element (so links inside the row keep working), when
+  // text is being selected, or when the click was modified (Cmd/Ctrl/middle-
+  // click — let the browser open it in a new tab via the time link instead).
   function handleRowClick(e) {
-    if (!href && !ledgerBatch && !canLightbox) return;
+    if (!href && !runBatch && !canLightbox) return;
     if (e.defaultPrevented) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -254,73 +172,18 @@ function FeedItem({
       onOpenLightbox(item);
       return;
     }
-    if (ledgerBatch) {
-      setLedgerExpanded((v) => !v);
+    if (runBatch) {
+      setExpanded((v) => !v);
       return;
     }
     navigate(href);
   }
-  // When a post is a continuation of a self-reply thread that is already
-  // visible above it in the feed, the "↳ replying to @dame.is" label is
-  // redundant noise — the layout already says so. Show a quieter
-  // "continuing" marker instead, and let the parent post's badge / verb
-  // carry the conversational context.
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
-  const replyHint =
-    item.verb === 'posting' && !threadContinuation ? getReplyHint(item.payload) : null;
-  const isReplyVerb = Boolean(replyHint);
-  const verbClassName = [
-    'feed-item-verb',
-    'small-caps',
-    isReplyVerb ? 'feed-item-verb-reply' : '',
-    threadContinuation ? 'feed-item-verb-thread' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-  const verbInner = threadContinuation ? (
-    <>
-      <CornerDownRight size={12} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
-      <span className="feed-item-verb-label">continuing</span>
-    </>
-  ) : isReplyVerb ? (
-    <>
-      <CornerDownRight size={12} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
-      <span className="feed-item-verb-label feed-item-verb-label-reply">
-        {postingReplyVerbLabel(replyHint)}
-      </span>
-    </>
-  ) : (
-    <>
-      <VerbIcon verb={item.verb} size={12} className="feed-item-verb-icon" />
-      <span className="feed-item-verb-label">{VERB_LABEL_OVERRIDES[item.verb] || item.verb}</span>
-    </>
-  );
-  // Text-less posts (images / embed only) would otherwise render their
-  // timestamp on a lonely row above the embed. Hoist a copy up here so it
-  // sits on the same line as the verb gerund ("posting", "reposting",
-  // "replying to @handle", …) instead; the card's own standalone-time
-  // row is hidden by CSS whenever this hoisted copy exists (see
-  // Feed.css).
-  const hoistTime = showVerb && cfg.renderer === 'PostCard' && postCardShowsStandaloneTime(item);
-  // Cards whose renderer prints no time of their own get one in the same
-  // place, so every row in a card list can be placed in time the same way.
-  // Observations show the wall clock they were logged at, as the ledger
-  // does: the record keeps no timezone, so "3h ago" could be hours out for a
-  // reader somewhere else.
-  const headTime =
-    hoistTime || (showVerb && !OWN_TIME_RENDERERS.has(cfg.renderer));
-  const headTimeText = !headTime ? null : hoistTime ? (
-    <RelativeTimeText value={item.createdAt || item.payload?.indexedAt} />
-  ) : isObservation && formatWallClockTime(item.payload?.observedTime) ? (
-    formatWallClockTime(item.payload.observedTime)
-  ) : item.createdAt ? (
-    <RelativeTimeText value={item.createdAt} />
-  ) : null;
   const liClassName = [
     'feed-item',
     `feed-item-${item.verb}`,
-    ledger ? 'feed-item-ledger' : '',
-    ledgerBatch ? 'feed-item-ledger-expandable' : '',
+    'feed-item-ledger',
+    runBatch ? 'feed-item-ledger-expandable' : '',
     canLightbox ? 'feed-item-ledger-lightbox' : '',
     item._thread ? 'feed-item-thread' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
@@ -333,6 +196,7 @@ function FeedItem({
   ]
     .filter(Boolean)
     .join(' ');
+  const markState = listeningEdit ? groupState : selected ? 'all' : 'none';
   return (
     <li
       className={liClassName}
@@ -355,77 +219,43 @@ function FeedItem({
       onClick={
         xrayActive
           ? handleXrayClick
-          : !selectable && !listeningEdit && (href || ledgerBatch || canLightbox)
+          : !selectable && (href || runBatch || canLightbox)
             ? handleRowClick
             : undefined
       }
       role={selectable ? 'button' : undefined}
-      aria-pressed={selectable ? selected : undefined}
-      aria-describedby={ledger && xrayActive ? `${xrayId}-nsid ${xrayId}-key` : undefined}
+      aria-pressed={selectable ? (markState === 'some' ? 'mixed' : markState === 'all') : undefined}
+      aria-describedby={xrayActive ? `${xrayId}-nsid ${xrayId}-key` : undefined}
     >
       {selectable && (
-        <span
-          className={`feed-item-select-mark${selected ? ' is-selected' : ''}`}
-          aria-hidden="true"
-        >
-          {selected && <Check size={12} strokeWidth={2.5} />}
+        <span className={`feed-item-select-mark is-${markState}`} aria-hidden="true">
+          {markState === 'all' && <Check size={12} strokeWidth={2.5} />}
+          {markState === 'some' && <span className="feed-item-select-dash" />}
         </span>
       )}
-      {ledger && (
-        <FeedLedgerRow
-          item={item}
-          xrayId={xrayId}
-          href={href}
-          showVerb={showVerb}
-          expanded={ledgerExpanded}
-          onToggle={ledgerBatch ? () => setLedgerExpanded((v) => !v) : null}
-          onOpenLightbox={onOpenLightbox}
-          arrivingPosts={arrivingPosts}
-        />
-      )}
-      {!ledger && showVerb && (() => {
-        const verbEl = href && !listeningEdit ? (
-          <Link className={verbClassName} to={href}>
-            {verbInner}
-          </Link>
-        ) : (
-          <span className={verbClassName}>
-            {verbInner}
-          </span>
-        );
-        if (!headTimeText) return verbEl;
-        const timeEl = href && !listeningEdit ? (
-          <Link className="gutter post-card-time feed-item-head-time" to={href}>
-            {headTimeText}
-          </Link>
-        ) : (
-          <span className="gutter post-card-time feed-item-head-time">{headTimeText}</span>
-        );
-        return (
-          <div className="feed-item-head">
-            {verbEl}
-            {timeEl}
-          </div>
-        );
-      })()}
-      {!ledger && (
-        <Component
-          {...item}
-          verb={item.verb}
-          suppressReplyBadge={showVerb ? isReplyVerb || threadContinuation : threadContinuation}
-        />
-      )}
-      {/* X-ray: cards wear a calm substrate tag; the ledger has its own
-          in-grid data line (see FeedLedgerRow). Focusing either opens the
-          full substrate panel below the row. */}
-      {!ledger && xrayActive && (
-        <XrayTag atUri={item.atUri} onOpen={() => xray.focus(item.atUri)} />
-      )}
+      <FeedLedgerRow
+        item={item}
+        xrayId={xrayId}
+        href={href}
+        showVerb={showVerb}
+        // Edit mode lists a session's songs, so each one can be picked.
+        expanded={expanded || (listeningEdit && listenBatch)}
+        onToggle={runBatch ? () => setExpanded((v) => !v) : null}
+        onOpenLightbox={onOpenLightbox}
+        arrivingPosts={arrivingPosts}
+      />
       {xrayFocused && (
         <XraySubstratePanel atUri={item.atUri} cid={item.cid} value={item.payload} />
       )}
     </li>
   );
+}
+
+/** The teal play records a listening row stands for: a session's plays, or
+ *  the one play it is. */
+function playsOf(item) {
+  const plays = Array.isArray(item.plays) && item.plays.length ? item.plays : [item];
+  return plays.filter((p) => p?.atUri);
 }
 
 export default memo(FeedItem);

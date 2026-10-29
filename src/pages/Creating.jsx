@@ -8,7 +8,7 @@ import { CreatingGridSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
-import { useSectionView } from '../hooks/useFeedLayout.jsx';
+import { useSectionView } from '../hooks/useSectionView.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';

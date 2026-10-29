@@ -1,87 +1,3 @@
-.blogging-toc {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.blogging-toc-entry {
-  border-bottom: 1px dotted var(--rule);
-}
-
-.blogging-toc-entry:first-child {
-  border-top: 1px dotted var(--rule);
-}
-
-.blogging-toc-link {
-  display: grid;
-  grid-template-columns: 3rem 1fr auto;
-  gap: var(--space-4);
-  align-items: baseline;
-  padding: var(--space-4) 0;
-  text-decoration: none;
-  color: var(--ink);
-}
-
-/* Only devices that truly hover get an affordance, and it's a subtle title
-   underline rather than a full-width background box — the box read as a
-   button and left a sticky highlight on touch. */
-@media (hover: hover) {
-  .blogging-toc-link:hover .blogging-toc-title {
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.15em;
-  }
-}
-
-.blogging-toc-num {
-  color: var(--ink-faint);
-}
-
-.blogging-toc-title {
-  font-family: var(--serif);
-  font-size: var(--text-xl);
-  margin: 0;
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.blogging-toc-source {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-  color: var(--ink-faint);
-  border: 1px solid var(--rule);
-  padding: 0.05em 0.5em;
-  border-radius: var(--radius-1);
-  font-weight: 400;
-}
-
-.blogging-toc-summary {
-  margin: var(--space-1) 0 0;
-  color: var(--ink-soft);
-  font-size: var(--text-sm);
-}
-
-.blogging-toc-meta {
-  align-self: start;
-  padding-top: 0.4em;
-  white-space: nowrap;
-  /* On wide screens the two timestamps stack — the full date on top, the
-     relative "Xmo ago" beneath it — right-aligned in the meta gutter.
-     `column-reverse` keeps the source order (relative, date) so the mobile
-     inline fallback below reads "Xmo ago • date" without extra markup. */
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  gap: 0.15em;
-  text-align: right;
-}
-
 /* Long-form document column — the single reading measure shared by blog posts
    and creating/portfolio works (both render <LeafletDocument>, and a
    site.standard.document can surface on either route). Capping the whole
@@ -89,7 +5,7 @@
    media block — images, video embeds, galleries, link cards, code — aligned to
    one column. The global `p { max-width: var(--measure) }` only reins in
    paragraphs; without this container cap the media escapes to the full `.main`
-   width (72rem) while the prose stays at the measure, so images and embeds jut
+   width (the frame) while the prose stays at the measure, so images and embeds jut
    out past the text on both sides.
 
    `width: 100%` is load-bearing: `.page` is a flex column, and the auto margins
@@ -115,17 +31,17 @@
      --doc-room is the widest a figure may get: `.main`'s own frame with its
      gutters removed, so a widened figure lands on the same edge the rest of
      the page is drawn to and never past it — and on any screen wider than
-     72rem it stops growing, because the frame does. --doc-overhang is what a
+     the frame it stops growing, because the frame does. --doc-overhang is what a
      figure pulls back on each side to reach that width: half the difference,
      clamped at 0 so on a screen where the column is already the widest thing
      going, nothing moves at all.
 
      `100vw` overstates the viewport by the width of a classic scrollbar,
      which would put a figure that many pixels into the gutter; the gutter is
-     never narrower than --space-4, so it absorbs it. Above 72rem the term
+     never narrower than --space-4, so it absorbs it. Past the frame the term
      drops out of the min() entirely and the arithmetic is exact. */
   --doc-room: calc(
-    min(var(--main-max, 72rem), 100vw) - 2 * var(--main-gutter, 0px)
+    min(var(--main-max, var(--frame)), 100vw) - 2 * var(--main-gutter, 0px)
   );
   --doc-overhang: max(0px, calc((var(--doc-room) - 100%) / 2));
 }
@@ -156,19 +72,16 @@
    A blog post (BlogPost.jsx, .blog-book) hangs from the chrome's left edge
    instead of centring: the title and the text share one --measure-prose
    column at the page's own gutter, so the breadcrumb, the title and the
-   first line all start on one vertical, and the room that centring wasted
-   on the left becomes a margin on the right. The colophon sits there beside
-   the title, and x-ray's glosses use it too.
-
-   Below 62rem there's no room for a margin, so it folds back into the band
-   under the title and the column fills the screen. */
+   first line all start on one vertical. The colophon is a band under the
+   title, at every width: the page is one column (theme.css --frame), and a
+   margin beside the text was a second, emptier one. A figure may still
+   widen into the rest of the frame on the right. */
 .page:has(> .blog-book) {
   max-width: none;
   margin-inline: 0;
 }
 
 .blog-article.blog-book {
-  max-width: none;
   margin: 0;
   /* A widened figure can only grow into the margin, so its pull is all on
      the right (RatioedBlock and galleries read these). */
@@ -185,8 +98,7 @@
   text-wrap: balance;
 }
 
-.blog-margin .document-meta,
-.record-margin .document-meta {
+.blog-margin .document-meta {
   margin-top: 0;
 }
 
@@ -228,131 +140,24 @@
   color: var(--accent);
 }
 
-@media (max-width: 61.99rem) {
-  .blog-article.blog-book {
-    max-width: var(--measure-prose);
-  }
-  .blog-margin .document-meta {
-    margin-bottom: var(--space-5);
-  }
-  /* The band keeps three columns: published, elapsed, and where this sits
-     in the blog. The tag and the CID edition live in the wide margin. */
-  .blog-margin .document-meta,
-  .blog-margin .document-meta[data-columns] {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .blog-margin .document-meta-tag,
-  .blog-margin .document-meta-edition {
-    display: none;
-  }
+.blog-article.blog-book {
+  max-width: var(--measure-prose);
 }
 
-@media (min-width: 62rem) {
-  .blog-article.blog-book {
-    display: grid;
-    grid-template-columns: minmax(0, var(--measure-prose)) minmax(14rem, 1fr);
-    column-gap: var(--space-7);
-    align-items: start;
-  }
-  .blog-book > * {
-    grid-column: 1;
-  }
-  /* Rows: the title, x-ray's record panel (absent until inspecting, so the
-     row is empty and takes no height), then the text. */
-  .blog-book > .blog-title {
-    grid-row: 1;
-  }
-  .blog-book > .doc-inspect-margin {
-    grid-row: 2;
-  }
-  .blog-book > .leaflet-doc {
-    grid-row: 3;
-  }
-  /* Everything after the text is placed outright too: auto-placement would
-     otherwise drop the end matter into the empty inspect row above. */
-  .blog-book > .blog-end {
-    grid-row: 4;
-  }
-  .blog-book > :not(.blog-title, .doc-inspect-margin, .leaflet-doc, .blog-end, .blog-margin) {
-    grid-row: 5;
-  }
-  /* The colophon beside the title, running on down beside the first
-     paragraphs: a list of facts, one under another, label above value. */
-  .blog-book > .blog-margin {
-    grid-column: 2;
-    grid-row: 1 / span 3;
-    align-self: start;
-    max-width: 18rem;
-    padding-top: 0.35rem;
-  }
-  :is(.blog-margin, .record-margin) .document-meta,
-  :is(.blog-margin, .record-margin) .document-meta[data-columns] {
-    grid-template-columns: 1fr;
-    border-top: 0;
-    border-bottom: 0;
-  }
-  :is(.blog-margin, .record-margin) .document-meta-pair,
-  :is(.blog-margin, .record-margin) .document-meta-pair:first-child {
-    padding: var(--space-2) 0;
-    border-left: 0;
-    border-top: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
-  }
-  :is(.blog-margin, .record-margin) .document-meta-pair:first-child {
-    border-top: 0;
-    padding-top: 0;
-  }
-  :is(.blog-margin, .record-margin) .document-meta-value {
-    font-size: 0.9375rem;
-    line-height: 1.45;
-  }
-  :is(.blog-margin, .record-margin) .document-meta-short {
-    display: none;
-  }
-  :is(.blog-margin, .record-margin) .document-meta-long {
-    display: inline;
-  }
-  /* A link that hides its destination gets the host in the margin, level
-     with the line it's on: a float with a negative right margin as wide as
-     itself plus the gutter, so it takes no room in the paragraph (the
-     classic sidenote). Inspecting gives the margin to x-ray instead. */
-  .blog-book .leaflet-paragraph .leaflet-sidenote {
-    display: block;
-    float: right;
-    clear: right;
-    width: 12rem;
-    margin-right: calc(-12rem - var(--space-7));
-    text-indent: 0;
-    font-family: var(--sans);
-    font-size: var(--text-meta);
-    font-style: normal;
-    font-variant-caps: normal;
-    letter-spacing: 0;
-    line-height: 1.4;
-    color: var(--ink-muted);
-    overflow-wrap: anywhere;
-  }
-  :root[data-xray='on'] .blog-book .leaflet-sidenote {
-    display: none;
-  }
-  /* The colophon comes first in the margin. This float is as tall as it
-     reaches down beside the text (--margin-clear, measured in BlogPost.jsx)
-     and stands where the sidenotes go, taking no room from the text the same
-     way they don't; each sidenote's `clear: right` then starts it a step
-     below the colophon instead of on top of it. */
-  .blog-book > .leaflet-doc::before {
-    content: '';
-    float: right;
-    width: 12rem;
-    height: calc(var(--margin-clear, 0px) + var(--space-3));
-    margin-right: calc(-12rem - var(--space-7));
-  }
+.blog-margin .document-meta {
+  margin-bottom: var(--space-5);
+}
 
-  /* While inspecting, the record panel opens in the text column under the
-     title and the colophon stops beside it, so the margin beside the text is
-     free for each block's gloss. */
-  :root[data-xray='on'] .blog-book > .blog-margin {
-    grid-row: 1 / span 2;
-  }
+/* The band keeps three columns: published, elapsed, and where this sits in
+   the blog. The tag and the CID edition are x-ray's to show. */
+.blog-margin .document-meta,
+.blog-margin .document-meta[data-columns] {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.blog-margin .document-meta-tag,
+.blog-margin .document-meta-edition {
+  display: none;
 }
 
 .blog-article-meta {
@@ -572,33 +377,6 @@
 /* The first-paragraph drop cap is defined once, globally, in
    typography.css (shared with the resume summary and about page). */
 
-@media (max-width: 700px) {
-  .blogging-toc-link {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-  }
-  .blogging-toc-num {
-    display: none;
-  }
-  .blogging-toc-meta {
-    /* In the stacked single-column layout the meta is its own row, so the
-       baseline nudge (meant for the desktop 3-column row) just piles space
-       above the timestamp. The two timestamps collapse back onto one line,
-       separated by a bullet (see ::after below) rather than stacked. */
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: flex-start;
-    gap: 0.4em;
-    text-align: left;
-    padding-top: 0;
-  }
-  .blogging-toc-rel::after {
-    content: '•';
-    margin-left: 0.4em;
-    color: var(--ink-faint);
-  }
-}
-
 /* Single-record page (Record.jsx): the plate.
 
    Pinned to the measure at full width, so a short status no longer shrinks
@@ -620,54 +398,6 @@
   width: 100%;
   max-width: var(--measure);
   margin-inline: 0;
-}
-
-/* The record's margin (Record.jsx .record-margin): what the record is rather
-   than what it says, set as the essay's colophon is (.blog-margin above):
-   how long ago it was written, its edition (the CID, with x-ray one tap
-   away) and its address. On a desk it stands beside the title in the room
-   the measure leaves on the right, and the address leaves the page's foot
-   for it; below 62rem there is no room, and the foot keeps the address. */
-.record-margin {
-  display: none;
-}
-
-@media (min-width: 62rem) {
-  .page:has(> .record-margin) {
-    max-width: none;
-    display: grid;
-    grid-template-columns: minmax(0, var(--measure)) minmax(14rem, 18rem);
-    column-gap: var(--space-7);
-    row-gap: var(--space-5);
-    align-items: start;
-  }
-  .page:has(> .record-margin) > * {
-    grid-column: 1;
-    min-width: 0;
-  }
-  .page:has(> .record-margin) > .record-margin {
-    display: block;
-    grid-column: 2;
-    grid-row: 1;
-    padding-top: 0.35rem;
-  }
-  .page:has(> .page-title + .record-page) > .record-margin {
-    grid-row: 1 / span 2;
-  }
-  .page:has(> .record-margin) .record-page-aturi {
-    display: none;
-  }
-  .record-margin .document-meta-address code {
-    font-family: var(--code);
-    font-size: 0.8em;
-    background: none;
-    padding: 0;
-    overflow-wrap: anywhere;
-  }
-  .record-margin .document-meta-address a {
-    color: inherit;
-    text-decoration: none;
-  }
 }
 
 .record-title {

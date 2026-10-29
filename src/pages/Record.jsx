@@ -14,7 +14,6 @@ import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions, { OpenInButton } from '../components/AturiActions.jsx';
 import SequenceFoot from '../components/SequenceFoot.jsx';
 import VitalsChip from '../components/VitalsChip.jsx';
-import DocumentMeta from '../components/DocumentMeta.jsx';
 import Time from '../components/Time.jsx';
 import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
 import {
@@ -27,9 +26,6 @@ import {
   upFrom,
 } from '../lib/recordPlate.js';
 import { RecordSkeleton } from '../components/Skeleton.jsx';
-import { relativeDay } from '../lib/time.js';
-import { shortenCid } from '../lib/xray.js';
-import { useXray } from '../hooks/useXray.jsx';
 import {
   resolvePds,
   getRecord,
@@ -272,7 +268,6 @@ export default function Record({ verb, nsid, source }) {
     createdAt: item?.createdAt || null,
   });
   const up = upFrom(indexPathForVerb(verb) ? `/${verb}/${rkey}` : `/${collection}/${rkey}`);
-  const { toggle: toggleXray } = useXray();
 
   if (!collection) {
     return (
@@ -327,37 +322,6 @@ export default function Record({ verb, nsid, source }) {
   // A post's "Open in…" sits at the right of its Replies heading, in place of
   // the row of actions under the record.
   const openInReplies = isPost && hasReplies;
-  // The margin beside the title on a desk (Blogging.css .record-margin), set
-  // as an essay's colophon is: how long ago, which edition, and where it
-  // lives. The facts line under the title keeps the date itself.
-  const margin = item
-    ? [
-        createdAt && { key: 'elapsed', label: 'Elapsed', long: relativeDay(createdAt) },
-        cid && {
-          key: 'edition',
-          label: 'Edition',
-          long: (
-            <>
-              <code className="blog-edition-cid">{shortenCid(cid)}</code>{' '}
-              <button type="button" className="blog-edition-inspect" onClick={toggleXray}>
-                inspect
-              </button>
-            </>
-          ),
-        },
-        {
-          key: 'address',
-          label: 'Address',
-          long: (
-            <AtUriLink uri={atUri}>
-              <FolioUri uri={atUri} />
-            </AtUriLink>
-          ),
-        },
-      ]
-        .filter(Boolean)
-        .map((col) => ({ ...col, short: col.long }))
-    : null;
 
   return (
     <PageShell
@@ -447,11 +411,6 @@ export default function Record({ verb, nsid, source }) {
           </AtUriLink>
         </p>
       </article>
-      {margin && (
-        <aside className="record-margin" aria-label="About this record">
-          <DocumentMeta columns={margin} />
-        </aside>
-      )}
     </PageShell>
   );
 }
