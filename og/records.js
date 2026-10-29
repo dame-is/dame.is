@@ -153,9 +153,12 @@ function collectionFromUri(uri) {
   return m ? m[1] : null;
 }
 
+// U+FFFC is dropped on the way in: a placeholder Apple's text system can leave
+// where an inline object was (see src/lib/postRichText.jsx). In a head or on a
+// card it would show as a box, and a text that was only that is no text.
 const firstText = (...vals) => {
   for (const s of vals) {
-    const t = String(s == null ? '' : s).trim();
+    const t = String(s == null ? '' : s).replace(/￼/g, '').trim();
     if (t) return t;
   }
   return '';

@@ -17,6 +17,13 @@ import { safeHref } from './safeHref.js';
  *
  * Honors line breaks by converting "\n" characters to <br /> in plain
  * text segments. Mentions/links/tags are kept on a single line.
+ *
+ * Drops U+FFFC (OBJECT REPLACEMENT CHARACTER) from what it shows. Apple's
+ * text system uses it to hold the place of an inline object, and when the
+ * text leaves as plain text the object is gone but the placeholder can stay
+ * behind. It means nothing in a post, and a browser on a Mac draws it as a
+ * dotted "OBJ" box. It is removed from each segment after slicing, so the
+ * facets' byte offsets still count against the record's text as written.
  */
 export function renderPostText(text, facets) {
   const safeText = typeof text === 'string' ? text : '';
@@ -55,7 +62,7 @@ export function renderPostText(text, facets) {
       );
     }
 
-    const segment = slice(start, end);
+    const segment = dropObjectMarks(slice(start, end));
     const feature = pickFeature(facet.features);
     out.push(
       <Fragment key={`f-${key++}`}>{renderFeature(feature, segment)}</Fragment>,
@@ -166,7 +173,10 @@ function renderFeature(feature, text) {
   }
 }
 
-function withLineBreaks(text) {
+const dropObjectMarks = (text) => text.replace(/￼/g, '');
+
+function withLineBreaks(raw) {
+  const text = dropObjectMarks(raw);
   if (!text) return null;
   if (!text.includes('\n')) return text;
   // Distinguish a single line break from a paragraph break. Splitting on
