@@ -1006,6 +1006,8 @@ async function main() {
       // Channel-level change marker: lets the client skip re-paginating
       // contents when the channel hasn't changed since this snapshot.
       updatedAt: snap.meta?.updated_at || null,
+      // When the channel was made on are.na: the age in the line under its title.
+      createdAt: snap.meta?.created_at || null,
     };
     galleries.push(gallery);
     await writeJson(`curating-${g.rkey}`, {

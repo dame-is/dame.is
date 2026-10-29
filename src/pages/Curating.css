@@ -1,14 +1,13 @@
 .curating-channel-meta {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
   gap: var(--space-2) var(--space-4);
   align-items: baseline;
   margin-bottom: var(--space-5);
 }
 
-/* The gallery's sort sits at the right of its block count, on the same line,
-   rather than pulled up beside the intro as on the index. */
+/* The gallery's sort sits on its own line over the grid, rather than pulled
+   up beside the intro as on the index. */
 .curating-channel-meta > .sort-switch {
   margin-top: 0;
   align-self: auto;
@@ -151,10 +150,6 @@
 }
 
 .curating-row-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--rule-soft);
 }
@@ -177,19 +172,15 @@
   }
 }
 
-/* "158 blocks / updated October 26, 2026" at the right edge. */
-.curating-row-folio {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex: none;
-  margin: 0;
+/* "Updated October 26, 2026 · 158 blocks · 2 years old" under the title, in
+   the same quiet sans as the page's other metadata. */
+.curating-facts {
+  margin: var(--space-1) 0 0;
   max-width: none;
   font-family: var(--sans);
   font-size: var(--text-meta);
   line-height: 1.35;
   color: var(--ink-muted);
-  text-align: right;
   text-indent: 0;
   font-variant-numeric: tabular-nums;
 }

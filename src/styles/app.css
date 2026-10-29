@@ -148,6 +148,19 @@ html {
    after it starts flush, as one after a heading would. Otherwise the global
    book-style `p + p` indent (typography.css) stepped in whatever came next —
    an empty state, a one-line note — under the unindented intro. */
+/* A short line of facts under a page's title (PageShell's `facts`): pulled
+   up to the title it belongs to, out of the page's usual gap. */
+.page-facts {
+  margin: calc(-1 * var(--space-4)) 0 0;
+  max-width: none;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: 1.35;
+  color: var(--ink-muted);
+  text-indent: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .page-intro + p {
   text-indent: 0;
 }
@@ -543,8 +556,7 @@ html {
   margin-left: auto;
 }
 
-/* The sort switch's options wrap as units, separator and all, and its lead
-   word stays quieter than the choices. */
+/* The sort switch's options wrap as units, separator and all. */
 .sort-switch {
   flex-wrap: wrap;
 }
@@ -555,9 +567,15 @@ html {
   gap: 0.45em;
 }
 
+/* "sort by" is a label, not a choice: set in italic lowercase rather than
+   the options' small caps, so it can't be mistaken for one more of them. */
 .sort-switch-lead {
+  margin-right: 0.35em;
+  font-family: var(--serif);
+  font-style: italic;
+  font-variant: normal;
+  letter-spacing: 0;
   color: var(--ink-faint);
-  margin-right: 0.15em;
 }
 
 /* Text for screen readers only (a repeated year the index draws as a

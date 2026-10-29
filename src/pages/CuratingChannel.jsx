@@ -17,6 +17,7 @@ import {
   orderBlocks,
   resolveBlockOrder,
   BLOCK_ORDERS,
+  galleryFacts,
 } from '../lib/arena.js';
 import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -93,6 +94,7 @@ export default function CuratingChannel() {
           description: v.description || arenaText(meta?.description) || '',
           blockCount: blocks.length,
           updatedAt: meta?.updated_at || null,
+          createdAt: meta?.created_at || null,
           // How the record wants the blocks laid out. Applied at render rather
           // than baked in here, so a random gallery is random per visit and a
           // change to the record takes hold without waiting for a rebuild.
@@ -197,18 +199,18 @@ export default function CuratingChannel() {
       atUri={toAtUri({ did: ME_DID, collection: COLLECTIONS.arenaChannel, rkey: slug })}
       cid={recordCid || undefined}
       headTitle={`${gallery.title} — dame.is`}
+      facts={galleryFacts(gallery).join(' · ') || undefined}
     >
-      <div className="curating-channel-meta gutter">
-        <span>{gallery.blockCount} {gallery.blockCount === 1 ? 'block' : 'blocks'}</span>
-        {gallery.blockCount > 1 && (
+      {gallery.blockCount > 1 && (
+        <div className="curating-channel-meta gutter">
           <SortSwitch
             value={sort}
             options={BLOCK_ORDERS}
             onChange={setSort}
             label="Sort the blocks by"
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {blocks.length === 0 ? (
         <p className="feed-empty">No blocks in this gallery yet.</p>

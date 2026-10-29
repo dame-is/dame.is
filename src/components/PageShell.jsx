@@ -18,10 +18,14 @@ import { useChromeBar } from '../hooks/useChromeBar.jsx';
  * URL segment: a record page passes "Oct 26 · 5:36 pm", an essay its title.
  * `crumbDate` (an ISO instant) is printed at the right of the masthead's
  * trail: a post's date, where its page has no date line.
+ *
+ * `facts` is a short line set under the title, before the intro: a gallery's
+ * "Updated October 29, 2026 · 250 blocks · 2 years old".
  */
 export default function PageShell({
   title,
   intro,
+  facts,
   above,
   atUri,
   cid,
@@ -60,6 +64,7 @@ export default function PageShell({
           {title}
         </h1>
       )}
+      {facts && <p className="page-facts">{facts}</p>}
       {intro && <p className="page-intro">{intro}</p>}
       {children}
     </article>

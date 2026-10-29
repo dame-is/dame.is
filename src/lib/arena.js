@@ -10,6 +10,8 @@
 //     serverless proxy, which injects the token server-side.
 // The env var is deliberately not VITE_-prefixed so Vite can never inline it.
 
+import { formatDateFull, relativeDay } from './time.js';
+
 const ARENA_API = 'https://api.are.na/v3';
 
 // Browser calls hit the serverless proxy instead of api.are.na directly.
@@ -320,6 +322,35 @@ export function orderGalleries(galleries, order = DEFAULT_GALLERY_ORDER) {
   for (const g of list) (updatedMs(g) === null ? undated : dated).push(g);
   dated.sort((a, b) => updatedMs(b) - updatedMs(a));
   return [...dated, ...undated];
+}
+
+/**
+ * How old a channel is, from when it was made on are.na: "2 years old",
+ * "3 weeks old", "new today". The same buckets as relativeDay, so it never
+ * disagrees with an "x ago" elsewhere on the site. Empty without a date.
+ */
+export function channelAge(createdAt, now = new Date()) {
+  const rel = relativeDay(createdAt, now);
+  if (!rel) return '';
+  if (rel === 'today') return 'new today';
+  if (rel === 'yesterday') return '1 day old';
+  return rel.replace(/ ago$/, ' old');
+}
+
+/**
+ * The line under a gallery's title: "Updated October 29, 2026 · 250 blocks ·
+ * 2 years old". Each part is left out when its fact is missing (a snapshot
+ * from before createdAt was kept has no age), so the line never prints a
+ * blank between dots.
+ */
+export function galleryFacts({ updatedAt, blockCount, createdAt } = {}, now = new Date()) {
+  const parts = [];
+  const updated = updatedAt ? formatDateFull(updatedAt) : '';
+  if (updated) parts.push(`Updated ${updated}`);
+  if (blockCount != null) parts.push(`${blockCount} ${blockCount === 1 ? 'block' : 'blocks'}`);
+  const age = channelAge(createdAt, now);
+  if (age) parts.push(age);
+  return parts;
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

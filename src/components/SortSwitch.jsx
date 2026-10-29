@@ -1,14 +1,15 @@
 /**
- * "sort newest · oldest · …": a collection page's sort, in the same small caps
- * as its SectionViewSwitch and drawn by the same rules, with a quiet lead word
- * so two switches side by side don't read as one. `options` are
+ * "sort by newest · oldest · …": a collection page's sort, its options in the
+ * same small caps as its SectionViewSwitch and drawn by the same rules. The
+ * lead "sort by" is set apart in italic so it reads as a label, not a fifth
+ * option. `options` are
  * `{ value, short }`; the chosen one is pressed.
  */
 export default function SortSwitch({ value, options, onChange, label = 'Sort by' }) {
   return (
     <div className="section-view-switch sort-switch" role="group" aria-label={label}>
       <span className="sort-switch-lead" aria-hidden="true">
-        sort
+        sort by
       </span>
       {options.map((o, i) => (
         <span key={o.value} className="sort-switch-option">

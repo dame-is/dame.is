@@ -6,6 +6,8 @@ import { describe, it, expect } from 'vitest';
 import {
   orderBlocks,
   orderGalleries,
+  galleryFacts,
+  channelAge,
   resolveBlockOrder,
   resolveGalleryOrder,
   arenaText,
@@ -136,6 +138,32 @@ describe('orderGalleries', () => {
     expect(orderGalleries(INDEX)).not.toBe(INDEX);
     expect(slugs(INDEX)).toEqual(['b', 'w', 'n', 'a', 'f']);
     expect(orderGalleries(null)).toEqual([]);
+  });
+});
+
+describe('galleryFacts / channelAge', () => {
+  const now = new Date('2026-10-29T17:00:00Z');
+
+  it('reads updated, count and age in that order', () => {
+    expect(
+      galleryFacts(
+        { updatedAt: '2026-10-29T15:00:00Z', blockCount: 250, createdAt: '2024-03-11T21:51:00Z' },
+        now,
+      ),
+    ).toEqual(['Updated October 29, 2026', '250 blocks', '2 years old']);
+  });
+
+  it('says block for one, and leaves out what it doesn’t know', () => {
+    expect(galleryFacts({ blockCount: 1 }, now)).toEqual(['1 block']);
+    expect(galleryFacts({ updatedAt: 'not a date', blockCount: null }, now)).toEqual([]);
+    expect(galleryFacts(undefined, now)).toEqual([]);
+  });
+
+  it('turns relative days into an age', () => {
+    expect(channelAge('2026-10-29T13:00:00Z', now)).toBe('new today');
+    expect(channelAge('2026-10-28T13:00:00Z', now)).toBe('1 day old');
+    expect(channelAge('2026-10-08T13:00:00Z', now)).toBe('3 weeks old');
+    expect(channelAge(null, now)).toBe('');
   });
 });
 

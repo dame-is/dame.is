@@ -10,7 +10,6 @@ import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useSectionView } from '../hooks/useFeedLayout.jsx';
 import { useSortParam } from '../hooks/useSortParam.js';
-import { formatDateFull } from '../lib/time.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import {
@@ -24,6 +23,7 @@ import {
   resolveGalleryOrder,
   GALLERY_ORDERS,
   DEFAULT_GALLERY_ORDER,
+  galleryFacts,
 } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
@@ -88,6 +88,7 @@ async function loadGalleries() {
         strip,
         order: g.value.order ?? 0,
         updatedAt: meta?.updated_at || null,
+        createdAt: meta?.created_at || snap?.createdAt || null,
       });
       refreshed += 1;
     } catch {
@@ -219,28 +220,23 @@ function stripOf(g) {
 }
 
 /**
- * A channel as a contact-sheet row: its title, are.na's description in
- * italic, the first six blocks cropped square (text blocks stay as words),
- * and the count and date as a folio at the right. The word stays "blocks",
- * since channels mix images, text and links.
+ * A channel as a contact-sheet row: its title, then when it last changed, how
+ * many blocks it holds and how old it is on one line under it, are.na's
+ * description in italic, and the first six blocks cropped square (text blocks
+ * stay as words). The word stays "blocks", since channels mix images, text and
+ * links.
  */
 function ChannelRow({ gallery: g }) {
   const href = `/curating/${g.slug}`;
   const strip = stripOf(g);
+  const facts = galleryFacts(g);
   return (
     <li className="curating-row">
       <div className="curating-row-head">
         <h2 className="curating-row-title">
           <Link to={href}>{g.title}</Link>
         </h2>
-        <p className="curating-row-folio">
-          {g.blockCount != null && (
-            <span>
-              {g.blockCount} {g.blockCount === 1 ? 'block' : 'blocks'}
-            </span>
-          )}
-          {g.updatedAt && <span>updated {formatDateFull(g.updatedAt)}</span>}
-        </p>
+        {facts.length > 0 && <p className="curating-facts">{facts.join(' · ')}</p>}
       </div>
       {g.description && <p className="curating-row-desc">{g.description}</p>}
       {strip.length > 0 && (
