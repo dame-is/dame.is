@@ -9,8 +9,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
  * - `info`: the ⓘ sheet. Its key is still one tap away in the compass sheet.
  * - `day`: the day in view beside ↑. A signal, not a tool.
  * - `back`, then the page's own tools, then ↑ itself.
- * - With the menu open the bar wears the menu's own controls: Account, then
- *   the feed layout's two choices, give way last.
+ * - With the menu open the bar wears the menu's own controls: Account gives
+ *   way last.
  * - The hour chip, last of all.
  *
  * A chip that leaves the bar is drawn at the foot of the compass sheet with
@@ -28,7 +28,6 @@ export const BAR_PRIORITY = [
   'inspect',
   'scroll',
   'account',
-  'layout',
   'sky',
 ];
 

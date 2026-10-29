@@ -12,7 +12,7 @@
 // what changed last, then the numbers, then one door to everything else.
 //
 //  · The 18-tile surface grid and the `Open any collection` form are NOT
-//    RENDERED below 60rem. They were 758px of the 2161px the dashboard took on
+//    RENDERED below 62rem. They were 758px of the 2161px the dashboard took on
 //    a phone — 2.9 screens before anything actionable — and the Surfaces sheet
 //    now draws the same directory better and reaches it from any screen in one
 //    tap. Their replacement here is one 48px row at the foot.
@@ -328,7 +328,7 @@ function guestbookNote(guestbook) {
 }
 
 /**
- * The counts as ONE LINE BOX, which is what the row becomes below 60rem.
+ * The counts as ONE LINE BOX, which is what the row becomes below 62rem.
  *
  * Four tiles at 174 × 122 in an auto-fill grid was the wrong shape twice over
  * on a phone: the grid minted empty tracks for a fixed set of four items (up to

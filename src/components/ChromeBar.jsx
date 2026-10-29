@@ -39,7 +39,6 @@ import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import VitalsPanel from './VitalsPanel.jsx';
 import DayOfLifeTicker from './DayOfLifeTicker.jsx';
-import LayoutToggle, { FEED_LAYOUT_PATHS } from './LayoutToggle.jsx';
 import PaperToggle from './PaperToggle.jsx';
 import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
 import SearchSheet from './SearchSheet.jsx';
@@ -650,10 +649,8 @@ const TOOL_META = {
   back: { word: 'back', glyph: ArrowLeft, title: 'Back to the page before' },
   scroll: { word: 'top', glyph: ArrowUp, title: 'Back to the top' },
   home: { word: 'home', glyph: Home, title: 'Home' },
-  // The menu's own two, when the open bar has no room for them. The sheet
-  // draws the layout as the same words it wears in the bar.
+  // The menu's own, when the open bar has no room for it.
   account: { word: 'account', glyph: User, title: 'Account: sign in with your Bluesky or AT Protocol handle' },
-  layout: { word: 'layout', title: 'The feeds’ layout' },
 };
 
 // Memoised: ChromeBar re-renders as the page scrolls (the trail's state and
@@ -759,9 +756,6 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   // and only shows while a resume is on screen.
   const onResumePage =
     location.pathname === '/available' || location.pathname.startsWith('/available/');
-  // The feed layout (ledger or cards) is a setting of the feeds that read it,
-  // so its words only appear, with the menu open, on those.
-  const onLayoutFeed = FEED_LAYOUT_PATHS.includes(location.pathname);
 
   const phone = useMediaQuery(PHONE_QUERY);
 
@@ -924,7 +918,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
         ].filter(Boolean)
       : [],
   );
-  const openOut = dockOpen ? ['account', 'layout'].filter((k) => plan.hidden.has(k)) : [];
+  const openOut = dockOpen && plan.hidden.has('account') ? ['account'] : [];
   const sheetTools = [...restingOutRef.current.filter((k) => !openBarShows.has(k)), ...openOut];
   const sheetToolsKey = `${sheetTools.join(',')}|${atTop}|${hourLabel}`;
   useEffect(() => {
@@ -993,7 +987,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
       <div className="chrome-bottom-row" ref={rowRef}>
         {/* Left cluster. While the nav dock is open, the page-level controls
             (theme / filter / search / info / inspect) hand off to the dock's
-            tools (the feed layout, in words) — they cross-fade in and
+            own tools (the paper toggle, while it exists) — they cross-fade in and
             temporarily take the same spot, then swap back when the dock
             closes. (Account lives in the right cluster; the atmosphere-debug
             readout is its own sheet, reached from the inspect HUD.) */}
@@ -1008,11 +1002,6 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                 exit={{ opacity: 0 }}
                 transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
               >
-                {onLayoutFeed && (
-                  <div data-tool="layout" className={`chrome-bar-layout${out('layout')}`}>
-                    <LayoutToggle />
-                  </div>
-                )}
                 {PAPER_ENABLED && <PaperToggle />}
               </motion.div>
             ) : (

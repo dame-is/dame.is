@@ -84,6 +84,14 @@
   display: none;
 }
 
+/* A contact link to this site: on paper it says where the résumé lives
+   online; on screen it would be a link to the page you are reading. */
+@media screen {
+  .resume-contact li.resume-contact-paper {
+    display: none;
+  }
+}
+
 /* --- Sections ------------------------------------------------------- */
 .resume-section {
   display: flex;
@@ -355,7 +363,7 @@
   max-width: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .resume-skill-group {
     grid-template-columns: 1fr;
     gap: var(--space-1);

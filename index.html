@@ -138,18 +138,26 @@
     <meta name="twitter:title" content="dame.is" />
     <meta name="twitter:description" content="An atmospheric website by dame, built atop the AT Protocol." />
     <meta name="twitter:image" content="https://dame.is/api/og" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!--
-      Only the two families the theme actually renders are requested: Crimson
-      Pro (the whole serif voice) and IBM Plex Mono (the ledger/code accent).
-      Source Serif 4, Atkinson Hyperlegible and Inter appear in theme.css only
-      as fallback stacks — no role resolves to them — so their webfonts are
-      never used and aren't loaded here.
+      The two faces every page sets first, Crimson Pro roman and italic, fetched
+      alongside the stylesheet instead of after it has parsed. The files are
+      self-hosted (src/styles/fonts.css says why); Vite rewrites these paths to
+      the same hashed /assets files the @font-face rules point at. Plex Mono and
+      the latin-ext halves load only when a page needs them.
     -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300..900;1,300..900&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/src/assets/fonts/crimson-pro-roman-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/src/assets/fonts/crimson-pro-italic-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
   </head>
   <body>

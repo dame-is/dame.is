@@ -45,6 +45,7 @@
 
 .an-strip-actions {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   margin-left: auto;
@@ -80,7 +81,8 @@
 }
 
 .an-strip-cancel,
-.an-strip-rebuild {
+.an-strip-rebuild,
+.an-strip-export {
   font-family: var(--mono-ui);
   font-variant: all-small-caps;
   letter-spacing: 0.12em;
@@ -93,7 +95,8 @@
 }
 
 .an-strip-cancel:hover,
-.an-strip-rebuild:hover {
+.an-strip-rebuild:hover,
+.an-strip-export:hover {
   color: var(--accent);
   border-color: var(--accent-soft);
 }
@@ -796,7 +799,7 @@
 
 /* ---- responsive --------------------------------------------------- */
 
-@media (max-width: 560px) {
+@media (max-width: 700px) {
   .an-tile-value {
     font-size: var(--text-xl);
   }

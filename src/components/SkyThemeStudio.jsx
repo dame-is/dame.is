@@ -33,7 +33,7 @@
 // saves is not the record on screen: the palette is already live on every pixel
 // of the window, and a Save that sat in a strip captioned "unsaved changes"
 // would describe the preview as a pending edit when the whole point is that you
-// are looking at it. Below 60rem that button would be a second save control
+// are looking at it. Below 62rem that button would be a second save control
 // competing with the frame's action bar, so there it registers into the bar
 // instead (registerBar) and the in-flow row is not drawn.
 //
@@ -465,7 +465,7 @@ export default function SkyThemeStudio({ agent, did }) {
   }, [reportDirty, unsaved]);
   useEffect(() => () => reportDirty(null), [reportDirty]);
 
-  // Below 60rem the frame's action bar is where a surface's primary action
+  // Below 62rem the frame's action bar is where a surface's primary action
   // lives, so Save goes there and the in-flow `.sky-actions` row is not drawn.
   //
   // `onPress` reaches the save through a ref rather than taking `handleSave`
@@ -788,7 +788,7 @@ export default function SkyThemeStudio({ agent, did }) {
             </div>
           )}
 
-          {/* Desktop only: below 60rem this same Save is slot 3 of the frame's
+          {/* Desktop only: below 62rem this same Save is slot 3 of the frame's
               action bar (registerBar, above), and a pane that also drew its own
               would be two save buttons for one record. */}
           {stacked ? null : (

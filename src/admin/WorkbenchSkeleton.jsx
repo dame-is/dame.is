@@ -13,7 +13,7 @@
 // already written and already in that eager bundle, so reusing them is free and
 // a second implementation would just drift from the real geometry.
 //
-// It reserves NO bar row. It used to draw one below 60rem, because the frame had
+// It reserves NO bar row. It used to draw one below 62rem, because the frame had
 // a third row there; the phone admin now wears the site's bottom bar, which is
 // outside the frame and already on screen behind this placeholder, so reserving
 // 56px would make the skeleton stand a bar taller than the shell it resolves

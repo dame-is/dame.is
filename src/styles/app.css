@@ -65,6 +65,7 @@ html {
   input,
   textarea,
   select {
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- iOS zooms into any field set under 16px, whatever the scale says */
     font-size: 16px !important;
   }
 }
@@ -81,8 +82,8 @@ html {
      has to know how much room is left either side of it, and the only honest
      answer is this width minus these gutters. See --doc-room in Blogging.css.
      Both inherit, so every descendant reads the same frame `.main` is drawn to. */
-  --main-max: 72rem;
   --main-gutter: clamp(var(--space-5), 6vw, var(--space-9));
+  --main-max: calc(var(--frame) + 2 * var(--main-gutter));
   flex: 1;
   width: 100%;
   max-width: var(--main-max);

@@ -1,0 +1,172 @@
+/* The colophon (Colophon.jsx): the kit under four hours of sky. */
+
+.kit-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+/* A lead, not an option: italic lowercase, as the sort switch's is. */
+.kit-switch-lead {
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.kit-switch-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.kit-hours {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: var(--space-5);
+}
+
+/* One hour. The page's tokens come in inline from that hour's palette
+   (hourStyle); the few that theme.css mixes from them on <html> are mixed
+   again here, or they'd carry the live hour into this one. */
+.kit-hour {
+  --accent-fill: color-mix(in srgb, var(--accent) 85%, var(--ink));
+  --accent-fill-edge: color-mix(in srgb, var(--accent) 72%, var(--ink));
+  --accent-fill-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+  --wash-hover: color-mix(in srgb, var(--accent) 8%, var(--page));
+  --wash-selected: color-mix(in srgb, var(--accent) 16%, var(--page));
+  --kit-small-caps: all-small-caps;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--page);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+}
+
+.kit-hour[data-scheme='light'] {
+  color-scheme: light;
+}
+
+.kit-hour[data-scheme='dark'] {
+  color-scheme: dark;
+}
+
+.kit-hour p.kit-hour-name {
+  margin: 0;
+  max-width: none;
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.kit-part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.kit-part-title {
+  margin: 0;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.kit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The two label voices, side by side. */
+.kit-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.kit-labels dd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+}
+
+.kit-label {
+  font-family: var(--sans);
+  color: var(--ink-muted);
+}
+
+/* Today's voice, as the chrome's labels set it. Through a custom property
+   so the site-wide preview, which looks for `all-small-caps` in the
+   stylesheets, leaves this specimen as it is. */
+.kit-label-now {
+  font-variant: var(--kit-small-caps);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+}
+
+/* The proposal (typography.css, c-11): real capitals at the 11px floor. */
+.kit-label-caps {
+  text-transform: uppercase;
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+.kit-label .unit {
+  font-variant: normal;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* The sheet header as it tops a sheet, framed, at a sheet's own inset
+   rather than the chrome's (which lines a real sheet up with the page). */
+.kit-sheet {
+  border: 1px solid var(--rule-soft);
+}
+
+.kit-sheet .sheet-head {
+  --chrome-pad-x: var(--space-3);
+  position: static;
+}
+
+.kit-inks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+}
+
+.kit-inks li {
+  display: contents;
+}
+
+.kit-ink-chip {
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid var(--rule-soft);
+}
+
+.kit-ink-ratio {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.kit-ink-ratio.is-short {
+  color: var(--danger);
+}
+
+.kit-hour p.kit-hour-foot {
+  margin: 0;
+  font-size: var(--text-sm);
+}

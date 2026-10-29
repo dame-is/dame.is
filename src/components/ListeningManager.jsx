@@ -301,7 +301,7 @@ export default function ListeningManager({ agent, did }) {
   // `records`, which changes once per deleted row, and a fresh function in this
   // effect's deps would re-register the bar a hundred times mid-run for no
   // change in what it draws. Registered at every width — the bar is only
-  // rendered below 60rem.
+  // rendered below 62rem.
   const bulkRef = useRef(bulkDelete);
   bulkRef.current = bulkDelete;
   const onBulkDelete = useCallback(() => {
@@ -370,7 +370,7 @@ export default function ListeningManager({ agent, did }) {
 
       {error && <p className="admin-error">{error}</p>}
 
-      {/* Below 60rem the count and the Delete are slots 2 and 3 of the frame's
+      {/* Below 62rem the count and the Delete are slots 2 and 3 of the frame's
           action bar, so the toolbar keeps only the one control the bar has no
           room for. Drawing them here as well would state the same number twice
           on a 390px screen and put a destructive button two screens above the
@@ -455,7 +455,7 @@ export default function ListeningManager({ agent, did }) {
                   // quick-edit sheet also renders, and this studio has no
                   // stylesheet of its own to scope it in.
                   //
-                  // WHY: below 60rem the shell centres a clamped studio with
+                  // WHY: below 62rem the shell centres a clamped studio with
                   // `margin-inline: auto`, and an auto inline margin disables
                   // flex `stretch` — so `.wb-studio` takes its own MIN-CONTENT
                   // size and anything wider than the pane scrolls the whole

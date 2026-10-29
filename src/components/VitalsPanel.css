@@ -141,7 +141,7 @@
   /* A touch smaller on phones: tighter gap, slightly smaller text + glyphs. */
   .vitals {
     gap: var(--space-1) var(--space-2);
-    font-size: 0.7rem;
+    font-size: var(--text-2xs);
   }
   .vitals .vital-glyph {
     width: 13px;

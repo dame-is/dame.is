@@ -169,7 +169,7 @@ export default function BottomSheet({
  * 1 pm"); `actions` are text buttons set before the × ("All · None ·
  * Defaults", "Return to live").
  */
-function SheetHeader({ id, title, meta, actions, onClose }) {
+export function SheetHeader({ id, title, meta, actions, onClose }) {
   return (
     <div className="sheet-head">
       <h2 id={id} className="sheet-head-title eyebrow">

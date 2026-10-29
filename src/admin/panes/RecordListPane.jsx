@@ -7,9 +7,9 @@
 //
 // What is genuinely different, and why:
 //
-//  1. **The pane is persistent — above 60rem.** It is a sibling of the detail
+//  1. **The pane is persistent — above 62rem.** It is a sibling of the detail
 //     pane rather than a page that gets replaced by one, so opening a record no
-//     longer throws the list away. BELOW 60rem it is not: the frame gives the
+//     longer throws the list away. BELOW 62rem it is not: the frame gives the
 //     whole viewport to one column, so drilling into a record unmounts this one.
 //     That is why the view state below no longer lives here (see 6).
 //  2. **`limit: 50` → `limit: 100`.** Same request count, twice the rows; 100 is
@@ -19,7 +19,7 @@
 //     on a final short page — which is why a 27-record collection has been
 //     offering a "Load more" that loads nothing. `batch.length < PAGE_LIMIT` is
 //     the real answer; the cursor check stays as a secondary guard.
-//  4. **Multiselect is always on above 60rem** — checkboxes fade in on hover or
+//  4. **Multiselect is always on above 62rem** — checkboxes fade in on hover or
 //     focus and stay up while anything is ticked — and is a MODE below it,
 //     entered from the action bar's `⋯`. A mode is ceremony in a column that sits
 //     beside the editor all day; on a phone a permanent 13px checkbox on every
@@ -34,7 +34,7 @@
 //     "open a record, come back, carry on down the list" work on a phone. It is
 //     also why there is no reset-on-surface-change block any more: the shell
 //     keys the state by surface, so Blogging's filter simply is not Creating's.
-//  7. **Two heads, one list.** Above 60rem the head is the full instrument panel
+//  7. **Two heads, one list.** Above 62rem the head is the full instrument panel
 //     — title, nsid, filter, sort, visibility segment, bulk toolbar. Below it the
 //     head is two 44px rows (title + refresh, then filter toggle + one options
 //     chip) and everything else moves into the action bar and the options sheet,
@@ -454,7 +454,7 @@ export default function RecordListPane({ surface, agent, did }) {
 
   /* --- view state, which lives in the shell -------------------------- */
 
-  // Keyed by surface, ref-backed, and deliberately NOT local state: below 60rem
+  // Keyed by surface, ref-backed, and deliberately NOT local state: below 62rem
   // this pane unmounts the moment a record opens, and every one of these is
   // something the owner would have to redo on the way back.
   const surfaceKey = surface.key;
@@ -727,7 +727,7 @@ export default function RecordListPane({ surface, agent, did }) {
     [surfaceRecords, selected],
   );
 
-  // Selection is a MODE below 60rem and a permanent capability above it, so the
+  // Selection is a MODE below 62rem and a permanent capability above it, so the
   // one flag the row and the CSS read is derived rather than asked for twice.
   const selectionOn = stacked ? selecting : selected.size > 0;
 
@@ -885,7 +885,7 @@ export default function RecordListPane({ surface, agent, did }) {
 
   // The surface keys in the URL are already correct — `rowHrefFor` preserves
   // them — so selecting a record only sets `r` and clears any `mode=new`. The
-  // rkey is recorded first: below 60rem this pane is about to unmount, and it is
+  // rkey is recorded first: below 62rem this pane is about to unmount, and it is
   // what focus comes back to.
   //
   // Its POSITION is recorded with it, because the rkey is not always still there
@@ -1042,9 +1042,9 @@ export default function RecordListPane({ surface, agent, did }) {
         ? `${shown.length} of ${surfaceRecords.length}`
         : `${surfaceRecords.length}${done ? '' : '+'} loaded`;
 
-  /* --- the action bar, below 60rem ----------------------------------- */
+  /* --- the action bar, below 62rem ----------------------------------- */
 
-  // Registered unconditionally: the bar is only rendered below 60rem, so
+  // Registered unconditionally: the bar is only rendered below 62rem, so
   // branching on `stacked` here would buy nothing and give the pane two code
   // paths to keep in step. The shell clears the slots on any subject change, and
   // the cleanup covers the rest.
@@ -1225,7 +1225,7 @@ export default function RecordListPane({ surface, agent, did }) {
           >
             <RefreshCw size={stacked ? 20 : 14} aria-hidden="true" />
           </button>
-          {/* Below 60rem "New" is the bar's right slot: it is the surface's
+          {/* Below 62rem "New" is the bar's right slot: it is the surface's
               primary action and belongs under the thumb, not in the corner
               furthest from it. */}
           {!stacked && canCreate && (
@@ -1374,7 +1374,7 @@ export default function RecordListPane({ surface, agent, did }) {
                 </label>
                 {/* aria-live so a count that changes without the owner asking —
                     a hundred more rows landing, a bulk delete completing — is
-                    announced. Below 60rem the bar's status slot does this job. */}
+                    announced. Below 62rem the bar's status slot does this job. */}
                 <span className="admin-multiselect-count" aria-live="polite">
                   {countLine}
                 </span>

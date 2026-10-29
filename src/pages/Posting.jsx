@@ -11,7 +11,6 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useFeedWindow } from '../hooks/useFeedWindow.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
-import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { formatTime, groupByDay } from '../lib/time.js';
 import { getAuthorFeed } from '../lib/atproto.js';
@@ -42,8 +41,6 @@ export default function Posting() {
   });
 
   const { removedUris, active: editActive } = useEditMode();
-  const { layout } = useFeedLayout();
-  const ledger = layout === 'ledger' && !editActive;
   const loading = status === 'loading';
   // Posts the owner deleted this session drop out at once, chips and all,
   // rather than lingering until a reload as if the delete had failed.
@@ -67,11 +64,12 @@ export default function Posting() {
     const pool = extra.length ? [...filtered, ...extra] : filtered;
     return completeSelfThreads(feedWindow.visible, pool, ME_DID);
   }, [feedWindow.visible, filtered, safeItems, backfill]);
-  // As on home, the ledger sets a self-thread as one row.
+  // As on home, the ledger sets a self-thread as one row, and edit mode a
+  // row per post.
   const threaded = useMemo(() => {
     const grouped = groupSelfReplyThreads(visible, ME_DID);
-    return ledger ? collapseSelfThreads(grouped) : grouped;
-  }, [visible, ledger]);
+    return editActive ? grouped : collapseSelfThreads(grouped);
+  }, [visible, editActive]);
   const groups = groupByDay(threaded, threadAwareDateKey);
 
   // Feed page: report the newest visible record's time in the global footer.
@@ -94,24 +92,23 @@ export default function Posting() {
       <PostingFilters counts={counts} />
       <QueryNote noun="posts" />
       {loading ? (
-        <FeedSkeleton rows={6} label="Loading posts" />
+        <FeedSkeleton rows={6} label="Loading posts" ledger />
       ) : status === 'error' ? (
         <p className="feed-empty">Live refresh failed and no cached snapshot is available.</p>
       ) : groups.length === 0 ? (
         <p className="feed-empty">{params.get('q') ? 'No posts match that search.' : 'No posts match these filters.'}</p>
       ) : (
-        <div className={ledger ? 'feed-ledger feed-ledger-column' : undefined}>
+        <div className="feed-ledger feed-ledger-column">
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
-                <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
+                <DayOfLifeHeader date={group.date} variant="ledger" />
+                <ul className="feed-list">
                   {group.items.map((item) => (
                     <FeedItem
                       key={item.atUri}
                       item={item}
                       showVerb={false}
-                      layout={ledger ? 'ledger' : 'cards'}
                     />
                   ))}
                 </ul>

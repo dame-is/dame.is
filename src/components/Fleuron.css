@@ -1,6 +1,6 @@
 /* Sized by the caller's font-size; coloured by the caller too, defaulting to
    the accent the essay end-mark set. `font-style: normal` keeps an italic
-   context from slanting a fallback font's glyph. */
+   context from swapping in Crimson's italic hedera. */
 .fleuron {
   display: inline-block;
   font-style: normal;

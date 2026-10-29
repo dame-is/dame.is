@@ -24,7 +24,7 @@ import {
   printableUrl,
 } from '../lib/resumeHelpers.js';
 import { atUriParts } from '../lib/xray.js';
-import { ME_DID, COLLECTIONS } from '../config.js';
+import { ME_DID, ME_HANDLE, COLLECTIONS, GITHUB_REPO } from '../config.js';
 import './Resume.css';
 
 const STANDARD_DOC = 'site.standard.document';
@@ -255,12 +255,13 @@ function ResumeIdentity({ screenTitle, printName, headline, contact }) {
               <a href={`mailto:${contact.email}`}>{contact.email}</a>
             </li>
           )}
-          {(contact.links || []).map((l) => {
+          {contactLinks(contact.links).map((l) => {
             // Paper can't follow a link, so a labelled one ("Website") prints
             // as its address instead — see .resume-contact-print in Resume.css.
+            // A link to this site is only worth its place on paper.
             const printed = l.label ? printableUrl(l.url) : '';
             return (
-              <li key={l.url}>
+              <li key={l.url} className={sameSite(l.url) ? 'resume-contact-paper' : undefined}>
                 <a href={l.url} target="_blank" rel="noreferrer noopener">
                   {printed ? (
                     <>
@@ -278,6 +279,30 @@ function ResumeIdentity({ screenTitle, printName, headline, contact }) {
       )}
     </>
   );
+}
+
+const sameSite = (url) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '') === ME_HANDLE;
+  } catch {
+    return false;
+  }
+};
+
+/** The contact line's links: the résumé's own, then Bluesky and GitHub
+ *  wherever the version doesn't already carry them, with no address twice. */
+function contactLinks(links) {
+  const seen = new Set();
+  return [
+    ...(links || []),
+    { label: 'Bluesky', url: `https://bsky.app/profile/${ME_HANDLE}` },
+    { label: 'GitHub', url: `https://github.com/${GITHUB_REPO.split('/')[0]}` },
+  ].filter((l) => {
+    const key = String(l?.url || '').replace(/\/+$/, '').toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export default function Resume() {

@@ -5,17 +5,20 @@
 
    Every chrome surface spans the FULL viewport width (its background + top/
    bottom hairlines run edge to edge at every breakpoint); this inset is what
-   keeps their CONTENT on `.main`'s centered 72rem column. It's `.main`'s own
-   horizontal padding (--chrome-pad-base), plus — once the viewport passes
-   72rem — half the overflow, which recentres the content box exactly like
-   `.main`'s `margin: 0 auto`. Below 72rem that second term clamps to 0, so
-   content is full-bleed with the same padding as the page body. Consumers
+   keeps their CONTENT on `.main`'s centered column, the --frame (theme.css).
+   It's `.main`'s own horizontal padding (--chrome-pad-base), plus — once the
+   viewport passes the frame and its padding — half the overflow, which
+   recentres the content box exactly like `.main`'s `margin: 0 auto`. Below
+   that the second term clamps to 0, so content is full-bleed with the same
+   padding as the page body. Consumers
    apply it as horizontal padding on a full-width surface, so the `100%`
    resolves against the viewport. Kept on :root — not the chrome scope —
    because the dock sheet is portalled to <body>, outside .chrome-bar. */
 :root {
   --chrome-pad-base: clamp(var(--space-5), 6vw, var(--space-9));
-  --chrome-pad-x: calc(var(--chrome-pad-base) + max(0px, (100% - 72rem) / 2));
+  --chrome-pad-x: calc(
+    var(--chrome-pad-base) + max(0px, (100% - var(--frame) - 2 * var(--chrome-pad-base)) / 2)
+  );
 }
 
 @media (max-width: 700px) {
@@ -768,14 +771,6 @@
   display: none;
 }
 
-/* The feed layout's words, with the menu open: a chip like the others to the
-   overflow plan, so on a narrow phone under large text it moves into the
-   sheet rather than pushing the compass off the screen. */
-.chrome-bar-layout {
-  display: flex;
-  min-width: 0;
-}
-
 /* Touch targets: keep the 28px (1.75rem) visual chip, but grow the tappable
    area to the 44px platform minimum on coarse (touch) pointers. A transparent
    ::before inset by -8px on every side adds 16px, taking the 28px chip to 44px
@@ -1061,7 +1056,7 @@
 
 /* Left cluster of the bottom bar. Holds one of two interchangeable groups:
    the page's tools (sky/filter/info/inspect) or — while the menu is open —
-   the menu's own (the feed layout, in words). They cross-fade in place via
+   the menu's own (the paper toggle, while it exists). They cross-fade in place via
    AnimatePresence (mode="wait"), so only one occupies the slot at a time and
    the right-hand cluster (pinned past the flex spacer) never shifts. */
 .chrome-bottom-left {
