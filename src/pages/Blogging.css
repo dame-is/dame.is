@@ -456,6 +456,20 @@
   text-indent: 0;
 }
 
+/* A post's colophon, the same line set under the post instead, since its
+   page opens on the post's own words. Close under the post's counts (the
+   card's own foot padding is most of the gap), so the two read as one foot. */
+.record-colophon-foot {
+  max-width: none;
+  margin: var(--space-1) 0 0;
+  text-indent: 0;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: 1.35;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* `max-width: none` because the global `p` cap is 65ch of this smaller type,
    about 485px, which pulled the centred folio off the column's centre. */
 .record-page-aturi {

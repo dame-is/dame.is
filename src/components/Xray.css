@@ -309,6 +309,129 @@
 }
 
 /* ----------------------------------------------------------------------
+   Pictures and video as blobs (XrayBlob.jsx). A picture is a blob its
+   record points at, so under x-ray it wears a plate over its foot naming
+   that blob: the field it sits in, its CID, and the type, size and aspect
+   ratio the record gives it. A video's plate runs across the top, off its
+   controls. The frame takes the x-ray hairline, and the alt text the page
+   only hands a screen reader is printed beneath. Drawn on a post's page, on
+   a feed row once it's tapped, and on a document's image blocks.
+   ---------------------------------------------------------------------- */
+.post-embed-image,
+.post-embed-video { position: relative; }
+
+:root[data-xray="on"] .post-embed-image:has(> .xray-blob),
+:root[data-xray="on"] .post-embed-video:has(> .xray-blob) {
+  border-color: var(--xr-frame);
+}
+
+/* A document's image hugs its picture while it wears a plate, so a picture
+   narrower than the column doesn't get a plate wider than itself. */
+.leaflet-image-button:has(> .xray-blob) {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+}
+.leaflet-image-button:has(> .xray-blob) img { border-color: var(--xr-frame); }
+
+.xray-blob {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-2) var(--space-3);
+  /* Over a busy picture (a screenshot full of words) anything thinner lets
+     the picture's own text read through the plate's. */
+  background: color-mix(in srgb, var(--page) 93%, transparent);
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  font-style: normal;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  text-align: left;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  animation: xray-blob-in 0.3s var(--xr-ease) both;
+}
+.xray-blob-foot { bottom: 0; border-top: 1px solid var(--xr-frame); }
+.xray-blob-head { top: 0; border-bottom: 1px solid var(--xr-frame); }
+/* Under a picture too short to carry it, in the frame's own flow. A lone
+   picture's frame takes the picture's ratio (PostEmbed.css), which would
+   clip a plate under it, so the frame gives that up and the picture keeps
+   the ratio on its own. */
+.xray-blob-under { position: static; border-top: 1px solid var(--xr-frame); }
+.post-embed-images[data-count='1'] .post-embed-image[data-sized='true']:has(> .xray-blob-under) {
+  aspect-ratio: auto;
+}
+.post-embed-images[data-count='1'] .post-embed-image[data-sized='true']:has(> .xray-blob-under) img {
+  height: auto;
+}
+/* A feed row's grid crops every tile to 3:2, so a wide picture's tile is no
+   shorter than the rest and keeps its plate over it. */
+.ledger-embed .post-embed-images:not([data-count='1']) .xray-blob-under {
+  position: absolute;
+  bottom: 0;
+}
+.xray-blob-field { color: var(--xr-ink); }
+.xray-blob-kind { color: var(--ink-muted); }
+.xray-blob-facts { color: var(--ink-muted); }
+@keyframes xray-blob-in {
+  from { opacity: 0; transform: translateY(0.35rem); }
+  to   { opacity: 1; transform: none; }
+}
+.xray-blob-head { animation-name: xray-blob-in-head; }
+@keyframes xray-blob-in-head {
+  from { opacity: 0; transform: translateY(-0.35rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Small frames keep to the field and the CID, a size down: tiles in a
+   grid of three or four, any grid or video in a feed row, and a document's
+   galleries. */
+.post-embed-images:is([data-count='3'], [data-count='4']) .xray-blob,
+.ledger-embed .post-embed-images:not([data-count='1']) .xray-blob,
+.ledger-embed .post-embed-video .xray-blob,
+.leaflet-gallery:not([data-layout='one-up']) .xray-blob {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.66rem;
+}
+.post-embed-images:is([data-count='3'], [data-count='4']) .xray-blob-facts,
+.ledger-embed .post-embed-images:not([data-count='1']) .xray-blob-facts,
+.ledger-embed .post-embed-video .xray-blob-facts,
+.leaflet-gallery:not([data-layout='one-up']) .xray-blob-facts {
+  display: none;
+}
+
+.xray-alts {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-3);
+  border-left: 1px dashed var(--xr-frame);
+  text-indent: 0;
+  animation: doc-inspect-in 0.3s var(--xr-ease) both;
+}
+.xray-alt { display: grid; gap: 2px; }
+.xray-alt dt {
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  font-style: normal;
+  color: var(--xr-ink);
+}
+.xray-alt dd {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.xray-alt dd em { color: var(--ink-muted); }
+
+/* ----------------------------------------------------------------------
    A · DOCUMENT (resume) — backlinked composition. Each role/education
    entry is its own is.dame.resume.job/.education record that the resume
    version backlinks; x-ray keeps the structure, recedes the prose, and
@@ -379,7 +502,9 @@
 /* ----------------------------------------------------------------------
    Block structure in the margin — each leaflet block of a document gets a
    subtle type label beside it, so inspecting a post/work reveals its block
-   skeleton as you read. Pure ::after on the blocks' existing classes (no
+   skeleton as you read. An image block names itself on its own plate
+   (XrayBlob.jsx), so it takes no tag here, and a gallery keeps its plate
+   numbers ("pl. 3") in x-ray. Pure ::after on the blocks' existing classes (no
    wrapper — the book paragraph-indent relies on adjacent siblings). Labels
    sit in the LEFT margin so they never collide with the record note on the
    right. Wide screens only, where a margin exists to hold them.
@@ -387,7 +512,6 @@
 @media (min-width: 62rem) {
   :root[data-xray="on"] .leaflet-doc .leaflet-paragraph,
   :root[data-xray="on"] .leaflet-doc .leaflet-heading,
-  :root[data-xray="on"] .leaflet-doc .leaflet-image,
   :root[data-xray="on"] .leaflet-doc .leaflet-code,
   :root[data-xray="on"] .leaflet-doc .leaflet-website,
   :root[data-xray="on"] .leaflet-doc .leaflet-embed,
@@ -403,7 +527,6 @@
   }
   :root[data-xray="on"] .leaflet-doc .leaflet-paragraph::after,
   :root[data-xray="on"] .leaflet-doc .leaflet-heading::after,
-  :root[data-xray="on"] .leaflet-doc .leaflet-image::after,
   :root[data-xray="on"] .leaflet-doc .leaflet-code::after,
   :root[data-xray="on"] .leaflet-doc .leaflet-website::after,
   :root[data-xray="on"] .leaflet-doc .leaflet-embed::after,
@@ -422,7 +545,6 @@
   }
   :root[data-xray="on"] .leaflet-doc .leaflet-paragraph::after { content: "blocks.text"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-heading::after { content: "blocks.header"; }
-  :root[data-xray="on"] .leaflet-doc .leaflet-image::after { content: "blocks.image"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-code::after { content: "blocks.code"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-website::after { content: "blocks.website"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-embed::after { content: "blocks.website"; }
@@ -434,7 +556,6 @@
      leaves to the right of the prose measure. */
   :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-paragraph::after,
   :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-heading::after,
-  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-image::after,
   :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-code::after,
   :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-website::after,
   :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-embed::after,
@@ -602,7 +723,9 @@
   }
   .chrome-xray.is-open .chrome-nav-glyph { animation: none; }
   /* Keep the reveal (fade) but drop the travel on the document margin note. */
-  :root[data-xray="on"] .doc-inspect-margin { animation-name: doc-inspect-fade; }
+  :root[data-xray="on"] .doc-inspect-margin,
+  .xray-blob,
+  .xray-alts { animation-name: doc-inspect-fade; }
 }
 @keyframes doc-inspect-fade { from { opacity: 0; } to { opacity: 1; } }
 

@@ -5,7 +5,7 @@
 
 import { VERB_REGISTRY, nsidConfig, verbConfig } from './verbRegistry.js';
 import { playArtistLine, playTrackName } from './teal.js';
-import { calendarDay, dateKey, formatDateWeekday, formatMonthDay, formatTime, formatWeekday, isDayOnly } from './time.js';
+import { dateKey, formatDateWeekday, formatTime, formatWeekday, isDayOnly } from './time.js';
 import { dayOfLife } from './dayOfLife.js';
 
 /** Dame's clock. Record colophons are set in it, as everything else is. */
@@ -144,19 +144,6 @@ export const longDate = (iso) => formatDateWeekday(iso);
 export function easternDayOfLife(iso) {
   const n = dayOfLife(iso);
   return Number.isFinite(n) ? n : null;
-}
-
-/**
- * "Oct 26 · 5:36 pm": a record's day and time, the year added when it isn't
- * `now`'s ("Mar 2, 2025 · 4:00 pm"). The date at the right of a post's
- * trail.
- */
-export function crumbStamp(iso, now = new Date()) {
-  const day = formatMonthDay(iso);
-  if (!day) return null;
-  const year = calendarDay(iso)?.y;
-  const dated = year === calendarDay(now)?.y ? day : `${day}, ${year}`;
-  return `${dated} · ${clockTime(iso)}`;
 }
 
 /**

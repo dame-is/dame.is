@@ -30,6 +30,54 @@ export function shortenCid(cid) {
 }
 
 /**
+ * The blob under a picture or a video in a post, for x-ray's plate over it:
+ * `{ cid, mimeType, size }`. The record's own blob ref says all three. Without
+ * one (an AppView view with no record beside it), the CID is read out of the
+ * CDN URL, whose path carries it, and the type and size stay unknown. Null
+ * when neither names a blob.
+ */
+export function blobFacts(blob, url) {
+  const ref = blob?.ref;
+  const cid =
+    (typeof ref?.$link === 'string' && ref.$link) ||
+    // The legacy blob shape, `{ cid, mimeType }`.
+    (typeof blob?.cid === 'string' && blob.cid) ||
+    cidFromUrl(url);
+  if (!cid) return null;
+  return {
+    cid,
+    mimeType: typeof blob?.mimeType === 'string' ? blob.mimeType : null,
+    size: Number.isFinite(blob?.size) ? blob.size : null,
+  };
+}
+
+/** The CIDv1 a CDN path carries: `…/plain/did:plc:…/bafkrei…@jpeg`, `…/watch/did:plc:…/bafkrei…/thumbnail.jpg`. */
+function cidFromUrl(url) {
+  const m = /\/(baf[a-z2-7]{20,})(?=[@/?#]|$)/.exec(String(url || ''));
+  return m ? m[1] : null;
+}
+
+/** Indices as runs, for a field path: `[7, 8, 9, 12]` → `7–9, 12`. */
+export function indexSpans(indices) {
+  const sorted = [...new Set(indices)].filter(Number.isInteger).sort((a, b) => a - b);
+  const runs = [];
+  for (const n of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && n === last[1] + 1) last[1] = n;
+    else runs.push([n, n]);
+  }
+  return runs.map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`)).join(', ');
+}
+
+/** `1768328` → `1.8 MB`, `48213` → `48 kB`, in decimal units. */
+export function formatBytes(n) {
+  if (!Number.isFinite(n) || n < 0) return '';
+  if (n < 1000) return `${n} B`;
+  if (n < 1e6) return `${Math.round(n / 1000)} kB`;
+  return `${(n / 1e6).toFixed(1)} MB`;
+}
+
+/**
  * The AT URI broken into display segments so the collection (nsid) can be
  * highlighted inside it: `at://<did>/<nsid>/<rkey>`, with the DID shortened.
  * Returns `{ prefix, nsid, rkey }` where prefix is `at://<shortDid>/`.

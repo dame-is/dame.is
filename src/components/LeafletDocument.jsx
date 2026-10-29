@@ -5,6 +5,7 @@ import {
   Suspense,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useState,
 } from 'react';
@@ -19,6 +20,8 @@ import { renderPostText } from '../lib/postRichText.jsx';
 import { getPostThread } from '../lib/atproto.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import PostEmbed from './PostEmbed.jsx';
+import { AltList, BlobPlate } from './XrayBlob.jsx';
+import { useXray } from '../hooks/useXray.jsx';
 import Time from './Time.jsx';
 import LinkCard from './LinkCard.jsx';
 import Lightbox from './Lightbox.jsx';
@@ -445,6 +448,7 @@ function firstTextIndex(page) {
 
 function LeafletPage({ page, firstIndex = -1, upTo = null }) {
   const sections = useContext(LeafletSectionsContext);
+  const { active: inspecting } = useXray();
   const all = Array.isArray(page?.blocks) ? page.blocks : [];
   // `upTo` is the last block to draw while an embed holds the rest back.
   const blocks = upTo == null ? all : all.slice(0, upTo + 1);
@@ -466,17 +470,27 @@ function LeafletPage({ page, firstIndex = -1, upTo = null }) {
           key={`g-${i}`}
         >
           {blocks.slice(run.start, run.end + 1).map((wrap, j) => (
-            <LeafletBlock key={j} block={wrap?.block} />
+            <LeafletBlock key={j} block={wrap?.block} index={run.start + j} inGallery />
           ))}
         </div>,
       );
+      // A gallery's tiles are too small to hold their alt text, so x-ray
+      // prints it for the whole run under the gallery.
+      if (inspecting) {
+        const alts = galleryAlts(blocks, run);
+        if (alts.length) {
+          out.push(<AltList key={`g-${i}-alts`} items={alts} field={(n) => `blocks[${n}].alt`} />);
+        }
+      }
       i = run.end + 1;
       continue;
     }
     if (sections?.first && blocks[i]?.block === sections.first) {
       out.push(<LeafletContents key="contents" sections={sections.list} />);
     }
-    out.push(<LeafletBlock key={`b-${i}`} block={blocks[i]?.block} first={i === firstIndex} />);
+    out.push(
+      <LeafletBlock key={`b-${i}`} block={blocks[i]?.block} first={i === firstIndex} index={i} />,
+    );
     i += 1;
   }
   return <Fragment>{out}</Fragment>;
@@ -518,7 +532,12 @@ function blockLayoutStyle(block) {
   return Object.keys(style).length ? style : null;
 }
 
-export function LeafletBlock({ block, first = false }) {
+/**
+ * `index` is the block's place in its page's `blocks`, which x-ray names an
+ * image block's blob by; `inGallery` says it is one tile of a gallery run,
+ * whose alt text the page prints for the run (LeafletPage).
+ */
+export function LeafletBlock({ block, first = false, index = null, inGallery = false }) {
   if (!block) return null;
   // Layout hints ride as an inline style on the block's own root element so
   // they win over the stylesheet's adjacency rules (e.g. the `margin-bottom: 0`
@@ -531,7 +550,7 @@ export function LeafletBlock({ block, first = false }) {
     case 'pub.leaflet.blocks.header':
       return <HeaderBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.image':
-      return <ImageBlock block={block} style={style} />;
+      return <ImageBlock block={block} style={style} index={index} inGallery={inGallery} />;
     case 'pub.leaflet.blocks.website':
       return <WebsiteBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.bskyPost':
@@ -717,14 +736,17 @@ function LeafletContents({ sections }) {
   );
 }
 
-function ImageBlock({ block, style }) {
+function ImageBlock({ block, style, index = null, inGallery = false }) {
   const lightbox = useContext(LeafletLightboxContext);
+  const { active: inspecting } = useXray();
+  const plateId = useId();
   const url = imageBlockUrl(block);
   if (!url) return null;
   const alt = block.alt || '';
   // `caption` is the visible caption; `alt` stays the screen-reader text.
   // Legacy blocks doubled `alt` as the caption, so fall back to it.
   const caption = block.caption || alt;
+  const field = index == null ? 'image' : `blocks[${index}]`;
   const ar = block.aspectRatio;
   const imgStyle = ar?.width && ar?.height
     ? { aspectRatio: `${ar.width} / ${ar.height}` }
@@ -748,15 +770,51 @@ function ImageBlock({ block, style }) {
           className="leaflet-image-button"
           onClick={() => lightbox.openImage(url)}
           aria-label={alt ? `View image: ${alt}` : 'View image'}
+          aria-describedby={inspecting ? plateId : undefined}
         >
           {img}
+          {/* Under x-ray, the blob this block's `image` points at. A legacy
+              block with a plain URL has none, and says nothing. */}
+          {inspecting && block.image && (
+            <BlobPlate
+              id={plateId}
+              field={field}
+              blob={block.image}
+              url={url}
+              aspectRatio={block.aspectRatio}
+            />
+          )}
         </button>
       ) : (
         img
       )}
       {caption && <figcaption className="leaflet-image-caption">{caption}</figcaption>}
+      {inspecting && !inGallery && altHidden(block) && (
+        <AltList items={[{ index: index ?? 0, alt }]} field={() => `${field}.alt`} />
+      )}
     </figure>
   );
+}
+
+/**
+ * Whether an image block's alt text is out of sight: it has none, or it has a
+ * caption of its own to show instead. A block with no caption shows its alt
+ * as one (see ImageBlock), so x-ray has nothing to add there.
+ */
+function altHidden(block) {
+  const alt = block?.alt || '';
+  return !alt || Boolean(block.caption && block.caption !== alt);
+}
+
+/** The alt text of a gallery run's tiles that x-ray has to print for them. */
+function galleryAlts(blocks, run) {
+  const out = [];
+  for (let k = run.start; k <= run.end; k += 1) {
+    const block = blocks[k]?.block;
+    if (!block || !imageBlockUrl(block) || !altHidden(block)) continue;
+    out.push({ index: k, alt: block.alt || '' });
+  }
+  return out;
 }
 
 function WebsiteBlock({ block, style }) {

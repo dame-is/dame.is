@@ -4,7 +4,6 @@ import {
   upFrom,
   indexPathForVerb,
   GENERATED_INDEX_VERBS,
-  crumbStamp,
   colophon,
   easternDayOfLife,
   gapBetween,
@@ -72,14 +71,6 @@ describe('generated indexes', () => {
 describe("Dame's clock", () => {
   // The record from the audit: createdAt 17:36:37-04:00.
   const iso = '2026-10-26T21:36:37.000Z';
-
-  it('stamps the crumb in Eastern time whatever the reader\'s zone', () => {
-    expect(crumbStamp(iso, new Date('2026-10-29T12:00:00Z'))).toBe('Oct 26 · 5:36 pm');
-  });
-
-  it('adds the year to a crumb from another year', () => {
-    expect(crumbStamp(iso, new Date('2027-01-02T12:00:00Z'))).toBe('Oct 26, 2026 · 5:36 pm');
-  });
 
   it('writes the colophon with the past tense and the day of life', () => {
     expect(colophon('logging', iso)).toBe('Logged Monday, October 26, 2026 · 5:36 pm · day 12,226');

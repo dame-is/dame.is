@@ -12,11 +12,13 @@ import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions, { OpenInButton } from '../components/AturiActions.jsx';
+import { InspectMargin, XrayTag } from '../components/XraySubstrate.jsx';
 import SequenceFoot, { countWord } from '../components/SequenceFoot.jsx';
 import { restoringScroll } from '../components/RouteTransition.jsx';
 import VitalsChip from '../components/VitalsChip.jsx';
 import Time from '../components/Time.jsx';
 import { useRecordNeighbours, subjectNames } from '../hooks/useRecordNeighbours.js';
+import { useXray } from '../hooks/useXray.jsx';
 import {
   colophon,
   indexPathForVerb,
@@ -60,6 +62,7 @@ import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { useFirstSightings } from '../hooks/useFirstSightings.js';
 import { isFirstSighting } from '../lib/firstSightings.js';
 import { renderPostText } from '../lib/postRichText.jsx';
+import { xrayNotARecord } from '../lib/xray.js';
 import PostEmbed from '../components/PostEmbed.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import './Blogging.css';
@@ -380,8 +383,9 @@ export default function Record({ verb, nsid, source }) {
   const sentence = item ? recordSentence(verb, item.payload || {}, { subject: subjectName }) : null;
   const all = allInSection(verb);
   // A post is its own words, so its page opens on them: no title restating
-  // the post, no date line. The trail names it by rkey and carries its date
-  // at the right; the sentence stays the page's heading for a screen reader.
+  // the post, and its date line set under it rather than over it. The trail
+  // names it by rkey; the sentence stays the page's heading for a screen
+  // reader.
   const isPost = verb === 'posting';
   // No replies section under a repost whose post is gone: there is no thread
   // to read, and "No replies yet" would claim there is.
@@ -398,9 +402,10 @@ export default function Record({ verb, nsid, source }) {
       headTitle={headTitleFor(verb, item, sentence)}
       // A record's trail always ends on its rkey, as its URL does, never a
       // date or title in its place; the chrome would otherwise borrow the
-      // page's title. The date lives in the colophon (a post's at the right).
+      // page's title. The date lives in the colophon, or a thread's posts
+      // carry their own; a thread post's place in it ("3 of 6") is noted
+      // beside the trail.
       crumb={rkey}
-      crumbDate={isPost ? createdAt : null}
       crumbNote={thread ? `${thread.linkedIndex + 1} of ${thread.items.length}` : null}
     >
       <article className="record-page">
@@ -418,6 +423,11 @@ export default function Record({ verb, nsid, source }) {
           </div>
         )}
 
+        {/* Under x-ray, the record behind the page: where it sits in the
+            atmosphere (PDS, repo, collection, rkey, CID), and for a repost or
+            a like the record it points at. Takes no room until then. */}
+        <InspectMargin atUri={atUri} cid={cid} value={item?.payload} />
+
         {threadMode && parents.length > 0 && (
           <ParentChain parents={parents.slice(0, 1)} />
         )}
@@ -427,6 +437,11 @@ export default function Record({ verb, nsid, source }) {
         ) : item ? (
           <div className="reveal">
             <RecordBody verb={verb} item={item} ownReplies={selfThread.length ? 1 : 0} />
+            {/* A post's colophon, under the post it dates and ahead of any
+                continuation of its thread. */}
+            {isPost && createdAt && (
+              <p className="record-colophon record-colophon-foot">{colophon(verb, createdAt)}</p>
+            )}
           </div>
         ) : (
           <RecordSkeleton />
@@ -663,10 +678,13 @@ function LexiconList({ nsids }) {
 /* ------------------------------------------------------------------ */
 
 function RecordBody({ verb, item, ownReplies = 0 }) {
+  const { active: inspecting } = useXray();
   switch (verb) {
     case 'posting':
     case 'reposting':
-      return <PostCard {...item} variant="record" ownReplies={ownReplies} />;
+      // A repost's pictures are the reposted post's blobs, which the tree
+      // above names as its subject; x-ray shows them all the same.
+      return <PostCard {...item} variant="record" ownReplies={ownReplies} inspect={inspecting} />;
     case 'logging':
       // The status is the page's H1 and its body-state sits in the facts
       // under it, so there is no body.
@@ -858,6 +876,7 @@ function ParentChain({ parents }) {
 }
 
 function ParentPostCard({ parent, isRoot }) {
+  const { active: inspecting } = useXray();
   if (parent?.$type === 'app.bsky.feed.defs#notFoundPost') {
     return <div className="record-parent record-parent-missing gutter">↳ a deleted post</div>;
   }
@@ -881,6 +900,7 @@ function ParentPostCard({ parent, isRoot }) {
     : null;
   return (
     <article className="record-parent" data-at-uri={parent?.uri}>
+      {inspecting && parent?.uri && <XrayTag atUri={parent.uri} />}
       <header className="record-parent-head">
         <span className="record-parent-arrow" aria-hidden="true">↳</span>
         {isRoot && <span className="small-caps record-parent-tag">root</span>}
@@ -994,6 +1014,7 @@ function ThreadPosts({ thread }) {
  * to where they're filed.
  */
 function ThreadPost({ item, index, of, linked, ownReplies = 0, repliesHref = null }) {
+  const { active: inspecting } = useXray();
   const text = item.payload?.text || '';
   const facets = item.payload?.facets || null;
   const embed = item.payload?.embed || item.payload?.embedRecord || null;
@@ -1029,6 +1050,9 @@ function ThreadPost({ item, index, of, linked, ownReplies = 0, repliesHref = nul
       className={linked ? 'record-thread-post is-linked' : 'record-thread-post'}
       data-at-uri={item.atUri}
     >
+      {/* Each post of the thread is a record of its own; x-ray names which.
+          Only mounted then: collapsed, the tag would still take a gap here. */}
+      {inspecting && <XrayTag atUri={item.atUri} />}
       {text ? (
         <p className="post-card-text record-thread-text" ref={textRef}>
           {num}
@@ -1037,7 +1061,15 @@ function ThreadPost({ item, index, of, linked, ownReplies = 0, repliesHref = nul
       ) : (
         <div className="record-thread-bare">{num}</div>
       )}
-      {embed && <PostEmbed embed={embed} did={authorDid} postUri={item.atUri} />}
+      {embed && (
+        <PostEmbed
+          embed={embed}
+          did={authorDid}
+          postUri={item.atUri}
+          raw={item.payload?.embedRecord || null}
+          inspect={inspecting}
+        />
+      )}
       {(ts || parts.length > 0) && (
         <footer
           className={
@@ -1045,6 +1077,7 @@ function ThreadPost({ item, index, of, linked, ownReplies = 0, repliesHref = nul
               ? 'post-card-stats record-thread-stats'
               : 'post-card-stats record-thread-stats record-thread-stats-bare'
           }
+          {...(inspecting && parts.length ? xrayNotARecord('AppView count') : null)}
         >
           {ts && (
             <span className="record-thread-stats-time">
@@ -1098,6 +1131,7 @@ function rememberThread(loaded) {
  * replies its count includes.
  */
 function SelfThreadPost({ item, ownReplies = 0 }) {
+  const { active: inspecting } = useXray();
   const text = item.payload?.text || '';
   const facets = item.payload?.facets || null;
   const embed = item.payload?.embed || item.payload?.embedRecord || null;
@@ -1105,9 +1139,24 @@ function SelfThreadPost({ item, ownReplies = 0 }) {
   const stats = postStatsLine(item.payload, ownReplies);
   return (
     <article className="record-thread-post" data-at-uri={item.atUri}>
+      {/* Each continuation is a record of its own; x-ray names which. Only
+          mounted then: collapsed, the tag would still take a gap here. */}
+      {inspecting && <XrayTag atUri={item.atUri} />}
       {text && <p className="record-thread-text">{renderPostText(text, facets)}</p>}
-      {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
-      {stats && <footer className="post-card-stats">{stats}</footer>}
+      {embed && (
+        <PostEmbed
+          embed={embed}
+          did={authorDid}
+          collapsible
+          raw={item.payload?.embedRecord || null}
+          inspect={inspecting}
+        />
+      )}
+      {stats && (
+        <footer className="post-card-stats" {...(inspecting ? xrayNotARecord('AppView count') : null)}>
+          {stats}
+        </footer>
+      )}
     </article>
   );
 }
