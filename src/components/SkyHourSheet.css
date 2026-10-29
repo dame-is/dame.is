@@ -1,15 +1,32 @@
 /* Interior of the sky-hour bottom sheet. BottomSheet owns positioning, the
-   surface, the expand animation and the header ("Time of day", the live or
-   held state as its meta, and "Return to live" beside the × while held);
-   only the ribbon's layout lives here, on the chrome's column like every
-   sheet's body. */
-.sky-hour-sheet-content {
-  /* Room above the ribbon for the thumb's hour tag, which hangs over the
-     track and would otherwise slip under the sticky header. */
-  padding-top: calc(var(--space-3) + 1.25rem);
+   surface, and the expand animation; only the header + ribbon layout live
+   here. Mirrors the info / debug / search sheets so it reads as one family. */
+.sky-hour-sheet-panel {
+  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
+     so the ribbon lines up with the nav dock, the breadcrumb, and the
+     bottom-bar buttons at every breakpoint. */
+  padding: var(--space-3) var(--chrome-pad-x) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* Live and held read differently, so the state survives a glance: live is
+   the small-caps label with an accent square and the hour; held names the
+   hour it's holding and offers the way back as a real button. */
+.sky-hour-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 2rem;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+}
+
+.sky-hour-sheet-header .small-caps {
+  letter-spacing: 0.16em;
 }
 
 .sky-hour-sheet-state {
@@ -19,7 +36,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sky-hour-sheet-state.is-held {
+.sky-hour-sheet-header.is-held .sky-hour-sheet-state {
   color: var(--ink);
   font-style: italic;
 }
@@ -29,6 +46,23 @@
   width: 0.5em;
   height: 0.5em;
   background: var(--accent);
+}
+
+.sky-hour-sheet-live {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.sky-hour-sheet-live:focus-visible {
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 /* The ribbon row: steppers flank the slider so the whole spectrum can be
