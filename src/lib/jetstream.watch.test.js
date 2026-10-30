@@ -348,6 +348,120 @@ describe('watchSubject starts in the past and keeps its place', () => {
     stop();
   });
 
+  // A reload: a new watch taking up where the page it replaced had got to.
+  it('carries on from an earlier watch rather than from the post', () => {
+    const now = Date.now();
+    const statuses = [];
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      maxReplayMs: LOOKBACK_MS,
+      fromMs: now - 40 * 60_000,
+      resume: { seq: 900, atMs: now - 20_000, coveredFrom: now - 40 * 60_000, gapMs: 0 },
+      onStatus: (s) => statuses.push(s),
+    });
+    expect(cursorOf(latest())).toBe('900');
+    // What it vouches for is the earlier watch's, from before it opens.
+    expect(statuses[0].coveredFrom).toBe(now - 40 * 60_000);
+    expect(statuses[0].behindMs).toBe(20_000);
+
+    latest().open();
+    latest().message(event(now - 20_000, 900));
+    const last = statuses[statuses.length - 1];
+    expect(last.coveredFrom).toBe(now - 40 * 60_000);
+    expect(last.gapMs).toBe(0);
+    stop();
+  });
+
+  it('counts a hole from where the earlier watch stopped when it cannot resume', async () => {
+    const now = Date.now();
+    const statuses = [];
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      maxReplayMs: LOOKBACK_MS,
+      resume: { seq: 900, atMs: now - 20_000, coveredFrom: now - 40 * 60_000, gapMs: 3000 },
+      onStatus: (s) => statuses.push(s),
+    });
+    const nextSocket = async () => {
+      const n = sockets().length;
+      while (sockets().length === n) await vi.advanceTimersByTimeAsync(100);
+      return latest();
+    };
+    const cursors = [cursorOf(latest())];
+    latest().close();
+    for (let i = 0; i < 3; i += 1) {
+      cursors.push(cursorOf(await nextSocket()));
+      latest().close();
+    }
+    expect(cursors).toEqual([
+      '900',
+      '900',
+      String((now - 21_000) * 1000),
+      String((now - 21_000) * 1000),
+    ]);
+    expect(cursorOf(await nextSocket())).toBeNull();
+    latest().open();
+    const liveAt = Date.now();
+    latest().message(event(liveAt, 5000));
+    const last = statuses[statuses.length - 1];
+    expect(last.coveredFrom).toBe(now - 40 * 60_000);
+    expect(last.gapMs).toBe(3000 + liveAt - (now - 20_000));
+    stop();
+  });
+
+  it('only reports a seq once everything before it has been delivered', () => {
+    const now = Date.now();
+    const log = [];
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      onEvent: (e) => log.push(`event ${e.seq}`),
+      onStatus: (s) => log.push(`status ${s.seq}`),
+    });
+    latest().open();
+    log.length = 0;
+    latest().message(
+      event(now, 41, {
+        rkey: '3reply',
+        collection: 'app.bsky.feed.post',
+        record: { text: 'hi', reply: { root: { uri: SUBJECT }, parent: { uri: SUBJECT } } },
+      }),
+    );
+    // The first event's own status goes out before it is handled, under the
+    // seq before it; the match's status after.
+    expect(log).toEqual(['status 0', 'event 41', 'status 41']);
+    stop();
+  });
+
+  it('reports the delete of a record it is told it already knows', () => {
+    const now = Date.now();
+    const events = [];
+    const known = new Map([['3like', 'like']]);
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      known: (rkey, did) => (did === 'did:plc:fan' ? known.get(rkey) || null : null),
+      onEvent: (e) => events.push(e),
+    });
+    latest().open();
+    const del = (did, rkey, seq) =>
+      latest().message({
+        $type: 'message',
+        payload: {
+          did,
+          collection: 'app.bsky.feed.like',
+          operation: 'delete',
+          rkey,
+          seq,
+          time: new Date(now).toISOString(),
+        },
+      });
+    del('did:plc:fan', '3like', 50);
+    del('did:plc:stranger', '3like', 51);
+    del('did:plc:fan', '3other', 52);
+    expect(events.map((e) => [e.op, e.kind, e.rkey, e.did])).toEqual([
+      ['delete', 'like', '3like', 'did:plc:fan'],
+    ]);
+    stop();
+  });
+
   it('keeps retrying its starting cursor until something arrives', async () => {
     const now = Date.now();
     const from = now - 60_000;

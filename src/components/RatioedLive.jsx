@@ -29,7 +29,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Radio } from 'lucide-react';
 import { watchSubject } from '../lib/jetstream.js';
-import { resolveProfiles } from '../lib/atproto.js';
+import { useProfiles } from '../hooks/useProfiles.js';
 import {
   witnessRow,
   mergeWitness,
@@ -75,7 +75,6 @@ const TICK_MS = 1000;
 export default function RatioedLive({ piece, record = null, series = null, copy = DEFAULT_COPY }) {
   const postedMs = Date.parse(piece?.postedAt || '');
   const [rows, setRows] = useState(() => piece?.witnessed || []);
-  const [profiles, setProfiles] = useState({});
   const [now, setNow] = useState(() => Date.now());
   // Off until somebody turns it on, as the header says. It used to start on
   // any connection that didn't report itself as slow — and Safari and every
@@ -155,29 +154,9 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
 
   // Faces and names for whoever turns up, resolved as new DIDs appear. The log
   // carries the handle the studio stamped in; this is what makes it a face.
-  //
-  // `asked` is what stops this looping. `resolveProfiles` never throws and
-  // simply omits a DID it could not resolve, so one deactivated participant
-  // left `missing` non-empty forever while every answer allocated a fresh
-  // `profiles` object — an effect that re-armed itself for the whole life of
-  // the piece, sharing a rate-limit bucket with the poll that is the fallback
-  // for the one like this page exists to notice.
-  const asked = useRef(new Set());
-  useEffect(() => {
-    const missing = rows
-      .map((r) => r.did)
-      .filter((d) => d && !profiles[d] && !asked.current.has(d));
-    if (!missing.length) return undefined;
-    const batch = Array.from(new Set(missing));
-    for (const d of batch) asked.current.add(d);
-    let alive = true;
-    resolveProfiles(batch).then((p) => {
-      if (alive) setProfiles((old) => ({ ...old, ...p }));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [rows, profiles]);
+  // Each account is asked about once, an answer is kept whenever it lands, and
+  // a miss is asked again a few times and then left; see profileAsker.
+  const profiles = useProfiles(rows.map((r) => r.did));
 
   // The artist's own records are in the log and in none of the counts — the
   // same rule every measured figure on this project follows, and it matters

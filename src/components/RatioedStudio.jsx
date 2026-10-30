@@ -89,7 +89,10 @@ import {
   withdrawnOnly,
   tallyWitness,
   resolveBreaker,
+  watchCheckpoint,
+  readWatchCheckpoint,
 } from '../lib/ratioedLive.js';
+import { useProfiles } from '../hooks/useProfiles.js';
 import {
   DEFAULT_TEMPLATE,
   DEFAULT_ANNOUNCEMENT,
@@ -167,6 +170,28 @@ const CATCHING_UP_MS = 5000;
 // How long a seal holds a catching-up stream open to read as far as the seal,
 // before measuring with whatever it has.
 const CATCH_UP_WAIT_MS = 90_000;
+
+// Where this browser's watch of the live piece had got to, and the rows it had
+// seen by then (see watchCheckpoint). One key: one piece is live at a time.
+const WATCH_KEY = 'dame.ratioed.watch';
+
+/** The kept place for this piece, or null. Storage can throw; that is a null. */
+function loadCheckpoint(rkey) {
+  try {
+    return readWatchCheckpoint(localStorage.getItem(WATCH_KEY), rkey, { maxAgeMs: LOOKBACK_MS });
+  } catch {
+    return null;
+  }
+}
+
+function keepCheckpoint(point) {
+  try {
+    if (point) localStorage.setItem(WATCH_KEY, JSON.stringify(point));
+    else localStorage.removeItem(WATCH_KEY);
+  } catch {
+    // Full or refused. A reload then replays from the post, as it always did.
+  }
+}
 
 // How long a live read gets before this panel calls what it has final.
 const PDS_DEADLINE_MS = 6000;
@@ -269,19 +294,21 @@ export default function RatioedStudio({ agent, did }) {
   // A post that landed with no record behind it. Blocks a second publish, and
   // offers the one write that is missing.
   const [orphan, setOrphan] = useState(null);
-  const askedProfiles = useRef(new Set());
   const savedWitness = useRef({ rows: null, at: 0, busy: false, stop: false });
-  // { state, bytes, seen, msgs, rate, coveredFrom, gapMs, atMs, behindMs }
+  // { state, bytes, seen, msgs, rate, coveredFrom, gapMs, atMs, behindMs, seq },
+  // plus `piece`, the record key of the piece it was reported for.
   const [stream, setStream] = useState(null);
   // The same two, for code that runs after the render that set them: the seal
   // is one async function, and the feed it closes over is the one from the
   // moment it was pressed.
   const streamRef = useRef(null);
   const feedRef = useRef([]);
+  // The feed by record key, for the stream to recognise a delete of a row it
+  // never saw created: one from the record, or from before a reload.
+  const feedKeys = useRef(new Map());
   // A seal that landed while the stream was still replaying. See the stream's
   // effect: `{ rkey, sealedMs, release, done }`.
   const linger = useRef(null);
-  const [profiles, setProfiles] = useState({});
 
   // Set when the PLC read misses its deadline and the series is therefore the
   // bundled snapshot rather than a live one. `resolvePds` is an un-timed fetch
@@ -568,6 +595,7 @@ export default function RatioedStudio({ agent, did }) {
 
   useEffect(() => {
     feedRef.current = feed;
+    feedKeys.current = new Map(feed.map((r) => [r.rkey, r]));
   }, [feed]);
 
   // The stream. Open only while a piece is actually up and unsealed — it is a
@@ -584,8 +612,24 @@ export default function RatioedStudio({ agent, did }) {
   // which is the part nothing else can recover: a like cast and taken back
   // while the tab was closed is replayed as both. It costs what keeping the tab
   // open the whole time would have.
+  //
+  // But only once per browser. Reading from the post on every open meant a
+  // reload forty minutes in replayed all forty again, after the page it
+  // replaced had already caught up. So the place the watch had reached is kept
+  // here with the rows it had seen by then, and a reload carries on from that
+  // place, as if the old socket had dropped and come back. A delete of a row
+  // from before it is still recognised: the rows are handed back to the
+  // stream as already known.
   useEffect(() => {
     if (!liveKey || sealedNow) return undefined;
+    const kept = loadCheckpoint(liveKey);
+    const keptKeys = new Map((kept?.rows || []).map((r) => [r.rkey, r]));
+    if (kept?.rows.length) {
+      setFeed((f) => {
+        const next = mergeWitness(f, kept.rows);
+        return witnessChanged(f, next) ? next : f;
+      });
+    }
     let lingering = null;
     let lingerTimer = null;
     let close = () => {};
@@ -607,10 +651,18 @@ export default function RatioedStudio({ agent, did }) {
       // piece when throwing it was the right thing to do.
       budgetBytes: null,
       fromMs: livePostedMs - WATCH_LEAD_MS,
+      resume: kept,
+      known: (rkey, author) => {
+        const row = feedKeys.current.get(rkey) || keptKeys.get(rkey);
+        return row && (!row.did || row.did === author) ? row.k : null;
+      },
       // And a drop resumes exactly, however long it lasted: a phone locked in
       // a pocket for ten minutes comes back to those ten minutes, not to now.
       maxReplayMs: LOOKBACK_MS,
-      onStatus: (s) => {
+      onStatus: (status) => {
+        // Tagged with its piece, so a checkpoint is never written from the
+        // last status of the watch before.
+        const s = { ...status, piece: liveKey };
         streamRef.current = s;
         setStream(s);
         // What the record claims to have watched is what the stream actually
@@ -664,31 +716,25 @@ export default function RatioedStudio({ agent, did }) {
     };
   }, [liveKey, liveSubject, sealedNow, livePostedMs]);
 
-  // Faces for whoever turns up. Resolved in batches as new DIDs appear.
-  //
-  // Cancellable: on a busy piece this re-runs every time the stream delivers an
-  // unknown DID, so a surface flip can leave several of these in flight against
-  // an AppView that answers in its own time. Without the guard each one lands
-  // on an unmounted component.
+  // Faces for whoever turns up, resolved as new DIDs appear. An answer is kept
+  // whenever it lands, and a miss is asked again; see profileAsker.
+  const profiles = useProfiles(feed.map((e) => e.did));
+
+  // The place the stream has reached, kept with the rows it had seen by then,
+  // so a reload carries on from here. Both come out of the same render, which
+  // is what makes them agree: a status's seq has already delivered every event
+  // before it, and those events' rows were queued before the status was. The
+  // seal ends it, since the measurement owns the piece from there.
   useEffect(() => {
-    // Asked-for rather than answered-for: `resolveProfiles` omits a DID it
-    // could not resolve instead of throwing, so a single deactivated
-    // participant kept `missing` non-empty and this effect re-armed itself
-    // against the AppView for the rest of the piece.
-    const missing = feed
-      .map((e) => e.did)
-      .filter((d) => d && !profiles[d] && !askedProfiles.current.has(d));
-    if (!missing.length) return undefined;
-    const batch = Array.from(new Set(missing));
-    for (const d of batch) askedProfiles.current.add(d);
-    let alive = true;
-    resolveProfiles(batch).then((p) => {
-      if (alive) setProfiles((old) => ({ ...old, ...p }));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [feed, profiles]);
+    if (!liveKey) return;
+    if (sealedNow) {
+      keepCheckpoint(null);
+      return;
+    }
+    if (stream?.piece !== liveKey) return;
+    const point = watchCheckpoint(liveKey, stream, feed, { profiles });
+    if (point) keepCheckpoint(point);
+  }, [liveKey, sealedNow, stream, feed, profiles]);
 
   /**
    * Write the witnessed log onto the piece's record, mid-piece.
