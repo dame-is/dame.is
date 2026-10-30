@@ -72,7 +72,7 @@ export default function NewsletterSignup({ id, style, title = 'Newsletter', clas
       </p>
       {returned ? (
         <p className="newsletter-done" role="status">
-          You&rsquo;re subscribed. New essays will come to your inbox.
+          You&rsquo;re subscribed. New posts and updates will come to your inbox.
         </p>
       ) : (
         <form className="newsletter-form" method="get" onSubmit={handleSubmit}>

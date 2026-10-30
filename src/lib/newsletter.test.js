@@ -133,7 +133,7 @@ describe('the subscribe page', () => {
     expect(isSubscribePath('/creating/subscribe')).toBe(false);
   });
 
-  it('is a page at the edge, not an essay that would 404', () => {
+  it('is a page at the edge, not a post that would 404', () => {
     expect(matchRoute('/blogging/subscribe')).toBe('/blogging/subscribe');
     expect(matchRoute('/blogging/3mz4bbmjphc2l')).toBe('/blogging/:slug');
     expect(isRecordRoute('/blogging/subscribe')).toBe(false);

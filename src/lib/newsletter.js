@@ -17,7 +17,8 @@
 //
 // A post places forms with Leaflet's `pub.leaflet.blocks.signup` block, which
 // carries no data of its own. A post with none gets one after its last line
-// (BlogPost.jsx), and the /blogging index keeps one at #subscribe. A text
+// (BlogPost.jsx), the /blogging index keeps one at #subscribe, and
+// SUBSCRIBE_PATH is a page that is mostly the form. A text
 // link to SUBSCRIBE_URL works everywhere: on a dame.is page with a form it
 // moves to that form (jumpToSignup), and anywhere else (an email, a feed
 // reader, Bluesky) it opens the index's.
@@ -33,9 +34,10 @@ export const SUBSCRIBE_ID = 'subscribe';
 export const SUBSCRIBE_URL = `${SITE_ORIGIN}/blogging#${SUBSCRIBE_ID}`;
 
 /**
- * The page that is only the form (BloggingSubscribe.jsx). It sits under
- * /blogging, where every other second segment is an essay's rkey, so the edge
- * asks isSubscribePath before treating it as a record that isn't there.
+ * The newsletter's own page (BloggingSubscribe.jsx), where the form is the To
+ * line of an email. It sits under /blogging, where every other second segment
+ * is a post's rkey, so the edge asks isSubscribePath before treating it as a
+ * record that isn't there.
  */
 export const SUBSCRIBE_PATH = '/blogging/subscribe';
 

@@ -192,6 +192,12 @@ whole flow is described in [`src/lib/newsletter.js`](src/lib/newsletter.js).
   (`pub.leaflet.blocks.signup`, "Newsletter signup" in the admin block editor)
   wherever the author wants one. A post without any gets one after its last
   line, and `/blogging` keeps one at the top, at `#subscribe`.
+- **Its own page.** `/blogging/subscribe`
+  ([`src/pages/BloggingSubscribe.jsx`](src/pages/BloggingSubscribe.jsx)) is
+  the page drawn as the email: the form is its To line, and the body is the
+  latest post's opening, with earlier posts a step away. It sits where a
+  post's rkey would, so the edge asks `isSubscribePath` first rather than
+  404ing it as a post that isn't there.
 - **Linking to it.** A text link to `https://dame.is/blogging#subscribe` works
   everywhere: on a dame.is page that has a form it moves to the nearest one
   below it, and anywhere else (an email, a feed reader, Bluesky) it opens the

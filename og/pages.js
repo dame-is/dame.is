@@ -58,11 +58,12 @@ export const PAGES = {
     nsid: 'site.standard.document',
   },
   // The newsletter's page (src/pages/BloggingSubscribe.jsx): the blog's card,
-  // asking for an address.
+  // asking for an address. The newsletter is the blog's, sent by Leaflet, but
+  // carries more than its posts.
   '/blogging/subscribe': {
     label: 'blogging',
-    title: 'Subscribe to dame.is blogging',
-    desc: 'New essays from dame.is by email: long-form writing on the open social web, atproto, and building in public. Sent through Leaflet.',
+    title: 'Subscribe to the dame.is newsletter',
+    desc: 'New blog posts from dame.is by email, along with updates, roundups and announcements. Sent through Leaflet.',
     nsid: 'site.standard.publication',
   },
   '/creating': {
