@@ -44,14 +44,14 @@ export function ChromeBarProvider({ children }) {
   const close = useCallback(() => setExpanded(false), []);
   const toggle = useCallback(() => setExpanded((prev) => !prev), []);
 
-  // The running head's last crumb, as the page names it (a mothing night's
-  // day; a record page names its own rkey). Published by PageShell's `crumb` prop and keyed to
-  // the path it was set for, so a label never outlives its page.
-  const [crumb, setCrumb] = useState(null);
+  // The note at the right of the trail (a thread post's "3 of 6"). Published
+  // by PageShell's `crumbNote` prop and keyed to the path it was set for, so a
+  // note never outlives its page.
+  const [crumbNote, setCrumbNote] = useState(null);
 
   const value = useMemo(
-    () => ({ expanded, open, close, toggle, crumb, setCrumb }),
-    [expanded, open, close, toggle, crumb],
+    () => ({ expanded, open, close, toggle, crumbNote, setCrumbNote }),
+    [expanded, open, close, toggle, crumbNote],
   );
   return <ChromeBarContext.Provider value={value}>{children}</ChromeBarContext.Provider>;
 }

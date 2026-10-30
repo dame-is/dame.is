@@ -12,7 +12,6 @@ import { firstSightingIds } from '../lib/firstSightings.js';
 import {
   findNight,
   formatNightDate,
-  formatNightDay,
   isCalendarDate,
   mothLightboxImages,
   nightBeyondReach,
@@ -177,7 +176,6 @@ export default function MothingNight() {
     <PageShell
       title={`Night of ${formatNightDate(session.date)}`}
       headTitle={`Night of ${formatNightDate(session.date)} — dame.is`}
-      crumb={formatNightDay(session.date)}
     >
       <Figures
         layout="inline"

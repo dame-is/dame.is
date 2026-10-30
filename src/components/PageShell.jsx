@@ -14,9 +14,7 @@ import { useChromeBar } from '../hooks/useChromeBar.jsx';
  * page has nothing to select, so the pencil opens its record editor directly
  * (see ChromeBar). Defaults to false — set it on new feed-style pages.
  *
- * `crumb` names this page in the chrome's running head, in place of its last
- * URL segment: a mothing night passes its day. A record page passes its own
- * rkey, so the chrome keeps the TID rather than borrowing the page's title.
+ * The chrome's trail is the URL, so a page can't rename its last crumb.
  * `crumbNote` is printed at the right of the masthead's trail: a thread
  * post's place in its thread, "3 of 6".
  *
@@ -32,7 +30,6 @@ export default function PageShell({
   cid,
   children,
   headTitle,
-  crumb = null,
   crumbNote = null,
   selectable = false,
 }) {
@@ -46,12 +43,12 @@ export default function PageShell({
     registerSelectionPage(selectable);
   }, [selectable, registerSelectionPage]);
   const { pathname } = useLocation();
-  const { setCrumb } = useChromeBar();
+  const { setCrumbNote } = useChromeBar();
   useEffect(() => {
-    if (!crumb && !crumbNote) return undefined;
-    setCrumb({ path: pathname, label: crumb, note: crumbNote });
-    return () => setCrumb((cur) => (cur?.path === pathname ? null : cur));
-  }, [crumb, crumbNote, pathname, setCrumb]);
+    if (!crumbNote) return undefined;
+    setCrumbNote({ path: pathname, note: crumbNote });
+    return () => setCrumbNote((cur) => (cur?.path === pathname ? null : cur));
+  }, [crumbNote, pathname, setCrumbNote]);
 
   return (
     <article className="page">
