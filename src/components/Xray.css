@@ -544,6 +544,7 @@
     pointer-events: none;
   }
   :root[data-xray="on"] .leaflet-doc .leaflet-paragraph::after { content: "blocks.text"; }
+  :root[data-xray="on"] .leaflet-doc blockquote.leaflet-paragraph::after { content: "blocks.blockquote"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-heading::after { content: "blocks.header"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-code::after { content: "blocks.code"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-website::after { content: "blocks.website"; }

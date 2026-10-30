@@ -559,6 +559,11 @@ export function LeafletBlock({ block, first = false, index = null, inGallery = f
   switch (block.$type) {
     case 'pub.leaflet.blocks.text':
       return <TextBlock block={block} style={style} first={first} />;
+    // Leaflet's quotation block, set as the site's inset quotation (the
+    // author's `inset` paragraph role) in a <blockquote>. It fell through to
+    // `null` until now, so every quotation written in Leaflet went missing.
+    case 'pub.leaflet.blocks.blockquote':
+      return <TextBlock block={{ ...block, layout: 'inset' }} style={style} as="blockquote" />;
     case 'pub.leaflet.blocks.header':
       return <HeaderBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.image':
@@ -661,7 +666,7 @@ export function trimBlockText(text, facets) {
   return { text: trimmed, facets: shifted };
 }
 
-function TextBlock({ block, style, first = false }) {
+function TextBlock({ block, style, first = false, as: Tag = 'p' }) {
   const raw = block.plaintext || '';
   // Empty text blocks function as paragraph breaks. Render an empty
   // spacer paragraph rather than nothing so the rhythm is preserved.
@@ -680,7 +685,7 @@ function TextBlock({ block, style, first = false }) {
     ? splitLeafletText(text, unlinkInitial(text, facets), ledeEnd(text))
     : [null, null];
   return (
-    <p className={classes.join(' ')} style={style || undefined}>
+    <Tag className={classes.join(' ')} style={style || undefined}>
       {lede?.text ? (
         <>
           <span className="leaflet-lede">{renderLeafletText(lede.text, lede.facets, { smart: true })}</span>
@@ -701,7 +706,7 @@ function TextBlock({ block, style, first = false }) {
           </span>
         </span>
       )}
-    </p>
+    </Tag>
   );
 }
 
