@@ -67,6 +67,7 @@ import {
 } from '../src/lib/ratioedParticipant.js';
 import { composeEventLog, livingKindsIndex } from '../src/lib/ratioedLog.js';
 import { audienceIndex, fmtReach } from '../src/lib/ratioedReach.js';
+import { quoteFrom, encodeQuote } from '../src/lib/quote.js';
 
 const SNAPSHOT_TIMEOUT_MS = 2000;
 const PDS_TIMEOUT_MS = 2500;
@@ -775,7 +776,7 @@ function subjectMeta(record, view, section, slug) {
   };
 }
 
-function shapeMeta(record, section, slug) {
+function shapeMeta(record, section, slug, { quote = '' } = {}) {
   const v = (record && record.value) || {};
   const atUri = record.uri || null;
   const collection = collectionFromUri(atUri);
@@ -803,8 +804,16 @@ function shapeMeta(record, section, slug) {
   // free text and no image URL ever rides on the query string.
   const isPost = collection === 'app.bsky.feed.post' || collection === 'net.anisota.feed.post';
   const postCopy = isPost && section === 'posting' ? postCardCopy(v) : null;
-  const ogQuery =
-    TEAL_PLAY_NSIDS.includes(collection) && rkey
+  // A passage of an essay somebody linked to (`?quote=…`), found in the
+  // record's own prose. Only a standard document has prose to quote from, and
+  // a quote it doesn't contain finds nothing, so the link keeps the essay's
+  // ordinary card. The card's query carries the record's words, not the
+  // requested ones, and the renderer finds them again before drawing them.
+  const quoted =
+    quote && collection === COLLECTIONS.blogging && rkey ? quoteFrom(v.content, quote) : null;
+  const ogQuery = quoted
+    ? `doc=${encodeURIComponent(rkey)}&quote=${encodeQuote(quoted.words)}`
+    : TEAL_PLAY_NSIDS.includes(collection) && rkey
       ? `play=${encodeURIComponent(rkey)}`
       : postCopy?.photos.length && rkey
         ? `post=${encodeURIComponent(rkey)}`
@@ -823,6 +832,12 @@ function shapeMeta(record, section, slug) {
     // What the card shows, for a reader who can't see it. Only a post with
     // photos says more than its title: the card is the text and the picture.
     ...(postCopy?.total ? { imageAlt: postImageAlt(postCopy) } : {}),
+    ...(quoted
+      ? {
+          quote: { words: quoted.words, display: quoted.display },
+          imageAlt: `A passage from “${cleanTitle}”: “${clipWords(quoted.display, ALT_MAX)}”`,
+        }
+      : {}),
     ...(ogQuery ? { ogQuery } : {}),
   };
 }
@@ -1160,8 +1175,12 @@ async function livePieces() {
  * Two optional fields: `ogQuery`, when the record has a card of its own, and
  * `imageAlt`, when that card shows more than the title says (a photo beside a
  * post's text, somebody else's name over theirs).
+ *
+ * `quote` is the `?quote=` a link to an essay carried. When the essay's prose
+ * holds it, the meta carries `quote: { words, display }` (src/lib/quote.js)
+ * and a card for that passage; when it doesn't, it is ignored.
  */
-export async function recordMeta(pathname, origin) {
+export async function recordMeta(pathname, origin, { quote = '' } = {}) {
   const segs = (pathname || '').split('/').filter(Boolean);
   if (segs.length !== 2) return null;
   const [section, rawSlug] = segs;
@@ -1208,7 +1227,44 @@ export async function recordMeta(pathname, origin) {
   } catch {
     record = null;
   }
-  return record ? shapeMeta(record, section, slug) : null;
+  return record ? shapeMeta(record, section, slug, { quote }) : null;
+}
+
+/**
+ * A standard document by record key, as the public sees it: a blog post or a
+ * work, never a draft. The snapshot first, then the PDS, time-boxed. A record
+ * the snapshot holds and hides is an answer, so the PDS isn't asked after it.
+ */
+async function publicDocument(rkey, origin) {
+  const visible = (v) => Boolean(v) && !isDraft(v) && (showOnBlog(v) || showOnCreating(v));
+  const blogs = await fetchSnapshot(origin, 'blogs');
+  const snap = Array.isArray(blogs) ? blogs.find((r) => endsWithRkey(r?.uri, rkey)) : null;
+  if (snap) return visible(snap.value) ? snap : null;
+  const live = await withTimeout(liveByRkey(rkey, [COLLECTIONS.blogging]), PDS_TIMEOUT_MS);
+  return live && visible(live.value) ? live : null;
+}
+
+/**
+ * What a quote card draws, read off the essay: `{ title, description,
+ * section, date, nsid, quote }`. `quote` is the passage as the page sets it,
+ * or null when the essay doesn't hold the words asked for, in which case the
+ * renderer draws the essay's own card instead. Null when no public essay has
+ * this key. Only the record key and the words to look for come in; nothing
+ * drawn is taken from the query.
+ */
+export async function quotedDocument(rkey, quote, origin) {
+  const want = String(rkey ?? '').trim();
+  if (!want) return null;
+  const v = (await publicDocument(want, origin))?.value;
+  if (!v) return null;
+  return {
+    title: firstText(v.title, v.name),
+    description: firstText(v.description, v.summary, v.subtitle),
+    section: isPortfolioDoc(v) ? 'creating' : 'blogging',
+    date: v.publishedAt || v.createdAt || null,
+    nsid: COLLECTIONS.blogging,
+    quote: quoteFrom(v.content, quote)?.display || null,
+  };
 }
 
 

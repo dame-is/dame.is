@@ -13,6 +13,8 @@
 //   /api/og?post=3myudozd7n22u      → one of Dame's posts, with its photos on it
 //   /api/og?repost=3myuh64psn623    → the post a repost points at, under its
 //   /api/og?like=3m…                  author's name (likewise a like)
+//   /api/og?doc=3mz4…&quote=a+passage → a passage of an essay, set as a
+//                                       quotation (found in the record first)
 //   /api/og?title=Foo&subtitle=Bar  → ad-hoc copy
 //   /api/og?theme=dark              → dark (green-black) variant
 //   /api/og                         → the home "index" card
@@ -42,6 +44,7 @@ import {
   subjectPost,
   subjectCardCopy,
   SUBJECT_CARD_KEYS,
+  quotedDocument,
 } from '../og/records.js';
 import { lookupArtwork } from './_lib/itunes.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
@@ -94,6 +97,11 @@ const FONT_SET = [
 // title/subtitle/label the site emits.
 const MAX_TEXT = 200;
 const clampText = (v) => String(v ?? '').slice(0, MAX_TEXT);
+// A quote is longer than any title, but it is only ever searched for in the
+// record, never drawn, so this bounds the search rather than the card. Past
+// it, no passage the site would link to is that long anyway (QUOTE_MAX_CHARS
+// in src/lib/quote.js is 360).
+const MAX_QUOTE = 1000;
 
 // How many of a night's moths reach its card, and how long any one image gets
 // to answer before the card goes without it.
@@ -433,6 +441,37 @@ export default async function handler(req, res) {
       const d = new Date(post.date);
       if (!Number.isNaN(d.getTime())) folioAt = d;
     }
+    // A passage of an essay. `doc` carries a record key and `quote` the words
+    // to look for: quotedDocument reads the essay and draws ITS words where it
+    // finds them, so a quote the essay doesn't contain draws the essay's own
+    // card, and a key no public essay answers to draws the blog's.
+    let quoted = null;
+    const postTaken = takenAlready || listenTaken || post || q.post || subjectKey;
+    if (!postTaken && q.doc && q.quote) {
+      quoted = await quotedDocument(clampText(q.doc), String(q.quote).slice(0, MAX_QUOTE), origin);
+      if (quoted?.date && !q.date) {
+        const d = new Date(quoted.date);
+        if (!Number.isNaN(d.getTime())) folioAt = d;
+      }
+    }
+    // No passage to draw: the essay's own title card when the essay resolved,
+    // the blog's when it didn't, so a forged or stale quote unfurls as an
+    // ordinary link rather than as nothing.
+    if (!postTaken && q.doc && q.quote && !quoted?.quote) {
+      if (quoted) {
+        pathname = `/${quoted.section}`;
+        label = quoted.title;
+        subtitle = quoted.description;
+        nsid = quoted.nsid;
+        record = true;
+      } else {
+        const meta = pageMeta('/blogging');
+        pathname = '/blogging';
+        label = meta.label;
+        subtitle = meta.desc;
+        nsid = meta.nsid;
+      }
+    }
     // A post the PDS didn't answer for, or a repost whose post the AppView
     // couldn't name: that section's own card, as a missed play gets
     // /listening's.
@@ -495,9 +534,10 @@ export default async function handler(req, res) {
       q.album ||
       flag(q.albums) ||
       q.post ||
-      subjectKey;
+      subjectKey ||
+      (q.doc && q.quote);
     const drawn =
-      piece || participant || board || night || play || album || shelf || post;
+      piece || participant || board || night || play || album || shelf || post || quoted?.quote;
     // A post card that lost every one of its photos on the way counts as a
     // miss too: it's a fair card, but not the one to keep for an hour.
     const missed = (Boolean(asked) && !drawn) || Boolean(post?.short);
@@ -519,6 +559,12 @@ export default async function handler(req, res) {
       // about: a repost's margin says app.bsky.feed.repost, not post.
       pathname = `/${postVerb}`;
       nsid = post.nsid || pageMeta(pathname).nsid;
+    } else if (quoted?.quote) {
+      // A passage reads everything off the essay too.
+      pathname = `/${quoted.section}`;
+      nsid = quoted.nsid;
+    } else if (q.doc && q.quote) {
+      // The essay's own card, or the blog's, set up above.
     } else if (q.page) {
       pathname = cleanPath(clampText(q.page));
       const meta = pageMeta(pathname);
@@ -564,6 +610,7 @@ export default async function handler(req, res) {
       shelf,
       post,
       verb: postVerb,
+      quote: quoted?.quote ? { text: quoted.quote, title: quoted.title, section: quoted.section } : null,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.

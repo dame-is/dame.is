@@ -286,6 +286,23 @@ before the catch-all rewrite in `vercel.json` fires:
   itself from a DID and a CID on the Bluesky CDN (as JPEG, so never an SVG).
   Photos a moderation label covers stay off the card, and an author who has
   opted out of signed-out viewing gets the plain verb card instead.
+- **Share cards for passages.** Select some of an essay's prose (a blog post
+  or a work, anything that is a `site.standard.document`) and a small toolbar
+  offers a link to that passage, `/blogging/{rkey}?quote={words}`. The link
+  unfurls as `/api/og?doc={rkey}&quote={words}`, which sets the passage in
+  quotation marks with the essay's title under it, and a reader who follows
+  it lands on the passage, highlighted. The words in the URL are only ever
+  used to find a place in the record: the edge and the card renderer both
+  look them up in the document's prose ([`src/lib/quote.js`](src/lib/quote.js))
+  and draw the record's own words, so a link with words the essay doesn't
+  contain unfurls as the plain essay. Quotations, credits, code and embedded
+  posts can't be quoted, since a card would present them as Dame's words.
+  Two things about Bluesky shaped this. Its Standard Site card keeps a link's
+  image but takes the title and description from the record, so there the
+  image is what carries the passage. And its composer saves whichever URL a
+  page's `rel=canonical` names, so a passage link names itself as canonical
+  (marked `noindex`, which keeps the essay the one indexed page); otherwise a
+  reader tapping the card would land at the top of the essay.
 - **Identity.** [`og/jsonld.js`](og/jsonld.js) emits a schema.org `@graph` — a
   `Person`, the `WebSite` they publish, and the page — plus a per-path
   canonical URL. It is a Person, not an Organization: there is no company here

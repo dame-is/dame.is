@@ -47,6 +47,7 @@ import {
 import { pageJsonLd, jsonLdScript } from './og/jsonld.js';
 import { ME_DID, COLLECTIONS, BLOG_PUBLICATION, PORTFOLIO_PUBLICATION } from './src/config.js';
 import { nsidConfig } from './src/lib/verbRegistry.js';
+import { QUOTE_PARAM, quoteHref } from './src/lib/quote.js';
 
 const ORIGIN = 'https://dame.is';
 
@@ -393,6 +394,10 @@ export default async function middleware(request) {
     // than restated so the two can't drift. Ratioed's deeper leaves all live
     // under /creating, which is in it.
     const sectionSeg = segs[0];
+    // A link to one passage of an essay (src/lib/quote.js). Only ever a way of
+    // finding words in the record: recordMeta ignores it unless the essay's
+    // prose holds it, and everything below draws the record's words.
+    const quoteParam = url.searchParams.get(QUOTE_PARAM) || '';
     // /listening/albums is a page and /listening/albums/:slug an album, and an
     // album is derived rather than stored — so neither is a record route, even
     // though both sit under a section whose leaves normally are. The album page
@@ -413,7 +418,7 @@ export default async function middleware(request) {
           ? await participantMeta(path, url.origin)
           : segs.length === 3
             ? (await participantsMeta(path, url.origin)) || (await pieceMeta(path, url.origin))
-            : await recordMeta(path, url.origin);
+            : await recordMeta(path, url.origin, { quote: quoteParam });
       if (rec) {
         // The record resolved: its own OG card + at:// URI for the head. Falls
         // back below only when it can't be resolved.
@@ -462,6 +467,22 @@ export default async function middleware(request) {
         atUri = rec.atUri;
         cid = rec.cid;
         if (rec.canonicalPath) canonicalPath = rec.canonicalPath;
+        if (rec.quote) {
+          // A passage somebody shared. The card (rec.ogQuery) sets it, and the
+          // description quotes it for the apps that show one: Bluesky draws the
+          // essay's own title and description from the record under the card,
+          // so there the picture is what carries the passage.
+          desc = `“${clip(rec.quote.display, 300)}”`;
+          // The address keeps the quote, in og:url and rel=canonical both.
+          // Bluesky's composer saves the link a page's canonical names, not
+          // the one that was pasted, so a canonical without the quote sent
+          // every reader who tapped the card to the top of the essay instead
+          // of to the passage. Each of these is a view of the essay rather
+          // than a page of its own, so none goes in an index; the essay's own
+          // address stays the one that does.
+          canonicalPath = quoteHref(canonicalPath, rec.quote.words);
+          deindex = true;
+        }
         // Only site.standard.document records get the Standard Site embed; a
         // leaflet or arena record on these routes is skipped.
         if (rec.nsid === STANDARD_DOC_NSID) {
