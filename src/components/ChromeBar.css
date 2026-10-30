@@ -426,14 +426,6 @@
   min-width: 0;
 }
 
-/* The page named by its title rather than its slug reads as a title: italic,
-   book weight. (`.chrome-bar *` sets everything upright; this is the one
-   exception.) */
-.chrome-bar .chrome-crumb-current.is-title,
-.chrome-masthead .chrome-crumb-current.is-title {
-  font-style: italic;
-  font-weight: 500;
-}
 
 /* Touch targets on the trail: a coarse pointer gets 44px of height without
    the line growing, and the root crumb, a bare slash, gets a box wide enough

@@ -83,7 +83,7 @@ function skyBand(hour) {
 }
 
 export default function ChromeBar() {
-  const { expanded, toggle, crumb: pageCrumb } = useChromeBar();
+  const { expanded, toggle, crumbNote: pageNote } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const { panel } = useChromePanel();
   const reduce = useReducedMotion();
@@ -182,12 +182,17 @@ export default function ChromeBar() {
   // so the masthead's trail doesn't change (and shove the page) under a page
   // that's still fading out; see useMountedPathname.
   const mountedPath = useMountedPathname();
-  const baseCrumbs = buildCrumbs(mountedPath);
+  // The trail is the URL, segment for segment, the last one included: a
+  // record page ends on its rkey, a blog post on the rkey it's addressed by, a
+  // Ratioed take on its number. Pages used to swap the last crumb for their
+  // title (or a label of their own, like a mothing night's "Oct 16"), so the
+  // trail stopped saying where you were. The title is already the page's h1.
+  const crumbs = buildCrumbs(mountedPath);
   // Individual (detail) pages — anything two or more segments deep, e.g.
   // /blogging/:slug, /creating/:slug, a generic record — carry their trail in
   // the masthead, under the atmosphere, as their standing way up. Feed and
   // index pages show theirs only in the running head, once scrolled.
-  const isDetailPage = baseCrumbs.length >= 2;
+  const isDetailPage = crumbs.length >= 2;
   const inAdmin = location.pathname === '/admin';
   // On /admin the masthead isn't drawn (below), so its atmosphere is never in view.
   const head = useRunningHead({
@@ -196,15 +201,9 @@ export default function ChromeBar() {
     tierWrapRef,
     tierMode: inAdmin ? 'closed' : tierMode,
   });
-  // The trail's last crumb names the page: its own label when it gives one
-  // through PageShell's `crumb` (a record page's rkey, a mothing night's
-  // day), else on a detail page the title it shows, rather than its slug.
-  const ownLabel = pageCrumb?.path === mountedPath ? pageCrumb.label : null;
   // A thread post's place in its thread, at the right of the masthead's
   // trail (PageShell's `crumbNote`).
-  const ownNote = pageCrumb?.path === mountedPath ? pageCrumb.note : null;
-  const titleLabel = !ownLabel && isDetailPage ? head.title : null;
-  const crumbs = withPageLabel(baseCrumbs, ownLabel || titleLabel);
+  const ownNote = pageNote?.path === mountedPath ? pageNote.note : null;
   const dayLabel = useCurrentDayLabel(mountedPath);
   const scrolledDown = useScrolledDown();
   // Reading: the page has scrolled past its title (or, on a feed with no
@@ -212,7 +211,7 @@ export default function ChromeBar() {
   // takes the status's place in the pinned row, and the record NSID joins it
   // on a desktop.
   const pastTop = head.hasTitle ? head.pastTitle : !!dayLabel || scrolledDown;
-  const reading = baseCrumbs.length > 0 && pastTop;
+  const reading = crumbs.length > 0 && pastTop;
 
   // Right edge of the strip: the AT Protocol collection you're looking
   // at. On feed pages it tracks the record at the top of the scroll
@@ -392,7 +391,7 @@ export default function ChromeBar() {
                   inert={reading ? undefined : ''}
                   aria-hidden={reading ? undefined : true}
                 >
-                  <Trail crumbs={crumbs} titled={!!titleLabel} />
+                  <Trail crumbs={crumbs} />
                   {ownNote && <span className="chrome-head-note">{ownNote}</span>}
                 </nav>
               )}
@@ -501,7 +500,7 @@ export default function ChromeBar() {
             aria-hidden={reading ? true : undefined}
           >
             <nav className="chrome-breadcrumb" aria-label="Breadcrumb">
-              <Trail crumbs={crumbs} titled={!!titleLabel} withRoot />
+              <Trail crumbs={crumbs} withRoot />
             </nav>
             {ownNote && <span className="chrome-crumb-note">{ownNote}</span>}
             {stripNsid && <span className="chrome-crumb-nsid">{stripNsid}</span>}
@@ -550,8 +549,8 @@ const AtmosphereRows = memo(function AtmosphereRows() {
 /** The trail. In the masthead it opens with the root crumb, a link home; in
  *  the running head the wordmark beside it already goes home, so the slash is
  *  only a separator there. A crumb links only where a page answers
- *  (breadcrumbs.js). `titled` sets the last crumb as a title, in italic. */
-function Trail({ crumbs, titled, withRoot = false }) {
+ *  (breadcrumbs.js). */
+function Trail({ crumbs, withRoot = false }) {
   return (
     <ol className="chrome-crumbs">
       {withRoot && (
@@ -571,10 +570,7 @@ function Trail({ crumbs, titled, withRoot = false }) {
               </span>
             )}
             {last ? (
-              <span
-                className={`chrome-crumb-current${titled ? ' is-title' : ''}`}
-                aria-current="page"
-              >
+              <span className="chrome-crumb-current" aria-current="page">
                 {c.label}
               </span>
             ) : c.to ? (
@@ -1447,12 +1443,6 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   );
 });
 
-/** The trail with its last crumb relabelled, when the page names itself. */
-function withPageLabel(crumbs, label) {
-  if (!label || crumbs.length === 0) return crumbs;
-  return [...crumbs.slice(0, -1), { ...crumbs[crumbs.length - 1], label }];
-}
-
 // The URL params a page's filter sheet writes (Home, Posting, Creating): any of
 // them present means the list on screen is filtered.
 const FILTER_PARAMS = ['verbs', 'postTypes', 'kinds'];
@@ -1519,11 +1509,9 @@ function useCurrentDayLabel(mountedPath) {
 
 /** Where the reader is against the page's title and the masthead.
  *
- *  - `title`: the page's own title, the first `h1` in the page on screen, as
- *    the trail's last crumb on a detail page ("Why I started posting like it's
- *    the 2000s again" rather than its slug). Read when the page mounts, and
- *    again when it changes size, which is how a title that arrives with the
- *    content is noticed.
+ *  - `hasTitle`: the page has a title, the first `h1` in the page on screen.
+ *    Looked for when the page mounts, and again when it changes size, which
+ *    is how a title that arrives with the content is noticed.
  *  - `pastTitle`: that title has scrolled up under the running head.
  *  - `tierInView`: some of the masthead's atmosphere is still on screen.
  *
@@ -1532,11 +1520,9 @@ function useCurrentDayLabel(mountedPath) {
  *  frame. The observers' top margin is the running head's height, measured. */
 function useRunningHead({ mountedPath, topRef, tierWrapRef, tierMode }) {
   // What was found, and on which page: on the render a new page mounts, the
-  // last page's title is still in state, and the trail named the new post
-  // after the index it was opened from for a frame.
-  const [found, setFound] = useState({ path: null, el: null, text: null });
+  // last page's title is still in state, and must not be watched for this one.
+  const [found, setFound] = useState({ path: null, el: null });
   const titleEl = found.path === mountedPath ? found.el : null;
-  const title = found.path === mountedPath ? found.text : null;
   const [pastTitle, setPastTitle] = useState(false);
   const [tierInView, setTierInView] = useState(true);
   const [headH, setHeadH] = useState(0);
@@ -1563,11 +1549,8 @@ function useRunningHead({ mountedPath, topRef, tierWrapRef, tierMode }) {
       const page = main.querySelector('.route-transition') || main;
       // A title that isn't drawn (display: none) can't be scrolled past.
       const h1 = [...page.querySelectorAll('h1')].find((el) => el.getClientRects().length > 0) || null;
-      const text = (h1 ? h1.textContent.replace(/\s+/g, ' ').trim() : '') || null;
       setFound((prev) =>
-        prev.path === mountedPath && prev.el === h1 && prev.text === text
-          ? prev
-          : { path: mountedPath, el: h1, text },
+        prev.path === mountedPath && prev.el === h1 ? prev : { path: mountedPath, el: h1 },
       );
     };
     const schedule = () => {
@@ -1622,7 +1605,7 @@ function useRunningHead({ mountedPath, topRef, tierWrapRef, tierMode }) {
     return () => io.disconnect();
   }, [tierPresent, tierWrapRef, headH]);
 
-  return { title, hasTitle: !!titleEl, pastTitle, tierInView };
+  return { hasTitle: !!titleEl, pastTitle, tierInView };
 }
 /** NSID of the record at the top of the scroll position — the first
  *  record entry still (partly) visible below the chrome — or null on

@@ -400,12 +400,9 @@ export default function Record({ verb, nsid, source }) {
       atUri={atUri}
       cid={cid}
       headTitle={headTitleFor(verb, item, sentence)}
-      // A record's trail always ends on its rkey, as its URL does, never a
-      // date or title in its place; the chrome would otherwise borrow the
-      // page's title. The date lives in the colophon, or a thread's posts
-      // carry their own; a thread post's place in it ("3 of 6") is noted
-      // beside the trail.
-      crumb={rkey}
+      // The trail ends on the rkey, as the URL does (ChromeBar). The date
+      // lives in the colophon, or a thread's posts carry their own; a thread
+      // post's place in it ("3 of 6") is noted beside the trail.
       crumbNote={thread ? `${thread.linkedIndex + 1} of ${thread.items.length}` : null}
     >
       <article className="record-page">
