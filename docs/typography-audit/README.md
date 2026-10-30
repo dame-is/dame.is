@@ -2,6 +2,8 @@
 
 *Taken 30 October 2026 against `main` at `9dd272b`, which includes the column grid from #363. Rendered sizes, line lengths and screenshots come from the live site in Chromium (Playwright) at widths from 390 to 2560px; code references are to this repository. No code has been changed yet.*
 
+*Interactive mock-ups of every option below, set on the grid with live line-length readouts, are in a private artifact shared in the session that produced this audit.*
+
 ## Summary
 
 Essays are set at 20px. Everything else a visitor reads at any length is set at 16px: post text in the feeds, the About bio, the résumé summary. That 1.25× step is the jump between the blog and the rest of the site, and nothing sits between the two sizes to soften it. A 48px title sits above the essay text and 11 to 14px labels sit beside it.
@@ -11,7 +13,7 @@ What I'd change, in order:
 1. **Set essays at 18px at every width**, with 1.6 leading. 18px is `--text-lg`, the scale's next step above body, and the size page intros already use. In the grid's text column it gives about 76 characters a line, at the top of the usual range. 19px is the fallback if that reads long (about 72).
 2. **Fix the bug that gives phones 20px essays.** The 18px phone rule in `LeafletDocument.css` has never applied, because of where component CSS lands in the bundle.
 3. **Put a role layer between the size scale and the components** (`--type-reading`, `--type-body`, `--type-caption` and so on), and gather the long-form surfaces under one reading context. Reading text currently comes in four sizes set in four places.
-4. **Make the display sizes fluid with `clamp()`** so titles grow with the window instead of jumping at 700px. Keep body text fixed.
+4. **Make the display sizes fluid with `clamp()`** so titles grow with the window instead of jumping at 700px, and stop growing at 1028px, where the grid gains its first wing columns. Keep body text fixed.
 5. Optionally, **let readers choose an essay size** (18, 20 or 22px) with the same `<html>` data-attribute pattern the font and paper modes use.
 
 Items 1, 2 and 4 are small CSS changes. Item 3 is most of the work, and it is what makes the system easy to retune later.
@@ -212,11 +214,11 @@ Whether the About bio and résumé summary should move up to 18px is your call. 
 
 ```css
 /* theme.css */
---text-4xl: clamp(2.25rem, 1.79rem + 1.89vw, 3rem);   /* 36px at 390px, 48px from 1024px */
---text-3xl: clamp(1.75rem, 1.44rem + 1.26vw, 2.25rem); /* 28px at 390px, 36px from 1024px */
+--text-4xl: clamp(2.25rem, 1.792rem + 1.881vw, 3rem);   /* 36px at 390px, 48px from 1028px */
+--text-3xl: clamp(1.75rem, 1.444rem + 1.254vw, 2.25rem); /* 28px at 390px, 36px from 1028px */
 ```
 
-This reproduces today's phone and desktop sizes at either end and fills in the range between. The three phone overrides (`app.css:465`, `Resume.css:33`, `Blogging.css:502`) can then be deleted, since each one steps down the scale exactly as the clamp does on its own. Résumé print sets its own 3xl and 4xl values (`Resume.css:467-468`), which still win inside `.resume`.
+This reproduces today's phone and desktop sizes at either end and fills in the range between. The top end is set to 1028px on purpose: that is the narrowest window where #363's grid adds wing columns (`theme.css`, the `--wing` rule). Below it the title grows into the window; above it the title holds and the grid takes the extra room, as figures and galleries already do. The three phone overrides (`app.css:465`, `Resume.css:33`, `Blogging.css:502`) can then be deleted, since each one steps down the scale exactly as the clamp does on its own. Résumé print sets its own 3xl and 4xl values (`Resume.css:467-468`), which still win inside `.resume`.
 
 Keep `--text-2xl` and below fixed. The text column is fixed in rem, so a fluid body size would change the number of characters per line with the window width.
 
