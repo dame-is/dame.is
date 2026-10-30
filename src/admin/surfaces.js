@@ -344,6 +344,17 @@ export const SURFACES = Object.freeze([
     blurb: 'The extended profile behind /themself.',
   }),
   surface({
+    key: 'newsletter',
+    label: 'Newsletter',
+    nsid: COLLECTIONS.newsletter,
+    group: 'site',
+    kind: 'records-list',
+    icon: 'Mail',
+    blurb: 'The subscribe page’s words, the form’s heading and its thank-you.',
+    // The page-content panel above the record is /blogging/subscribe's, found
+    // through pageRegistry's `collection` like any records-list surface's.
+  }),
+  surface({
     key: 'hero',
     label: 'Hero phrases',
     nsid: COLLECTIONS.heroPhrase,

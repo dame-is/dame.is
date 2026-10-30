@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { MemoryRouter } from 'react-router-dom';
 import { trimBlockText, glueLastWords, LeafletBlock } from './LeafletDocument.jsx';
 
 // vitest.config.js runs without the React plugin, so JSX here compiles to
@@ -65,6 +66,47 @@ describe('LeafletBlock — Leaflet\'s blockquote', () => {
 
   it('draws no quotation for an empty one', () => {
     expect(draw({ $type: 'pub.leaflet.blocks.blockquote', plaintext: ' \n' })).not.toContain('<blockquote');
+  });
+});
+
+describe('LeafletBlock — a link to the newsletter', () => {
+  // A subscribe link is a router link, so it is drawn inside one, as the app
+  // draws every post.
+  const draw = (uri) =>
+    renderToStaticMarkup(
+      React.createElement(
+        MemoryRouter,
+        null,
+        React.createElement(LeafletBlock, {
+          block: {
+            $type: 'pub.leaflet.blocks.text',
+            plaintext: 'Subscribe here.',
+            facets: [
+              {
+                index: { byteStart: 0, byteEnd: 9 },
+                features: [{ $type: 'pub.leaflet.richtext.facet#link', uri }],
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+  it('opens the newsletter page in this tab, however the link was written', () => {
+    for (const uri of [
+      'https://dame.is/blogging/subscribe',
+      'https://dame.is/blogging#subscribe',
+    ]) {
+      const html = draw(uri);
+      expect(html).toMatch(/<a class="post-rich-link" href="\/blogging\/subscribe"[^>]*>Subscribe<\/a>/);
+      expect(html).not.toContain('target="_blank"');
+    }
+  });
+
+  it('leaves another dame.is link opening as it did', () => {
+    const html = draw('https://dame.is/blogging');
+    expect(html).toContain('href="https://dame.is/blogging"');
+    expect(html).toContain('target="_blank"');
   });
 });
 

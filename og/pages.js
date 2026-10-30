@@ -54,7 +54,7 @@ export const PAGES = {
   '/blogging': {
     label: 'blogging',
     title: 'dame.is blogging',
-    desc: 'Long-form essays on the open social web, atproto, and building in public.',
+    desc: 'Long-form posts on the open social web, atproto, and building in public.',
     nsid: 'site.standard.document',
   },
   // The newsletter's page (src/pages/BloggingSubscribe.jsx): the blog's card,

@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { useNewsletterCopy } from '../hooks/useNewsletterCopy.js';
+import { splitFine } from '../lib/newsletterCopy.js';
 import {
   LEAFLET_EMAIL_LOGIN,
   emailAction,
@@ -20,10 +22,14 @@ import './NewsletterSignup.css';
  * forms use SUBSCRIBE_ID. Back from Leaflet at this form, it says thanks
  * instead of asking again.
  *
- * `title` replaces the "Newsletter" label and `className` adds to the box's,
- * for a page that sets the form as its whole subject (BloggingSubscribe.jsx).
+ * Its words (the heading, the thank-you, the fine print) are the
+ * is.dame.newsletter record's (lib/newsletterCopy.js). `title` replaces the
+ * heading and `className` adds to the box's, for a page that sets the form as
+ * its whole subject (BloggingSubscribe.jsx).
  */
-export default function NewsletterSignup({ id, style, title = 'Newsletter', className = '' }) {
+export default function NewsletterSignup({ id, style, title, className = '' }) {
+  const copy = useNewsletterCopy();
+  const fine = splitFine(copy.fine);
   const fallbackId = useId();
   const formId = id || `subscribe-${fallbackId.replace(/[^a-z0-9]/gi, '')}`;
   const rootRef = useRef(null);
@@ -63,16 +69,15 @@ export default function NewsletterSignup({ id, style, title = 'Newsletter', clas
       ref={rootRef}
       className={`newsletter ${className}`.trim()}
       id={formId}
-      data-newsletter-signup=""
       aria-labelledby={`${formId}-label`}
       style={style || undefined}
     >
       <p className="newsletter-title" id={`${formId}-label`}>
-        {title}
+        {title || copy.heading}
       </p>
       {returned ? (
         <p className="newsletter-done" role="status">
-          You&rsquo;re subscribed. New posts and updates will come to your inbox.
+          {copy.thanks}
         </p>
       ) : (
         <form className="newsletter-form" method="get" onSubmit={handleSubmit}>
@@ -109,8 +114,9 @@ export default function NewsletterSignup({ id, style, title = 'Newsletter', clas
             </button>
           </div>
           <p className="newsletter-fine" id={`${formId}-fine`}>
-            Sent through Leaflet, where you&rsquo;ll confirm your address first. There&rsquo;s
-            also an <a href="/feed.xml">RSS feed</a>.
+            {fine.before}
+            {fine.rss && <a href="/feed.xml">RSS feed</a>}
+            {fine.after}
           </p>
         </form>
       )}

@@ -106,7 +106,7 @@ export const VERB_REGISTRY = [
   {
     verb: 'blogging',
     group: 'words',
-    gloss: 'essays on standard.site',
+    gloss: 'posts on standard.site',
     icon: 'BookOpen',
     renderer: 'BlogCard',
     pastTense: 'blogged',

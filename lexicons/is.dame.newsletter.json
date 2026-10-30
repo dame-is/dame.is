@@ -1,0 +1,41 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.newsletter",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The newsletter's standing words, kept as a record so they can be rewritten without a deploy. A singleton at rkey \"self\". Leaflet keeps the list and sends the email; this holds only what dame.is says around the form, wherever the form is: in a post, on /blogging, and on the newsletter's own page at /blogging/subscribe (whose title and intro are its is.dame.page/subscribe record, like every page's). Every field is optional and every one has a built-in default: an absent field is the sentence the site ships with, not an empty one.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "maxGraphemes": 100,
+            "description": "The newsletter's name, set small above the title of its own page."
+          },
+          "heading": {
+            "type": "string",
+            "maxLength": 200,
+            "maxGraphemes": 100,
+            "description": "The form's heading where it sits in a post or on /blogging. The newsletter's own page has its title instead."
+          },
+          "thanks": {
+            "type": "string",
+            "maxLength": 1000,
+            "maxGraphemes": 500,
+            "description": "What the form says in place of itself once a reader has confirmed their address and come back from Leaflet."
+          },
+          "fine": {
+            "type": "string",
+            "maxLength": 1000,
+            "maxGraphemes": 500,
+            "description": "The fine print under the email field. {rss} becomes a link to the site's RSS feed, worded \"RSS feed\"."
+          },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

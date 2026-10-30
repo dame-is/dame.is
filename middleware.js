@@ -71,6 +71,7 @@ const SECTION_PUBLICATION = {
 // the same canonical at:// URI the SPA advertises via <AtUriHead>.
 const TOP_LEVEL_PAGE_RKEY = {
   '/blogging': 'blogging',
+  '/blogging/subscribe': 'subscribe',
   '/creating': 'creating',
   '/posting': 'posting',
   '/logging': 'logging',
@@ -546,6 +547,9 @@ export default async function middleware(request) {
       // `page` above rides along as the fallback: a renderer that can't read the
       // index draws the ordinary card instead of an empty shelf.
       if (onAlbums) ogParams.set('albums', '1');
+      // The newsletter's page draws the email it sends, the same way, with the
+      // page's ordinary card behind it.
+      if (onSubscribe) ogParams.set('subscribe', '1');
       ogImage = `${ORIGIN}/api/og?${ogParams.toString()}`;
       atUri = topLevelAtUri(path, pageContent?.atUri);
       // The explorer's sub-pages are anybody's repository, collection or

@@ -12,6 +12,7 @@ import {
   SIGNUP_BLOCK_TYPE,
   signupBlockIds,
   SUBSCRIBE_PATH,
+  SUBSCRIBE_URL,
   withoutReturnMarker,
 } from './newsletter.js';
 import { isRecordRoute } from '../../og/records.js';
@@ -68,23 +69,23 @@ describe('returnLocation', () => {
     );
   });
 
-  it('falls back to the index form without a cookie', () => {
-    expect(returnLocation(undefined)).toBe('/blogging?subscribed=email#subscribe');
-    expect(returnLocation('other=1')).toBe('/blogging?subscribed=email#subscribe');
+  it('falls back to the newsletter page’s form without a cookie', () => {
+    expect(returnLocation(undefined)).toBe('/blogging/subscribe?subscribed=email#subscribe');
+    expect(returnLocation('other=1')).toBe('/blogging/subscribe?subscribed=email#subscribe');
   });
 
   it('never leaves the site', () => {
     for (const path of ['//evil.example/x', 'https://evil.example/x', 'javascript:alert(1)']) {
-      expect(returnLocation(cookie(path))).toBe('/blogging?subscribed=email#subscribe');
+      expect(returnLocation(cookie(path))).toBe('/blogging/subscribe?subscribed=email#subscribe');
     }
   });
 
   it('does not loop back to the return route', () => {
-    expect(returnLocation(cookie('/receive_auth_callback'))).toBe('/blogging?subscribed=email#subscribe');
+    expect(returnLocation(cookie('/receive_auth_callback'))).toBe('/blogging/subscribe?subscribed=email#subscribe');
   });
 
   it('survives a malformed cookie', () => {
-    expect(returnLocation(`${RETURN_COOKIE}=%E0%A4%A`)).toBe('/blogging?subscribed=email#subscribe');
+    expect(returnLocation(`${RETURN_COOKIE}=%E0%A4%A`)).toBe('/blogging/subscribe?subscribed=email#subscribe');
   });
 });
 
@@ -142,13 +143,21 @@ describe('the subscribe page', () => {
 });
 
 describe('isSubscribeLink', () => {
-  it('recognises a link to a form on dame.is', () => {
+  it('recognises the newsletter page, the address to link', () => {
+    expect(SUBSCRIBE_URL).toBe('https://dame.is/blogging/subscribe');
+    expect(isSubscribeLink(SUBSCRIBE_URL)).toBe(true);
+    expect(isSubscribeLink('https://www.dame.is/blogging/subscribe/')).toBe(true);
+    expect(isSubscribeLink('https://dame.is/blogging/subscribe#subscribe')).toBe(true);
+  });
+
+  it('still recognises a link to a form on dame.is, as published posts have them', () => {
     expect(isSubscribeLink('https://dame.is/blogging#subscribe')).toBe(true);
     expect(isSubscribeLink('https://www.dame.is/blogging/3abc#subscribe')).toBe(true);
   });
 
   it('leaves every other link alone', () => {
     expect(isSubscribeLink('https://dame.is/blogging')).toBe(false);
+    expect(isSubscribeLink('https://example.com/blogging/subscribe')).toBe(false);
     expect(isSubscribeLink('https://example.com/blogging#subscribe')).toBe(false);
     expect(isSubscribeLink('not a url')).toBe(false);
   });

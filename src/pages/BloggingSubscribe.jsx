@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import NewsletterSignup from '../components/NewsletterSignup.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { usePageContent } from '../hooks/usePageContent.js';
+import { useNewsletterCopy } from '../hooks/useNewsletterCopy.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { compareIsoDesc, formatDateFull } from '../lib/time.js';
@@ -15,7 +17,7 @@ import {
   readingMinutes,
 } from '../lib/readingTime.js';
 import { SUBSCRIBE_ID } from '../lib/newsletter.js';
-import { ME_DID, COLLECTIONS, BLOG_PUBLICATION } from '../config.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import './BloggingSubscribe.css';
 
 /**
@@ -28,8 +30,14 @@ import './BloggingSubscribe.css';
  * The newsletter carries more than the blog (updates, roundups,
  * announcements), but the posts are what exists to show, so the copy says
  * so and the body is a post.
+ *
+ * The words are records: the title and intro are is.dame.page/subscribe, as
+ * every page's are, and the name above them is the is.dame.newsletter
+ * record's, with the form's own words (lib/newsletterCopy.js).
  */
 export default function BloggingSubscribe() {
+  const { title, intro } = usePageContent('subscribe');
+  const copy = useNewsletterCopy();
   const { items, status } = useLiveFeed({
     name: 'blogs',
     strategy: 'snapshot-first',
@@ -52,20 +60,14 @@ export default function BloggingSubscribe() {
 
   return (
     <PageShell
-      atUri={BLOG_PUBLICATION}
+      atUri={`at://${ME_DID}/${COLLECTIONS.page}/subscribe`}
       headTitle="Subscribe to the dame.is newsletter"
     >
       <div className="sub-letter">
         <header className="sub-head">
-          <p className="eyebrow">The dame.is newsletter</p>
-          <h1 className="page-title">Letters from dame.is</h1>
-          <p className="page-intro">
-            New blog posts, along with updates, roundups and announcements when
-            there&rsquo;s something to share, sent to your inbox. Put your
-            address on the To line; below is{' '}
-            {at === 0 ? 'the latest post' : 'an earlier post'}, the way it would
-            arrive.
-          </p>
+          <p className="eyebrow">{copy.name}</p>
+          {title && <h1 className="page-title">{title}</h1>}
+          {intro && <p className="page-intro">{intro}</p>}
         </header>
         <div className="sub-mail">
           <dl className="sub-mail-head">
