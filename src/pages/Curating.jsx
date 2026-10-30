@@ -4,7 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
 import SectionViewSwitch from '../components/SectionViewSwitch.jsx';
 import SortSwitch from '../components/SortSwitch.jsx';
-import { CreatingGridSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
+import { CreatingGridSkeleton, FlatLedgerSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
@@ -179,7 +179,7 @@ export default function Curating() {
       </div>
       {showSkeleton ? (
         ledger ? (
-          <FeedSkeleton rows={6} label="Loading galleries" />
+          <FlatLedgerSkeleton rows={8} timeWidth="5rem" label="Loading galleries" />
         ) : (
           <CreatingGridSkeleton cells={6} />
         )

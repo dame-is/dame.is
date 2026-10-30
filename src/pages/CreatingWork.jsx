@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
-import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
+import { DocumentSkeleton } from '../components/Skeleton.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
@@ -115,9 +115,7 @@ export default function CreatingWork() {
   if (status === 'loading') {
     return (
       <PageShell headTitle={`${slug} — dame.is`}>
-        <article className="creating-work-page">
-          <CreatingWorkSkeleton />
-        </article>
+        <DocumentSkeleton kind="work" />
       </PageShell>
     );
   }

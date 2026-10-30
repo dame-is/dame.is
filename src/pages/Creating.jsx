@@ -4,7 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
 import SectionViewSwitch from '../components/SectionViewSwitch.jsx';
 import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilters.jsx';
-import { CreatingGridSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
+import { CreatingPlatesSkeleton, FlatLedgerSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
@@ -185,9 +185,9 @@ export default function Creating() {
       <CreatingFilters kinds={kinds} counts={counts} />
       {showSkeleton ? (
         ledger ? (
-          <FeedSkeleton rows={6} label="Loading works" />
+          <FlatLedgerSkeleton rows={8} kinded timeWidth="2.5rem" label="Loading works" />
         ) : (
-          <CreatingGridSkeleton cells={6} />
+          <CreatingPlatesSkeleton cells={6} />
         )
       ) : filtered.length === 0 ? (
         <p className="feed-empty">

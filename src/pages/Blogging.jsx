@@ -4,7 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
 import NewsletterSignup from '../components/NewsletterSignup.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
-import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
+import { FlatLedgerSkeleton } from '../components/Skeleton.jsx';
 import Time from '../components/Time.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
@@ -70,7 +70,7 @@ export default function Blogging() {
           gives everywhere the post's own forms aren't (email, feeds). */}
       <NewsletterSignup id={SUBSCRIBE_ID} />
       {loading ? (
-        <BloggingTocSkeleton rows={5} />
+        <FlatLedgerSkeleton rows={6} timeWidth="4.5rem" label="Loading the blog" />
       ) : status === 'error' ? (
         // Neither the snapshot nor the PDS answered. That is not an empty blog,
         // and saying "No blog posts yet." told readers it was.
