@@ -758,9 +758,11 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
 
   // What fits. The compass is never moved; everything else gives way in
   // BAR_PRIORITY order and is drawn in the compass sheet instead. Home always
-  // leaves a phone's bar: the wordmark goes home.
+  // leaves a phone's bar: the wordmark goes home. That is a rule rather than a
+  // shortage of room, so Home is not drawn in the sheet either (below).
+  const forcedOut = phone ? ['home'] : [];
   const plan = useBarOverflow(rowRef, {
-    forced: phone ? ['home'] : [],
+    forced: forcedOut,
     dayPresent: !!dayText && showScrollJump && !dockOpen,
   });
   const out = (key) => (plan.hidden.has(key) ? ' is-out' : '');
@@ -902,14 +904,19 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
   // opened, and fade back each time it closed.
   const dockTools = dockOpen && PAPER_ENABLED;
 
-  // Which chips the compass sheet draws: the ones that didn't fit the bar.
+  // Which chips the compass sheet draws: the ones that didn't fit the bar, and
+  // only those. A chip forced out by rule (Home on a phone) is left off: the
+  // sheet heads this list "Tools that didn't fit the bar", and it used to show
+  // a lone Home there on every phone page with half the bar standing empty.
   // When the open menu wears tools of its own, the bar is measured afresh, so
   // the sheet keeps listing what the resting bar couldn't hold, less anything
   // the open bar does show, plus any of the menu's own controls the open bar
   // had no room for. Otherwise the bar is the same bar with Account added,
   // and what it can't hold right now is the list.
   const restingOutRef = useRef([]);
-  if (!dockTools) restingOutRef.current = [...plan.hidden].filter((k) => TOOL_META[k]);
+  if (!dockTools) {
+    restingOutRef.current = [...plan.hidden].filter((k) => TOOL_META[k] && !forcedOut.includes(k));
+  }
   const openBarShows = new Set(
     dockOpen
       ? [
