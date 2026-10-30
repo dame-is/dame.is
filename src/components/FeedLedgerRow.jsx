@@ -209,11 +209,13 @@ export default function FeedLedgerRow({
             {craftThumb}
             {summary && <p className="ledger-text">{summary}</p>}
           </div>
+        ) : listening && isListenBatch(item) ? (
+          <div className="ledger-listen-line">
+            {summary && <p className="ledger-text">{summary}</p>}
+            <ListenMore item={item} expanded={expanded} onToggle={onToggle} />
+          </div>
         ) : (
           summary && <p className="ledger-text">{summary}</p>
-        )}
-        {listening && isListenBatch(item) && (
-          <ListenMore item={item} expanded={expanded} onToggle={onToggle} />
         )}
         {embed && (
           <div className="ledger-embed">
@@ -676,15 +678,15 @@ function summarizePost(item) {
 
 /**
  * "track — artist": a play's line, and a session's, which leads with its
- * newest song. What else the session held is the "+ 15 more" beneath it
- * (ListenMore), which opens the rest in place.
+ * newest song. What else the session held is the "+ 15 more" at the right
+ * of that line (ListenMore), which opens the rest in place.
  */
 function summarizeListen(item) {
   return trackLine(item.payload || {}) || <Placeholder>a play</Placeholder>;
 }
 
 /**
- * Under a session's line: how many more songs it holds, and the control
+ * At the end of a session's line: how many more songs it holds, and the control
  * that opens them ("+ 15 more"), which reads "16 songs −" once they're out.
  * FeedItem also toggles on taps anywhere else in the row.
  */

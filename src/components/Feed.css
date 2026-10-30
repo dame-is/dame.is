@@ -2342,9 +2342,28 @@ a.ledger-verb:focus-visible,
   margin-left: 0.35em;
 }
 
+/* A session's song line with its "+ 15 more" flush right on the same line,
+   so the count doesn't take a line of its own. Baseline alignment keeps the
+   smaller count on the song's first line when a long title wraps. The right
+   edge matches the open session's track rows, so "16 songs −" sits over the
+   column of times beneath it. */
+.ledger-listen-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ledger-col-gap);
+}
+
+.ledger-listen-line .ledger-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .ledger-listen-more {
-  margin: 1px 0 0;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
   line-height: var(--leading-tight);
+  white-space: nowrap;
 }
 
 /* Expanded tracks: one compact sub-row per play, spanning the summary +
