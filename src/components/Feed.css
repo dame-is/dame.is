@@ -2205,7 +2205,7 @@ a.ledger-verb:focus-visible,
 }
 
 /* However long the species run, the row stays a row: two lines, then an
-   ellipsis. Nothing is lost by it — the count beneath says how many there
+   ellipsis. Nothing is lost by it — the count beside it says how many there
    were, which is what the clipped tail was going to say anyway. */
 .ledger-obs-batch .ledger-obs-name {
   display: -webkit-box;
@@ -2213,14 +2213,6 @@ a.ledger-verb:focus-visible,
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* The count sits where a single row puts the scientific name, in the same
-   quiet register but upright — it's a tally, not a binomial. */
-.ledger-obs-count {
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-  line-height: 1.3;
 }
 
 /* Expanded: one sighting per sub-row, in the same two columns the expanded
@@ -2342,9 +2334,29 @@ a.ledger-verb:focus-visible,
   margin-left: 0.35em;
 }
 
-.ledger-listen-more {
-  margin: 1px 0 0;
+/* A collapsed run's line with its count flush right on the same line: a
+   listening session's song and its "+ 15 more", a night's species and its
+   "35 moths +". The count doesn't take a line of its own. Baseline alignment
+   keeps it on the first line when a long line wraps, and the right edge
+   matches the open run's sub-rows, so "16 songs −" sits over the column of
+   times beneath it. */
+.ledger-count-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ledger-col-gap);
+}
+
+.ledger-count-line > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ledger-count-line > .ledger-count {
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
   line-height: var(--leading-tight);
+  white-space: nowrap;
 }
 
 /* Expanded tracks: one compact sub-row per play, spanning the summary +
@@ -2709,6 +2721,12 @@ a.ledger-time:focus-visible {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
+  }
+
+  /* …while the names keep the column's full width, so the count still
+     closes the line flush right. */
+  .ledger-obs-batch .ledger-obs-names {
+    align-self: stretch;
   }
 }
 

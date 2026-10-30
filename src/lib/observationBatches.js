@@ -122,12 +122,14 @@ export function batchNames(batch) {
 /**
  * The species line a collapsed row leads with — the same move the listening
  * batch makes with its artist pool. '' when nothing in the run was named.
+ * The "+ 11 more" tail is held together with no-break spaces, so a line that
+ * wraps carries it over whole instead of leaving a "+" at the end.
  */
 export function batchNameLine(batch, max = BATCH_NAME_MAX) {
   const names = batchNames(batch);
   if (!names.length) return '';
   const shown = names.slice(0, max).join(', ');
-  return names.length > max ? `${shown} + ${names.length - max} more` : shown;
+  return names.length > max ? `${shown} +\u00a0${names.length - max}\u00a0more` : shown;
 }
 
 /** '35 moths' / '12 observations' — the count, in the verb's own noun. */

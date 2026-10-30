@@ -63,8 +63,9 @@
   margin-top: 0.25rem;
 }
 
-/* A collapsed run's tally sits beside its count of sightings — "35 moths ·
-   4 first sightings" — on the line under the species it turned up. */
-.ledger-obs-count .first-sighting {
-  margin-left: 0.6em;
+/* A collapsed run's tally — "4 first sightings" — is a line of its own under
+   the species it turned up. The count of sightings closes the species line,
+   so the tally leaves that line to the names. */
+.ledger-obs-names > .first-sighting {
+  margin-top: 0.3em;
 }
