@@ -1,10 +1,13 @@
-/* The newsletter form (NewsletterSignup.jsx): a label, one email field with
+/* The newsletter form (NewsletterSignup.jsx): a title, one email field with
    the kit's primary button beside it, and a line of fine print, between two
    hairlines. The same object in a post (where the author placed a signup
-   block, or after the last line), and on the /blogging index. */
+   block, or after the last line), and on the /blogging index.
+
+   One step between the three parts, --space-3, and twice that inside the
+   hairlines, so the box reads as a unit apart from the prose around it. */
 .newsletter {
   margin: var(--space-6) 0;
-  padding: var(--space-4) 0;
+  padding: var(--space-5) 0;
   border-block: 1px solid var(--rule-soft);
   font-family: var(--sans);
   font-size: var(--text-sm);
@@ -20,8 +23,16 @@
   text-indent: 0;
 }
 
-.newsletter-label {
-  margin-bottom: var(--space-2);
+/* The section head's title voice (controls.css .section-head-title), a step
+   under a post's own headings. This and the fine print are written under
+   .newsletter so their margins outrank the `.newsletter p` reset above. */
+.newsletter .newsletter-title {
+  margin-bottom: var(--space-3);
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  color: var(--ink);
 }
 
 .newsletter-row {
@@ -52,9 +63,10 @@
   color: var(--ink-faint);
 }
 
-.newsletter-fine {
-  margin-top: var(--space-2);
+.newsletter .newsletter-fine {
+  margin-top: var(--space-3);
   font-size: var(--text-meta);
+  line-height: 1.5;
   color: var(--ink-muted);
 }
 

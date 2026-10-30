@@ -64,7 +64,7 @@ export default function NewsletterSignup({ id, style }) {
       aria-labelledby={`${formId}-label`}
       style={style || undefined}
     >
-      <p className="newsletter-label eyebrow" id={`${formId}-label`}>
+      <p className="newsletter-title" id={`${formId}-label`}>
         Newsletter
       </p>
       {returned ? (
