@@ -1,107 +1,106 @@
-/* Long-form document column — the single reading measure shared by blog posts
-   and creating/portfolio works (both render <LeafletDocument>, and a
-   site.standard.document can surface on either route). Capping the whole
-   ARTICLE here, at the page/container level, is what keeps the text AND every
-   media block — images, video embeds, galleries, link cards, code — aligned to
-   one column. The global `p { max-width: var(--measure) }` only reins in
-   paragraphs; without this container cap the media escapes to the full `.main`
-   width (the frame) while the prose stays at the measure, so images and embeds jut
-   out past the text on both sides.
+/* Long-form documents: blog posts and creating/portfolio works, which both
+   render <LeafletDocument>, on the page grid (theme.css). The article is the
+   type area. An essay's title spans it (a work's comes from PageShell, above
+   the article); under it `.doc-body` sets the facts, and the reading marker
+   under them, in the note column beside the document in the text column; and
+   everything after (the end mark, the newsletter, the earlier/later foot, the
+   replies) keeps to the text column. On a phone there's one column, the facts
+   are a band over the text again, and every inset below is 0.
 
-   `width: 100%` is load-bearing: `.page` is a flex column, and the auto margins
-   below otherwise defeat flex stretch, letting the article size to its
-   max-content (clamped to --measure) and overflow narrow viewports. Pinning
-   width to the column keeps --measure a cap, not a floor. Mirrors the same fix
-   applied to the sibling `.page-title` below. */
+   Some things may hang wider than the text, in whole columns of the grid.
+   Both widths are measured from the text column's left edge, so their start
+   side carries the note column:
+     --doc-overhang-*  a chart, a justified gallery, a section head set over
+                       them: every column the grid has, and the note column
+                       even when there are no wings
+     --doc-fig-*       a large landscape picture: one column a side, once the
+                       grid has one to give (LeafletDocument.css)
+   They used to be worked out from what the frame had left around a centred
+   measure; now they're the grid's own numbers, so whatever widens lands on a
+   column line. */
 .blog-article,
 .creating-work-page {
   width: 100%;
-  max-width: var(--measure);
-  margin: 0 auto;
-
-  /* --- room for a figure to outgrow the measure ---------------------
-
-     The reading column is sized for a sentence, and a table of thirteen
-     columns is not a sentence: capped at --measure the ledger showed half
-     its columns and hid the rest behind a sideways scroll, on a screen with
-     229px of empty margin on either side of it. So a figure is allowed to
-     hang symmetrically past the column into that margin — the prose keeps
-     its measure, the figure gets the page.
-
-     --doc-room is the widest a figure may get: `.main`'s own frame with its
-     gutters removed, so a widened figure lands on the same edge the rest of
-     the page is drawn to and never past it — and on any screen wider than
-     the frame it stops growing, because the frame does. --doc-overhang is what a
-     figure pulls back on each side to reach that width: half the difference,
-     clamped at 0 so on a screen where the column is already the widest thing
-     going, nothing moves at all.
-
-     `100vw` overstates the viewport by the width of a classic scrollbar,
-     which would put a figure that many pixels into the gutter; the gutter is
-     never narrower than --space-4, so it absorbs it. Past the frame the term
-     drops out of the min() entirely and the arithmetic is exact. */
-  --doc-room: calc(
-    min(var(--main-max, var(--frame)), 100vw) - 2 * var(--main-gutter, 0px)
-  );
-  --doc-overhang: max(0px, calc((var(--doc-room) - 100%) / 2));
-}
-
-/* Cap the whole document page — the title AND the article together — at the
-   reading measure, resolved ONCE against the page's own body font (1rem,
-   weight 400, --serif). This is what makes the title line up with the article
-   edge-for-edge.
-
-   `--measure` is `65ch`, and `ch` resolves against each element's OWN font. An
-   earlier fix capped the title directly with `calc(--measure / 3)` to cancel
-   the title's 3× font-size — algebraically exact, but only while the title and
-   article share glyph metrics. They don't reliably: the title is --text-4xl at
-   weight 600, so whenever that heavy weight renders a wider digit advance than
-   the body-weight article — a synthesised bold, or a fallback serif in the
-   moment before Crimson Pro loads — its `65ch/3` measured a wider column and
-   the title spilled past the article on both sides. Capping the shared parent
-   never touches the title's font at all: `.page` is body-size/weight, so its
-   `65ch` is the true reading column, and both children simply stretch to it. */
-.page:has(> .blog-article),
-.page:has(> .creating-work-page) {
-  max-width: var(--measure);
-  margin-inline: auto;
-}
-
-/* ---- The essay as a book page -------------------------------------------
-
-   A blog post (BlogPost.jsx, .blog-book) hangs from the chrome's left edge
-   instead of centring: the title and the text share one --measure-prose
-   column at the page's own gutter, so the breadcrumb, the title and the
-   first line all start on one vertical. The colophon is a band under the
-   title, at every width: the page is one column (theme.css --frame), and a
-   margin beside the text was a second, emptier one. A figure may still
-   widen into the rest of the frame on the right. */
-.page:has(> .blog-book) {
-  max-width: none;
-  margin-inline: 0;
-}
-
-.blog-article.blog-book {
-  margin: 0;
-  /* A widened figure can only grow into the margin, so its pull is all on
-     the right (RatioedBlock and galleries read these). */
-  --doc-overhang-start: 0px;
-  --doc-overhang-end: max(0px, calc(var(--doc-room) - 100%));
-}
-
-.blog-book > * {
   min-width: 0;
+  --doc-overhang-start: calc(var(--text-inset) + var(--wing));
+  --doc-overhang-end: var(--wing);
+  --doc-fig-start: calc(var(--fig-inset) + var(--wing-fig));
+  --doc-fig-end: var(--wing-fig);
+}
+
+.blog-book > *,
+.creating-work-page > * {
+  min-width: 0;
+}
+
+/* Everything after the body, and x-ray's record note before it, starts on
+   the text column. */
+.blog-book > :not(.blog-title, .doc-body),
+.creating-work-page > :not(.doc-body) {
+  margin-inline-start: var(--text-inset);
+}
+
+/* The facts beside the document, the marker under them for as long as the
+   document runs (the column stretches to its height, so the marker's sticky
+   ride ends where the text does). */
+@media (min-width: 701px) {
+  .doc-body {
+    display: grid;
+    grid-template-columns: var(--note) minmax(0, var(--text));
+    column-gap: var(--gutter);
+  }
+
+  .doc-body > .blog-margin {
+    grid-column: 1;
+  }
+
+  .doc-body > :not(.blog-margin) {
+    grid-column: 2;
+  }
+
+  /* In the column the band is a stack of facts, label over value, short
+     forms (the 23rem container query below picks them). */
+  .blog-margin .document-meta,
+  .blog-margin .document-meta[data-columns] {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding-top: 0.3rem;
+    border: 0;
+  }
+
+  .blog-margin .document-meta-pair,
+  .blog-margin .document-meta-pair:first-child {
+    padding: 0;
+    border: 0;
+  }
+
+  .blog-margin .document-meta-value {
+    font-size: var(--text-sm);
+  }
+
+  /* The edition's shortened CID is thirteen code glyphs; at the label size
+     it fits the column whole instead of losing its tail to an ellipsis. */
+  .blog-margin .document-meta-edition .blog-edition-cid {
+    font-size: var(--text-2xs);
+  }
 }
 
 .blog-title {
   text-wrap: balance;
 }
 
-/* The band's space above it. Two classes, because the global `.page-title`
-   (app.css) sets `margin: 0`, loads after this sheet and wins a tie, which
-   left the title sitting on the band's top rule. */
+/* The space under the title. Two classes, because the global `.page-title`
+   (app.css) sets `margin: 0`, loads after this sheet and wins a tie. */
 .blog-book > .blog-title {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-6);
+}
+
+@media (max-width: 700px) {
+  .blog-book > .blog-title {
+    margin-bottom: var(--space-4);
+  }
 }
 
 .blog-margin .document-meta {
@@ -153,10 +152,6 @@
 .blog-end .newsletter:has(+ .sequence-foot) {
   padding-bottom: 0;
   border-bottom: 0;
-}
-
-.blog-article.blog-book {
-  max-width: var(--measure-prose);
 }
 
 .blog-margin .document-meta {
@@ -333,6 +328,36 @@
     padding-left: 0;
   }
 }
+/* On a desk a band across the type area (a Ratioed piece's, a participant's)
+   puts its cells on the page grid (theme.css): a gutter between them, so two
+   or three equal cells each start on a column, and the divider stands in
+   the middle of the gutter as a column rule does. An essay's or a work's band
+   is a stack in the note column instead (above). */
+@media (min-width: 701px) {
+  .document-meta {
+    column-gap: var(--gutter);
+  }
+
+  .document-meta-pair {
+    position: relative;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .document-meta-pair + .document-meta-pair::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(-0.5 * var(--gutter));
+    border-left: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+  }
+
+  .blog-margin .document-meta-pair + .document-meta-pair::before {
+    display: none;
+  }
+}
+
 /* The blog post's half of the bottom-margin rule above: a plain block
    container with no column gap of its own, so it states the space outright. */
 .blog-article > .document-meta {
@@ -402,16 +427,44 @@
    in Dame's clock; the URI closes the page as a quiet folio. */
 .record-page {
   width: 100%;
-  max-width: var(--measure);
   margin: 0;
 }
 
-/* Hung from the breadcrumb's left edge, as an essay is, so the running head,
-   the title and the record start on one vertical. */
-.page:has(> .record-page) {
-  width: 100%;
-  max-width: var(--measure);
-  margin-inline: 0;
+/* On the page grid (theme.css): the title and its facts line across the type
+   area, as any page's header is, and the record itself, its thread, replies
+   and foot in the text column, where the feed sets a record. */
+.record-page > :not(.record-facts, .visually-hidden) {
+  margin-inline-start: var(--text-inset);
+}
+
+/* A post's margin note (Record.jsx): the ledger's gerund over the time, in
+   the note column beside the post. A phone has no column for it; the
+   colophon under the post says the same. */
+.record-body {
+  position: relative;
+}
+
+.record-note {
+  display: none;
+}
+
+@media (min-width: 701px) {
+  .record-note {
+    position: absolute;
+    top: 0.2rem;
+    right: calc(100% + var(--gutter));
+    display: flex;
+    flex-direction: column;
+    width: var(--note);
+    max-width: none;
+    margin: 0;
+    line-height: var(--leading-tight);
+    text-indent: 0;
+  }
+
+  .record-note .ledger-time {
+    text-align: left;
+  }
 }
 
 .record-title {
@@ -719,7 +772,7 @@
   .record-thread-num {
     position: absolute;
     top: calc(var(--thread-num-top, 0px) + 0.3em);
-    right: calc(100% + var(--space-3));
+    right: calc(100% + var(--gutter));
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -779,12 +832,23 @@
   }
 
   /* No margin to pull into on paper, so widened figures and cards stay on
-     the text block instead of running off the sheet's right edge. */
-  .blog-article.blog-book {
-    display: block;
-    max-width: none;
+     the text block instead of running off the sheet, and the facts go back
+     to a band over the text. */
+  .blog-article,
+  .creating-work-page {
+    --text-inset: 0px;
     --doc-overhang-start: 0px;
     --doc-overhang-end: 0px;
+    --doc-fig-start: 0px;
+    --doc-fig-end: 0px;
+  }
+
+  .doc-body {
+    display: block;
+  }
+
+  .blog-margin .document-meta[data-columns] {
+    display: grid;
   }
 
   .leaflet-doc {

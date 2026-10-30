@@ -552,23 +552,6 @@
   :root[data-xray="on"] .leaflet-doc .leaflet-bsky-post::after { content: "blocks.bskyPost"; }
   :root[data-xray="on"] .leaflet-doc .leaflet-list::after { content: "blocks.list"; }
 
-  /* On an essay the text hangs at the page's left edge, so there is no left
-     gutter to write in: the block tags move across into the room the frame
-     leaves to the right of the prose measure. */
-  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-paragraph::after,
-  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-heading::after,
-  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-code::after,
-  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-website::after,
-  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-embed::after,
-  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-bsky-post::after,
-  :root[data-xray="on"] .blog-book .leaflet-doc .leaflet-list::after {
-    right: auto;
-    left: 100%;
-    margin-right: 0;
-    margin-left: var(--space-5);
-    text-indent: 0;
-  }
-
   /* The manuscript: where the page curled a quote or set a dash, the margin
      says so on one line beneath the paragraph's tag, and pointing at the
      paragraph prints the record's text as written. One line at rest, so
@@ -579,9 +562,9 @@
     gap: 0.2rem;
     position: absolute;
     top: 1.35em;
-    left: 100%;
-    width: calc(var(--frame) - var(--measure-prose) - 2 * var(--space-5));
-    margin-left: var(--space-5);
+    right: 100%;
+    width: var(--note);
+    margin-right: var(--space-4);
     text-indent: 0;
     font-style: normal;
     font-variant-caps: normal;
@@ -592,10 +575,12 @@
   .leaflet-xray-raw-text {
     display: none;
   }
+  /* Pointed at, the note opens leftward over the margin, as far as the
+     grid's wings reach, to print the record's text. */
   :root[data-xray="on"] .blog-book .leaflet-paragraph:hover .leaflet-xray-raw {
     z-index: 3;
+    width: calc(var(--note) + var(--wing));
     padding: var(--space-2) var(--space-3) var(--space-3);
-    margin-left: calc(var(--space-7) - var(--space-3));
     background: var(--page);
     outline: 1px solid var(--rule-soft);
   }

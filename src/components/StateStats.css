@@ -16,10 +16,12 @@
 
 /* ---- Panels (chart + activity) ----------------------------------- */
 
+/* On the page grid (theme.css): the chart takes four of the type area's six
+   columns and the activity bars the other two, a gutter between them. */
 .state-stats-panels {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, calc(4 * var(--col) + 3 * var(--gutter))) minmax(0, 1fr);
+  gap: var(--space-6) var(--gutter);
 }
 
 .state-panel {

@@ -65,3 +65,13 @@
   border-left: 2px solid var(--accent-soft);
   padding-left: var(--space-4);
 }
+
+/* A post's photographs, two to four in a grid, hang a column past the text
+   on each side once the page grid has one to give (theme.css, app.css), as
+   an essay's large pictures do. A lone picture keeps to the text: its frame
+   is capped by height, so a portrait would stop short of the wider edges. */
+.record-page .post-card-record > .post-embed-images:not([data-count='1']) {
+  max-width: none;
+  margin-inline-start: calc(-1 * (var(--fig-inset) + var(--wing-fig)));
+  margin-inline-end: calc(-1 * var(--wing-fig));
+}

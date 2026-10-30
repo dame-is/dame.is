@@ -363,6 +363,41 @@
   max-width: none;
 }
 
+/* On a screen at desk widths the résumé is a CV on the page grid (theme.css):
+   the section titles and their rules across the type area; the summary, the
+   organisations and their roles in the text column; each role's dates hung in
+   the note column beside its title, the way the feed hangs a record's time;
+   a skill group's name in the note column beside its skills. Paper keeps its
+   own setting (the print block below). */
+@media screen and (min-width: 701px) {
+  .resume {
+    max-width: none;
+  }
+
+  .resume-section > :not(.resume-section-title, .resume-skills) {
+    margin-inline-start: var(--text-inset);
+  }
+
+  .resume-role {
+    position: relative;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .resume-role-dates {
+    position: absolute;
+    top: 0.15rem;
+    right: calc(100% + var(--gutter));
+    width: var(--note);
+    white-space: normal;
+    line-height: var(--leading-tight);
+  }
+
+  .resume-skill-group {
+    grid-template-columns: calc(var(--text-inset) - var(--space-3)) minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 700px) {
   .resume-skill-group {
     grid-template-columns: 1fr;
