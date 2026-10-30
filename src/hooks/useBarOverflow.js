@@ -13,8 +13,10 @@ import { useLayoutEffect, useRef, useState } from 'react';
  *   way last.
  * - The hour chip, last of all.
  *
- * A chip that leaves the bar is drawn at the foot of the compass sheet with
- * its name (ActionDock), so nothing is lost, only moved.
+ * A chip that leaves the bar for want of room is drawn at the foot of the
+ * compass sheet with its name (ActionDock), so nothing is lost, only moved. A
+ * chip `forced` out by rule (Home on a phone, where the wordmark goes home)
+ * is not: the sheet lists only what didn't fit.
  */
 export const BAR_PRIORITY = [
   'home',

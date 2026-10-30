@@ -33,15 +33,15 @@ import { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import BottomSheet from '../components/BottomSheet.jsx';
 import AdminSheet from './AdminSheet.jsx';
-import { NsidForm, SurfaceIcon, railCount, useSurfaceList } from './AdminRail.jsx';
+import { NsidForm, railCount, useSurfaceList } from './AdminRail.jsx';
 import { useAdminData } from './useAdminData.js';
 import { useAdminShell } from './useAdminShell.jsx';
 import { surfaceByKey } from './surfaces.js';
 
 
 /**
- * One 48px destination row: `[icon] [label] ……… [count]`, full-bleed so the
- * whole width is the tap target. Padding rather than a grown `::before` — these
+ * One destination row, as the compass lists a page: `[label] ……… [count]`,
+ * full-bleed so the whole width is the tap target. Padding rather than a grown `::before` — these
  * are stacked, and pseudo-boxes on stacked siblings overlap, which is exactly
  * how the old chip row let 14 of 19 adjacent pairs steal each other's taps.
  */
@@ -55,7 +55,6 @@ function SurfaceRow({ surf, active, count, onGo }) {
         aria-current={active ? 'page' : undefined}
         onClick={() => onGo(surf)}
       >
-        <SurfaceIcon name={surf.icon} size={17} />
         <span className="wb-sheet-row-label">{surf.label}</span>
         {count != null && <span className="wb-sheet-row-count">{count}</span>}
       </button>
@@ -146,8 +145,7 @@ export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }
     />
   ) : (
     <button type="button" className="wb-sheet-row" onClick={() => setAskingNsid(true)}>
-      <SurfaceIcon name="Database" size={17} />
-      <span className="wb-sheet-row-label">Open any collection</span>
+      <span className="wb-sheet-row-label">Open any collection…</span>
     </button>
   );
 

@@ -10,7 +10,6 @@
 // all of which live one tap away once a row lands you in the admin.
 
 import { Link } from 'react-router-dom';
-import { SurfaceIcon } from '../admin/AdminRail.jsx';
 import { DASHBOARD_SURFACE, SURFACE_GROUPS, allSurfaces } from '../admin/surfaces.js';
 import '../admin/adminChrome.css';
 
@@ -18,7 +17,6 @@ function DirectoryRow({ surf, onNavigate }) {
   return (
     <li>
       <Link className="wb-sheet-row" to={surf.href} onClick={onNavigate}>
-        <SurfaceIcon name={surf.icon} size={17} />
         <span className="wb-sheet-row-label">{surf.label}</span>
       </Link>
     </li>

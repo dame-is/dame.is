@@ -11,11 +11,12 @@
 // here, so there is one grouped, filtered, icon-mapped surface list in the
 // codebase rather than one per consumer.
 //
-// The rows are the directory sheet's (AdminDirectoryBody, the admin's way in
-// from a public page): icon and label on a hairline, the group's name above in
-// the eyebrow voice, and the kit's one "on" (controls.css `.is-on`) for where
-// you are. Each countable surface carries its record count at the right, the
-// same number its Front Desk tile prints.
+// The rows are the compass's page list (ActionDock.css `.dock-route`), as the
+// directory sheets draw it too: the label on the content edge with a hairline
+// under it, the group's name above in the eyebrow voice, and the page you are
+// on in the accent. Each countable surface carries its record count at the
+// right, where the compass prints a path: the same number its Front Desk tile
+// prints.
 //
 // Icons arrive from surfaces.js as NAMES, not components, so that registry stays
 // importable from the node test environment. The name → component map lives here
@@ -309,7 +310,6 @@ function RailButton({ surface, active, count, onGo, buttonRef }) {
         onGo(surface);
       }}
     >
-      <SurfaceIcon name={surface.icon} />
       <span className="wb-rail-label">{surface.label}</span>
       {count != null && (
         <span className="wb-rail-count">
@@ -409,7 +409,6 @@ export default function AdminRail() {
               goHome();
             }}
           >
-            <LayoutDashboard size={GLYPH} aria-hidden="true" />
             <span className="wb-rail-label">{home.label}</span>
           </Link>
         </div>
@@ -459,7 +458,6 @@ export default function AdminRail() {
             onClick={() => setAskingNsid(true)}
             aria-expanded={false}
           >
-            <Database size={14} aria-hidden="true" />
             Open any collection…
           </Button>
         )}

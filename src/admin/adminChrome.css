@@ -217,19 +217,20 @@
   border-top: 0;
 }
 
-/* 48px, full bleed, `[icon] [label] ……… [count]`. PADDING rather than a grown
-   ::before: these rows are stacked, and pseudo-boxes on stacked siblings overlap
-   — which is precisely how the chip row let 14 of 19 adjacent pairs steal each
-   other's taps. */
+/* The compass's page list (ActionDock.css `.dock-route`): the label on the
+   content edge, its count at the right where the compass prints a path, a
+   hairline under each. A destination row carries no glyph; an action row (the
+   ⋯ panel's Copy, View, Delete) keeps one, on the same edge. 44px, and PADDING
+   rather than a grown ::before: these rows are stacked, and pseudo-boxes on
+   stacked siblings overlap — which is precisely how the chip row let 14 of 19
+   adjacent pairs steal each other's taps. */
 .wb-sheet-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  min-height: 3rem;
-  /* A little inline room, so the "on" row's accent hairline (below) has air
-     between it and the glyph and the count. */
-  padding: var(--space-2) var(--space-2);
+  min-height: var(--wb-hit, 2.75rem);
+  padding: var(--space-2) 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -248,12 +249,10 @@
   text-decoration: none;
 }
 
-/* A step behind the label, so the words lead. `margin-left` rather than a
-   padding on the row, because the row is the tap target and starts at the
-   scrollport edge. */
+/* An action row's glyph, a step behind the label in ink so the words lead,
+   and on the content edge with every label in the list. */
 .wb-sheet-row > svg {
   flex: 0 0 auto;
-  margin-left: var(--space-2);
   color: var(--ink-muted);
 }
 
@@ -265,30 +264,20 @@
   white-space: nowrap;
 }
 
-/* Counts are data, so they are in the ledger voice with tabular figures — a
-   column of numbers that do not line up is a column you cannot scan. */
+/* A count sits where the compass prints a page's path, in the same small
+   quiet voice, with tabular figures so the column lines up. */
 .wb-sheet-row-count {
   flex: 0 0 auto;
-  font-family: var(--mono);
-  font-feature-settings: 'tnum' 1;
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
+  font-family: var(--mono-ui);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
 }
 
-/* The surface you are on. `box-shadow` rather than the `border-left` this used
-   to be: a left border on a row that now also carries a top rule miters the two
-   together, and the miter cuts a 2px notch out of the left end of every
-   hairline in the list. An inset shadow occupies no layout at all, so it also
-   costs the glyphs the 2px they used to be pushed over by. */
+/* The surface you are on, as the compass marks the page you are on: its words
+   in the accent, nothing drawn round it (`.dock-route.is-active`). */
 .wb-sheet-row[data-open] {
-  color: var(--ink);
-  background: var(--wash-selected);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.wb-sheet-row[data-open] > svg,
-.wb-sheet-row[data-open] .wb-sheet-row-count {
-  color: inherit;
+  color: var(--accent);
 }
 
 /* An empty collection says "0" at full ink, as the rail does; the row used to
