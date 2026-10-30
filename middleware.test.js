@@ -599,6 +599,94 @@ describe('record pages', () => {
   });
 });
 
+describe('a link to one passage of an essay', () => {
+  const essay = () =>
+    worldFetch({
+      snapshots: {
+        blogs: [
+          {
+            uri: `at://${ME_DID}/site.standard.document/3blogpost`,
+            cid: 'bafyreiexamplecid',
+            value: {
+              title: 'On moths',
+              description: 'Why the light.',
+              publishedAt: '2026-05-01T12:00:00.000Z',
+              site: BLOG_PUBLICATION,
+              content: {
+                $type: 'pub.leaflet.content',
+                pages: [
+                  {
+                    blocks: [
+                      { block: { $type: 'pub.leaflet.blocks.text', plaintext: "They don't come for the warmth. They come because the light looks like the moon." } },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    });
+  const canonicalHref = (body) => body.match(/<link rel="canonical" href="([^"]*)"/)?.[1] ?? null;
+  const decode = (s) => s.replace(/&amp;/g, '&');
+
+  it('cards the passage, quotes it in the description, and keeps it in the address', async () => {
+    essay();
+    const { res, body } = await html('/blogging/3blogpost?quote=the+light+looks+like+the+moon');
+    expect(res.status).toBe(200);
+    expect(body).toContain('<title>On moths — dame.is</title>');
+    expect(decode(metaContent(body, 'property', 'og:image'))).toBe(
+      'https://dame.is/api/og?doc=3blogpost&quote=the+light+looks+like+the+moon',
+    );
+    expect(metaContent(body, 'property', 'og:description')).toBe('“the light looks like the moon”');
+    expect(metaContent(body, 'name', 'twitter:description')).toBe('“the light looks like the moon”');
+    expect(metaContent(body, 'property', 'og:image:alt')).toBe(
+      'A passage from “On moths”: “the light looks like the moon”',
+    );
+    const here = 'https://dame.is/blogging/3blogpost?quote=the+light+looks+like+the+moon';
+    expect(metaContent(body, 'property', 'og:url')).toBe(here);
+    expect(canonicalHref(body)).toBe(here);
+    // Still the essay's Standard Site embed on Bluesky.
+    expect(body).toContain(`<link rel="site.standard.document" href="at://${ME_DID}/site.standard.document/3blogpost" />`);
+  });
+
+  it('keeps the passage views out of the index, and the essay in it', async () => {
+    essay();
+    const { res, body } = await html('/blogging/3blogpost?quote=the+light+looks+like+the+moon');
+    expect(metaContent(body, 'name', 'robots')).toBe('noindex');
+    expect(res.headers.get('x-robots-tag')).toBe('noindex');
+    const plain = await html('/blogging/3blogpost');
+    expect(plain.body).not.toContain('content="noindex"');
+    expect(canonicalHref(plain.body)).toBe('https://dame.is/blogging/3blogpost');
+  });
+
+  it('carries the record’s words, rounded out, not the ones in the link', async () => {
+    essay();
+    const { body } = await html(`/blogging/3blogpost?quote=${encodeURIComponent('DON’T come for the warm')}`);
+    expect(metaContent(body, 'property', 'og:description')).toBe('“don’t come for the warmth”');
+    expect(canonicalHref(body)).toBe("https://dame.is/blogging/3blogpost?quote=don't+come+for+the+warmth");
+  });
+
+  it('ignores words the essay doesn’t hold, and serves the essay as usual', async () => {
+    essay();
+    const { res, body } = await html('/blogging/3blogpost?quote=moths+are+overrated');
+    expect(res.status).toBe(200);
+    expect(metaContent(body, 'property', 'og:image')).toContain('section=blogging');
+    expect(metaContent(body, 'property', 'og:description')).toBe('Why the light.');
+    expect(canonicalHref(body)).toBe('https://dame.is/blogging/3blogpost');
+    expect(body).not.toContain('content="noindex"');
+  });
+
+  it('ignores a quote on a page with no essay behind it', async () => {
+    worldFetch({
+      records: { 'app.bsky.feed.post/3words': { text: 'moths at the porch light', createdAt: '2026-05-01T12:00:00.000Z' } },
+    });
+    const { body } = await html('/posting/3words?quote=moths+at+the');
+    expect(canonicalHref(body)).toBe('https://dame.is/posting/3words');
+    expect(body).not.toContain('content="noindex"');
+  });
+});
+
 describe('pages with no record behind them', () => {
   it('names the profile record only once there is one', async () => {
     worldFetch({ snapshots: { extendedProfile: {} } });

@@ -4,7 +4,7 @@
 // the arithmetic that has to stay true at every hour of the sky.
 
 import { describe, it, expect } from 'vitest';
-import { ogElement, THEMES } from './design.js';
+import { ogElement, THEMES, quoteLines, textWidth } from './design.js';
 
 const SRC = 'data:image/jpeg;base64,AAAA';
 
@@ -93,5 +93,62 @@ describe('the post card', () => {
   it('captions a photo-only post by its alt text, and a bare one plainly', () => {
     expect(texts(card({ text: '', caption: 'a sunset', photos: [{ src: SRC, aspect: 1 }] }))).toContain('a sunset');
     expect(texts(card({ text: '', standIn: 'A photo', photos: [{ src: SRC, aspect: 1 }] }))).toContain('A photo');
+  });
+});
+
+describe('the quote card', () => {
+  // The column runs from the divider to the page guide.
+  const COL = 1110 - 320;
+  const quoteCard = (text, title = 'On Attie, atproto, and AI') =>
+    ogElement({ quote: { text, title, section: 'blogging' }, nsid: 'site.standard.document', folio: '12,230', theme: THEMES.light });
+  /** Every text leaf as { text, top, size }, top being the box's top edge. */
+  const lines = (el) =>
+    nodes(el)
+      .filter((n) => typeof n.props?.children?.[0] === 'string' && n.props.style?.fontSize)
+      .map((n) => ({ text: n.props.children[0], top: n.props.style.top, size: n.props.style.fontSize }));
+
+  it('sets a line or two at nearly headline size, on the coarse rules', () => {
+    const { size, pitch, lines: set } = quoteLines('Don’t miss the Atmosphere for the blue sky.', COL);
+    expect(size).toBe(54);
+    expect(pitch).toBe(70);
+    expect(set.join(' ')).toBe('“Don’t miss the Atmosphere for the blue sky.”');
+  });
+
+  it('steps a paragraph down to body copy, seven lines at most, every one inside the column', () => {
+    const para =
+      'The contentious discussions from that week were in one way or another a continuation of the recurring “Bluesky is dying” discourse that has been popping up at least once a quarter. I think it’s worth slowing down and asking what people actually mean by that, because the protocol and the app are not the same thing, and conflating them leads us wrong.';
+    const { size, pitch, lines: set } = quoteLines(para, COL);
+    expect(pitch).toBe(35);
+    expect(set.length).toBeLessThanOrEqual(7);
+    for (const l of set) expect(textWidth(l, size)).toBeLessThanOrEqual(COL);
+    // Nothing was cut: the whole passage is on the card.
+    expect(set.join(' ')).toBe(`“${para}”`);
+  });
+
+  it('keeps the closing mark when a passage is too wide for any size', () => {
+    const wide = Array.from({ length: 80 }, () => 'MMMM wwww').join(' ');
+    const { lines: set, size } = quoteLines(wide, COL);
+    expect(set).toHaveLength(7);
+    expect(set[6].endsWith('…”')).toBe(true);
+    for (const l of set) expect(textWidth(l, size)).toBeLessThanOrEqual(COL);
+  });
+
+  it('credits the essay one coarse row under the passage', () => {
+    const el = quoteCard('Don’t miss the Atmosphere for the blue sky.');
+    const set = lines(el);
+    // The credit is a row (a rule, then the title), sized and placed as one.
+    const row = nodes(el).find((n) =>
+      (n.props?.children || []).some?.((c) => c?.props?.children?.[0] === 'On Attie, atproto, and AI'),
+    );
+    expect(row).toBeTruthy();
+    const title = { top: row.props.style.top, size: row.props.style.fontSize };
+    const last = set.filter((l) => l.text.startsWith('“') || l.text.endsWith('”')).pop();
+    // Baselines, from the boxes' tops: two lines at 54 on rules 202 and 272,
+    // the credit at 28 on 342.
+    const baseline = (l) => Math.round(l.top + 0.752 * l.size);
+    expect(baseline(last)).toBe(272);
+    expect(baseline(title)).toBe(342);
+    expect(texts(el)).toContain('blogging');
+    expect(texts(el)).toContain('site.standard.document');
   });
 });

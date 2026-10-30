@@ -15,6 +15,7 @@ import {
   photosLabel,
   subjectPost,
   subjectCardCopy,
+  quotedDocument,
 } from './records.js';
 import {
   ME_DID,
@@ -665,5 +666,97 @@ describe('recordMeta — reposts and likes', () => {
     expect(copy.photos[0].url).toBe(
       `https://cdn.bsky.app/img/feed_thumbnail/plain/${POE_DID}/${CID_A}@jpeg`,
     );
+  });
+});
+
+describe('quoting an essay', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const content = (...texts) => ({
+    $type: 'pub.leaflet.content',
+    pages: [{ blocks: texts.map((plaintext) => ({ block: { $type: 'pub.leaflet.blocks.text', plaintext } })) }],
+  });
+  const essay = (extra = {}) =>
+    doc('3mz4essay', {
+      title: 'On Attie, atproto, and AI',
+      description: 'Don’t miss the Atmosphere for the blue sky',
+      site: BLOG_PUBLICATION,
+      publishedAt: '2026-10-30T17:05:54.210Z',
+      content: content("Many people either lost the plot or didn't even know what the plot was."),
+      ...extra,
+    });
+
+  it('carries a passage the essay holds onto its card, as the record writes it', async () => {
+    worldFetch({ snapshots: { blogs: [essay()] } });
+    const meta = await recordMeta('/blogging/3mz4essay', ORIGIN, { quote: 'lost the plot or didn’t even know' });
+    expect(meta.quote).toEqual({
+      words: "lost the plot or didn't even know",
+      display: 'lost the plot or didn’t even know',
+    });
+    // The record's words ride on the card's query, not the requested ones.
+    expect(meta.ogQuery).toBe("doc=3mz4essay&quote=lost+the+plot+or+didn't+even+know");
+    expect(meta.imageAlt).toBe('A passage from “On Attie, atproto, and AI”: “lost the plot or didn’t even know”');
+    expect(meta.canonicalPath).toBe('/blogging/3mz4essay');
+  });
+
+  it('ignores a quote the essay doesn’t hold, and keeps the ordinary card', async () => {
+    worldFetch({ snapshots: { blogs: [essay()] } });
+    const meta = await recordMeta('/blogging/3mz4essay', ORIGIN, { quote: 'atproto has failed completely' });
+    expect(meta.title).toBe('On Attie, atproto, and AI');
+    expect(meta.quote).toBeUndefined();
+    expect(meta.ogQuery).toBeUndefined();
+  });
+
+  it('only quotes standard documents', async () => {
+    worldFetch({
+      records: { 'app.bsky.feed.post/3post': { text: 'a post with some words in it', createdAt: '2026-10-01T00:00:00Z' } },
+    });
+    const meta = await recordMeta('/posting/3post', ORIGIN, { quote: 'some words' });
+    expect(meta.quote).toBeUndefined();
+  });
+
+  it('reads a card’s passage back off the record for the renderer', async () => {
+    worldFetch({ snapshots: { blogs: [essay()] } });
+    const found = await quotedDocument('3mz4essay', "lost the plot or didn't even know", ORIGIN);
+    expect(found).toEqual({
+      title: 'On Attie, atproto, and AI',
+      description: 'Don’t miss the Atmosphere for the blue sky',
+      section: 'blogging',
+      date: '2026-10-30T17:05:54.210Z',
+      nsid: 'site.standard.document',
+      quote: 'lost the plot or didn’t even know',
+    });
+  });
+
+  it('hands the renderer the essay without a passage when the words aren’t in it', async () => {
+    worldFetch({ snapshots: { blogs: [essay()] } });
+    const found = await quotedDocument('3mz4essay', 'words nobody wrote here', ORIGIN);
+    expect(found.title).toBe('On Attie, atproto, and AI');
+    expect(found.quote).toBeNull();
+  });
+
+  it('names a work’s section for a work', async () => {
+    worldFetch({ snapshots: { blogs: [essay({ site: PORTFOLIO_PUBLICATION, tags: ['software'] })] } });
+    const found = await quotedDocument('3mz4essay', 'lost the plot', ORIGIN);
+    expect(found.section).toBe('creating');
+  });
+
+  it('won’t quote a draft, from the snapshot or the PDS', async () => {
+    worldFetch({ snapshots: { blogs: [essay({ draft: true })] } });
+    expect(await quotedDocument('3mz4essay', 'lost the plot', ORIGIN)).toBeNull();
+    vi.unstubAllGlobals();
+    worldFetch({
+      records: { 'site.standard.document/3draft': { title: 'Not yet', draft: true, site: BLOG_PUBLICATION, content: content('lost the plot') } },
+    });
+    expect(await quotedDocument('3draft', 'lost the plot', ORIGIN)).toBeNull();
+  });
+
+  it('finds an essay too fresh for the snapshot', async () => {
+    worldFetch({
+      records: {
+        'site.standard.document/3fresh': { title: 'Fresh', site: BLOG_PUBLICATION, content: content('A brand new passage, just written.') },
+      },
+    });
+    expect((await quotedDocument('3fresh', 'brand new passage', ORIGIN)).quote).toBe('brand new passage');
   });
 });

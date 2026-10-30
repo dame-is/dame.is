@@ -24,6 +24,7 @@ import '../components/ScrollFrame.css';
 import '../components/RatioedHandle.css';
 import '../components/blocks/RatioedBlock.css';
 import '../components/NewsletterSignup.css';
+import '../components/QuoteShare.css';
 import '../components/LeafletDocument.css';
 import '../pages/About.css';
 import '../components/QueryNote.css';

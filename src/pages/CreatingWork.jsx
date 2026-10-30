@@ -178,7 +178,11 @@ export default function CreatingWork() {
           <p className="page-intro">{v.summary}</p>
         )}
         {v?.content?.pages ? (
-          <LeafletDocument doc={v.content} contents />
+          <LeafletDocument
+            doc={v.content}
+            contents
+            quotable={String(record?.uri || '').includes(`/${STANDARD_DOC}/`)}
+          />
         ) : (
           <>
             {Array.isArray(v?.media) && v.media.length > 0 && (

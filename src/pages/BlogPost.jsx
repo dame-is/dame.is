@@ -288,7 +288,7 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
         {/* The `description` field is intentionally not rendered here — it's the
             open-graph / feed-summary blurb, and on the post itself it just
             duplicated the opening lines of the body. */}
-        <LeafletDocument doc={value.content} />
+        <LeafletDocument doc={value.content} quotable />
         <footer className="blog-end">
           <p className="blog-end-mark" aria-hidden="true">
             <Fleuron />

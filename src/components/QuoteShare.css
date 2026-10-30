@@ -1,0 +1,93 @@
+/* Quoting a passage (QuoteShare.jsx): the toolbar a selection of an essay's
+   prose gets, and the mark a passage carries when a quote link lands on it.
+
+   The toolbar is a slip of the chrome's paper laid on the page beside the
+   selection. Fixed, and re-placed as the page scrolls, so it stays with the
+   words; under the chrome bars and the sheets (29 to 31), so it never covers
+   the site's own controls. */
+.quote-share {
+  position: fixed;
+  z-index: 28;
+  display: flex;
+  align-items: stretch;
+  max-width: calc(100vw - 16px);
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  color: var(--ink-soft);
+  background: var(--surface-raised);
+  border: 1px solid var(--rule);
+  box-shadow: 0 6px 20px var(--shadow);
+}
+
+/* An opening quotation mark in the accent, the way the card's credit carries
+   an accent rule: it says what the toolbar is for before any label does. */
+.quote-share-mark {
+  display: flex;
+  align-items: center;
+  padding: 0.2em 0.1em 0 0.55em;
+  font-size: 1.5em;
+  font-style: italic;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.quote-share-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h-md);
+  padding: 0 0.75em;
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--rule-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.quote-share-mark + .quote-share-action {
+  border-left: 0;
+}
+
+@media (hover: hover) {
+  .quote-share-action:hover {
+    color: var(--ink);
+    background: var(--wash-hover);
+  }
+}
+
+.quote-share-action:focus-visible {
+  color: var(--ink);
+  background: var(--wash-hover);
+}
+
+.quote-share-action:active {
+  background: var(--wash-selected);
+}
+
+/* A finger gets the site's touch height. */
+@media (pointer: coarse) {
+  .quote-share-action {
+    min-height: var(--control-h-touch);
+  }
+}
+
+.quote-share-note {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-h-md);
+  padding: 0 0.75em 0 0.25em;
+  font-style: italic;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* The passage a quote link was made for, washed in the hour's accent. A
+   highlight, not a selection: it marks the words without moving the
+   reader's caret or opening a phone's text menu. */
+::highlight(dame-quote) {
+  background-color: color-mix(in srgb, var(--accent) 24%, transparent);
+}

@@ -171,6 +171,44 @@ function wrapText(text, size, maxWidth) {
   return lines;
 }
 
+// Crimson Pro 400's advance widths in thousandths of an em: printable ASCII
+// from the space to the tilde, then the punctuation the page typesets.
+// Measured once in Chromium from the woff in og/assets/fonts.js. The quote
+// card breaks lines with these rather than wrapText's average, because it
+// sets prose a reader chose at up to headline size: the average runs a fifth
+// wide on ordinary prose (0.40em a character, not 0.49) and still too narrow
+// for a line of capitals or m's, which ran off the edge of the card.
+const ADVANCE = [188,260,409,515,468,738,696,229,352,352,430,527,229,364,229,357,565,332,477,475,511,472,508,461,538,508,229,229,527,527,527,350,884,568,547,590,666,543,494,633,656,303,303,574,499,830,658,670,502,670,554,468,544,648,571,919,568,528,521,317,357,316,527,395,586,463,514,415,526,439,296,483,537,262,247,478,263,804,537,496,524,512,355,393,331,530,461,735,470,461,424,360,268,360,527];
+const ADVANCE_MORE = { '“': 418, '”': 418, '‘': 238, '’': 238, '—': 977, '–': 488, '…': 639 };
+// Anything else (an accented capital, a CJK character, an emoji) is counted
+// as wide as the widest lowercase letter, so it can only break a line early.
+const ADVANCE_OTHER = 810;
+
+/** How wide `text` sets at `size`px in Crimson Pro 400, kerning aside. */
+export function textWidth(text, size) {
+  let units = 0;
+  for (const ch of String(text || '')) {
+    const c = ch.charCodeAt(0);
+    units += c >= 32 && c <= 126 ? ADVANCE[c - 32] : ADVANCE_MORE[ch] ?? ADVANCE_OTHER;
+  }
+  return (units * size) / 1000;
+}
+
+/** wrapText, broken on measured widths. 2% is left for kerning. */
+function wrapMeasured(text, size, maxWidth) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const room = maxWidth * 0.98;
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w;
+    if (textWidth(next, size) > room && line) { lines.push(line); line = w; }
+    else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 // The big gerund shrinks for longer labels so it never runs past the column.
 function titleSize(label, base, maxChars) {
   const n = (label || '').length;
@@ -528,6 +566,78 @@ function postCard(t, { post: raw, verb, avatarUri, nsid, folio }) {
     // Fine rules from the plate's top edge down, so the plate starts ON one,
     // and one more under it when a caption sits there.
     halfBands: [{ from: PLATE_TOP, to: figCaption ? 7 * P + HP : 7 * P }],
+  });
+}
+
+// ── RECORD: a passage quoted from a blog post or a work ─────────────────────
+// A link to one passage of an essay (`?quote=…`) unfurled as the essay's title
+// card, which said nothing about why somebody shared it. This card sets the
+// passage itself, as large as its length allows, with the essay named under
+// it the way a quotation is credited.
+//
+// The words are the record's (src/lib/quote.js finds them; the query only
+// says where), so the card quotes exactly what the essay says, typeset the
+// way the page sets it.
+
+// Largest first. A line or three holds the coarse rules at nearly headline
+// size; a paragraph steps down to body copy on the half-pitch rules, like the
+// post card's longer texts. Seven body lines at most, so the credit under
+// them always gets a whole row; QUOTE_MAX_CHARS (360) fits the last tier.
+const QUOTE_TIERS = [
+  { size: 54, pitch: P, rows: 3 },
+  { size: 42, pitch: P, rows: 4 },
+  { size: 30, pitch: HP, rows: 7 },
+  { size: 27, pitch: HP, rows: 7 },
+];
+
+/** The passage in quotation marks, broken into lines at the largest tier it
+ *  fits, and cut with the closing mark kept if it fits none. */
+export function quoteLines(text, width) {
+  const words = `“${text}”`;
+  for (const tier of QUOTE_TIERS) {
+    const lines = wrapMeasured(words, tier.size, width);
+    if (lines.length <= tier.rows) return { ...tier, lines };
+  }
+  const last = QUOTE_TIERS[QUOTE_TIERS.length - 1];
+  const lines = wrapMeasured(words, last.size, width).slice(0, last.rows);
+  lines[last.rows - 1] = `${lines[last.rows - 1].replace(/\s+\S*$/, '')}…”`;
+  return { ...last, lines };
+}
+
+function quoteCard(t, { quote, avatarUri, nsid, folio }) {
+  const CX = 320, bcBy = P - LE;
+  const colW = W - PAD - CX;
+  const top = 3 * P - 8;
+  const { size, pitch, lines } = quoteLines(quote.text || '', colW);
+  const lastBy = top + (lines.length - 1) * pitch;
+  // The credit sits one coarse row under the last line, so a short quote
+  // keeps it close rather than stranding it at the foot of the card.
+  const creditBy = Math.min(7 * P - 8, lastBy + P);
+  const RULE = 34;
+  const credit = quote.title
+    ? rowAt(
+        [
+          h('div', { style: { width: RULE, height: 2, background: t.accent } }),
+          h('div', { style: { color: t.inkSoft, fontStyle: 'italic', fontWeight: 400 } },
+            fitLine(quote.title, 28, colW - RULE - 14)),
+        ],
+        { size: 28, by: creditBy, left: CX, gap: 14, align: 'center' },
+      )
+    : null;
+  return shell(t, [
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, quote.section || 'blogging'), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
+    ...lines.map((l, i) =>
+      at(l, { size, by: top + i * pitch, left: CX, weight: 400, color: t.ink, ls: size > 40 ? '-0.01em' : undefined }),
+    ),
+    credit,
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    // Half-pitch rules under body-size words, so each line sits on one.
+    halfBands: pitch === HP ? [{ from: 3 * P + HP, to: lastBy + 8 }] : [],
   });
 }
 
@@ -1344,6 +1454,10 @@ export function ogElement(o = {}) {
   // is read off the record, so it has no gerund label to fall back on either.
   if (o.post) {
     return postCard(t, { post: o.post, verb: o.verb || segs[0] || 'posting', avatarUri, nsid: o.nsid || '', folio });
+  }
+  // A quoted passage names its essay in its credit, not in a gerund label.
+  if (o.quote) {
+    return quoteCard(t, { quote: o.quote, avatarUri, nsid: o.nsid || '', folio });
   }
 
   const isHome = pathname === '/' || !o.label;

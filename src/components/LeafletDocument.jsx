@@ -7,6 +7,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -39,6 +40,7 @@ import { ME_DID } from '../config.js';
 import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import { SIGNUP_BLOCK_TYPE, signupBlockIds } from '../lib/newsletter.js';
 import NewsletterSignup from './NewsletterSignup.jsx';
+import QuoteShare from './QuoteShare.jsx';
 import './LeafletDocument.css';
 
 // Lazy: Ratioed's charts appear in one essay, but they carry the project's
@@ -153,13 +155,20 @@ function collectImages(pages) {
  *   - pub.leaflet.blocks.website       (link card w/ preview)
  *   - pub.leaflet.blocks.bskyPost      (embedded Bluesky post)
  *   - pub.leaflet.blocks.code          (preformatted code)
+ *   - pub.leaflet.blocks.blockquote    (a quotation, set like an inset)
  *   - pub.leaflet.blocks.unorderedList (recursive list w/ #listItem children)
  *   - pub.leaflet.blocks.orderedList   (same shape as unorderedList)
  *   - pub.leaflet.blocks.signup        (the newsletter's email form)
  *
  * Empty text blocks act as paragraph breaks.
+ *
+ * `quotable` lets a reader share a passage of the prose by selecting it, and
+ * highlights the one a `?quote=` link arrived for (QuoteShare.jsx). Only for
+ * a site.standard.document, the one kind of record whose quote links unfurl
+ * as the passage (see middleware.js).
  */
-export default function LeafletDocument({ doc, contents = false }) {
+export default function LeafletDocument({ doc, contents = false, quotable = false }) {
+  const docRef = useRef(null);
   const pages = useMemo(() => (Array.isArray(doc?.pages) ? doc.pages : []), [doc?.pages]);
   // A long piece opens with its contents, and its section heads carry their
   // numbers (COL-13). Only where the caller asks: an essay reads straight
@@ -195,7 +204,7 @@ export default function LeafletDocument({ doc, contents = false }) {
     <LeafletLightboxContext.Provider value={ctx}>
       <LeafletSectionsContext.Provider value={sections}>
         <LeafletSignupContext.Provider value={signupIds}>
-          <div className={sections ? 'leaflet-doc leaflet-doc-sectioned' : 'leaflet-doc'}>
+          <div ref={docRef} className={sections ? 'leaflet-doc leaflet-doc-sectioned' : 'leaflet-doc'}>
             {pages.map((page, pi) =>
               cutoff && pi > cutoff.page ? null : (
                 <LeafletPage
@@ -207,6 +216,7 @@ export default function LeafletDocument({ doc, contents = false }) {
               ),
             )}
           </div>
+          {quotable && <QuoteShare docRef={docRef} content={doc} />}
         </LeafletSignupContext.Provider>
         {images.length > 0 && (
           <Lightbox
