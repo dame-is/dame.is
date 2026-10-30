@@ -207,6 +207,10 @@ export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }
         onClose={onClose}
         label="Admin surfaces"
         size="fill"
+        // No thumb Close. On a touch screen `fill` would add one, a bar sitting
+        // on the site's bar, which is why this sheet's old foot went (see the
+        // header). The chip that opened the panel is its × below.
+        thumbClose={false}
         className="wb-panel wb-panel-surfaces"
       >
         <div className="wb-sheet-body">{body}</div>

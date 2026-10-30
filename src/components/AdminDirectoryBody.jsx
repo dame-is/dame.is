@@ -9,14 +9,15 @@
 // and the NSID escape hatch (its navigation runs through the shell's guard) —
 // all of which live one tap away once a row lands you in the admin.
 
-import { Link } from 'react-router-dom';
+import { useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { DASHBOARD_SURFACE, SURFACE_GROUPS, allSurfaces } from '../admin/surfaces.js';
 import '../admin/adminChrome.css';
 
-function DirectoryRow({ surf, onNavigate }) {
+function DirectoryRow({ surf, onGo }) {
   return (
     <li>
-      <Link className="wb-sheet-row" to={surf.href} onClick={onNavigate}>
+      <Link className="wb-sheet-row" to={surf.href} onClick={(event) => onGo(event, surf.href)}>
         <span className="wb-sheet-row-label">{surf.label}</span>
       </Link>
     </li>
@@ -25,9 +26,29 @@ function DirectoryRow({ surf, onNavigate }) {
 
 /**
  * @param {object} props
- * @param {() => void} props.onNavigate  Close the sheet — the Link does the rest.
+ * @param {() => void} props.onNavigate  Close the sheet — the row does the rest.
  */
 export default function AdminDirectoryBody({ onNavigate }) {
+  const navigate = useNavigate();
+
+  // Close first, navigate two frames later, as the compass's rows do (goTo in
+  // ActionDock.jsx). Every row lands in the admin, the heaviest render on the
+  // site, and done together that render held the main thread before the
+  // sheet's closing slide could start: the directory sat fully open over the
+  // incoming page, then vanished. A modified click is left to the link.
+  const go = useCallback(
+    (event, to) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button > 0) {
+        onNavigate();
+        return;
+      }
+      event.preventDefault();
+      onNavigate();
+      requestAnimationFrame(() => requestAnimationFrame(() => navigate(to)));
+    },
+    [onNavigate, navigate],
+  );
+
   // Same filter the rail applies: a surface that is meaningless without an
   // `&r=` (the resume tailor) would be a link to nowhere from here.
   const surfaces = allSurfaces().filter((surf) => !surf.requiresRkey);
@@ -39,14 +60,14 @@ export default function AdminDirectoryBody({ onNavigate }) {
   return (
     <div className="wb-sheet-body chrome-admin-directory-body">
       <ul className="wb-sheet-list">
-        <DirectoryRow surf={DASHBOARD_SURFACE} onNavigate={onNavigate} />
+        <DirectoryRow surf={DASHBOARD_SURFACE} onGo={go} />
       </ul>
       {groups.map((group) => (
         <div key={group.key}>
           <p className="wb-sheet-heading">{group.heading}</p>
           <ul className="wb-sheet-list">
             {group.items.map((surf) => (
-              <DirectoryRow key={surf.key} surf={surf} onNavigate={onNavigate} />
+              <DirectoryRow key={surf.key} surf={surf} onGo={go} />
             ))}
           </ul>
         </div>
