@@ -5,6 +5,15 @@ import './Figures.css';
 // Two-up under the band's narrow width (Figures.css), whatever it holds wide.
 const NARROW_COLUMNS = 2;
 
+// On a desk the band sits on the page grid (theme.css, Figures.css): the
+// type area's six columns, a figure to a column, or two columns to a figure
+// where any of them carries a note and needs the room. A short last row is
+// closed as the band's own rows are. `columns` keeps the count where the band
+// isn't on the grid (the admin's) and on a narrow band.
+const GRID_COLUMNS = 6;
+// A note this short ("≈ 3.6 hrs") still fits a single column.
+const NOTE_FITS = 14;
+
 /**
  * The site's one figures primitive: an eyebrow label above an ink numeral in
  * tabular figures, with an optional italic note under it. Cells align to the
@@ -35,21 +44,29 @@ export default function Figures({ items, label, layout = 'ruled', columns, dense
   const cols = Math.max(1, columns || Math.min(shown.length, 5));
   const wideSpans = ruled ? figureSpans(shown, cols) : null;
   const narrowSpans = ruled ? figureSpans(shown, NARROW_COLUMNS, { honorWide: true }) : null;
+  const unit = shown.some((f) => (typeof f.note === 'string' ? f.note.length > NOTE_FITS : f.note)) ? 2 : 1;
+  const gridSpans = figureSpans(shown, GRID_COLUMNS / unit).map((n) => n * unit);
+  // Four to a row is a table's count (Ratioed's), and a table may hang a
+  // column past the type area each side: eight columns, two to a figure.
+  const tableSpans = columns === 4 ? figureSpans(shown, 4).map((n) => n * 2) : null;
   const cls = ['figures', dense && 'is-dense', className].filter(Boolean).join(' ');
   return (
-    <div className={cls} data-layout={ruled ? 'ruled' : 'inline'}>
+    <div className={cls} data-layout={ruled ? 'ruled' : 'inline'} data-columns={columns || undefined}>
       <dl className="figures-grid" aria-label={label} style={ruled ? { '--figures-cols': cols } : undefined}>
         {shown.map((f, i) => {
-          const spans =
-            ruled && (wideSpans[i] > 1 || narrowSpans[i] > 1)
+          const spans = {
+            ...(ruled && (wideSpans[i] > 1 || narrowSpans[i] > 1)
               ? { '--span-wide': wideSpans[i], '--span-narrow': narrowSpans[i] }
-              : undefined;
+              : null),
+            ...(gridSpans[i] > 1 ? { '--span-grid': gridSpans[i] } : null),
+            ...(tableSpans && tableSpans[i] !== 2 ? { '--span-table': tableSpans[i] } : null),
+          };
           const link = Boolean(f.to || f.href);
           return (
             <div
               key={f.key || f.label}
               className={`figures-cell${link ? ' is-link' : ''}`}
-              style={spans}
+              style={Object.keys(spans).length ? spans : undefined}
             >
               <dt className="figures-label eyebrow">{f.label}</dt>
               <dd className="figures-value">

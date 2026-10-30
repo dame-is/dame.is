@@ -4,9 +4,11 @@ import PageShell from '../components/PageShell.jsx';
 import { DocumentSkeleton } from '../components/Skeleton.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
+import ReadingMarker from '../components/ReadingMarker.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import SequenceFoot from '../components/SequenceFoot.jsx';
 import { smartenText } from '../lib/smartPunctuation.js';
+import { documentWords, readingMinutes } from '../lib/readingTime.js';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
@@ -149,6 +151,7 @@ export default function CreatingWork() {
   }
 
   const v = record?.value;
+  const minutes = v?.content?.pages ? readingMinutes(documentWords(v.content)) : 0;
 
   return (
     <PageShell
@@ -159,55 +162,59 @@ export default function CreatingWork() {
     >
       <article className="creating-work-page reveal">
         <InspectMargin atUri={record?.uri} cid={record?.cid} />
-        {/* `workCategory`, not the raw first tag: it skips the reserved
-            cross-post markers and applies the same medium rules as the chip
-            this work wears on /creating, so the header agrees with the index
-            the reader arrived from. */}
-        <DocumentMeta date={v?.createdAt} verb="Created" tag={workCategory(v)} />
-        {/* The summary is metadata — the feed-card / open-graph blurb, not page
-            copy. For standard/leaflet docs it's auto-derived from the body's
-            opening (feedBuilder's leafletSynopsis) when the record has no
-            `description`, so rendering it here just duplicates the first lines of
-            the body. Show it only for LEGACY works (no `content.pages`), whose
-            `summary` is a hand-written intro distinct from the body; standard
-            docs keep it as metadata only, exactly as the blog post page omits
-            its `description`. */}
-        {v?.summary && !v?.content?.pages && (
-          <p className="page-intro">{v.summary}</p>
-        )}
-        {v?.content?.pages ? (
-          <LeafletDocument
-            doc={v.content}
-            contents
-            quotable={String(record?.uri || '').includes(`/${STANDARD_DOC}/`)}
-          />
-        ) : (
-          <>
-            {Array.isArray(v?.media) && v.media.length > 0 && (
-              <div className="creating-work-media">
-                {v.media.map((m, i) =>
-                  m?.kind === 'image' && m.url ? (
-                    <img key={m.url + i} src={m.url} alt={m.alt || ''} loading="lazy" />
-                  ) : null,
-                )}
-              </div>
-            )}
-            {legacyHtml && (
-              <div className="blog-prose" dangerouslySetInnerHTML={{ __html: legacyHtml }} />
-            )}
-            {Array.isArray(v?.links) && v.links.length > 0 && (
-              <ul className="creating-work-links about-links">
-                {v.links.map((l) => (
-                  <li key={l.url}>
-                    <a href={l.url} target="_blank" rel="noreferrer noopener">
-                      {l.label || l.url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
+        {/* The facts in the note column beside the work, and for a document
+            the reading marker under them, as on an essay (Blogging.css
+            .doc-body). `workCategory`, not the raw first tag: it skips the
+            reserved cross-post markers and applies the same medium rules as
+            the chip this work wears on /creating, so the header agrees with
+            the index the reader arrived from. */}
+        <div className="doc-body">
+          <aside className="blog-margin">
+            <DocumentMeta date={v?.createdAt} verb="Created" tag={workCategory(v)} />
+            {v?.content?.pages && <ReadingMarker minutes={minutes} />}
+          </aside>
+          {v?.content?.pages ? (
+            <LeafletDocument
+              doc={v.content}
+              contents
+              quotable={String(record?.uri || '').includes(`/${STANDARD_DOC}/`)}
+            />
+          ) : (
+            <div className="doc-legacy">
+              {/* The summary is metadata — the feed-card / open-graph blurb,
+                  not page copy. For standard/leaflet docs it's auto-derived
+                  from the body's opening (feedBuilder's leafletSynopsis) when
+                  the record has no `description`, so rendering it there just
+                  duplicates the first lines of the body. Shown only for
+                  LEGACY works (no `content.pages`), whose `summary` is a
+                  hand-written intro distinct from the body. */}
+              {v?.summary && <p className="page-intro">{v.summary}</p>}
+              {Array.isArray(v?.media) && v.media.length > 0 && (
+                <div className="creating-work-media">
+                  {v.media.map((m, i) =>
+                    m?.kind === 'image' && m.url ? (
+                      <img key={m.url + i} src={m.url} alt={m.alt || ''} loading="lazy" />
+                    ) : null,
+                  )}
+                </div>
+              )}
+              {legacyHtml && (
+                <div className="blog-prose" dangerouslySetInnerHTML={{ __html: legacyHtml }} />
+              )}
+              {Array.isArray(v?.links) && v.links.length > 0 && (
+                <ul className="creating-work-links about-links">
+                  {v.links.map((l) => (
+                    <li key={l.url}>
+                      <a href={l.url} target="_blank" rel="noreferrer noopener">
+                        {l.label || l.url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
         <WorkFoot record={record} works={works} />
       </article>
     </PageShell>

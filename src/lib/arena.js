@@ -149,9 +149,10 @@ export function arenaText(value) {
 /**
  * What a channel holds, for its row on /curating: the first `n` blocks in
  * are.na's own position order, trimmed to what a small square needs (a
- * thumbnail, or a text block's words).
+ * thumbnail, or a text block's words). Sixteen, the most columns the page grid
+ * ever has; the row shows as many as the window has columns (Curating.css).
  */
-export function channelStrip(blocks, n = 6) {
+export function channelStrip(blocks, n = 16) {
   return (Array.isArray(blocks) ? blocks : [])
     .filter((b) => b && (b.thumb || b.type === 'text'))
     .slice(0, n)

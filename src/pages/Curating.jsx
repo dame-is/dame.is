@@ -222,8 +222,8 @@ function stripOf(g) {
 /**
  * A channel as a contact-sheet row: its title, then when it last changed, how
  * many blocks it holds and how old it is on one line under it, are.na's
- * description in italic, and the first six blocks cropped square (text blocks
- * stay as words). The word stays "blocks", since channels mix images, text and
+ * description in italic, and a row of its first blocks cropped square, one to
+ * each column of the page grid (text blocks stay as words). The word stays "blocks", since channels mix images, text and
  * links.
  */
 function ChannelRow({ gallery: g }) {

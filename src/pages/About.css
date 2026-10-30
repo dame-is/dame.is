@@ -21,6 +21,19 @@
   background: var(--page-edge);
 }
 
+/* On a desk the portrait is the note column's width and the gap after it a
+   gutter, so the name and bio start on the text column (theme.css). */
+@media (min-width: 701px) {
+  .about-card {
+    column-gap: var(--gutter);
+  }
+
+  .about-avatar {
+    width: var(--note);
+    height: var(--note);
+  }
+}
+
 .about-meta {
   flex: 1;
   min-width: 16rem;
@@ -257,7 +270,6 @@
    which stand without the is.dame.profile/self record. Label column in
    small caps, value in the serif, a quiet note after it. */
 .about-ledger {
-  max-width: var(--measure);
   margin-top: var(--space-6);
 }
 
@@ -285,10 +297,13 @@
   margin: 0;
 }
 
+/* The label column ends a gap short of the page grid's text column
+   (theme.css), so every value starts on the line the feed's records and the
+   card's bio do. */
 .about-ledger-rows > div,
 .about-also-row {
   display: grid;
-  grid-template-columns: 7rem minmax(0, 1fr);
+  grid-template-columns: calc(var(--text-inset) - var(--space-3)) minmax(0, 1fr);
   column-gap: var(--space-3);
   align-items: baseline;
   padding: var(--space-2) 0;
@@ -341,7 +356,7 @@
 }
 
 .about-also-row {
-  grid-template-columns: 7rem minmax(0, 1fr) auto;
+  grid-template-columns: calc(var(--text-inset) - var(--space-3)) minmax(0, 1fr) auto;
 }
 
 .about-also-label {

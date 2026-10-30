@@ -1,0 +1,170 @@
+/* The reading marker (ReadingMarker.jsx): where a reader is in a document,
+   held in the note column beside it. It rides down with them under the
+   running head, a little below where the chrome ends, and gives up the column
+   to anything wide enough to cross it.
+
+   Its voice is the margin's: the ledger's metadata size, the faint inks, the
+   section's number in the accent as the contents set it. */
+.reading-marker {
+  position: sticky;
+  top: calc(var(--chrome-top-h, var(--chrome-h)) + var(--space-5));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: var(--leading-tight);
+  color: var(--ink-muted);
+  transition:
+    opacity 180ms ease,
+    visibility 180ms;
+}
+
+.reading-marker.is-covered {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.reading-marker p {
+  max-width: none;
+  margin: 0;
+  text-indent: 0;
+}
+
+/* The section the reading line is in: its number over its name. A new
+   section rises into place, so the change reads as turning a page rather than
+   a flicker. */
+.reading-marker-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  animation: reading-marker-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.reading-marker-count {
+  font-variant-numeric: oldstyle-nums;
+}
+
+.reading-marker-num {
+  font-size: var(--text-lg);
+  line-height: 1;
+  color: var(--accent);
+}
+
+.reading-marker-of {
+  color: var(--ink-faint);
+}
+
+.reading-marker-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  color: var(--ink-soft);
+}
+
+/* The rule: a hairline the width of the column that fills as the document is
+   read, with a tick standing up where each section begins. Passed ticks take
+   the fill's colour. */
+.reading-marker-rule {
+  position: relative;
+  height: 6px;
+}
+
+.reading-marker-rule::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: var(--rule);
+}
+
+.reading-marker-fill {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left center;
+  transform: scaleX(var(--progress, 0));
+}
+
+.reading-marker-tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 6px;
+  background: var(--ink-faint);
+}
+
+.reading-marker-tick.is-passed {
+  background: var(--accent);
+}
+
+.reading-marker-left {
+  font-variant-numeric: oldstyle-nums;
+  color: var(--ink-faint);
+}
+
+@keyframes reading-marker-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+}
+
+/* The phone's version: the rule alone, a hairline across the window under the
+   running head while the document is on screen. Portalled to <body>, so it's
+   placed against the window; hidden on a desk, where the column has it. */
+.reading-progress {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .reading-marker {
+    display: none;
+  }
+
+  .reading-progress {
+    position: fixed;
+    top: var(--chrome-top-h, var(--chrome-h));
+    left: 0;
+    right: 0;
+    z-index: 29;
+    display: block;
+    height: 2px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 180ms ease;
+  }
+
+  .reading-progress.is-active {
+    opacity: 1;
+  }
+}
+
+/* X-ray writes each block's type in the note column; the marker makes room. */
+:root[data-xray='on'] .reading-marker {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reading-marker,
+  .reading-progress {
+    transition: none;
+  }
+
+  .reading-marker-section {
+    animation: none;
+  }
+}
+
+@media print {
+  .reading-marker,
+  .reading-progress {
+    display: none;
+  }
+}

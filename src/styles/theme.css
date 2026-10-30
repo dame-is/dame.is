@@ -80,24 +80,51 @@
      their on-screen size. 1 = no change — the default mono voice. */
   --mono-scale: 1;
 
-  /* The page: one column every route hangs in, chrome included (app.css
-     .main, ChromeBar.css --chrome-pad-x). Sized to the ledger, the widest
-     thing the site reads in a line: a 6.5rem margin note beside a 65ch
-     record, with a little to spare. Wide screens get wide outer margins
-     rather than a wider page, so a feed fills the page it's on instead of
-     floating in a frame built for something else. */
-  --frame: 46rem;
+  /* The page grid. One column is 5.75rem and one gutter 1.5rem; every edge
+     the chrome or a page draws lands on one of their lines.
+
+       note    one column: the ledger's gerund and time, an essay's facts, a
+               row's label in the chrome
+       text    five columns (34.75rem): running text. At the 20px essay size
+               that's 27.8em, the old 28em measure, about 66 characters
+       type area   note + gutter + text, six columns (42rem): the page. The
+               chrome's content box is the type area, so the chrome and every
+               page share its left edge, its right edge and the line where
+               the text column starts.
+
+     A wide window adds whole columns either side of the type area (--wing,
+     below), up to five a side. Text never takes them; photographs, figures,
+     tables and galleries may (--fig-*, --wide-* in app.css). On a phone
+     (≤ 700px) there's one column and none of this applies. */
+  --col: 5.75rem;
+  --gutter: 1.5rem;
+  --pitch: calc(var(--col) + var(--gutter));
+  --note: var(--col);
+  --text: calc(5 * var(--col) + 4 * var(--gutter));
+  --text-inset: calc(var(--note) + var(--gutter));
+  --type-area: calc(var(--text-inset) + var(--text));
+  /* The page's least margin either side, which is also what the chrome
+     insets its content by on a narrow desk. */
+  --edge: clamp(var(--space-5), 6vw, var(--space-9));
+  /* How far the grid reaches past the type area on each side: the whole
+     columns that fit inside the margin. 0 where round() isn't supported,
+     which is A: the type area alone. */
+  --wing: 0px;
+  /* The page frame every route hangs in, chrome included (app.css .main,
+     ChromeBar.css --chrome-pad-x): the type area. The admin overrides it
+     with a wider workbench (adminShell.css). */
+  --frame: var(--type-area);
   /* Breakpoints can't be custom properties (a media query can't read one),
      so the two the site uses live in stylelint.config.js, which says what
      each is for and refuses any other: phone ≤ 700px, desk ≥ 62rem. */
-  --measure: 65ch;
-  /* Long-form's reading measure, in em of the body rather than ch of the
-     zero: Crimson's zero is wide, so 65ch ran essays at about 85 characters
-     a line. 28em at the 20px essay size (--text-prose) is a median of 66.
-     Written in rem so it means the same width wherever it's read. UI text
-     keeps --measure. */
+  /* UI text wraps at the text column, so a paragraph's edge is a grid line
+     on whatever it sits in. Was 65ch, which resolved against each element's
+     own font and landed between lines. */
+  --measure: var(--text);
+  /* Long-form's reading measure: the text column too, 27.8em at the 20px
+     essay size (--text-prose), a median of about 66 characters. */
   --text-prose: 1.25rem;
-  --measure-prose: calc(var(--text-prose) * 28);
+  --measure-prose: var(--text);
   --leading: 1.6;
   --leading-tight: 1.3;
 
@@ -148,6 +175,30 @@
   --text-4xl: 3rem;
 
   color-scheme: light;
+}
+
+/* The wings: half of what the window has beyond the type area, less the
+   least margin, rounded down to whole columns, five at most. So the grid is
+   6 columns to 1028px, then 8, 10, 12, 14, and 16 from 2024px, with no
+   breakpoint of its own. 100vw counts a classic scrollbar; the least margin
+   absorbs it. */
+@supports (width: round(down, 10px, 3px)) {
+  :root {
+    --wing: clamp(
+      0px,
+      round(down, (100vw - var(--type-area)) / 2 - var(--edge), var(--pitch)),
+      5 * var(--pitch)
+    );
+  }
+}
+
+/* A phone is one column: no note column beside the text, no wings. */
+@media (max-width: 700px) {
+  :root {
+    --edge: var(--space-4);
+    --text-inset: 0px;
+    --wing: 0px;
+  }
 }
 
 /* Serif-only font mode. Folds the tabular monospace accent (--mono:

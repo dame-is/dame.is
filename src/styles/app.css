@@ -76,13 +76,25 @@ html {
   flex-direction: column;
 }
 
+/* Breakouts: how far past the type area a thing may hang on each side, in
+   whole columns of the grid (theme.css). A figure takes one column a side
+   once the grid has one to give; a gallery, a wide table or a chart takes
+   every column there is. Both are 0 on a phone and wherever the window has
+   no columns to spare, so a rule that spends them is a no-op there.
+
+   Measured from the type area's edges. Something set in the text column adds
+   --fig-inset on its left: the note column and its gutter, but only once the
+   grid has wings, so below 1028px a figure keeps to the text it sits in. */
+:root {
+  --wing-fig: min(var(--wing), var(--pitch));
+  --fig-inset: min(var(--text-inset), var(--wing) * 1000);
+}
+
 .main {
   /* The page frame as two tokens rather than two literals, because more than
-     `.main` needs them: a document figure that widens past the reading measure
-     has to know how much room is left either side of it, and the only honest
-     answer is this width minus these gutters. See --doc-room in Blogging.css.
-     Both inherit, so every descendant reads the same frame `.main` is drawn to. */
-  --main-gutter: clamp(var(--space-5), 6vw, var(--space-9));
+     `.main` needs them. Both inherit, so every descendant reads the same frame
+     `.main` is drawn to. */
+  --main-gutter: var(--edge);
   --main-max: calc(var(--frame) + 2 * var(--main-gutter));
   flex: 1;
   width: 100%;
@@ -448,7 +460,6 @@ html {
 
 @media (max-width: 700px) {
   .main {
-    --main-gutter: var(--space-4);
     padding: calc(var(--space-6) + var(--chrome-crumb-pin-h, 0px)) var(--main-gutter) var(--space-6);
   }
   .page-title {

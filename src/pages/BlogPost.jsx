@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Comments from '../components/Comments.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
+import ReadingMarker from '../components/ReadingMarker.jsx';
 import SequenceFoot, { countWord } from '../components/SequenceFoot.jsx';
 import Fleuron from '../components/Fleuron.jsx';
 import NewsletterSignup from '../components/NewsletterSignup.jsx';
@@ -274,19 +275,24 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
 
   return (
     <PageShell atUri={record?.uri} cid={record?.cid} headTitle={`${title} — dame.is`}>
-      {/* A book page: the title and the text hang from the chrome's left edge
-          in one 28em column, and the facts sit in the margin beside them
-          (Blogging.css .blog-book). */}
+      {/* A book page on the page grid: the title across the type area, the
+          text in the text column, and beside it in the note column the facts
+          and, under them, the reading marker that keeps the reader's place
+          (Blogging.css .doc-body). On a phone the facts are a band under the
+          title again. */}
       <article className="blog-article blog-book reveal">
         <h1 className="page-title blog-title">{title}</h1>
-        <aside className="blog-margin">
-          {columns && <DocumentMeta columns={columns} />}
-        </aside>
         <InspectMargin atUri={record?.uri} cid={record?.cid} />
-        {/* The `description` field is intentionally not rendered here — it's the
-            open-graph / feed-summary blurb, and on the post itself it just
-            duplicated the opening lines of the body. */}
-        <LeafletDocument doc={value.content} quotable />
+        <div className="doc-body">
+          <aside className="blog-margin">
+            {columns && <DocumentMeta columns={columns} />}
+            <ReadingMarker minutes={minutes} />
+          </aside>
+          {/* The `description` field is intentionally not rendered here — it's
+              the open-graph / feed-summary blurb, and on the post itself it
+              just duplicated the opening lines of the body. */}
+          <LeafletDocument doc={value.content} quotable />
+        </div>
         <footer className="blog-end">
           <p className="blog-end-mark" aria-hidden="true">
             <Fleuron />

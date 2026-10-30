@@ -34,6 +34,7 @@ import '../components/ListeningStats.css';
 import '../pages/Albums.css';
 import '../pages/Blogging.css';
 import '../components/Comments.css';
+import '../components/ReadingMarker.css';
 import '../components/SequenceFoot.css';
 import '../pages/BloggingSubscribe.css';
 import '../pages/Creating.css';
