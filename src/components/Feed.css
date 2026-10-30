@@ -2558,7 +2558,7 @@ a.ledger-time:focus-visible {
 }
 
 /* Quote box: a two-line teaser with a small author chip; nested media
-   inside the quote drops out entirely. */
+   inside the quote drops out (but see the textless quote below). */
 .ledger-embed .post-embed-quote {
   gap: var(--space-1);
   padding: var(--space-2);
@@ -2593,6 +2593,41 @@ a.ledger-time:focus-visible {
   display: none;
 }
 
+/* ...except when the quoted post has no text. Then what it carries is all
+   there is to it, and dropping that left an author chip over nothing, which
+   read as a quote of an empty post. So a textless quote keeps its own
+   picture, video, link card or quote, under the caps above. Only its direct
+   children: anything nested deeper stays dropped. */
+.ledger-embed .post-embed-quote:not(:has(> .post-embed-quote-text)) > .post-embed-images {
+  display: grid;
+}
+
+/* A lone picture stops at 16rem tall there, half the ledger's own cap, so
+   the post it was quoted in still leads the row rather than the quote. */
+.ledger-embed .post-embed-quote:not(:has(> .post-embed-quote-text)) > .post-embed-images[data-count='1'] {
+  --embed-image-max-h: 16rem;
+}
+
+.ledger-embed
+  .post-embed-quote:not(:has(> .post-embed-quote-text))
+  > .post-embed-images[data-count='1']
+  .post-embed-image:not([data-sized='true'])
+  img {
+  max-height: 16rem;
+}
+
+.ledger-embed .post-embed-quote:not(:has(> .post-embed-quote-text)) > .post-embed-video {
+  display: block;
+}
+
+.ledger-embed .post-embed-quote:not(:has(> .post-embed-quote-text)) > .post-embed-link-card {
+  display: grid;
+}
+
+.ledger-embed .post-embed-quote:not(:has(> .post-embed-quote-text)) > .post-embed-quote {
+  display: flex;
+}
+
 /* Reposts render as a quote-style box (FeedLedgerRow's RepostQuote).
    The reposted post IS the row's content, so — unlike a quote nested
    inside a normal post — its text stays unclamped and its own media
@@ -2620,8 +2655,9 @@ a.ledger-time:focus-visible {
 /* A repost of a quote-post: show the quoted post as a compact card so
    the repost keeps the subject it was quoting (this was dropped before).
    Its author + full text ride along; its own media stays dropped (the
-   rules above only lift the reposted post's direct embeds), keeping the
-   nested card from ballooning the row — the record page has the rest. */
+   rules above only lift the reposted post's direct embeds, and a textless
+   quote's), keeping the nested card from ballooning the row — the record
+   page has the rest. */
 .ledger-repost > .post-embed-quote > .post-embed-quote {
   display: flex;
 }
