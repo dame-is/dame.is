@@ -41,9 +41,12 @@ describe('LeafletBlock — Leaflet\'s blockquote', () => {
       $type: 'pub.leaflet.blocks.blockquote',
       plaintext: '"Twitter is funding a small independent team" -- in 2019...',
     });
-    expect(html).toBe(
-      '<blockquote class="leaflet-paragraph leaflet-inset">“Twitter is funding a small independent team” — in 2019…</blockquote>',
+    expect(html).toMatch(
+      /^<blockquote class="leaflet-paragraph leaflet-inset">“Twitter is funding a small independent team” — in 2019…/,
     );
+    // The typed text rides along for x-ray, hidden from a screen reader.
+    expect(html).toContain('<span class="leaflet-xray-raw" aria-hidden="true">');
+    expect(html.endsWith('</blockquote>')).toBe(true);
   });
 
   it('keeps its links', () => {
@@ -60,7 +63,7 @@ describe('LeafletBlock — Leaflet\'s blockquote', () => {
     expect(html).toMatch(/^<blockquote class="leaflet-paragraph leaflet-inset"><a [^>]*href="https:\/\/example.com\/update"[^>]*>Atmosphere<\/a> update: apps are growing<\/blockquote>$/);
   });
 
-  it('draws nothing for an empty one', () => {
-    expect(draw({ $type: 'pub.leaflet.blocks.blockquote', plaintext: ' \n' })).toBe('');
+  it('draws no quotation for an empty one', () => {
+    expect(draw({ $type: 'pub.leaflet.blocks.blockquote', plaintext: ' \n' })).not.toContain('<blockquote');
   });
 });
