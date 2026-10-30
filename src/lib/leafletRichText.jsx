@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { isLikelyBareHttpUrl, truncateUrlDisplay } from './feedUrlFormat.jsx';
 import { safeHref } from './safeHref.js';
 import { smartenText } from './smartPunctuation.js';
+import { isSubscribeLink, jumpToSignup } from './newsletter.js';
 
 // Facet features whose text must reach the page exactly as written: a curled
 // quote in code or a URL changes what the reader copies.
@@ -203,6 +204,9 @@ function wrapWithFeatures(features, text) {
     // essay's margin, which the one-column page no longer has.
     const titleAttr =
       useTrunc && sourceText.length < trimmed.length ? trimmed : hostOf(href) || undefined;
+    // A link to the newsletter form goes to the form on this page when there
+    // is one, rather than opening the index in a new tab.
+    const onClick = isSubscribeLink(href) ? jumpToSignup : undefined;
     return (
       <a
         className="post-rich-link"
@@ -210,6 +214,7 @@ function wrapWithFeatures(features, text) {
         target="_blank"
         rel="noreferrer noopener"
         title={titleAttr}
+        onClick={onClick}
       >
         {node}
       </a>

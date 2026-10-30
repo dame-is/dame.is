@@ -111,7 +111,7 @@ function isoDate(value) {
 // isStaticPath() in og/routes.js is the second net for the same set.
 export const config = {
   matcher: [
-    '/((?!api/|assets/|data/|_vercel/|\\.well-known/|index\\.html|robots\\.txt|sitemap\\.xml|feed\\.xml|llms\\.txt|version\\.json|oauth-client-metadata\\.json).*)',
+    '/((?!api/|assets/|data/|_vercel/|\\.well-known/|index\\.html|robots\\.txt|sitemap\\.xml|feed\\.xml|llms\\.txt|version\\.json|oauth-client-metadata\\.json|receive_auth_callback).*)',
   ],
 };
 

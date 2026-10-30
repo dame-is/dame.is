@@ -181,6 +181,32 @@ The `/mothing` page applies the same freshness check in the browser: it paints
 from the snapshot and only re-pulls the full observation set from iNaturalist
 when the cheap signature says something actually changed.
 
+## Newsletter
+
+The blog ("dame.is blogging", `BLOG_PUBLICATION`) doubles as an email
+newsletter, sent by [Leaflet](https://leaflet.pub). Leaflet keeps the list and
+sends the email; this site only shows the form and never sees an address. The
+whole flow is described in [`src/lib/newsletter.js`](src/lib/newsletter.js).
+
+- **Where the form shows.** A post places it with Leaflet's signup block
+  (`pub.leaflet.blocks.signup`, "Newsletter signup" in the admin block editor)
+  wherever the author wants one. A post without any gets one after its last
+  line, and `/blogging` keeps one at the top, at `#subscribe`.
+- **Linking to it.** A text link to `https://dame.is/blogging#subscribe` works
+  everywhere: on a dame.is page that has a form it moves to the nearest one
+  below it, and anywhere else (an email, a feed reader, Bluesky) it opens the
+  index's.
+- **The form** is Leaflet's embeddable subscribe form as a plain GET form to
+  `leaflet.pub/api/auth/email-login`. It only does anything once newsletter
+  mode is on for the publication in Leaflet.
+- **The way back.** Once a reader confirms, Leaflet sends them to
+  `/receive_auth_callback` on this site, not to the form's redirect (the real
+  redirect is sealed in a token only Leaflet can read). The form notes its page
+  in a cookie as it leaves, and
+  [`api/newsletter-return.js`](api/newsletter-return.js) sends the reader back
+  there, where the form says thanks. The path is rewritten to that function in
+  `vercel.json` and kept out of the middleware like the other non-SPA paths.
+
 ## Local development
 
 ```sh

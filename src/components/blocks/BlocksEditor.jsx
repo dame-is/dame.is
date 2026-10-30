@@ -20,6 +20,7 @@ import BskyPostBlockEditor from './BskyPostBlockEditor.jsx';
 import RatioedBlockEditor from './RatioedBlockEditor.jsx';
 import { listBlockFrom } from './listBlocks.js';
 import { textBlockToBlocks } from '../../lib/pasteBlocks.js';
+import { SIGNUP_BLOCK_TYPE } from '../../lib/newsletter.js';
 import {
   GALLERY_DEFAULT_LAYOUT,
   GALLERY_LAYOUTS,
@@ -804,6 +805,12 @@ function BlockBody({ block, agent, did, onChange, onSetCover, onPasteBlocks }) {
       return <BskyPostBlockEditor block={block} onChange={onChange} />;
     case 'is.dame.blocks.ratioed':
       return <RatioedBlockEditor block={block} onChange={onChange} />;
+    case SIGNUP_BLOCK_TYPE:
+      return (
+        <p className="admin-field-hint">
+          The newsletter&rsquo;s email form. Nothing to set: it shows wherever this block sits.
+        </p>
+      );
     default:
       return (
         <pre className="blocks-editor-unknown">
@@ -1104,6 +1111,12 @@ function BlockPalette({ agent, onInsert, onInsertMany }) {
           Ratioed chart
         </AddButton>
         <AddButton
+          onClick={() => onInsert({ $type: SIGNUP_BLOCK_TYPE })}
+          title="Leaflet's signup block, drawn on dame.is as the newsletter's email form."
+        >
+          Newsletter signup
+        </AddButton>
+        <AddButton
           onClick={() => onInsert({ $type: 'pub.leaflet.blocks.text', plaintext: '', facets: [] })}
           title="Inserts an empty text block — renders as a paragraph spacer."
         >
@@ -1188,6 +1201,7 @@ function labelFor(type) {
     case 'pub.leaflet.blocks.orderedList': return 'numbered list';
     case 'pub.leaflet.blocks.bskyPost': return 'bsky post';
     case 'is.dame.blocks.ratioed': return 'ratioed chart';
+    case SIGNUP_BLOCK_TYPE: return 'newsletter signup';
     default: return type || 'block';
   }
 }

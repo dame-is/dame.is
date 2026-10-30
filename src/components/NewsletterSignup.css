@@ -1,0 +1,74 @@
+/* The newsletter form (NewsletterSignup.jsx): a label, one email field with
+   the kit's primary button beside it, and a line of fine print, between two
+   hairlines. The same object in a post (where the author placed a signup
+   block, or after the last line), and on the /blogging index. */
+.newsletter {
+  margin: var(--space-6) 0;
+  padding: var(--space-4) 0;
+  border-block: 1px solid var(--rule-soft);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+/* A label and notes, not prose: none takes the `p + p` indent typography.css
+   gives a passage's later paragraphs, which a post's article would otherwise
+   pass to the thank-you line under the label. */
+.newsletter p {
+  margin: 0;
+  max-width: none;
+  text-indent: 0;
+}
+
+.newsletter-label {
+  margin-bottom: var(--space-2);
+}
+
+.newsletter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.newsletter-input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  min-height: var(--control-h-md);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--mono-ui);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  background: var(--page-edge);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  transition: border-color 120ms ease;
+}
+
+.newsletter-input:focus {
+  border-color: var(--accent);
+}
+
+.newsletter-input::placeholder {
+  color: var(--ink-faint);
+}
+
+.newsletter-fine {
+  margin-top: var(--space-2);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+}
+
+.newsletter-fine a {
+  color: inherit;
+}
+
+.newsletter-done {
+  color: var(--ink);
+}
+
+/* Paper can't take an address. */
+@media print {
+  .newsletter {
+    display: none;
+  }
+}

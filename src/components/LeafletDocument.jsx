@@ -36,6 +36,8 @@ import { Link } from 'react-router-dom';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { ME_DID } from '../config.js';
 import { videoEmbedSrc } from '../lib/videoEmbed.js';
+import { SIGNUP_BLOCK_TYPE, signupBlockIds } from '../lib/newsletter.js';
+import NewsletterSignup from './NewsletterSignup.jsx';
 import './LeafletDocument.css';
 
 // Lazy: Ratioed's charts appear in one essay, but they carry the project's
@@ -72,6 +74,11 @@ const LeafletLightboxContext = createContext(null);
 // first section, where the contents row goes. Null when the document keeps
 // no contents.
 const LeafletSectionsContext = createContext(null);
+
+// Each signup block's form id (signupBlockIds), so a reader confirming their
+// address comes back to the form they used. Null outside a full document (the
+// block-editor preview), where a form makes up an id of its own.
+const LeafletSignupContext = createContext(null);
 
 // Fewer sections than this and a contents row is longer than the walk.
 const CONTENTS_MIN_SECTIONS = 4;
@@ -147,6 +154,7 @@ function collectImages(pages) {
  *   - pub.leaflet.blocks.code          (preformatted code)
  *   - pub.leaflet.blocks.unorderedList (recursive list w/ #listItem children)
  *   - pub.leaflet.blocks.orderedList   (same shape as unorderedList)
+ *   - pub.leaflet.blocks.signup        (the newsletter's email form)
  *
  * Empty text blocks act as paragraph breaks.
  */
@@ -161,6 +169,7 @@ export default function LeafletDocument({ doc, contents = false }) {
     return found.list.length >= CONTENTS_MIN_SECTIONS ? found : null;
   }, [contents, pages]);
   const images = useMemo(() => collectImages(pages), [pages]);
+  const signupIds = useMemo(() => signupBlockIds(pages), [pages]);
   const cutoff = useEmbedCutoff(pages);
   const indexBySrc = useMemo(() => {
     const m = new Map();
@@ -184,18 +193,20 @@ export default function LeafletDocument({ doc, contents = false }) {
   return (
     <LeafletLightboxContext.Provider value={ctx}>
       <LeafletSectionsContext.Provider value={sections}>
-        <div className={sections ? 'leaflet-doc leaflet-doc-sectioned' : 'leaflet-doc'}>
-          {pages.map((page, pi) =>
-            cutoff && pi > cutoff.page ? null : (
-              <LeafletPage
-                key={pi}
-                page={page}
-                firstIndex={pi === 0 ? firstIndex : -1}
-                upTo={cutoff && pi === cutoff.page ? cutoff.block : null}
-              />
-            ),
-          )}
-        </div>
+        <LeafletSignupContext.Provider value={signupIds}>
+          <div className={sections ? 'leaflet-doc leaflet-doc-sectioned' : 'leaflet-doc'}>
+            {pages.map((page, pi) =>
+              cutoff && pi > cutoff.page ? null : (
+                <LeafletPage
+                  key={pi}
+                  page={page}
+                  firstIndex={pi === 0 ? firstIndex : -1}
+                  upTo={cutoff && pi === cutoff.page ? cutoff.block : null}
+                />
+              ),
+            )}
+          </div>
+        </LeafletSignupContext.Provider>
         {images.length > 0 && (
           <Lightbox
             open={lightbox >= 0}
@@ -566,6 +577,8 @@ export function LeafletBlock({ block, first = false, index = null, inGallery = f
           style={style}
         />
       );
+    case SIGNUP_BLOCK_TYPE:
+      return <SignupBlock block={block} style={style} />;
     // Site-local block type. Other renderers of pub.leaflet.content fall through
     // to `null` here, which is why a ratioed block should always be followed by
     // a text block carrying the same figures in prose.
@@ -598,6 +611,15 @@ export function LeafletBlock({ block, first = false, index = null, inGallery = f
     default:
       return null;
   }
+}
+
+/**
+ * Leaflet's signup block carries no data: it stands for "the publication's
+ * subscribe form here", which on dame.is is the newsletter's.
+ */
+function SignupBlock({ block, style }) {
+  const ids = useContext(LeafletSignupContext);
+  return <NewsletterSignup id={ids?.get(block)} style={style} />;
 }
 
 /**

@@ -6,6 +6,7 @@ import Comments from '../components/Comments.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
 import SequenceFoot, { countWord } from '../components/SequenceFoot.jsx';
 import Fleuron from '../components/Fleuron.jsx';
+import NewsletterSignup from '../components/NewsletterSignup.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
@@ -16,6 +17,7 @@ import { showOnBlog, isDraft, primaryTag } from '../lib/publications.js';
 import { smartenText } from '../lib/smartPunctuation.js';
 import { formatDateFull, formatDateShort, relativeDay, relativeDayShort } from '../lib/time.js';
 import { shortenCid } from '../lib/xray.js';
+import { hasSignupBlock, SUBSCRIBE_ID } from '../lib/newsletter.js';
 import { useXray } from '../hooks/useXray.jsx';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
@@ -241,6 +243,9 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
   // medium inference behind `workCategory` would caption a cross-posted post
   // "case study", a value its record never carries.
   const tag = primaryTag(value);
+  // Where the author placed signup blocks, those are the post's forms; a post
+  // without one gets the newsletter after its last line.
+  const endSignup = !hasSignupBlock(value.content?.pages);
   const columns = created
     ? [
         { key: 'date', label: 'Published', long: formatDateFull(created), short: formatDateShort(created) },
@@ -288,6 +293,7 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
           <p className="blog-end-mark" aria-hidden="true">
             <Fleuron />
           </p>
+          {endSignup && <NewsletterSignup id={SUBSCRIBE_ID} />}
           {total > 1 && index >= 0 && (
             <SequenceFoot
               label="Other essays"
