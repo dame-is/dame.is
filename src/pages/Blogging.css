@@ -94,8 +94,14 @@
 }
 
 .blog-title {
-  margin: 0 0 var(--space-5);
   text-wrap: balance;
+}
+
+/* The band's space above it. Two classes, because the global `.page-title`
+   (app.css) sets `margin: 0`, loads after this sheet and wins a tie, which
+   left the title sitting on the band's top rule. */
+.blog-book > .blog-title {
+  margin: 0 0 var(--space-4);
 }
 
 .blog-margin .document-meta {
