@@ -37,8 +37,25 @@ const STABLE_MS = 10_000;
 // moment don't all come back at the same moment too.
 const JITTER = 0.3;
 
-// How far back a reconnect will replay. See replayCursor.
+// How far back a reconnect will replay, unless the caller says otherwise. See
+// replayCursor.
 const MAX_REPLAY_MS = 30_000;
+
+// How many connections in a row a cursor gets to deliver something before the
+// next one is tried. A seq the server no longer holds is refused at the upgrade
+// — no open, no message, measured — so without this a resume window as long as
+// the lookback would redial the same dead cursor for a day and a half. Two,
+// because an overloaded server that accepts and hangs up looks the same once.
+const MISSES_PER_CURSOR = 2;
+
+// A resume by time starts this far before the last event seen. Duplicates are
+// harmless downstream (everything is keyed by record key); a missed second isn't.
+const TIME_RESUME_SLACK_MS = 1000;
+
+// A reconnect whose first event lands later than this after the last one seen
+// left a stretch unwatched. Seq resumes are inclusive and land on the same
+// event; a time resume lands a second early; only a live restart jumps.
+const HOLE_MS = 1000;
 
 // What one watch is allowed to cost before it stops itself. ~24 minutes at the
 // measured rate. Stopping is reported, not silent.
@@ -125,13 +142,18 @@ export function createMeter({ windowMs = STATUS_MS } = {}) {
  * decision is made on the clock, not the sequence number, because sequence
  * numbers say nothing about elapsed time.
  *
- * Past MAX_REPLAY_MS it starts live: the studio polls underneath and the
- * backlink index measures afterwards, so a long gap costs promptness, not data.
+ * Past `maxMs` it starts live. For a page a stranger opened that is the right
+ * call, and 30 seconds is the default. It is the wrong one for the studio,
+ * which used to say a long gap "costs promptness, not data" — true of every
+ * like that survives, false of the one this project is about: a like cast and
+ * taken back while the socket was down reaches no index and no poll. A replayed
+ * gap costs exactly the bytes the socket would have read had it stayed up, so a
+ * caller already paying for the whole piece passes the lookback here.
  */
-export function replayCursor(lastSeq, lastTimeMs, nowMs = Date.now()) {
+export function replayCursor(lastSeq, lastTimeMs, nowMs = Date.now(), maxMs = MAX_REPLAY_MS) {
   if (!lastSeq || !lastTimeMs) return null;
   const gap = nowMs - lastTimeMs;
-  if (gap < 0 || gap >= MAX_REPLAY_MS) return null;
+  if (gap < 0 || gap >= maxMs) return null;
   return lastSeq;
 }
 
@@ -206,10 +228,33 @@ export function classify(collection, record, subject) {
  * it is arriving, resampled about once a second: a watch on a piece nobody has
  * touched matches nothing for minutes, and those three are the difference
  * between a panel that looks broken and one that is visibly working.
+ *
+ * `fromMs` starts the watch in the past rather than at the moment it opens: the
+ * first connection asks for a timestamp cursor, the server replays forward from
+ * there at a few hundred times real time, and the same socket carries on live.
+ * It is how a studio reopened three minutes into a piece sees those three
+ * minutes — including a like cast and taken back inside them, since the replay
+ * carries the create and the delete in order. `maxReplayMs` is how long a drop
+ * may last and still resume exactly; see replayCursor.
+ *
+ * Status also says what the watch can vouch for. `coveredFrom` is the epoch ms
+ * from which it has read everything, null until the first event arrives — read
+ * off that event, so a cursor the server could not honour shows up as a later
+ * start rather than as a claim. `gapMs` is time lost since then to reconnects
+ * that had to start live. `atMs` is the newest event's relay time and
+ * `behindMs` how far that trails this machine's clock: a few hundred ms when
+ * live, minutes while a replay is catching up.
  */
 export function watchSubject(
   subject,
-  { onEvent, onStatus, endpoint = DEFAULT_ENDPOINT, budgetBytes = DEFAULT_BUDGET_BYTES } = {},
+  {
+    onEvent,
+    onStatus,
+    endpoint = DEFAULT_ENDPOINT,
+    budgetBytes = DEFAULT_BUDGET_BYTES,
+    fromMs = null,
+    maxReplayMs = MAX_REPLAY_MS,
+  } = {},
 ) {
   let ws = null;
   let stopped = false;
@@ -224,6 +269,24 @@ export function watchSubject(
   let timer = null;
   let openedAt = 0;
   const meter = createMeter();
+  // Where the first connection starts. Honoured even past the lookback: the
+  // server answers a timestamp below its floor by starting at the floor, which
+  // is still more than starting live, and `coveredFrom` reports where it landed.
+  const startMs = Number.isFinite(fromMs) && fromMs < Date.now() ? fromMs : null;
+  let coveredFrom = null;
+  let gapMs = 0;
+  let atMs = 0;
+  let behindMs = 0;
+  // The newest message, held by reference so its time is parsed when a
+  // connection closes rather than on every message in between.
+  let lastRaw = '';
+  let lastEventMs = 0;
+  // Per connection: what it asked for, and whether it has delivered anything.
+  let askedFrom = null;
+  let usedCursor = false;
+  let delivered = false;
+  let timed = false;
+  let misses = 0;
   // null / 0 / Infinity all mean "run until told to stop".
   const capped = Number.isFinite(budgetBytes) && budgetBytes > 0;
   // Record keys this subscription has reported as creates. A delete names only
@@ -239,7 +302,36 @@ export function watchSubject(
   // leave the caller showing a stopped stream as merely disconnected.
   let spent = false;
   const status = (state) =>
-    onStatus?.({ state: spent ? 'spent' : state, bytes, seen, msgs, rate, kbps });
+    onStatus?.({
+      state: spent ? 'spent' : state,
+      bytes,
+      seen,
+      msgs,
+      rate,
+      kbps,
+      coveredFrom,
+      gapMs,
+      atMs,
+      behindMs,
+    });
+
+  // Which cursor this connection asks for, in order of exactness: the seq the
+  // last one ended on, then the time it ended at, then nothing. Each gets
+  // MISSES_PER_CURSOR tries at delivering a message before the next is tried.
+  const pickCursor = (nowMs) => {
+    if (!lastSeq) {
+      if (startMs == null || misses >= 2 * MISSES_PER_CURSOR) return null;
+      return { cursor: startMs * 1000, from: startMs };
+    }
+    const seq = replayCursor(lastSeq, lastTimeMs, nowMs, maxReplayMs);
+    if (!seq) return null;
+    if (misses < MISSES_PER_CURSOR) return { cursor: seq, from: null };
+    if (misses < 2 * MISSES_PER_CURSOR && lastEventMs) {
+      // Microseconds, which the live tail tells apart from a seq by magnitude.
+      return { cursor: (lastEventMs - TIME_RESUME_SLACK_MS) * 1000, from: null };
+    }
+    return null;
+  };
 
   const connect = () => {
     if (stopped) return;
@@ -248,8 +340,12 @@ export function watchSubject(
     // Commits only. Identity and account events can't point at a post, and
     // asking for them costs bytes for nothing.
     params.append('kinds', 'commit');
-    const cursor = replayCursor(lastSeq, lastTimeMs);
-    if (cursor) params.set('cursor', String(cursor));
+    const pick = pickCursor(Date.now());
+    if (pick) params.set('cursor', String(pick.cursor));
+    usedCursor = Boolean(pick);
+    askedFrom = pick?.from ?? null;
+    delivered = false;
+    timed = false;
 
     status('connecting');
     try {
@@ -268,11 +364,39 @@ export function watchSubject(
       const raw = typeof msg.data === 'string' ? msg.data : '';
       bytes += raw.length;
       msgs += 1;
+      lastRaw = raw;
+      if (!delivered) {
+        delivered = true;
+        misses = 0;
+      }
+      // The first event this connection delivers says where it actually
+      // started, which is the only honest source for what the watch covers: a
+      // cursor is a request, and the server may land it elsewhere.
+      if (!timed) {
+        const t = timeMsOf(raw);
+        if (t) {
+          timed = true;
+          if (coveredFrom == null) {
+            coveredFrom = askedFrom != null ? Math.max(askedFrom, t) : t;
+          } else if (lastEventMs && t - lastEventMs > HOLE_MS) {
+            gapMs += t - lastEventMs;
+          }
+          atMs = t;
+          behindMs = Math.max(0, Date.now() - t);
+          status('open');
+        }
+      }
       // The throughput sample, on a mask rather than on every message: this is
       // the hot path, ~260 messages a second, and the number it feeds is a
       // display number.
       if ((msgs & (STATUS_EVERY - 1)) === 0) {
-        const sample = meter.mark(Date.now(), msgs, bytes);
+        const nowMs = Date.now();
+        const t = timeMsOf(raw);
+        if (t) {
+          atMs = t;
+          behindMs = Math.max(0, nowMs - t);
+        }
+        const sample = meter.mark(nowMs, msgs, bytes);
         if (sample) {
           rate = sample.rate;
           kbps = sample.kbps;
@@ -350,6 +474,8 @@ export function watchSubject(
     ws.onclose = () => {
       if (openedAt && Date.now() - openedAt >= STABLE_MS) attempt = 0;
       openedAt = 0;
+      if (usedCursor && !delivered) misses += 1;
+      lastEventMs = timeMsOf(lastRaw) || lastEventMs;
       status('closed');
       schedule();
     };
@@ -404,7 +530,10 @@ export const LOOKBACK_MS = 36 * 60 * 60 * 1000;
 //
 // The server replays at about 300x real time (78,000 events a second against a
 // live rate near 260, measured); a third of that is assumed. Plus the rewind:
-// a cursor lands up to half an hour early.
+// a cursor lands up to half an hour early. (Measured again on 2026-10-30 on the
+// us-east v2 host, a timestamp cursor landed on the second it asked for, and
+// one past retention came back as an OutdatedCursor info message and a start
+// at the floor. The allowance stays: it only costs a filtered replay time.)
 const REPLAY_SPEEDUP = 100;
 const REPLAY_REWIND_MS = 30 * 60 * 1000;
 const REPLAY_QUIET_MS = 8_000;
@@ -441,10 +570,13 @@ export function withinLookback(ms, nowMs = Date.now()) {
  * deleted like has a name at all — and filtering to that one account server-
  * side turns the whole replay into a handful of events.
  *
- * Resolves `{ events, bytes, reachedEnd, error }`. `reachedEnd` is false when
- * the budget or the time limit stopped it early, so a caller can tell "nothing
- * was there" from "we stopped looking". It always resolves: a replay that has
- * caught up and gone quiet counts as having reached the end.
+ * Resolves `{ events, bytes, reachedEnd, error, firstMs }`. `reachedEnd` is
+ * false when the budget or the time limit stopped it early, so a caller can
+ * tell "nothing was there" from "we stopped looking". It always resolves: a
+ * replay that has caught up and gone quiet counts as having reached the end.
+ * `firstMs` is the relay time of the first event the server sent, which is
+ * where the replay actually began — on an unfiltered replay, the honest answer
+ * to how far back it read.
  */
 export function replayWindow(
   subject,
@@ -461,11 +593,17 @@ export function replayWindow(
 ) {
   return new Promise((resolve) => {
     if (!subject || !fromMs || !toMs || toMs <= fromMs) {
-      resolve({ events: [], bytes: 0, reachedEnd: false, error: 'bad window' });
+      resolve({ events: [], bytes: 0, reachedEnd: false, error: 'bad window', firstMs: null });
       return;
     }
     if (!withinLookback(fromMs)) {
-      resolve({ events: [], bytes: 0, reachedEnd: false, error: 'outside the 36-hour lookback' });
+      resolve({
+        events: [],
+        bytes: 0,
+        reachedEnd: false,
+        error: 'outside the 36-hour lookback',
+        firstMs: null,
+      });
       return;
     }
 
@@ -481,6 +619,7 @@ export function replayWindow(
     const events = [];
     const mine = new Map();
     let bytes = 0;
+    let firstMs = 0;
     let done = false;
     let ws;
     let watchdog = null;
@@ -501,7 +640,7 @@ export function replayWindow(
       } catch {
         /* already gone */
       }
-      resolve({ events, bytes, reachedEnd, error: error || null });
+      resolve({ events, bytes, reachedEnd, error: error || null, firstMs: firstMs || null });
     };
 
     try {
@@ -537,6 +676,7 @@ export function replayWindow(
 
       const t = timeMsOf(raw);
       if (t) {
+        if (!firstMs) firstMs = t;
         if (t > toMs) {
           finish(true);
           return;

@@ -13,6 +13,7 @@ import {
   withdrawnWitness,
   resolveBreaker,
   witnessChanged,
+  witnessFromEvents,
   WITNESS_MAX,
   WITNESS_TEXT_MAX,
 } from './ratioedLive.js';
@@ -298,5 +299,29 @@ describe('witnessChanged', () => {
     expect(witnessChanged(rows, [...rows, { k: 'reply', rkey: 'b', offMs: 2 }])).toBe(true);
     expect(witnessChanged(rows, [{ ...rows[0], goneMs: 9 }])).toBe(true);
     expect(witnessChanged(rows, [{ ...rows[0], h: 'them.test' }])).toBe(true);
+  });
+});
+
+describe('witnessFromEvents', () => {
+  it('reads a replayed stretch the way the live socket would have', () => {
+    const goneAt = laterMs + 40_000;
+    const rows = witnessFromEvents(
+      [
+        ev(),
+        ev({ kind: 'reply', rkey: LATEST, did: 'did:plc:other', text: 'hi' }),
+        ev({ op: 'delete', time: new Date(goneAt).toISOString() }),
+      ],
+      postedAtMs,
+    );
+    expect(rows.map((r) => r.rkey)).toEqual([LATER, LATEST]);
+    // The like was cast and taken back inside the stretch: both halves land.
+    expect(rows[0]).toMatchObject({ k: 'like', offMs: laterMs - postedAtMs, goneMs: goneAt - postedAtMs });
+    expect(rows[1]).toMatchObject({ k: 'reply', t: 'hi' });
+    expect(rows[1].goneMs).toBeUndefined();
+  });
+
+  it('ignores a delete for something it never saw created', () => {
+    const rows = witnessFromEvents([ev({ op: 'delete', rkey: 'nobody' })], postedAtMs);
+    expect(rows).toEqual([]);
   });
 });
