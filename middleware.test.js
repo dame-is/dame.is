@@ -45,7 +45,7 @@ describe('the matcher', () => {
   });
 
   it('excludes the paths served by a function or off the filesystem', () => {
-    for (const p of ['api/', 'assets/', 'data/', 'sitemap\\.xml', 'llms\\.txt']) {
+    for (const p of ['api/', 'assets/', 'data/', 'sitemap\\.xml', 'llms\\.txt', 'receive_auth_callback']) {
       expect(config.matcher[0]).toContain(p);
     }
   });
@@ -57,7 +57,7 @@ describe('paths middleware must not judge', () => {
   });
 
   it('falls through for generated and static files', async () => {
-    for (const p of ['/robots.txt', '/sitemap.xml', '/llms.txt', '/data/blogging.json']) {
+    for (const p of ['/robots.txt', '/sitemap.xml', '/llms.txt', '/data/blogging.json', '/receive_auth_callback']) {
       expect(await get(p)).toBeUndefined();
     }
   });

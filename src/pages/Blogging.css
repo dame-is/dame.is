@@ -140,6 +140,17 @@
   color: var(--accent);
 }
 
+/* The newsletter after a post's last line (NewsletterSignup). The essays'
+   foot under it draws its own rule, so the form's lower one would double it. */
+.blog-end .newsletter {
+  margin-top: 0;
+}
+
+.blog-end .newsletter:has(+ .sequence-foot) {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
 .blog-article.blog-book {
   max-width: var(--measure-prose);
 }

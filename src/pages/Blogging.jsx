@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
+import NewsletterSignup from '../components/NewsletterSignup.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import Time from '../components/Time.jsx';
@@ -13,6 +14,7 @@ import { compareIsoDesc } from '../lib/time.js';
 import { showOnBlog, isDraft } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { smartenText } from '../lib/smartPunctuation.js';
+import { SUBSCRIBE_ID } from '../lib/newsletter.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 import './Blogging.css';
@@ -64,6 +66,9 @@ export default function Blogging() {
       atUri={`at://${ME_DID}/is.dame.page/blogging`}
       headTitle="dame.is blogging"
     >
+      {/* SUBSCRIBE_URL lands here: the address a post's "subscribe" link
+          gives everywhere the post's own forms aren't (email, feeds). */}
+      <NewsletterSignup id={SUBSCRIBE_ID} />
       {loading ? (
         <BloggingTocSkeleton rows={5} />
       ) : status === 'error' ? (

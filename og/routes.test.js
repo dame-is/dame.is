@@ -130,6 +130,7 @@ describe('isStaticPath', () => {
       '/llms.txt',
       '/version.json',
       '/oauth-client-metadata.json',
+      '/receive_auth_callback',
     ]) {
       expect(isStaticPath(p)).toBe(true);
     }

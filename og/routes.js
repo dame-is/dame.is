@@ -104,6 +104,8 @@ const STATIC_FILES = new Set([
   '/llms.txt',
   '/version.json',
   '/oauth-client-metadata.json',
+  // Leaflet's way back for a newsletter subscriber (api/newsletter-return.js).
+  '/receive_auth_callback',
   '/index.html',
   '/favicon.ico',
 ]);
