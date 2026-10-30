@@ -166,29 +166,82 @@ export function FeedSkeleton({ rows = 6, label = 'Loading feed', ledger = false 
 }
 
 /**
- * Skeleton for the Blogging table-of-contents. Mirrors the three-column
- * `.blogging-toc-entry` grid (number / body / meta).
+ * Skeleton for a FlatLedger index (blogging, creating's index, curating's
+ * index): one hairline row per entry, the title at the left and its time or
+ * count flush right, with creating's category column ahead of the title when
+ * `kinded`.
+ *
+ * The list and its rows wear FlatLedger's own classes (Feed.css), so the
+ * column tracks, gaps, rules and line boxes are the real ones and only the
+ * text is replaced by bars. A copy of those numbers in this file is how the
+ * blog index's placeholder came to draw a number column and a summary line
+ * the index had long since dropped.
  */
-export function BloggingTocSkeleton({ rows = 5 }) {
+export function FlatLedgerSkeleton({
+  rows = 6,
+  kinded = false,
+  timeWidth = '3.5rem',
+  label = 'Loading',
+}) {
   return (
-    <SkeletonShell label="Loading blog index">
-      <ul className="skeleton-toc">
+    <SkeletonShell label={label}>
+      <ol
+        className={`feed-list feed-ledger feed-ledger-flat${kinded ? ' feed-ledger-flat-kinded' : ''}`}
+        aria-hidden="true"
+      >
         {Array.from({ length: rows }, (_, i) => (
-          <li key={i} className="skeleton-toc-entry">
-            <Skeleton className="skeleton-toc-num" />
-            <div className="skeleton-toc-body">
-              <Skeleton
-                className="skeleton-toc-title"
-                style={{ width: `${55 + ((i * 11) % 35)}%` }}
-              />
-              {i % 2 === 0 && (
-                <Skeleton
-                  className="skeleton-toc-summary"
-                  style={{ width: `${65 + ((i * 7) % 25)}%` }}
-                />
-              )}
+          <li key={i} className="feed-item feed-item-ledger">
+            {kinded && (
+              <span className="ledger-verb ledger-kind-col">
+                <Skeleton width={`${3.5 + ((i * 5) % 3) * 0.75}rem`} height="0.8em" />
+              </span>
+            )}
+            <div className="ledger-body">
+              <p className="ledger-text">
+                <Skeleton width={`${42 + ((i * 17) % 40)}%`} height="0.8em" />
+              </p>
             </div>
-            <Skeleton className="skeleton-toc-meta" />
+            <span className="ledger-time">
+              <Skeleton width={timeWidth} height="0.8em" />
+            </span>
+          </li>
+        ))}
+      </ol>
+    </SkeletonShell>
+  );
+}
+
+/**
+ * Skeleton for /creating's plates: a 4:3 cover above the "software · 2026"
+ * line and the title, on the page's own `.creating-plates` grid (Creating.css),
+ * so the tracks and gutters are the ones the covers land in.
+ *
+ * The cover passes `height="auto"`: `Skeleton` writes its height as an inline
+ * style, which beats the class's `aspect-ratio` and flattened the older grid
+ * skeleton's 4:3 thumbs into 16px strips.
+ */
+export function CreatingPlatesSkeleton({ cells = 6 }) {
+  return (
+    <SkeletonShell label="Loading works">
+      <ul className="creating-plates" aria-hidden="true">
+        {Array.from({ length: cells }, (_, i) => (
+          <li key={i} className="creating-plate">
+            <div className="creating-plate-link">
+              <Skeleton block className="skeleton-plate-cover" height="auto" />
+              <span className="creating-plate-caption">
+                <span className="creating-plate-kind">
+                  <Skeleton width={`${6 + ((i * 3) % 4)}em`} height="0.75em" />
+                </span>
+                <span className="creating-plate-title">
+                  <Skeleton width={`${50 + ((i * 13) % 35)}%`} height="0.75em" />
+                  {i % 2 === 0 && (
+                    <span className="skeleton-plate-title-more">
+                      <Skeleton width="45%" height="0.75em" />
+                    </span>
+                  )}
+                </span>
+              </span>
+            </div>
           </li>
         ))}
       </ul>
@@ -241,34 +294,103 @@ export function RecordSkeleton() {
   );
 }
 
+// DocumentSkeleton's text (lines per paragraph, the last line's length) and
+// its band (each column's label and value widths).
+const DOC_PARAGRAPHS = [
+  { lines: 4, last: '46%' },
+  { lines: 6, last: '62%' },
+  { lines: 5, last: '38%' },
+];
+const DOC_FIGURE = 'figure';
+
+const DOC_BAND = {
+  essay: [
+    ['4.5em', '7em'],
+    ['6em', '4.5em'],
+    ['3.5em', '6.5em'],
+  ],
+  work: [
+    ['4em', '7em'],
+    ['3.5em', '4.5em'],
+    ['3.5em', '5em'],
+  ],
+};
+
 /**
- * Skeleton for a long-form page (BlogPost). A meta row above a stack of
- * paragraph-shaped text skeletons.
+ * Skeleton for a standard.site document page: an essay at /blogging/:slug
+ * (`kind="essay"`) or a work at /creating/:slug (`kind="work"`). Both are the
+ * same three things in the same places as the page that replaces them: the
+ * title, the ruled band of facts under it, and the opening of the text.
+ *
+ * The shell wears the page's own classes rather than copies of their numbers,
+ * so it sits in the column the document will: `.blog-article.blog-book` hangs
+ * an essay from the chrome's left edge in the 28em prose measure, and
+ * `.creating-work-page` centres a work in the reading measure (Blogging.css,
+ * Creating.css — both pages import those sheets). The title is the page's
+ * `.page-title`, the band is a real `.document-meta` with bars in its cells,
+ * and the text sits in `.leaflet-doc`, so the size, leading and measure are the
+ * essay setting's own: each bar line is one line of the text, a drop cap
+ * spans the first three, and later paragraphs open on the 1.5em indent.
+ *
+ * A work gets a figure after its first paragraph, as most of the portfolio
+ * has (a cover, a screenshot, a link card) within its opening lines.
  */
-export function BlogPostSkeleton({ paragraphs = 4 }) {
-  return (
-    <SkeletonShell label="Loading post">
-      <div className="skeleton-record">
-        <div className="skeleton-record-meta">
-          <Skeleton className="skeleton-record-meta-cell" />
-          <Skeleton className="skeleton-record-meta-cell" style={{ width: '4.5rem' }} />
-          <Skeleton className="skeleton-record-meta-cell" style={{ width: '6rem' }} />
+export function DocumentSkeleton({ kind = 'essay' }) {
+  const essay = kind === 'essay';
+  const blocks = essay
+    ? DOC_PARAGRAPHS
+    : [DOC_PARAGRAPHS[0], DOC_FIGURE, ...DOC_PARAGRAPHS.slice(1)];
+  const band = (
+    <dl className="document-meta" data-columns="3" aria-hidden="true">
+      {DOC_BAND[essay ? 'essay' : 'work'].map(([labelWidth, valueWidth], i) => (
+        <div key={i} className="document-meta-pair">
+          <dt className="document-meta-label">
+            <Skeleton width={labelWidth} height="0.75em" />
+          </dt>
+          <dd className="document-meta-value">
+            <Skeleton width={valueWidth} height="0.7em" />
+          </dd>
         </div>
-        {Array.from({ length: paragraphs }, (_, i) => (
-          <SkeletonText
-            key={i}
-            lines={3 + (i % 2)}
-            lineHeight="0.95em"
-            lastLineWidth={`${40 + ((i * 17) % 35)}%`}
-          />
-        ))}
+      ))}
+    </dl>
+  );
+  return (
+    <SkeletonShell
+      label={essay ? 'Loading essay' : 'Loading work'}
+      className={essay ? 'blog-article blog-book' : 'creating-work-page'}
+    >
+      <h1 className={`page-title${essay ? ' blog-title' : ''}`} aria-hidden="true">
+        <Skeleton width={essay ? '72%' : '45%'} height="0.6em" />
+      </h1>
+      {essay ? <aside className="blog-margin">{band}</aside> : band}
+      <div className="leaflet-doc skeleton-doc" aria-hidden="true">
+        {blocks.map((block, b) =>
+          block === DOC_FIGURE ? (
+            <Skeleton key={b} block className="skeleton-doc-figure" height="auto" />
+          ) : (
+            <div key={b} className="skeleton-doc-para">
+              {/* Three lines of the text, cap-top to third baseline: `lh`
+                  here is the paragraph's leading, since the cap's class
+                  inherits it rather than taking `.skeleton`'s 1. */}
+              {b === 0 && (
+                <Skeleton block className="skeleton-doc-cap" height="calc(2lh + 0.6em)" />
+              )}
+              {Array.from({ length: block.lines }, (_, l) => (
+                <span key={l} className="skeleton-doc-line">
+                  <Skeleton width={l === block.lines - 1 ? block.last : '100%'} height="0.6em" />
+                </span>
+              ))}
+            </div>
+          ),
+        )}
       </div>
     </SkeletonShell>
   );
 }
 
 /**
- * Skeleton for a Creating work page (image + summary + body).
+ * Skeleton for an album page (ListeningAlbum): meta, summary, image, body. The
+ * creating work page it was named for draws DocumentSkeleton now.
  */
 export function CreatingWorkSkeleton() {
   return (

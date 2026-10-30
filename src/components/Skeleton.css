@@ -53,8 +53,10 @@
 }
 
 /* Container Motion-fades — keeps things from snapping in. */
+/* No `display` of its own: the shell is a div, and a shell that wears a
+   page's layout class (DocumentSkeleton's `.creating-work-page` is a flex
+   column) must keep that class's, whichever stylesheet loads last. */
 .skeleton-shell {
-  display: block;
   width: 100%;
 }
 
@@ -157,62 +159,24 @@
   max-width: var(--measure);
 }
 
-/* Variant: blogging table-of-contents row skeleton. */
-.skeleton-toc {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+/* Variant: /creating's plates (CreatingPlatesSkeleton). The grid, caption and
+   its two lines are the page's own classes; only the cover is drawn here, cut
+   to the plates' 4:3. */
+.skeleton-plate-cover {
+  width: 100%;
+  aspect-ratio: 4 / 3;
 }
 
-.skeleton-toc-entry {
-  border-bottom: 1px dotted var(--rule);
-  display: grid;
-  grid-template-columns: 3rem 1fr auto;
-  gap: var(--space-4);
-  align-items: baseline;
-  padding: var(--space-4) 0;
-}
-
-.skeleton-toc-entry:first-child {
-  border-top: 1px dotted var(--rule);
-}
-
-.skeleton-toc-num {
-  width: 1.8rem;
-  height: 0.8rem;
-}
-
-.skeleton-toc-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.skeleton-toc-title {
-  height: 1.2em;
-  max-width: 28ch;
-}
-
-.skeleton-toc-summary {
-  height: 0.8em;
-  max-width: 40ch;
-}
-
-.skeleton-toc-meta {
-  width: 4.5rem;
-  height: 0.75rem;
-  align-self: start;
-  margin-top: 0.4em;
+/* Two plates to a phone's row leave a title about sixteen characters a line,
+   so most run to a second one there, and a row is as tall as its longer
+   title. Every other plate draws that second line, one per row. */
+.skeleton-plate-title-more {
+  display: none;
 }
 
 @media (max-width: 700px) {
-  .skeleton-toc-entry {
-    grid-template-columns: 1fr;
-  }
-  .skeleton-toc-num,
-  .skeleton-toc-meta {
-    display: none;
+  .skeleton-plate-title-more {
+    display: block;
   }
 }
 
@@ -388,6 +352,49 @@
   aspect-ratio: 4 / 3;
   width: 100%;
   max-width: var(--measure);
+}
+
+/* Variant: a standard.site document's text (DocumentSkeleton). It sits in a
+   `.leaflet-doc`, so each `.skeleton-doc-line` is one line box of the essay
+   setting, and the bar inside it sits where the line's lowercase would.
+   `flow-root` so a line beside the drop cap narrows to the room the cap
+   leaves it; a plain block keeps its full width, and its full-width bar,
+   which then can't fit beside the cap, fell below it. */
+.skeleton-doc-line {
+  display: flow-root;
+}
+
+/* A later paragraph opens on the essay's 1.5em indent (LeafletDocument.css);
+   the one after a figure starts flush, as the text's does. */
+.skeleton-doc-para + .skeleton-doc-para > .skeleton-doc-line:first-child {
+  padding-left: 1.5em;
+}
+
+/* The drop cap: three lines deep, from the first bar's top to the third's
+   foot, with the gap the cap leaves the text. Its line-height is the
+   paragraph's, so `lh` in its height and offset counts lines of the text. */
+.skeleton-doc-cap {
+  float: left;
+  width: 2.6em;
+  margin: calc((1lh - 0.6em) / 2) 0.4em 0 0;
+  line-height: inherit;
+}
+
+.skeleton-doc-figure {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  margin: var(--space-5) 0;
+}
+
+/* Justified on a wide screen, the text runs full to the measure; on a phone
+   it is set ragged, so the bars come up short of the edge by turns. */
+@media (max-width: 700px) {
+  .skeleton-doc-line:nth-child(3n + 2) {
+    padding-right: 9%;
+  }
+  .skeleton-doc-line:nth-child(3n) {
+    padding-right: 4%;
+  }
 }
 
 /* Variant: comments tree skeleton (avatar + byline + text). Mirrors the
@@ -822,7 +829,9 @@
    pulse in lockstep. Negative delays seed each row at a different phase
    in the cycle without changing the cycle length. */
 .skeleton-feed-item:nth-child(3n)         .skeleton,
-.skeleton-toc-entry:nth-child(3n)         .skeleton,
+.skeleton-shell .feed-item-ledger:nth-child(3n) .skeleton,
+.skeleton-shell .creating-plate:nth-child(3n) .skeleton,
+.skeleton-doc-para:nth-child(3n)          .skeleton,
 .skeleton-grid-cell:nth-child(3n)         .skeleton,
 .skeleton-mothing-cell:nth-child(3n)      .skeleton,
 .skeleton-admin-row:nth-child(3n)         .skeleton,
@@ -831,7 +840,9 @@
 .skeleton-comments-item:nth-child(3n)     .skeleton { animation-delay: -0.5s; }
 
 .skeleton-feed-item:nth-child(3n + 1)     .skeleton,
-.skeleton-toc-entry:nth-child(3n + 1)     .skeleton,
+.skeleton-shell .feed-item-ledger:nth-child(3n + 1) .skeleton,
+.skeleton-shell .creating-plate:nth-child(3n + 1) .skeleton,
+.skeleton-doc-para:nth-child(3n + 1)      .skeleton,
 .skeleton-grid-cell:nth-child(3n + 1)     .skeleton,
 .skeleton-mothing-cell:nth-child(3n + 1)  .skeleton,
 .skeleton-admin-row:nth-child(3n + 1)     .skeleton,
@@ -840,7 +851,9 @@
 .skeleton-comments-item:nth-child(3n + 1) .skeleton { animation-delay: -1.2s; }
 
 .skeleton-feed-item:nth-child(3n + 2)     .skeleton,
-.skeleton-toc-entry:nth-child(3n + 2)     .skeleton,
+.skeleton-shell .feed-item-ledger:nth-child(3n + 2) .skeleton,
+.skeleton-shell .creating-plate:nth-child(3n + 2) .skeleton,
+.skeleton-doc-para:nth-child(3n + 2)      .skeleton,
 .skeleton-grid-cell:nth-child(3n + 2)     .skeleton,
 .skeleton-mothing-cell:nth-child(3n + 2)  .skeleton,
 .skeleton-admin-row:nth-child(3n + 2)     .skeleton,

@@ -9,7 +9,7 @@ import Fleuron from '../components/Fleuron.jsx';
 import NewsletterSignup from '../components/NewsletterSignup.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import Time from '../components/Time.jsx';
-import { BlogPostSkeleton } from '../components/Skeleton.jsx';
+import { DocumentSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, getRecord, isRecordNotFound, explorerPathFromAtUri } from '../lib/atproto.js';
 import { getPostThread } from '../lib/atproto.js';
@@ -140,9 +140,7 @@ export default function BlogPost() {
   if (feedStatus === 'loading') {
     return (
       <PageShell headTitle={`${id} — dame.is`}>
-        <article className="blog-article">
-          <BlogPostSkeleton paragraphs={4} />
-        </article>
+        <DocumentSkeleton kind="essay" />
       </PageShell>
     );
   }
