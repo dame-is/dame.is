@@ -93,29 +93,6 @@
   margin-inline-start: var(--space-3);
 }
 
-/* Beside the seal, not under it: the post, the page and the wake lock are one
-   icon Button each, so the live piece's whole verb row is one line and the
-   seal keeps the only words. The squares sit flush, sharing hairlines like the
-   feed rows' own act cluster, because three touch-sized boxes with gaps
-   between them plus the seal is wider than a phone; flush, the trio wraps as
-   one unit on the screens where it still must. The wake toggle wears the kit's
-   "on" look while the screen is held awake. */
-.rs-live-acts {
-  display: inline-flex;
-  align-items: stretch;
-}
-.rs-live-act {
-  position: relative;
-}
-.rs-live-act + .rs-live-act {
-  margin-left: -1px;
-}
-.rs-live-act:hover,
-.rs-live-act:focus-visible,
-.rs-live-act.is-on {
-  z-index: 1;
-}
-
 /* The degraded-read notice: a sentence and one action, boxed so it reads as a
    note ABOUT the series rather than as the first line of it. Its own rule
    rather than `.rs-actions`, which would put a 40px floor on the sentence and
@@ -178,182 +155,177 @@
 
 /* --- a piece is up ------------------------------------------------- */
 
+/* A ledger rather than an instrument panel. It was a bordered box holding a
+   clock, a gauge, five figures in a grid, a row of boxed icons and the
+   socket's reading, and on a phone the reading wrapped under the icons and the
+   feed began a third of a screen down. It reads top to bottom now as the home
+   feed does: a head with a rule, a statement, a sentence of counts, the seal,
+   and the thread under its own head. No box: the rules say where it is. */
 .rs-live {
-  border: 1px solid var(--rule);
-  padding: var(--space-5);
   margin-bottom: var(--space-6);
 }
 
-/* The panel's head is the kit's SectionHead, which wraps on its own: if a
-   take number or a lifespan ever outgrows one line, the clock drops to a line
-   of its own rather than a breakpoint deciding in advance that it must. The
-   stopwatch sits in the meta slot at the size of a figure, not of a caption. */
-.rs-live-head .section-head-meta {
-  color: var(--ink);
+/* The take, and when it went up in the margin's voice, as the home feed heads
+   a day (Feed.css `.feed-ledger .day-section-header`). */
+.rs-live-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
 }
-.rs-live-clock {
-  font-family: var(--mono, monospace);
+.rs-live-take {
+  margin: 0;
   font-size: var(--text-xl);
-  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.rs-live-posted {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  text-indent: 0;
 }
 
+/* Sealed, or liked and taken back: a sentence, at a sentence's size. The
+   liked state has the statement block above it to shout with. */
 .rs-live-state {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-base);
+  text-indent: 0;
+}
+.rs-live.withdrawn .rs-live-state { color: var(--ratioed-quote, #8a6f24); }
+
+/* The seal and the errands beside it. The seal is the kit's primary Button:
+   the one filled control in the panel, in the hour's accent fill, so it reads
+   at 7pm as it does at 1pm, at the admin's touch floor whatever the pointer. */
+.rs-live .rs-actions {
+  margin-top: var(--space-3);
+  gap: var(--space-2) var(--space-4);
+}
+.rs-live .btn.rs-seal {
+  min-height: var(--wb-hit, 2.75rem);
+  padding-inline: var(--space-5);
   font-size: var(--text-lg);
-  margin: var(--space-4) 0 0;
 }
 
-/* Once somebody has liked it the panel stops being informative and starts
-   being an alarm: every second between here and the seal is in the recorded
-   reaction time. */
-.rs-live.liked {
-  border-color: var(--ratioed-seal);
-  border-width: 2px;
-}
-/* No `.rs-live.liked .rs-live-state` rule any more: that state is exactly when
-   the alarm box is up, and the alarm speaks for the panel — see the state line
-   in RatioedStudio.jsx, which is not rendered underneath it. */
-
-/* The seal is the kit's primary Button: the one filled control in the panel,
-   in the hour's accent fill, so it reads at 7pm as it does at 1pm.
-
-   Somebody has liked it. The same button in the same place, louder: the seal's
-   own red, a step up in type, and back onto the 44px touch floor the rest of
-   this row gives up. It is the only control on the screen that is now urgent,
-   and every second between noticing it and pressing it is in the reaction time
-   the record will carry — so what it must not do is move.
+/* Somebody has liked it. The same button in the same place, louder: the seal's
+   own colour and a step up in weight. It is the only control on the screen
+   that is now urgent, and every second between noticing it and pressing it is
+   in the reaction time the record will carry — so what it must not do is move.
    The ground colour, not white: the hour's scale solves the seal for contrast
    against the page, so the page is the one text colour guaranteed to clear it
-   at whatever hour the sky is on. Large and bold, so 3:1 is the bar it has to
-   clear rather than 4.5:1. */
+   at whatever hour the sky is on. */
 .rs-live.liked .btn.rs-seal {
   background: var(--ratioed-seal);
   border-color: var(--ratioed-seal);
   color: var(--page);
-  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+/* Open the post, open its page, keep the screen awake: words on one quiet
+   line, each a full touch target tall under a finger (RatioedLive.css
+   `.ratioed-live-act`). */
+.rs-live-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  text-indent: 0;
+}
+
+/* --- the pinned seal --------------------------------------------------- */
+
+/* Held at the top of the pane while the seal's own row is out of sight (see
+   RatioedStudio.jsx). The sticky box has no height, so the bar overlays the
+   thread instead of being inserted into it: a bar that took room as it
+   appeared would push the thread down under the reader's thumb. Opaque, with a
+   rule under it, as the pane's other pinned heads are. */
+.rs-pin {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  height: 0;
+}
+.rs-pin-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  background: var(--page);
+  border-bottom: 1px solid var(--rule);
+}
+.rs-live.liked .rs-pin-bar { border-bottom: 2px solid var(--ratioed-seal); }
+.rs-pin-say {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  text-indent: 0;
+}
+.rs-pin-say b { font-weight: 600; }
+.rs-pin-who {
+  color: var(--ratioed-seal);
   font-weight: 600;
-  min-height: var(--wb-hit, 2.75rem);
-  padding-inline: var(--space-4);
 }
-/* The three squares do not grow with it — they are the same errands they were
-   a second ago. Centred rather than stretched, so the row reads as one loud
-   control and three quiet ones rather than as four controls of two heights. */
-.rs-live.liked .rs-live-acts { align-self: center; }
-
-/* The live panel's row is the one that has to hold a seal, three squares and
-   the socket's reading on a 358px pane, so it runs a step under the studio's
-   other rows: 36px on a mouse, 40px under a thumb against the admin's 44px
-   floor. What pays for it is that none of these three is urgent — open the
-   post, open the page, hold the screen awake — and the one control here that
-   IS urgent takes the floor back the moment it matters (see
-   `.rs-live.liked .rs-seal` above). */
-.rs-live .rs-actions > * { min-height: 2.25rem; }
-.rs-live .rs-live-act { width: 2.25rem; min-height: 0; }
-@media (pointer: coarse) {
-  .rs-live .rs-actions > * { min-height: 2.5rem; }
-  .rs-live .rs-live-act { width: 2.5rem; }
+.rs-pin-say .rk-clock {
+  color: var(--ratioed-seal);
+  font-weight: 700;
 }
 
-/* The socket, at the end of the row. `margin-inline-start: auto` puts it at the
-   far edge, where it reads as a reading rather than as a fourth button; the
-   min-height reset keeps it from taking the row's own floor and boxing a line
-   of 12px text inside 40px of nothing. */
+/* --- the thread -------------------------------------------------------- */
+
+/* The thread's head: its name in the label voice the document band uses, and
+   the socket's reading at the far end, with the panel's width to say
+   "catching up · 3m51s behind" in. */
+.rs-thread-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-5);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--rule);
+}
+.rs-thread-label {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+
+/* The socket. The rate is resampled about once a second, so it is a figure
+   being read while it moves: tabular digits keep the word after it from
+   stepping left and right as the number changes width. */
 .rs-stream {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-inline-start: auto;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--ink-muted);
-  /* The rate is resampled about once a second, so it is a figure being read
-     while it moves: tabular digits keep the word after it from stepping left
-     and right as the number changes width. */
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.rs-live .rs-actions > .rs-stream { min-height: 0; align-self: center; }
 .rs-stream.is-open { color: var(--ratioed-reply); }
 /* Between sockets. The stream reconnects itself on a backoff and there is
    nothing to do about it from here, so this says which of the two it is and
    nothing more. */
 .rs-stream.is-connecting,
 .rs-stream.is-closed { color: var(--ink-faint); }
-
-/* The counts, in the panel now rather than under the feed's own header (see
-   RatioedStudio.jsx). Two things follow from the move. The band's top rule is
-   the divider between what the piece is DOING — the clock, the chase — and what
-   it has DRAWN, so it stays; the bottom one drew a line directly above the seal
-   row's own top margin and said nothing the gap did not, so it goes. And the
-   figures are the panel's voice in the ordinary state, where there is no
-   sentence above them, so they keep the room to be read. */
-.rs-live > .ratioed-live-counters {
-  margin-block: var(--space-4) 0;
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-
-/* --- the alarm ------------------------------------------------------- */
-
-/* A like has landed and the reaction time is running. Everything else in this
-   panel is drawn in the hour's own hue; this is its complement. It held the
-   seal button too, once, so that what you look at and what you press were not a
-   foot apart — but that meant the button moved at the one moment nobody can
-   afford to look for it. It is a readout now: who, when, and the measurement
-   running. The button it used to hold is where it has been all along, in the
-   row below, going red. */
-.rs-alarm {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  margin-top: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border: 2px solid var(--ratioed-seal, #8c3a2e);
-  background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 12%, transparent);
-  animation: rs-alarm-flash 1.15s ease-in-out infinite;
-}
-@keyframes rs-alarm-flash {
-  0%, 100% { background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 12%, transparent); }
-  50% { background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 22%, transparent); }
-}
-
-.rs-alarm-who {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.rs-alarm-when {
-  font-family: var(--mono, monospace);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--ink-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* The measurement, running. Two decimals and twenty ticks a second, because
-   this is the one number on the site being read while it moves — and it is the
-   number the record will carry, so it is sized like the thing it is rather
-   than like a caption. It takes the box's right edge, which is where the seal
-   button used to sit: it is the thing being read, so it gets the end of the
-   line rather than a gap after the handle. */
-.rs-alarm-race {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-left: auto;
-}
-.rs-alarm-clock {
-  font-size: var(--text-2xl);
-  line-height: 1;
-  font-weight: 700;
-  color: var(--ratioed-seal, #8c3a2e);
-}
-.rs-alarm-race-label { font-size: var(--text-xs); color: var(--ink-muted); }
-
-@media (prefers-reduced-motion: reduce) {
-  .rs-alarm { animation: none; }
-}
 
 /* --- just sealed ---------------------------------------------------- */
 
@@ -388,167 +360,47 @@
 
 /* Pane width, not viewport width: the workbench detail pane is its own `wbpane`
    container and can be under 34rem at any screen size. As a viewport query none
-   of this would fire on a pane that is narrow beside a wide window.
-
-   WHAT THIS BLOCK IS FOR. Everything above the feed is instrumentation — the
-   clock, the chase, the counts, the seal, the socket — and on a phone it stood
-   a third of a screen tall before the feed, the one part of this panel that is
-   the piece actually happening, got a row. Nothing below removes a figure or a
-   control: what comes out is the air between them, a second copy of a rule, and
-   a line break that was never needed. Measured in the harness, panel top to the
-   first feed row: 370px → 219 at 320 wide, 347 → 196 at 360, 326 → 196 at 390.
-   The other half of that is in the panel's own rules above — where the counts
-   sit, what the control row holds — which are not width-conditional. */
+   of this would fire on a pane that is narrow beside a wide window. The live
+   panel has no rules here since the ledger: it is one column at every width. */
 @container wbpane (max-width: 34rem) {
   .rs-series-list li { flex-direction: column; gap: 0; }
   /* 24px of inset on each side of a 358px pane is 13% of the panel spent on
-     margin, and the feed row inside it is the widest thing in the studio — the
-     row that has to hold a time, a handle, a chip and three buttons. The border
-     still says where the panel is at 12px. */
-  .rs-live,
+     margin. The border still says where the panel is at 12px. */
   .rs-announce { padding: var(--space-3); }
-
-  /* The chase, tightened to what it draws: a 6px bar and the sentence reading
-     it. That sentence is the longest run of prose in the instrument — "38m23s
-     from take 14's record of 42m09s. Past 8 of 16.", and longer again once a
-     take runs past the hour — and at --text-sm it wraps to two lines on a 320
-     or 360px screen, and on a 390px one as soon as either figure is hours.
-     Measured at 360px: 42px against 18px. --text-xs holds it to one line for
-     every sentence the series has produced, and it is the size the panel's
-     other reading, the socket's own rate, is already set in. */
-  .rs-live .rr-chase { margin-top: var(--space-2); }
-  .rs-live .rr-say { margin-top: var(--space-1); font-size: var(--text-xs); }
-
-  /* The panel's sentence — sealed, or liked and un-liked — at the size of a
-     sentence rather than a headline. Both of them are two or three lines at
-     this width, and --text-lg sets a paragraph competing with the clock above
-     it on a screen that has one thing to say. Nothing is lost by the drop: the
-     state that has to shout is the alarm, and the alarm shouts in its own box,
-     in its own colour, behind 2px of border. */
-  .rs-live-state { font-size: var(--text-base); margin-top: var(--space-2); }
-  .rs-live .rs-actions { margin-top: var(--space-3); }
-
-  /* The counts, tight to the rule above them: at this width they are one
-     wrapped line of figures rather than the wide layout's dashboard, and the
-     band's padding was cut for the dashboard. */
-  .rs-live > .ratioed-live-counters {
-    margin-block: var(--space-2) 0;
-    padding-block: var(--space-2) 0;
-  }
-
-  /* One rule between the panel and the feed, and the rows directly under it.
-     Everything else — the piece's figures, the controls, the socket — is above
-     that rule now. */
-  .rs-feed { margin-top: var(--space-3); padding-top: var(--space-2); }
 }
 
 /* --- the live feed -------------------------------------------------- */
 
-/* Everything the stream sees on the piece, newest first. A witness rather than
-   a record: it is thrown away when the panel closes, and the measurement is
-   taken from the backlink index afterwards. Its value is that it arrives now. */
-.rs-feed {
-  margin-top: var(--space-4);
-  border-top: 1px solid var(--rule-soft);
-  padding-top: var(--space-3);
-}
-
-/* No `.rs-feed-head` any more: the socket's reading is `.rs-stream`, at the end
-   of the control row above (see RatioedStudio.jsx). What is left down here is
-   the rule, and the rows under it. */
-
+/* Everything the stream sees on the piece, newest first. The rows are
+   RatioedTicker's, styled by RatioedLive.css — the same list the piece's own
+   page draws, so the two cannot drift. What the studio adds is its words under
+   an opened row (reply · like · open elsewhere) and the composer, which opens
+   under what the person said, in the same column. */
 .rs-feed-empty { margin: 0; }
 
-/* The rows themselves are RatioedTicker's, styled by RatioedLive.css — the
-   same list the piece's own page draws, so the two cannot drift again. What is
-   left here is what the studio adds: the buttons at the end of a row and the
-   composer under it. The ticker's own scroller is 24em; the studio's panel is
-   inside a pane with a seal button above it, so it keeps a shorter one. */
-.rs-feed .ratioed-live-scroll { max-height: 22em; }
-
-/* --- acting on a row ------------------------------------------------- */
-
-/* Liking or answering somebody without leaving the panel that is watching for
-   the like that ends the piece. Deliberately quiet until you reach for them:
-   the one control on this screen that should catch the eye is the seal. */
-/* `.ratioed-live-acts` is what RatioedTicker emits — the slot the studio's
-   three buttons arrive in. The rule that put them at the row's right edge with
-   a 2px gap lives on the slot itself now, in RatioedLive.css, because the deck
-   fills the same slot with its own one button and wanted the same right edge.
-   (It was written against `.rs-feed-acts` back when the studio had its own row
-   markup, and stayed pointed at a class no JSX renders once the two feeds were
-   merged — the buttons lost both, visibly so on a row with no text.) */
-/* Quieter than the kit's icon Button on purpose: no hairline until a pointer
-   reaches it, because there are three on every row of the feed. Hover, "on"
-   and "nothing to do" are the kit's: the 8% wash, the selected wash with an
-   accent hairline, and a dashed line. */
-.rs-act {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid transparent;
-  background: none;
-  color: var(--ink-faint);
-  cursor: pointer;
-}
-@media (hover: hover) {
-  .rs-act:hover:not(:disabled, .is-on) {
-    color: var(--ink);
-    border-color: var(--accent-soft);
-    background: var(--wash-hover);
-  }
-}
-.rs-act:disabled {
-  color: var(--ink-muted);
-  border: 1px dashed var(--rule);
-  cursor: default;
-}
-
-/* 26px is a mouse target. A coarse pointer needs the 44px floor the rest of
-   the admin holds; see the collected touch block in Admin.css. The glyph inside
-   stays 13px, only the box grows. Same `(pointer: coarse)` query `.rs-actions`
-   above already uses, so the studio has one touch rule and not two disagreeing
-   ones.
-
-   This now catches them in both of the places a row's controls can be. Below
-   34rem the end of a row still hides them — they were costing a third of its
-   width — but opening a row moves them into its panel, which is how the studio
-   is operable from a phone at all: tap what somebody wrote, and like it or
-   answer it from there (see RatioedTicker.jsx). */
-@media (pointer: coarse) {
-  .rs-act {
-    width: var(--wb-hit, 2.75rem);
-    height: var(--wb-hit, 2.75rem);
-  }
-  .rs-feed .ratioed-live-acts { gap: 0; }
-}
-
-/* A row with the composer open has to be allowed to wrap. `.ratioed-live-row`
-   is `display: flex` with the default `nowrap` in the wide layout — the narrow
-   one is a grid and wraps by being one — so a composer at `flex: 1 0 100%`
-   took the whole line and, refusing to shrink, squeezed everything sharing it
-   down to min-content: measured at 900px, the handle beside an open composer
-   was a 13px column of stacked letters spelling @ver.ooo downwards. Scoped to
-   the rows that actually carry one, because the wide row is `nowrap` on
-   purpose: it is one line, and the ellipsis on the text is what ends it.
-
-   Below: `flex` for the wide row, `grid-column` for the narrow one. Each is
-   inert in the other's layout, so both can simply be stated. Full width either
-   way — the composer is not a cell of the row it hangs under. The `order` is
-   left over from when the narrow row built its second line out of `order`,
-   where a composer at the default 0 came FIRST, above the row it answers; that
-   row is a grid now and the composer is last in the markup regardless, so it
-   is belt and braces rather than load-bearing. */
-.ratioed-live-row:has(.rs-reply-box) { flex-wrap: wrap; }
 .rs-reply-box {
-  order: 9;
-  flex: 1 0 100%;
-  grid-column: 1 / -1;
-  padding: var(--space-2) 0 var(--space-3);
+  width: 100%;
+  max-width: 32rem;
+  margin-top: var(--space-1);
+  padding-bottom: var(--space-2);
 }
-.rs-reply-box .admin-input { width: 100%; font-size: var(--text-sm); }
+.rs-reply-label { display: block; }
+/* Where the reply will land, in the label voice: the piece's own thread, or
+   under somebody's quote post, which the piece never sees. */
+.rs-reply-where {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+.rs-reply-box .admin-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: var(--text-base);
+}
 .rs-reply-acts {
   display: flex;
   align-items: center;
@@ -556,7 +408,12 @@
   flex-wrap: wrap;
   margin-top: var(--space-2);
 }
-.rs-reply-where { font-size: var(--text-xs); color: var(--ink-muted); }
+.rs-reply-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  text-indent: 0;
+}
 
 /* --- the template --------------------------------------------------- */
 
@@ -576,21 +433,6 @@
   margin: 0;
   overflow-x: auto;
 }
-
-/* The three buttons are hidden at the row's end below 34rem, and appear inside
-   an opened row's panel instead — both in RatioedLive.css, which draws the
-   narrow row. This used to be repeated here, because `.rs-feed
-   .ratioed-live-acts` above was the more specific selector and its
-   `display: inline-flex` beat the hide, a fight decided by which stylesheet the
-   bundler happened to emit second. That selector is gone: the slot's own rule
-   lives with the row now, so there is one rule about it and nothing to lose to.
-*/
-
-/* A like cast and taken back before the seal. Not an alarm any more, but not
-   nothing either — the panel stays marked so it can't be mistaken for a piece
-   nobody has touched. */
-.rs-live.withdrawn { border-color: var(--ratioed-quote); }
-.rs-live.withdrawn .rs-live-state { color: var(--ratioed-quote); }
 
 /* What can be done to a finished piece: recover its reaction time, say who
    ended it, read what has landed since. At the end of the row on a desk, on

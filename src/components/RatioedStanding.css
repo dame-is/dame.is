@@ -1,0 +1,83 @@
+/* The statement a live piece opens with — see RatioedStanding.jsx.
+
+   One block, two states, one height. The studio's seal button sits under it,
+   and the moment a like lands is the moment the block changes from "Standing
+   for…" to who liked it: if the block grew, the button would move away from
+   the thumb that has been resting over it for forty minutes. So it is a column
+   with a floor rather than a column that fits its content, and the rule at its
+   foot is pushed to that floor in both states. The floor is sized for the
+   taller of the two at a phone's width, where a long handle wraps the like
+   sentence onto a second line. */
+.rstand {
+  display: flex;
+  flex-direction: column;
+  min-height: 7.5rem;
+  padding-top: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+.rstand > .rr-chase {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.rstand > .rr-chase > .rr-track,
+.rstand-rule { margin-top: auto; }
+
+/* "Standing for 33m31s." The headline of the panel, and a sentence rather than
+   a clock in a corner, with the figure in the weight of the thing being read. */
+.rstand-head {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  line-height: 1.2;
+  text-indent: 0;
+  overflow-wrap: anywhere;
+}
+.rstand-time { font-weight: 600; }
+
+/* --- liked ------------------------------------------------------------ */
+
+.rstand.is-liked .rstand-head { font-size: var(--text-xl); }
+.rstand-who {
+  color: var(--ratioed-seal, #8c3a2e);
+  font-weight: 600;
+}
+
+/* The reaction time, running: the one number on the page that is a
+   measurement in progress, at the size of one. */
+.rstand-race {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+.rstand-clock {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ratioed-seal, #8c3a2e);
+}
+
+.rstand-rule {
+  height: 3px;
+  background: var(--ratioed-seal, #8c3a2e);
+}
+
+/* --- what it has drawn ------------------------------------------------- */
+
+.rstand-counts {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-lg);
+  line-height: 1.4;
+  text-indent: 0;
+}
+.rstand-counts .is-none { font-weight: 600; }
+.rstand-counts .is-like {
+  font-weight: 700;
+  color: var(--ratioed-seal, #8c3a2e);
+}
+.rstand-counts .is-gone { color: var(--ratioed-quote, #8a6f24); }

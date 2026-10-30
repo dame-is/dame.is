@@ -36,17 +36,14 @@ import {
   mergeWitnessRow,
   withdrawWitness,
   witnessChanged,
-  tallyWitness,
   breakingWitness,
   withdrawnOnly,
 } from '../lib/ratioedLive.js';
 import { fmtDuration } from '../lib/ratioed.js';
 import { DEFAULT_COPY } from '../lib/ratioedCopy.js';
 import { ME_DID } from '../config.js';
-import RatioedChip from './RatioedChip.jsx';
-import RatioedClock from './RatioedClock.jsx';
-import RatioedRecord from './RatioedRecord.jsx';
-import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
+import RatioedStanding, { RatioedCounts } from './RatioedStanding.jsx';
+import RatioedTicker from './RatioedTicker.jsx';
 import './RatioedLive.css';
 
 // What one visitor's stream is allowed to cost before it stops itself: about
@@ -158,68 +155,102 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
   // a miss is asked again a few times and then left; see profileAsker.
   const profiles = useProfiles(rows.map((r) => r.did));
 
-  // The artist's own records are in the log and in none of the counts — the
-  // same rule every measured figure on this project follows, and it matters
-  // more here than anywhere: the studio can now reply from the dashboard, and
-  // those replies would otherwise read as the piece drawing a crowd.
-  const tally = useMemo(() => tallyWitness(rows, { selfDid: ME_DID }), [rows]);
   const breaking = useMemo(() => breakingWitness(rows), [rows]);
   const takenBack = useMemo(() => withdrawnOnly(rows), [rows]);
   const aliveMs = Number.isFinite(postedMs) ? Math.max(0, now - postedMs) : 0;
+  // Likes cast and taken back, where on the piece's clock they landed.
+  const marks = useMemo(
+    () =>
+      rows
+        .filter((r) => r.k === 'like' && r.goneMs != null && r.did !== ME_DID)
+        .map((r) => ({
+          offMs: r.offMs,
+          title: `liked at +${fmtDuration(r.offMs)}, taken back at +${fmtDuration(r.goneMs)}`,
+        })),
+    [rows],
+  );
+  const reading = streamReading({
+    on: streamOn,
+    spent,
+    paused: streamOn && !spent && !visible,
+    stream,
+  });
 
+  // The ledger, as the studio reads it: a head, a statement, the artist's own
+  // sentence for the state it is in, what it has drawn, and the thread. The
+  // artist's own records are in the log and in none of the counts — the same
+  // rule every measured figure on this project follows, and it matters more
+  // here than anywhere: the studio can reply from the dashboard, and those
+  // replies would otherwise read as the piece drawing a crowd.
   return (
     <div className={`ratioed-live${breaking ? ' is-broken' : takenBack ? ' is-withdrawn' : ''}`}>
       <header className="ratioed-live-head">
-        <span className="ratioed-live-pulse" aria-hidden="true" />
-        <span className="ratioed-live-clock">
-          <span className="ratioed-live-clock-value">{fmtDuration(aliveMs)}</span>
-          <span className="ratioed-live-clock-label">alive, and counting</span>
-        </span>
-        <StreamState
-          on={streamOn}
-          spent={spent}
-          paused={streamOn && !spent && !visible}
-          stream={stream}
-          onToggle={() => setStreamOn((v) => !v)}
-          onRestart={() => {
-            spentBytes.current = 0;
-            setSpent(false);
-            setRun((n) => n + 1);
-          }}
-        />
+        <p className="ratioed-live-label">
+          <span className="ratioed-live-pulse" aria-hidden="true" />
+          {breaking ? 'Liked' : 'Live'}
+        </p>
+        {/* The switch for the firehose, at the head where it is found; what it
+            is reading, and what that costs, are at the thread's head below. */}
+        {reading.state === 'spent' ? (
+          <button
+            type="button"
+            className="ratioed-live-act"
+            onClick={() => {
+              spentBytes.current = 0;
+              setSpent(false);
+              setRun((n) => n + 1);
+            }}
+          >
+            start it again
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="ratioed-live-act"
+            onClick={() => setStreamOn((v) => !v)}
+            title={reading.explain}
+          >
+            {streamOn ? 'stop the firehose' : 'watch the firehose'}
+          </button>
+        )}
       </header>
 
-      {/* The clock says how long. This says whether that is a lot. */}
-      <RatioedRecord elapsedMs={aliveMs} record={record} pieces={series} />
-
-      {/* The like is not one more row in the feed. It is the end of the piece,
-          and this is where the page says so at the size it deserves. */}
-      {breaking && (
-        <div className="ratioed-live-alarm" role="status">
-          <RatioedChip kind="like" size="lg" />
-          <span className="ratioed-live-alarm-who">
-            @{profiles[breaking.did]?.handle || breaking.h || 'somebody'}
-            <span className="ratioed-live-alarm-when">at +{fmtDuration(breaking.offMs)}</span>
-          </span>
-          {/* The measurement, running. This is the reaction time being taken —
-              it stops when the artist closes replies, and where it stops is
-              what the record will say. */}
-          <span className="ratioed-live-alarm-race">
-            <RatioedClock fromMs={postedMs + breaking.offMs} className="ratioed-live-alarm-clock" />
-            <span className="ratioed-live-alarm-label">unsealed, and being timed</span>
-          </span>
-        </div>
-      )}
+      {/* How long it has stood and how that compares, or — once somebody has
+          liked it — who, and the reaction time being taken: it stops when the
+          artist closes replies, and where it stops is what the record says. */}
+      <RatioedStanding
+        aliveMs={aliveMs}
+        record={record}
+        pieces={series}
+        marks={marks}
+        like={
+          breaking
+            ? {
+                handle: profiles[breaking.did]?.handle || breaking.h || 'somebody',
+                offMs: breaking.offMs,
+                atMs: postedMs + breaking.offMs,
+              }
+            : null
+        }
+        clockLabel="unsealed, and being timed"
+        clockFirst
+      />
 
       {/* Three sentences, one per state, and all three are the artist's rather
           than the build's — see lib/ratioedCopy.js. */}
       <p className="ratioed-live-say" aria-live="polite">
         {breaking ? copy.deckLiked : takenBack ? copy.deckWithdrawn : copy.deckAlive}
       </p>
+      <RatioedCounts rows={rows} selfDid={ME_DID} className="ratioed-live-counts" />
 
-      <RatioedCounters tally={tally} />
+      <div className="ratioed-live-thread-head">
+        <h2 className="ratioed-live-thread-label">What has touched it</h2>
+        <span className={`ratioed-live-state is-${reading.state}`} title={reading.explain}>
+          {reading.state !== 'off' && <Radio size={12} aria-hidden="true" />}
+          {reading.label}
+        </span>
+      </div>
       <RatioedTicker rows={rows} profiles={profiles} />
-
     </div>
   );
 }
@@ -229,51 +260,29 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
 /* ------------------------------------------------------------------ */
 
 /**
- * What the stream is doing, in numbers that move.
+ * What the stream is doing, in numbers that move, for the thread's head.
  *
  * The rate is the honest one: a watch on a piece nobody has touched matches
- * nothing for minutes, and a panel whose only number is a byte count that also
- * only moved on a match looked broken for exactly as long as it was working.
+ * nothing for minutes, and a reading whose only number is a byte count that
+ * also only moved on a match looked broken for exactly as long as it was
+ * working. `explain` is what used to be a paragraph of apparatus under the
+ * deck; it rides on the reading's title now, where somebody who wants it can
+ * ask for it.
  */
-function StreamState({ on, spent, paused, stream, onToggle, onRestart }) {
+function streamReading({ on, spent, paused, stream }) {
   const mb = ((stream?.bytes || 0) / 1024 / 1024).toFixed(1);
-  const state = !on
-    ? 'off'
-    : spent
-      ? 'spent'
-      : paused
-        ? 'paused'
-        : stream?.state || 'connecting';
-  const rate = stream?.rate ? `${stream.rate.toLocaleString()}/s · ` : '';
+  const state = !on ? 'off' : spent ? 'spent' : paused ? 'paused' : stream?.state || 'connecting';
   const label = !on
-    ? 'from the record'
-    : paused
-      ? 'paused, this tab is in the background'
+    ? 'from the record, seconds behind'
+    : state === 'paused'
+      ? 'paused in a background tab'
       : state === 'spent'
         ? `stopped at ${mb} MB`
         : state === 'open'
-          ? `${rate}${mb} MB read`
+          ? `firehose · ${(stream?.rate || 0).toLocaleString()}/s · ${mb} MB`
           : state;
-  // The paragraph that used to spell this out is gone from the page — it was
-  // four sentences of apparatus under a dashboard whose whole point is the one
-  // thing happening on it. What it said that a reader might actually want is
-  // kept here, on the chip that already shows the cost and offers the switch.
   const explain = on
     ? `Your browser is testing every record on the network against this post, about 166 KB/s. It pauses in a background tab and stops at ${BUDGET_BYTES / 1024 / 1024} MB.`
     : 'Reading the piece’s own record, a few seconds behind.';
-  return (
-    <span className="ratioed-live-stream">
-      <span className={`ratioed-live-state is-${state}`} title={explain}>
-        <Radio size={12} aria-hidden="true" />
-        {label}
-      </span>
-      {state === 'spent' ? (
-        <button type="button" onClick={onRestart}>start it again</button>
-      ) : (
-        <button type="button" onClick={onToggle}>
-          {on ? 'stop the firehose' : 'watch the firehose'}
-        </button>
-      )}
-    </span>
-  );
+  return { state, label, explain };
 }

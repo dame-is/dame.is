@@ -2,137 +2,116 @@
    The four categorical hues come from the page it sits on (see
    lib/ratioedPalette.js, written onto .ratioed-piece); the fallbacks here are
    the same four the charts fall back to, so the deck is legible even if it is
-   ever mounted somewhere that doesn't set them. */
+   ever mounted somewhere that doesn't set them.
+
+   A ledger, as the studio reads it, and not a box: a head with a rule, the
+   statement (RatioedStanding.css), the artist's sentence for the state it is
+   in, what it has drawn, and the thread under a head of its own. It was a
+   bordered panel with a clock in its corner, an alarm box, five figures in a
+   grid and a feed of icons; on a phone, the likeliest place it is read, that
+   was most of a screen before the first reply. */
 
 .ratioed-live {
-  border: 1px solid var(--rule);
-  padding: var(--space-4);
-  background: var(--surface-deep, var(--page-edge));
+  margin-top: var(--space-6);
   font-variant-numeric: tabular-nums;
 }
 
-/* --- the head: clock, pulse, what it is reading --------------------- */
+/* --- the head: what it is, and the switch for the firehose ------------ */
 
 .ratioed-live-head {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--space-3);
+  border-bottom: 1px solid var(--rule);
 }
+.ratioed-live-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--ratioed-reply, #5e7a47);
+  text-indent: 0;
+}
+.ratioed-live.is-broken .ratioed-live-label { color: var(--ratioed-seal, #8c3a2e); }
+.ratioed-live.is-withdrawn .ratioed-live-label { color: var(--ratioed-quote, #8a6f24); }
 
 /* The one piece of motion on the page, and it earns it: the piece is running
    while you look at it. Steady rather than urgent — it goes urgent when
-   somebody likes it, which is the only alarm this deck has. */
+   somebody likes it, which is the only alarm this deck has. A dot, the one
+   round thing the site draws. */
 .ratioed-live-pulse {
-  width: 9px;
-  height: 9px;
-  background: var(--ratioed-reply, #5e7a47);
-  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
   animation: ratioed-live-breathe 2.4s ease-in-out infinite;
 }
-.ratioed-live.is-broken .ratioed-live-pulse {
-  background: var(--ratioed-seal, #8c3a2e);
-  animation-duration: 0.8s;
-}
-.ratioed-live.is-withdrawn .ratioed-live-pulse { background: var(--ratioed-quote, #8a6f24); }
+.ratioed-live.is-broken .ratioed-live-pulse { animation-duration: 0.8s; }
 
 @keyframes ratioed-live-breathe {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.35; transform: scale(0.82); }
 }
 
-.ratioed-live-clock { display: flex; align-items: baseline; gap: var(--space-2); }
-.ratioed-live-clock-value {
-  font-family: var(--mono, monospace);
-  font-size: var(--text-xl);
-  line-height: 1;
-}
-.ratioed-live-clock-label { font-size: var(--text-xs); color: var(--ink-muted); }
+.ratioed-live-head .ratioed-live-act { font-size: var(--text-sm); }
 
-.ratioed-live-stream {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: var(--text-xs);
+/* --- what is going on, in the artist's words ------------------------- */
+
+.ratioed-live-say {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  max-width: 62ch;
+  text-indent: 0;
+}
+.rstand-counts.ratioed-live-counts {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
   color: var(--ink-muted);
 }
-.ratioed-live-state { display: inline-flex; align-items: center; gap: 4px; }
+
+/* --- the thread's head ------------------------------------------------ */
+
+/* Its name in the label voice of the document band, and what is filling it at
+   the far end: the piece's own record, a few seconds behind, or the visitor's
+   own firehose, with what that is costing. */
+.ratioed-live-thread-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-5);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--rule);
+}
+.ratioed-live .ratioed-live-thread-label {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  color: var(--ink-faint);
+}
+.ratioed-live-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
 .ratioed-live-state.is-open { color: var(--ratioed-reply, #5e7a47); }
 .ratioed-live-state.is-spent,
 .ratioed-live-state.is-paused { color: var(--ratioed-quote, #8a6f24); }
-.ratioed-live-stream button {
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  color: var(--ink-muted);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-.ratioed-live-stream button:hover { color: var(--ink); }
 
-/* --- the alarm ------------------------------------------------------- */
-
-/* A like ends the piece, so it gets a band of its own rather than a row in the
-   feed. Complement-hued against a deck whose every other mark is the hour's own
-   hue, which is the whole argument the scale makes, at the size it deserves. */
-.ratioed-live-alarm {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  margin: var(--space-4) 0 0;
-  padding: var(--space-3) var(--space-4);
-  border: 1.5px solid color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 70%, transparent);
-  border-left-width: 5px;
-  background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 12%, transparent);
-}
-.ratioed-live-alarm-who {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.ratioed-live-alarm-when {
-  font-family: var(--mono, monospace);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--ink-muted);
-}
-
-/* The reaction time, accruing. The one number on this site that is neither a
-   measurement nor an estimate but a measurement in progress. */
-.ratioed-live-alarm-race {
-  margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-.ratioed-live-alarm-clock {
-  font-size: var(--text-xl);
-  line-height: 1;
-  color: var(--ratioed-seal, #8c3a2e);
-  font-weight: 600;
-}
-.ratioed-live-alarm-label { font-size: var(--text-xs); color: var(--ink-muted); }
-
-/* --- what is going on, in a sentence -------------------------------- */
-
-.ratioed-live-say {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  max-width: 62ch;
-}
-.ratioed-live.is-broken .ratioed-live-say strong { color: var(--ratioed-seal, #8c3a2e); }
-.ratioed-live.is-withdrawn .ratioed-live-say strong { color: var(--ratioed-quote, #8a6f24); }
-
-/* --- the counters ---------------------------------------------------- */
+/* --- the counters, for the sealed replay ---------------------------------------------------- */
 
 .ratioed-live-counters {
   display: grid;
@@ -171,10 +150,12 @@
    bottom of the window rather than as one more separator. The frame inside it
    fades whichever end still has rows behind it, and the fade cannot live out
    here — a mask takes its own element's border with it, which is the whole
-   reason the floor is a separate box. */
+   reason the floor is a separate box. A list that runs in the page has no
+   window, and no floor to draw. */
 .ratioed-live-feed {
   border-bottom: 1px solid var(--rule);
 }
+.ratioed-live-feed.is-open-ended { border-bottom: 0; }
 
 /* What actually scrolls — see ScrollFrame.jsx. A shorter fade than the ledger
    tables use: a row is around 2.4em tall, and at the tables' 2rem the whole of
@@ -182,87 +163,119 @@
 .ratioed-live-scroll {
   max-height: 24em;
   --scrollframe-fade: var(--space-5);
+  /* Out into the gutter by the width the lit row reaches past the columns
+     (`.is-breaking`), and back in by padding, so the rows keep their place and
+     that row's light is not clipped at the scroller's edge. */
+  margin-inline: calc(-1 * var(--space-2));
+  padding-inline: var(--space-2);
 }
 
+/* A ledger, in the home feed's three columns (Feed.css `.feed-item-ledger`):
+   the verb in the margin, the record, and its time at the far edge, each row
+   its own grid so the two label columns line up down the list. The margins are
+   sized to their longest words: "the artist" and "reposted" on the left,
+   "+54m01s" on the right. */
 .ratioed-live-ticker {
+  --rl-verb: 4.5rem;
+  --rl-time: 4.25rem;
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: var(--text-sm);
 }
-/* Flex rather than a grid: a row carries five to seven things depending on
-   whether it was deleted, whether it has text, and whether it can be opened. */
 .ratioed-live-row {
+  display: grid;
+  grid-template-columns: var(--rl-verb) minmax(0, 1fr) var(--rl-time);
+  column-gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+}
+.ratioed-live-row:last-child { border-bottom: 0; }
+
+/* The two margins speak in the ledger's label voice: small, faint, set like a
+   page number. The row's own colour is its kind's (RatioedBlock.css
+   `.ratioed-k-*`), which is what the handle wears; these opt out of it. */
+.ratioed-live-verb,
+.ratioed-live-when {
+  font-family: var(--mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+}
+.ratioed-live-verb { overflow-wrap: anywhere; }
+.ratioed-live-when {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ratioed-live-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+/* Who, in their kind's colour, with their face at the size of a capital. Cut
+   to the column rather than broken across two lines; the whole handle is on
+   the title. */
+.ratioed-live-who {
   display: flex;
   align-items: center;
-  gap: var(--space-1) var(--space-2);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--rule-soft);
+  gap: 0.4em;
+  max-width: 100%;
+  font-size: var(--text-base);
 }
-.ratioed-live-when { flex: none; width: 4.5em; }
-.ratioed-live-face { flex: none; }
-/* 14em rather than 11: wide enough for the long handles the series actually
-   has — `@girlpython.northsky.social` — now that a longer one is cut rather
-   than broken, and still a fixed basis, so the column holds. */
-.ratioed-live-who { flex: 0 1 14em; }
-.ratioed-live-text { flex: 1 1 8em; min-width: 0; }
-.ratioed-live-row:last-child { border-bottom: 0; }
-.ratioed-live-when { font-family: var(--mono, monospace); color: var(--ink-muted); }
-
-/* Square, like the roster's — see RatioedFaces.css. These are the same people
-   in the same evidence, arriving live rather than counted afterwards. */
-.ratioed-live-face { border-radius: 0; object-fit: cover; }
-.ratioed-live-face.is-blank {
-  width: 22px;
-  height: 22px;
-  border-radius: 0;
-  background: var(--rule-soft);
-}
-/* Cut to its column rather than broken across two lines. The column is a fixed
-   basis so the chips and the text after it line up down the feed; broken
-   anywhere, a long handle — the breaker's, on take 41 — stood its row two
-   lines tall as "@punishedtj.cryptoanarch / y.network", with most of the row
-   empty beside it. The whole handle is on the cell's title. */
-.ratioed-live-who {
+.ratioed-live-handle {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The artist's own records are in the log and in none of the counts. */
-.ratioed-live-row.is-self { color: var(--ink-faint); }
-.ratioed-live-self { font-size: var(--text-xs); color: var(--ink-muted); }
-/* What they said, whole. It was one line under an ellipsis, which on a phone
-   was four words of a reply and on any screen was a log of half-sentences.
-   `pre-wrap` because a post's own line breaks are part of what it says, and
-   `anywhere` because a URL pasted bare is one word as long as the row. */
+
+/* Square, like the roster's — see RatioedFaces.css. These are the same people
+   in the same evidence, arriving live rather than counted afterwards. */
+.ratioed-live-face {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 0;
+  object-fit: cover;
+}
+.ratioed-live-face.is-blank { background: var(--rule-soft); }
+
+/* What they said, whole and in the body's ink: it is the row. `pre-wrap`
+   because a post's own line breaks are part of what it says, and `anywhere`
+   because a URL pasted bare is one word as long as the row. */
 .ratioed-live-text {
-  color: var(--ink-faint);
+  font-size: var(--text-base);
+  line-height: 1.35;
+  color: var(--ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 /* Where the row opens, the words are the control that opens it — see
-   RatioedTicker.jsx. Stripped back to the text it already was: a button here
-   should read as a line in a log that happens to answer, not as a button. */
+   RatioedTicker.jsx. Stripped back to the text it already was. */
 .ratioed-live-text.is-toggle {
   font: inherit;
+  font-size: var(--text-base);
   background: none;
   border: 0;
   margin: 0;
   padding: 0;
   text-align: left;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.ratioed-live-text.is-toggle:hover { color: var(--ink-muted); }
 .ratioed-live-text.is-toggle:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* The one mark that says the words can be pressed. Inline, after the last of
-   them, so it costs a row no height — the alternative was a line of its own on
-   every reply in the feed, which is a phone screen spent on punctuation. */
+/* The one mark that says the words can be pressed, inline after the last of
+   them so it costs the row no height. */
 .ratioed-live-caret {
   display: inline-block;
   margin-left: 4px;
@@ -271,6 +284,25 @@
   transition: transform 0.15s ease;
 }
 .ratioed-live-row.is-open .ratioed-live-caret { transform: rotate(180deg); }
+
+/* The artist's own records: in the log and in none of the counts, so the row
+   steps back, handle and words alike. */
+.ratioed-live-row.is-self { color: var(--ink-faint); }
+.ratioed-live-row.is-self .ratioed-live-text { color: var(--ink-muted); }
+
+/* A like is not one more row. Its verb says so in the seal's colour wherever
+   it stands, and the one that ends the piece has its row lit, edge to edge,
+   with the margins kept where every other row has them. */
+.ratioed-live-ticker:not(.is-quiet) .ratioed-k-like:not(.is-gone) .ratioed-live-verb {
+  color: var(--ratioed-seal, #8c3a2e);
+  font-weight: 600;
+}
+.ratioed-live-row.is-breaking {
+  margin-inline: calc(-1 * var(--space-2));
+  padding-inline: var(--space-2);
+  background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 9%, transparent);
+}
+.ratioed-live-row.is-breaking .ratioed-live-when { color: var(--ratioed-seal, #8c3a2e); }
 
 /* --- what the post is carrying --------------------------------------- */
 
@@ -311,102 +343,91 @@
 
 /* --- the opened row --------------------------------------------------- */
 
-/* What the mark was standing in for, and the controls for acting on it. The
-   row is `nowrap` in this layout — it is one line, and that is the point of it
-   — so a row with a panel under it is the exception that gets to wrap. */
-.ratioed-live-row.is-open { flex-wrap: wrap; }
+/* What the mark was standing in for, and what can be done about it, under the
+   words that opened it and inside the body's column. Capped so an image embed
+   is a look at a post rather than the end of the list. */
 .ratioed-live-panel {
-  flex: 1 0 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
+  width: 100%;
   min-width: 0;
-  /* An image embed will take whatever it is given, and what it is given here
-     is a panel inside a feed inside a deck. Capped so an opened row is a look
-     at a post rather than the end of the list. */
   max-width: 32rem;
   margin-top: var(--space-2);
-  padding-left: var(--space-3);
-  border-left: 2px solid var(--rule-soft);
 }
 .ratioed-live-panel > * { max-width: 100%; }
+
+/* The row's controls, as words: "reply · like · open elsewhere". They used to
+   be a cluster of icons at the end of every row, borderless, and three of them
+   at a touch size were a third of a phone's row; in the ledger they are a line
+   of the record they act on. */
 .ratioed-live-panel-acts {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-/* The row's control slot, at its right edge. Whatever fills it — the studio's
-   three buttons, the deck's one — is the same shape in the same place, which is
-   how the two feeds keep a single right edge. */
-.ratioed-live-acts {
-  margin-left: auto;
-  display: inline-flex;
   align-items: center;
-  gap: 2px;
-  flex: none;
-}
-
-/* Open this record somewhere else. Quiet until reached for: the ticker is
-   something you watch, not something you operate. */
-.ratioed-live-open {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex: none;
-  border: 1px solid transparent;
-  background: none;
+  column-gap: var(--space-2);
+  font-size: var(--text-sm);
   color: var(--ink-faint);
+}
+.ratioed-live-act {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  /* As the kit's own buttons do (controls.css): a phone's default tap flash
+     boxes the word grey and leaves it there. */
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  text-underline-offset: 3px;
   cursor: pointer;
 }
-.ratioed-live-open:hover { color: var(--ink); border-color: var(--rule); }
-/* The same button, twice the size and with its name on, once it is in the
-   panel: there is room for words there, and on a phone the panel is the ONLY
-   place this button exists — the row's own controls are hidden at phone width (700px). */
-.ratioed-live-open-say { display: none; }
-.ratioed-live-panel-acts .ratioed-live-open {
-  width: auto;
-  height: auto;
-  padding: 0.4em 0.7em;
-  gap: 6px;
-  font: inherit;
-  font-size: var(--text-xs);
-  color: var(--ink-muted);
-  border-color: var(--rule);
+.ratioed-live-act:hover { text-decoration-color: currentColor; }
+.ratioed-live-act:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+/* What is already done reads as a state rather than an offer. */
+.ratioed-live-act.is-on {
+  /* The kit's `.is-on` washes its keys (controls.css); a word is on by its
+     weight, not by a box behind it. */
+  background: none;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
 }
-.ratioed-live-panel-acts .ratioed-live-open-say { display: inline; }
+.ratioed-live-act:disabled { color: var(--ink-faint); cursor: default; }
 @media (pointer: coarse) {
-  .ratioed-live-panel-acts .ratioed-live-open { min-height: var(--wb-hit, 2.75rem); }
+  .ratioed-live-act { min-height: var(--wb-hit, 2.75rem); }
 }
 
-/* Cast and taken back. The row recedes; the marker saying WHY does not —
-   that deletion is the one thing here no index can be asked about later. */
-.ratioed-live-row.is-gone .ratioed-live-when,
-.ratioed-live-row.is-gone .ratioed-live-who,
-.ratioed-live-row.is-gone .rk-chip,
-.ratioed-live-row.is-gone .ratioed-live-text { opacity: 0.5; }
-.ratioed-live-row.is-gone .ratioed-live-who { text-decoration: line-through; }
+/* Cast and taken back. The row goes over to the colour the project gives a
+   withdrawal and is struck through; the line saying WHEN it was taken back
+   stays at full strength — that deletion is the one thing here no index can
+   be asked about later. */
+.ratioed-live-row.is-gone,
+.ratioed-live-row.is-gone .ratioed-live-verb,
+.ratioed-live-row.is-gone .ratioed-live-when { color: var(--ratioed-quote, #8a6f24); }
+.ratioed-live-row.is-gone .ratioed-live-verb,
+.ratioed-live-row.is-gone .ratioed-live-handle { text-decoration: line-through; }
+.ratioed-live-row.is-gone .ratioed-live-text { opacity: 0.55; }
 .ratioed-live-row.is-gone .ratioed-live-face { filter: grayscale(1); opacity: 0.5; }
 .ratioed-live-undone {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--ratioed-quote, #8a6f24);
-  font-variant-caps: small-caps;
-  font-weight: 600;
 }
 
 /* A row from the afterlife, in the replay's transcript. Quieter than the
-   withdrawal marker beside it: landing after the seal is ordinary — most
-   pieces keep collecting for years — where a record being taken back is the
-   thing no index can be asked about later. */
+   withdrawal line: landing after the seal is ordinary — most pieces keep
+   collecting for years — where a record being taken back is the thing no
+   index can be asked about later. */
 .ratioed-live-after {
   font-size: var(--text-xs);
   color: var(--ink-muted);
-  font-variant-caps: small-caps;
-  letter-spacing: 0.04em;
+  font-variant: all-small-caps;
+  letter-spacing: 0.06em;
 }
 .ratioed-live-row:has(.ratioed-live-after) .ratioed-live-when { opacity: 0.6; }
 
@@ -461,23 +482,6 @@
    Measured on a 390px viewport: the deck was 597px tall before this block and
    is a little over half that after it, with nothing removed. */
 @media (max-width: 700px) {
-  /* 16px of padding inside a 358px box is 9% of the width given to the border,
-     twice. The deck is already inside the page's own gutter. */
-  .ratioed-live { padding: var(--space-3); }
-
-  .ratioed-live-head { gap: var(--space-2) var(--space-3); }
-  /* The clock is the headline and keeps its size; what it is reading, and the
-     switch for it, take the line under it rather than competing for the first. */
-  .ratioed-live-stream { margin-left: 0; width: 100%; gap: var(--space-2) var(--space-3); }
-
-  .ratioed-live-alarm {
-    gap: var(--space-2) var(--space-3);
-    margin-top: var(--space-3);
-    padding: var(--space-3);
-    border-left-width: 4px;
-  }
-  .ratioed-live-alarm-race { margin-left: 0; align-items: flex-start; }
-
   /* The counters, as a sentence of numbers rather than a dashboard.
      `repeat(auto-fit, minmax(80px, 1fr))` fits three or four columns at this
      width and there are five cells (six once something is taken back), so the
@@ -503,99 +507,6 @@
   .ratioed-live-counters dt { margin-bottom: 0; }
   .ratioed-live-counters dd { font-size: var(--text-base, 1rem); }
 
-  /* A row, as a grid of four columns: what they did, who, their handle, when.
-     Everything that needs a line of its own drops into the handle's column
-     underneath it, and that is what the grid is for — it was a wrapping flex
-     row, and a wrapped line starts at the row's left edge, so what somebody
-     said began under the icon rather than under their name. Two columns to the
-     left of where it belonged reads as a caption on the feed; under the handle
-     it reads as theirs. Doing it by hand would mean indenting the text by the
-     width of a chip plus an avatar plus two gaps — three numbers, one of them
-     in another stylesheet, all of them silently wrong the day any of the three
-     changes. A column does it by being a column. */
-  .ratioed-live-row {
-    display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: var(--space-2);
-    /* Enough that the second line is a second line and not a wrap. */
-    row-gap: 2px;
-    padding-block: var(--space-2);
-  }
-
-  /* Nothing to operate. Every button a row carried — the deck's "open this
-     somewhere else", the studio's open/like/answer — is gone at this width, and
-     the row is a line in a log again rather than a control.
-     They were never worth their room here. Three touch targets at the admin's
-     44px floor are 132px of a 358px row, a third of the screen reserved on
-     every row for a thing tapped on almost none of them, and what they took was
-     taken from the two things a row is FOR: the handle, cut to @danny…, and
-     what that person said, cut to four words. The studio's three have a full
-     panel to be operated from a mouse; the deck's one opened a modal offering a
-     choice of clients, which on a phone is a menu in front of a feed that is
-     moving. Hidden rather than dropped from the markup, because both are the
-     right controls at a width that has room for them.
-
-     Hidden by where they are rather than by what they are: the same button
-     class turns up again inside an opened row's panel, which at this width is
-     the only place it exists at all. */
-  .ratioed-live-row > .ratioed-live-open,
-  .ratioed-live-row > .ratioed-live-acts { display: none; }
-
-  /* The first line, in the order the eye wants rather than the markup's:
-       1  the chip     what they did
-       2  the face     who
-       3  the handle   who, in words — takes whatever the other three leave
-       4  the stamp    when — at the row's right edge, because 3 took the slack
-
-     The chip leads because it is the one thing on a row the eye scans a feed
-     FOR — three replies and a repost is the shape of a piece going well — and
-     in the wide layout it sits wherever the handle before it leaves it, which
-     on a phone is a different place on every row. A column of kinds is
-     readable in one pass down the left edge. Its box is 1.5em and its own (see
-     RatioedChip.css), where the label it used to carry wanted 5.4em to hold
-     the longest of the four words: about four ems of a 358px row handed back
-     to the handle and the text, which are what a row is for. */
-  .ratioed-live-row .rk-chip { grid-area: 1 / 1; }
-  .ratioed-live-face { grid-area: 1 / 2; }
-  .ratioed-live-who { grid-area: 1 / 3; }
-  .ratioed-live-when { grid-area: 1 / 4; }
-
-  /* Truncated, not broken. `minmax(0, 1fr)` is the half of this that is in the
-     column: a plain `1fr` floors at the content's min-content width, so a
-     handle like @thelongesthandleyouhaveseen.ninja pushed the stamp off the
-     row instead of being cut. Broken rather than truncated it stood the first
-     line two lines tall, which put every row's stamp out of line with the row
-     above it. */
-  .ratioed-live-who {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow-wrap: normal;
-  }
-  /* The stamp keeps its own column at the right edge — so the row reads
-     between two aligned columns, what happened on the left and when on the
-     right, with the person in between. Sized to its digits rather than to the
-     wide layout's 4.5em box, which was cut for "+42m09s" and holds "+42s" on
-     nearly every row the series has ever produced. */
-  .ratioed-live-when { font-size: var(--text-xs); }
-
-  /* And under it, a line each, in markup order, all of them starting where the
-     handle starts. Column 3 through the end rather than column 3 alone: what
-     somebody wrote wants the stamp's width as well, and there is nothing under
-     a stamp to collide with. */
-  .ratioed-live-after,
-  .ratioed-live-undone,
-  .ratioed-live-text { grid-column: 3 / -1; }
-
-  /* And the panel with them, under the words that opened it. The rule down its
-     left goes: the column IS the rule at this width, and 14px of border and
-     padding is 14px an image embed 271px wide can ill afford. */
-  .ratioed-live-panel {
-    grid-column: 3 / -1;
-    padding-left: 0;
-    border-left: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
