@@ -676,6 +676,39 @@ export function trimBlockText(text, facets) {
   return { text: trimmed, facets: shifted };
 }
 
+/**
+ * Hold a paragraph's last two words together with a no-break space, so it
+ * can't end on one short word alone on its line. Browsers have no reliable
+ * way to say this: `text-wrap: pretty` does it in Chromium, but in Safari it
+ * also breaks every line early on purpose, which left the ragged edge loose
+ * on a phone and would blow out the spacing of justified text. Only short
+ * pairs are held: two long words carried down together would leave the line
+ * above them short. Facet offsets are UTF-8 bytes, and a no-break space is
+ * two bytes where the space was one, so facets after it shift by one.
+ */
+export function glueLastWords(text, facets, { maxLast = 8, maxPair = 16 } = {}) {
+  const m = /(\S+) (\S+)\s*$/u.exec(text);
+  if (!m) return { text, facets };
+  const letters = (w) => w.replace(/[^\p{L}\p{N}]/gu, '').length;
+  if (letters(m[2]) > maxLast || letters(m[1]) + letters(m[2]) > maxPair) return { text, facets };
+  const at = m.index + m[1].length;
+  const byte = utf8.encode(text.slice(0, at)).length;
+  const shifted = Array.isArray(facets)
+    ? facets.map((f) => {
+        const s = f?.index?.byteStart;
+        const e = f?.index?.byteEnd;
+        if (s == null || e == null || e <= byte) return f;
+        return { ...f, index: { ...f.index, byteStart: s > byte ? s + 1 : s, byteEnd: e + 1 } };
+      })
+    : facets;
+  return { text: `${text.slice(0, at)}\u00a0${text.slice(at + 1)}`, facets: shifted };
+}
+
+// An opening word of one letter ("I began", "A few"), quotation marks aside.
+// With a drop cap it is the whole first word, and needs a word space after
+// it or the line reads "IBEGAN".
+const CAP_IS_WORD = /^[^\p{L}\p{N}]*[\p{L}\p{N}][\s\u00a0]/u;
+
 function TextBlock({ block, style, first = false, as: Tag = 'p' }) {
   const raw = block.plaintext || '';
   // Empty text blocks function as paragraph breaks. Render an empty
@@ -684,15 +717,18 @@ function TextBlock({ block, style, first = false, as: Tag = 'p' }) {
     return <p className="leaflet-spacer" aria-hidden="true" style={style || undefined} />;
   }
   const { text, facets } = trimBlockText(raw, block.facets);
+  // What the page sets; the x-ray manuscript below keeps the record's text.
+  const set = glueLastWords(text, facets);
   const layout = TEXT_LAYOUT_VALUES.has(block.layout) ? block.layout : null;
   const classes = ['leaflet-paragraph'];
   if (first) classes.push('first-paragraph');
+  if (first && CAP_IS_WORD.test(text)) classes.push('leaflet-cap-word');
   if (layout) classes.push(`leaflet-${layout}`);
   const marks = countStraightMarks(text);
   // The opening paragraph sets its first phrase in small caps after the drop
   // cap (Blogging.css .leaflet-lede), rather than its whole first line.
   const [lede, rest] = first
-    ? splitLeafletText(text, unlinkInitial(text, facets), ledeEnd(text))
+    ? splitLeafletText(set.text, unlinkInitial(set.text, set.facets), ledeEnd(set.text))
     : [null, null];
   return (
     <Tag className={classes.join(' ')} style={style || undefined}>
@@ -702,7 +738,7 @@ function TextBlock({ block, style, first = false, as: Tag = 'p' }) {
           {renderLeafletText(rest.text, rest.facets, { smart: true, prev: lede.text.slice(-1) })}
         </>
       ) : (
-        renderLeafletText(text, facets, { smart: true })
+        renderLeafletText(set.text, set.facets, { smart: true })
       )}
       {/* The manuscript, for x-ray: the record's own text beside the typeset
           paragraph, so curling a quote on the page never hides what was

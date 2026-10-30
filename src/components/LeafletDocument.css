@@ -19,11 +19,48 @@
 /* One paragraph signal: the indent. No paragraph carries space below it, so
    a break is never marked twice (it used to be space plus indent on the first
    break of a run and indent alone after). Space appears only around insets,
-   figures and headings, and the paragraph after one of those starts flush. */
+   figures and headings, and the paragraph after one of those starts flush.
+
+   Hyphenated, so a long word can share a line rather than leave a gap, but
+   sparingly where the edge is ragged: words of eight letters or more, four
+   each side of the break. At the 6 3 3 justified text uses, a phone ended
+   one line in six on a hyphen; at 8 4 4, one in thirteen, with lines as full.
+   Safari has no `hyphenate-limit-chars`, only the older before/after pair,
+   so there the word-length floor is its own.
+   No `text-wrap: pretty`: Safari's version breaks every line short of the
+   measure on purpose, which left a phone's ragged edge visibly loose and
+   would blow out the spacing of justified text. A paragraph's last two short
+   words are held together instead (glueLastWords), so it rarely ends on one
+   word alone. */
 .leaflet-paragraph {
   margin: 0;
   max-width: none;
-  text-wrap: pretty;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  hyphenate-limit-chars: 8 4 4;
+  -webkit-hyphenate-limit-before: 4;
+  -webkit-hyphenate-limit-after: 4;
+}
+
+/* Justified where the measure allows it: about 66 characters a line at the
+   essay size. Spaces can only widen in a browser, never narrow, and Crimson
+   Pro's is narrow already (0.19em), so justifying stretched them wide. A
+   slightly narrower base space (about 85%, the floor a book allows) lets a
+   line take one more word and widen less, and justified text takes more
+   hyphenation than ragged. Measured across four essays, lines wider than
+   twice a normal space fell from 15% to 11% this way. A phone's 45 or so
+   characters can't be justified well by any method a browser offers (a
+   third of lines stayed loose even with optimal breaking), so there the
+   text stays ragged. Quotations justify with the prose; stacked lines and
+   credits keep their own setting. */
+@media (min-width: 701px) {
+  .leaflet-paragraph:not(.leaflet-stack, .leaflet-credit) {
+    text-align: justify;
+    word-spacing: -0.028em;
+    hyphenate-limit-chars: 6 3 3;
+    -webkit-hyphenate-limit-before: 3;
+    -webkit-hyphenate-limit-after: 3;
+  }
 }
 
 .leaflet-paragraph + .leaflet-paragraph {
