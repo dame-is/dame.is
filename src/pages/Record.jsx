@@ -8,7 +8,7 @@ import CreatingCard from '../components/CreatingCard.jsx';
 import ObservationCard from '../components/cards/ObservationCard.jsx';
 import AnisotaLabCard from '../components/cards/AnisotaLabCard.jsx';
 import FlushCard from '../components/cards/FlushCard.jsx';
-import Comments from '../components/Comments.jsx';
+import Comments, { MissingReply, ReplyCard } from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions, { OpenInButton } from '../components/AturiActions.jsx';
@@ -35,11 +35,15 @@ import {
   rkeyFromAtUri,
 } from '../lib/atproto.js';
 import {
+  PARENT_HEIGHT,
+  foldConversation,
+  foldVoices,
   isRenderableReply,
   loadPostThread,
   mostLikedFirst,
   postExcerpt,
   repliesByPost,
+  voicesInProse,
   walkSelfChain,
 } from '../lib/postThread.js';
 import { dateKey, formatMonthDay, formatTime } from '../lib/time.js';
@@ -200,7 +204,7 @@ export default function Record({ verb, nsid, source }) {
           try {
             thread = await getPostThread(subjectUri, {
               depth: 6,
-              parentHeight: 6,
+              parentHeight: PARENT_HEIGHT,
             });
           } catch (err) {
             // The AppView answers a deleted or taken-down post with a 400
@@ -425,9 +429,7 @@ export default function Record({ verb, nsid, source }) {
             a like the record it points at. Takes no room until then. */}
         <InspectMargin atUri={atUri} cid={cid} value={item?.payload} />
 
-        {threadMode && parents.length > 0 && (
-          <ParentChain parents={parents.slice(0, 1)} />
-        )}
+        {threadMode && parents.length > 0 && <ConversationContext parents={parents} />}
 
         {item && thread ? (
           <ThreadPosts thread={thread} />
@@ -854,77 +856,83 @@ function AlbumArt({ payload }) {
 }
 
 /**
- * Parent-of-reply rendering. Walks oldest → newest so the visual reads
- * top-to-bottom as conversation flow.
+ * The conversation a reply sits in, drawn above it the way the Replies
+ * section draws replies (Comments.jsx ReplyCard), one under another as a run
+ * since each answers the one before: the post it began with, then, when it's
+ * long, the middle folded into one line naming who's in it
+ * (foldConversation), then the posts just before the reply. `parents` is
+ * collectParents' newest-first walk; this reads it oldest first.
  */
-function ParentChain({ parents }) {
-  const ordered = [...parents].reverse(); // root … immediate parent
+function ConversationContext({ parents }) {
+  const ancestors = [...parents].reverse();
+  const { start, folded, end } = foldConversation(ancestors);
+  const first = ancestors[0];
+  const firstName = first?.author ? first.author.displayName || `@${first.author.handle}` : null;
+  const label =
+    ancestors.length === 1
+      ? 'replying to'
+      : firstName
+        ? `in a conversation on ${firstName}’s post`
+        : 'in a conversation';
+  const voices = voicesInProse(foldVoices(folded));
   return (
-    <div className="record-parent-chain" aria-label="In reply to">
-      {ordered.map((p, i) => (
-        <ParentPostCard
-          key={p.uri || i}
-          parent={p}
-          isRoot={i === 0 && ordered.length > 1}
-        />
-      ))}
-    </div>
+    <section
+      className="record-context"
+      aria-label={ancestors.length === 1 ? 'In reply to' : 'The conversation so far'}
+    >
+      <p className="record-context-label">
+        <span aria-hidden="true">↳ </span>
+        <span className="small-caps">{label}</span>
+      </p>
+      <ul className="comments-tree comments-run record-context-posts">
+        {start.map((post, i) => (
+          <ContextPost key={post.uri || `start-${i}`} post={post} />
+        ))}
+        {folded.length > 0 && (
+          <li className="comment record-context-fold">
+            <details>
+              <summary>
+                <span className="record-context-dots" aria-hidden="true">
+                  ⋮
+                </span>
+                <span className="record-context-fold-text">
+                  {countWord(folded.length)} more replies
+                  {voices && <span className="record-context-fold-voices"> from {voices}</span>}
+                  <span className="record-context-fold-toggle">
+                    <span className="when-closed">show</span>
+                    <span className="when-open">hide</span>
+                  </span>
+                </span>
+              </summary>
+              <ul className="comments-tree comments-run">
+                {folded.map((post, i) => (
+                  <ContextPost key={post.uri || `folded-${i}`} post={post} />
+                ))}
+              </ul>
+            </details>
+          </li>
+        )}
+        {end.map((post, i) => (
+          <ContextPost key={post.uri || `end-${i}`} post={post} />
+        ))}
+      </ul>
+    </section>
   );
 }
 
-function ParentPostCard({ parent, isRoot }) {
+/**
+ * One post of that conversation, as a reply in the Replies section. Its card
+ * reads the post view's own fields, so collectParents' condensed shape (which
+ * keeps them) draws the same.
+ */
+function ContextPost({ post }) {
   const { active: inspecting } = useXray();
-  if (parent?.$type === 'app.bsky.feed.defs#notFoundPost') {
-    return <div className="record-parent record-parent-missing gutter">↳ a deleted post</div>;
-  }
-  if (parent?.$type === 'app.bsky.feed.defs#blockedPost') {
-    return <div className="record-parent record-parent-missing gutter">↳ a blocked post</div>;
-  }
-  const handle = parent?.author?.handle;
-  const displayName = parent?.author?.displayName;
-  const did = parent?.author?.did;
-  const text = parent?.record?.text || '';
-  const facets = parent?.record?.facets || null;
-  const embed = parent?.embed || parent?.record?.embed || null;
-  const ts = parent?.record?.createdAt || parent?.indexedAt;
-  // Only treat the parent as a local record if it lives on this site. For
-  // anyone else's posts, link the timestamp out to bsky.app so the user
-  // doesn't get teleported into the wrong /posting/{rkey} on this domain.
-  const isMine = did === ME_DID;
-  const localHref = isMine && parent?.uri ? recordPathFromAtUri(parent.uri) : null;
-  const externalHref = !isMine && handle && parent?.uri
-    ? `https://bsky.app/profile/${handle}/post/${parent.uri.split('/').pop()}`
-    : null;
+  if (!post?.author) return <MissingReply node={post} />;
   return (
-    <article className="record-parent" data-at-uri={parent?.uri}>
-      {inspecting && parent?.uri && <XrayTag atUri={parent.uri} />}
-      <header className="record-parent-head">
-        <span className="record-parent-arrow" aria-hidden="true">↳</span>
-        {isRoot && <span className="small-caps record-parent-tag">root</span>}
-        <span className="small-caps record-parent-context">replying to</span>
-        {(displayName || handle) && (
-          <span className="record-parent-author">
-            {displayName && <span className="record-parent-name">{displayName}</span>}
-            {handle && <span className="record-parent-handle">@{handle}</span>}
-          </span>
-        )}
-        {ts && (
-          <span className="gutter record-parent-time">
-            {localHref ? (
-              <Link to={localHref}><Time value={ts} variant="relative" /></Link>
-            ) : externalHref ? (
-              <a href={externalHref} target="_blank" rel="noreferrer noopener"><Time value={ts} variant="relative" /></a>
-            ) : (
-              <Time value={ts} variant="relative" />
-            )}
-          </span>
-        )}
-      </header>
-      <p className="record-parent-text">
-        {text ? renderPostText(text, facets) : <em>—</em>}
-      </p>
-      {embed && <PostEmbed embed={embed} did={did} />}
-    </article>
+    <li className="comment">
+      {inspecting && post.uri && <XrayTag atUri={post.uri} />}
+      <ReplyCard post={post} />
+    </li>
   );
 }
 

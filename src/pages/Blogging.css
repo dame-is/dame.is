@@ -492,90 +492,74 @@
   padding: 0;
 }
 
-/* Parent-of-reply chain on the post record page */
-.record-parent-chain {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-  position: relative;
-  padding-left: var(--space-4);
-  border-left: 2px solid var(--rule-soft);
+/* The conversation above a reply (Record.jsx ConversationContext), in the
+   Replies section's own cards and run (Comments.css), so it reads the same
+   above a post as replies do below it. Only its label and its fold are its
+   own. */
+.record-context {
+  margin-bottom: var(--space-6);
 }
 
-.record-parent {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) 0;
-  color: var(--ink-soft);
-}
-
-.record-parent + .record-parent {
-  border-top: 1px dotted var(--rule);
-  padding-top: var(--space-3);
-}
-
-.record-parent-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.record-parent-tag {
-  letter-spacing: 0.14em;
+.record-context-label {
+  max-width: none;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
   color: var(--ink-faint);
+  text-indent: 0;
 }
 
-.record-parent-arrow {
-  color: var(--ink-faint);
-}
-
-.record-parent-context {
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-}
-
-.record-parent-author {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.record-parent-name {
-  color: var(--ink-soft);
-}
-
-.record-parent-handle {
-  letter-spacing: 0.1em;
+.record-context-label .small-caps {
+  letter-spacing: 0.08em;
   color: var(--ink-muted);
 }
 
-.record-parent-time a {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px dotted transparent;
-}
-
-.record-parent-time a:hover {
-  border-bottom-color: var(--ink-faint);
-}
-
-.record-parent-text {
-  font-family: var(--serif);
+/* The fold: one line of the run, its mark in the avatars' column, saying
+   how many replies it holds and whose, and opening in place. */
+.record-context-fold summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
   font-size: var(--text-sm);
-  white-space: pre-wrap;
-  margin: 0;
-  color: var(--ink-soft);
-  max-width: var(--measure);
+  color: var(--ink-muted);
+  list-style: none;
+  cursor: pointer;
 }
 
-.record-parent-missing {
+.record-context-fold summary::-webkit-details-marker {
+  display: none;
+}
+
+.record-context-dots {
+  flex: 0 0 var(--comment-avatar);
+  text-align: center;
   color: var(--ink-faint);
-  font-style: italic;
-  padding: var(--space-2) 0;
+}
+
+.record-context-fold-toggle {
+  margin-left: var(--space-2);
+  color: var(--accent);
+  border-bottom: 1px dotted var(--accent-soft);
+}
+
+.record-context-fold details[open] .when-closed,
+.record-context-fold details:not([open]) .when-open {
+  display: none;
+}
+
+.record-context-fold details[open] > summary {
+  margin-bottom: var(--space-3);
+}
+
+.record-context-fold summary:hover .record-context-fold-text,
+.record-context-fold summary:focus-visible .record-context-fold-text {
+  color: var(--ink);
+}
+
+/* A phone has no room to name everyone in the fold; the count says enough. */
+@media (max-width: 700px) {
+  .record-context-fold-voices {
+    display: none;
+  }
 }
 
 /* Author's own self-reply continuation, lifted into the main post area and
