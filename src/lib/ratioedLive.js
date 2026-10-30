@@ -350,3 +350,59 @@ export function witnessChanged(a, b) {
   }
   return false;
 }
+
+/**
+ * Where a studio's watch of a live piece had got to, in the form this browser
+ * keeps it.
+ *
+ * The stream used to start from the piece's first second on every open, so a
+ * reload forty minutes into a take replayed the whole forty minutes again (23
+ * minutes of take 42 came to 380 MB), with the panel reading "catching up" and
+ * the stream-side alarm held the whole way. What a reload needs is where the page it
+ * replaced had stopped, and the rows it had seen by then. The record has the
+ * rows but not the place, and it is written a few seconds behind the stream on
+ * purpose, so a seq kept next to the record's rows could point past a reply
+ * that only this tab had seen. Keeping both here, from the same render, means
+ * the rows always include everything the stream delivered before that seq.
+ *
+ * `status` is the watch's own (see watchSubject): its `seq` has already been
+ * delivered in full. Returns null until the stream has delivered something.
+ */
+export function watchCheckpoint(rkey, status, rows, { profiles = {} } = {}) {
+  if (!rkey || !(status?.seq > 0) || !(status?.atMs > 0)) return null;
+  return {
+    rkey,
+    seq: status.seq,
+    atMs: status.atMs,
+    ...(Number.isFinite(status.coveredFrom) ? { coveredFrom: status.coveredFrom } : {}),
+    ...(status.gapMs > 0 ? { gapMs: status.gapMs } : {}),
+    rows: witnessToRecord(rows, { profiles }),
+  };
+}
+
+/**
+ * A kept checkpoint read back, for this piece only, or null.
+ *
+ * Null for another piece's, for anything malformed, and for a place older than
+ * `maxAgeMs`: Jetstream holds 36 hours, and a cursor past that is refused.
+ */
+export function readWatchCheckpoint(raw, rkey, { nowMs = Date.now(), maxAgeMs } = {}) {
+  let v = raw;
+  if (typeof raw === 'string') {
+    try {
+      v = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!v || !rkey || v.rkey !== rkey) return null;
+  if (!(v.seq > 0) || !(v.atMs > 0) || v.atMs > nowMs + 60_000) return null;
+  if (Number.isFinite(maxAgeMs) && nowMs - v.atMs >= maxAgeMs) return null;
+  return {
+    seq: v.seq,
+    atMs: v.atMs,
+    coveredFrom: Number.isFinite(v.coveredFrom) ? v.coveredFrom : null,
+    gapMs: v.gapMs > 0 ? v.gapMs : 0,
+    rows: witnessFromRecord(v.rows) || [],
+  };
+}

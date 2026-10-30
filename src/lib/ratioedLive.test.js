@@ -14,6 +14,8 @@ import {
   resolveBreaker,
   witnessChanged,
   witnessFromEvents,
+  watchCheckpoint,
+  readWatchCheckpoint,
   WITNESS_MAX,
   WITNESS_TEXT_MAX,
 } from './ratioedLive.js';
@@ -323,5 +325,42 @@ describe('witnessFromEvents', () => {
   it('ignores a delete for something it never saw created', () => {
     const rows = witnessFromEvents([ev({ op: 'delete', rkey: 'nobody' })], postedAtMs);
     expect(rows).toEqual([]);
+  });
+});
+
+describe('watchCheckpoint / readWatchCheckpoint', () => {
+  const now = Date.parse('2026-10-30T02:00:00Z');
+  const status = { seq: 900, atMs: now - 2000, coveredFrom: now - 40 * 60_000, gapMs: 0 };
+  const rows = [
+    { k: 'reply', rkey: LATER, did: 'did:plc:them', offMs: 1500, t: 'first' },
+    { k: 'like', rkey: LATEST, did: 'did:plc:fan', offMs: 9000, goneMs: 12_000 },
+  ];
+
+  it('keeps the place and the rows, and reads them back for the same piece', () => {
+    const kept = JSON.stringify(
+      watchCheckpoint('3piece', status, rows, { profiles: { 'did:plc:them': { handle: 'them.test' } } }),
+    );
+    const back = readWatchCheckpoint(kept, '3piece', { nowMs: now, maxAgeMs: 36 * 3600_000 });
+    expect(back).toMatchObject({ seq: 900, atMs: now - 2000, coveredFrom: now - 40 * 60_000, gapMs: 0 });
+    // Withdrawals survive the trip, and the names resolved by then come along.
+    expect(back.rows).toEqual([
+      { k: 'reply', rkey: LATER, did: 'did:plc:them', h: 'them.test', offMs: 1500, t: 'first' },
+      { k: 'like', rkey: LATEST, did: 'did:plc:fan', offMs: 9000, goneMs: 12_000 },
+    ]);
+  });
+
+  it('has nothing to keep before the stream has delivered anything', () => {
+    expect(watchCheckpoint('3piece', { seq: 0, atMs: 0 }, rows)).toBeNull();
+    expect(watchCheckpoint('3piece', null, rows)).toBeNull();
+    expect(watchCheckpoint('', status, rows)).toBeNull();
+  });
+
+  it('reads nothing for another piece, a place too old to resume, or junk', () => {
+    const kept = watchCheckpoint('3piece', status, rows);
+    expect(readWatchCheckpoint(kept, '3other', { nowMs: now })).toBeNull();
+    expect(readWatchCheckpoint(kept, '3piece', { nowMs: now + 36 * 3600_000, maxAgeMs: 36 * 3600_000 })).toBeNull();
+    expect(readWatchCheckpoint('{not json', '3piece', { nowMs: now })).toBeNull();
+    expect(readWatchCheckpoint(null, '3piece', { nowMs: now })).toBeNull();
+    expect(readWatchCheckpoint({ ...kept, seq: 'x' }, '3piece', { nowMs: now })).toBeNull();
   });
 });

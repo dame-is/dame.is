@@ -227,7 +227,10 @@ export function classify(collection, record, subject) {
  * ALREADY reported are passed on. That means a like cast before the socket
  * opened and deleted while it's up goes unseen here, which is the right trade:
  * the alternative is reporting every deletion on Bluesky, and the pieces this
- * watches are watched from the moment they go up.
+ * watches are watched from the moment they go up. `known(rkey, did)` widens
+ * that to records the caller already holds from somewhere else, answering the
+ * kind or null: a watch carrying on from an earlier one never saw those
+ * creates, and their deletes are the ones that matter.
  *
  * `onStatus` receives `{ state, bytes, seen, msgs, rate, kbps }`, where `state`
  * is `'connecting' | 'open' | 'closed' | 'spent'`. `bytes` is what the stream
@@ -254,7 +257,16 @@ export function classify(collection, record, subject) {
  * start rather than as a claim. `gapMs` is time lost since then to reconnects
  * that had to start live. `atMs` is the newest event's relay time and
  * `behindMs` how far that trails this machine's clock: a few hundred ms when
- * live, minutes while a replay is catching up.
+ * live, minutes while a replay is catching up. `seq` is the last event the
+ * watch has finished with: every onEvent before it has been called.
+ *
+ * `resume` carries on from an earlier watch of the same post, given
+ * `{ seq, atMs, coveredFrom, gapMs }` off that watch's last status. It is
+ * treated as that watch's socket coming back after a drop: the same seq, then
+ * time, then live fallbacks, so what it vouches for and what it lost read on
+ * from where the earlier one left them. It is how a reload picks up where the
+ * page it replaced had got to, instead of replaying the piece from its first
+ * second every time. It takes precedence over `fromMs`.
  */
 export function watchSubject(
   subject,
@@ -265,6 +277,8 @@ export function watchSubject(
     budgetBytes = DEFAULT_BUDGET_BYTES,
     fromMs = null,
     maxReplayMs = MAX_REPLAY_MS,
+    resume = null,
+    known = null,
   } = {},
 ) {
   let ws = null;
@@ -301,6 +315,20 @@ export function watchSubject(
   // What the stall check last saw, and when it last saw it change.
   let progressMsgs = 0;
   let progressAt = 0;
+  // An earlier watch's place, taken up as if this were its reconnect. The age
+  // replayCursor measures is the event's relay time, capped at this machine's
+  // clock: there is no local receive time to go on any more, and a client clock
+  // running behind the relay's would otherwise make the gap negative.
+  if (resume?.seq > 0 && resume?.atMs > 0) {
+    const nowMs = Date.now();
+    lastSeq = resume.seq;
+    lastTimeMs = Math.min(resume.atMs, nowMs);
+    lastEventMs = resume.atMs;
+    atMs = resume.atMs;
+    behindMs = Math.max(0, nowMs - resume.atMs);
+    coveredFrom = Number.isFinite(resume.coveredFrom) ? resume.coveredFrom : null;
+    gapMs = resume.gapMs > 0 ? resume.gapMs : 0;
+  }
   // null / 0 / Infinity all mean "run until told to stop".
   const capped = Number.isFinite(budgetBytes) && budgetBytes > 0;
   // Record keys this subscription has reported as creates. A delete names only
@@ -327,6 +355,9 @@ export function watchSubject(
       gapMs,
       atMs,
       behindMs,
+      // Advanced only after a message has been handled, so every status that
+      // reports a seq has already delivered every event before it.
+      seq: lastSeq,
     });
 
   // Which cursor this connection asks for, in order of exactness: the seq the
@@ -460,7 +491,7 @@ export function watchSubject(
       if (!c || !c.collection) return;
 
       if (c.operation === 'delete') {
-        const kind = mine.get(c.rkey);
+        const kind = mine.get(c.rkey) || known?.(c.rkey, c.did) || null;
         if (!kind) return;
         mine.delete(c.rkey);
         onEvent?.({ kind, op: 'delete', did: c.did, rkey: c.rkey, seq: c.seq, time: c.time });
