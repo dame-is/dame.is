@@ -210,7 +210,7 @@ export default function FeedLedgerRow({
             {summary && <p className="ledger-text">{summary}</p>}
           </div>
         ) : listening && isListenBatch(item) ? (
-          <div className="ledger-listen-line">
+          <div className="ledger-count-line">
             {summary && <p className="ledger-text">{summary}</p>}
             <ListenMore item={item} expanded={expanded} onToggle={onToggle} />
           </div>
@@ -703,7 +703,7 @@ function ListenMore({ item, expanded, onToggle }) {
     `+ ${total - 1} more`
   );
   return (
-    <p className="ledger-count ledger-listen-more">
+    <p className="ledger-count">
       {onToggle ? (
         <button
           type="button"
@@ -782,9 +782,9 @@ function ObservationLedgerBody({ item }) {
 
 /**
  * A collapsed run of observations: up to four specimens in a strip, the
- * species the run turned up, and the count — which doubles as the expand
- * toggle, exactly as a listening session's song count does. FeedItem also
- * toggles on taps anywhere else in the row.
+ * species the run turned up, and the count at the right of that line, which
+ * doubles as the expand toggle, exactly as a listening session's song count
+ * does. FeedItem also toggles on taps anywhere else in the row.
  */
 function ObservationBatchLedgerBody({ item, expanded, onToggle }) {
   const shown = (item.observations || [])
@@ -792,9 +792,9 @@ function ObservationBatchLedgerBody({ item, expanded, onToggle }) {
     .slice(0, BATCH_THUMBS);
   const names = batchNameLine(item, BATCH_LEDGER_NAMES);
   const count = batchCountLabel(item);
-  // The run's tally of new species, beside its tally of sightings — the row
-  // stands in for a whole night, so a first inside it has nowhere else to show
-  // until the run is opened.
+  // The run's tally of new species, on a line under the species it turned up.
+  // The row stands in for a whole night, so a first inside it has nowhere
+  // else to show until the run is opened.
   const firsts = firstSightingCount(item);
   return (
     <div className="ledger-obs ledger-obs-batch">
@@ -817,28 +817,30 @@ function ObservationBatchLedgerBody({ item, expanded, onToggle }) {
         )}
       </span>
       <span className="ledger-obs-names">
-        <span className="ledger-obs-name">
-          {names || <Placeholder>unidentified</Placeholder>}
+        <span className="ledger-count-line">
+          <span className="ledger-obs-name">
+            {names || <Placeholder>unidentified</Placeholder>}
+          </span>
+          <span className="ledger-count">
+            {onToggle ? (
+              <button
+                type="button"
+                className="ledger-count-toggle"
+                onClick={onToggle}
+                aria-expanded={expanded}
+                aria-label={`${expanded ? 'Hide' : 'Show'} all ${count}`}
+              >
+                {count}
+                <span className="ledger-count-caret" aria-hidden="true">
+                  {expanded ? '\u2212' : '+'}
+                </span>
+              </button>
+            ) : (
+              count
+            )}
+          </span>
         </span>
-        <span className="ledger-obs-count">
-          {onToggle ? (
-            <button
-              type="button"
-              className="ledger-count-toggle"
-              onClick={onToggle}
-              aria-expanded={expanded}
-              aria-label={`${expanded ? 'Hide' : 'Show'} all ${count}`}
-            >
-              {count}
-              <span className="ledger-count-caret" aria-hidden="true">
-                {expanded ? '\u2212' : '+'}
-              </span>
-            </button>
-          ) : (
-            count
-          )}
-          {firsts > 0 && <FirstSightingChip count={firsts} size="small" />}
-        </span>
+        {firsts > 0 && <FirstSightingChip count={firsts} size="small" />}
       </span>
     </div>
   );

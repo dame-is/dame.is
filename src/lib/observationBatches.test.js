@@ -191,7 +191,7 @@ describe('batch labels', () => {
   });
 
   it('trails off once the line has said enough', () => {
-    expect(batchNameLine(night, 2)).toBe('Luna Moth, Angel Moth + 1 more');
+    expect(batchNameLine(night, 2)).toBe('Luna Moth, Angel Moth +\u00a01\u00a0more');
     expect(batchNameLine(night, 3)).toBe('Luna Moth, Angel Moth, Tersa Sphinx');
   });
 
