@@ -38,6 +38,10 @@ export default function AdminDirectorySheet() {
       id={ADMIN_DIRECTORY_PANEL_ID}
       label="Admin directory"
       size="fill"
+      // No thumb Close: the admin chip that opened the sheet turns into its ×
+      // in the bar below, under the thumb already, as the compass does. The
+      // foot drew a second bar on top of the bar on a touch screen.
+      thumbClose={false}
       className="wb-panel chrome-admin-directory"
     >
       {/* Mounted only while open, so the lazy chunk is fetched on first use,

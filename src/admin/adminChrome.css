@@ -387,9 +387,17 @@
    The `:first-child` reset is what keeps that edge the SAME height whether or
    not there are recents: `.wb-sheet-heading` opens with a margin of its own, so
    a sheet that starts with RECENT would otherwise stand a step taller than one
-   that starts with the Front Desk row. */
+   that starts with the Front Desk row.
+
+   Its inline inset is the bar's content column (`--chrome-pad-x`), as the
+   compass sheet's is, rather than the desk sheet's `--chrome-pad-base`. The two
+   agree up to the frame plus its padding, which on the stacked admin (a 72rem
+   frame, below 62rem) is every width it is drawn at. On a public page the frame
+   is 46rem, and the directory the bar's admin chip opens there ran edge to edge
+   on a wide screen while the compass beside it held the column. */
 .wb-panel .wb-sheet-body {
   padding-top: var(--space-4);
+  padding-inline: var(--chrome-pad-x);
 }
 
 .wb-panel .wb-sheet-body > :first-child {

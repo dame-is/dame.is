@@ -873,10 +873,11 @@
    for the panels two of them open. Nothing here is admin-specific in its
    geometry: they are `.chrome-nav` chips like every other button in the bar. */
 
-/* The admin directory's lazy body, mid-fetch. One quiet line in the sheet. */
+/* The admin directory's lazy body, mid-fetch. One quiet line in the sheet, on
+   the bar's column where the rows will land. */
 .chrome-admin-directory-loading {
   margin: 0;
-  padding: var(--space-4);
+  padding: var(--space-4) var(--chrome-pad-x);
   color: var(--ink-faint);
   font-style: italic;
 }
