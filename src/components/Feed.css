@@ -1981,11 +1981,19 @@ a.reference-card-profile:focus-visible {
 
 /* A self-thread folded into one row (collapseSelfThreads, ThreadLedgerBody):
    its posts stack as the paragraphs of one entry, under the row's one time,
-   and each starts with its number. */
+   and each starts with its number. So they're spaced as paragraphs are:
+   half a line of .ledger-text, the same step as a blank line inside a post
+   (.post-para-break in typography.css). It was a quarter rem, under the
+   paragraph break, so the next post began closer than a paragraph inside
+   the one before it. Written out from the tokens rather than as
+   0.5lh because this box keeps the body's looser leading for the embeds
+   inside it. After a picture or card the step is the same, and still
+   clears the embed by more than the embed clears its own text, so the next
+   number starts a post rather than captioning the one above. */
 .ledger-thread {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: calc(var(--text-base) * var(--leading-tight) / 2);
 }
 
 /* A post's number: small and raised, like a verse number, kept off the
@@ -2019,12 +2027,6 @@ a.reference-card-profile:focus-visible {
   flex: 1 1 auto;
   min-width: 0;
   margin-top: 0;
-}
-
-/* A post after a picture or card stands a little clear of it, so its number
-   reads as starting the next post rather than captioning the one above. */
-.ledger-thread-post:has(> .ledger-embed) + .ledger-thread-post {
-  margin-top: var(--space-1);
 }
 
 /* The margin's gerund links to its section; it keeps the column's ink. */
