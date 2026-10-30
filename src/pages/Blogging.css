@@ -108,10 +108,17 @@
   margin-top: 0;
 }
 
-/* How long ago the essay was published, after its date: a step quieter, since
-   the date is the fact and this is a reading of it. */
-.blog-published-ago {
-  color: var(--ink-faint);
+/* A first-week essay's "today" or "3d ago", whose date is in its tooltip:
+   dotted, as the admin marks the notes that carry one, so the hover is found
+   rather than stumbled on. The date it stands for is for paper only. */
+.blog-published-recent {
+  cursor: help;
+  text-decoration: underline dotted var(--rule);
+  text-underline-offset: 0.25em;
+}
+
+.blog-published-print {
+  display: none;
 }
 
 /* The CID edition, a link to the record in the explorer. */
@@ -157,24 +164,14 @@
 }
 
 /* The essay's band sizes its columns to what they hold and shares out the
-   rest, rather than cutting equal thirds: the published column carries its
-   date and, in its first week, "yesterday" or "3d ago" after it, which a
-   third had no room for on a phone. With room to spare the columns still come
-   out near equal. The pairs' `min-width: 0` lets them narrow past their text,
-   to an ellipsis, only once nothing fits. */
+   rest, rather than cutting equal thirds, which clipped the published date
+   on a phone beside a long middle column. With room to spare the columns
+   still come out near equal. The pairs' `min-width: 0` lets them narrow past
+   their text, to an ellipsis, only once nothing fits. */
 .blog-margin .document-meta[data-columns] {
   grid-template-columns: none;
   grid-auto-columns: auto;
   grid-auto-flow: column;
-}
-
-/* On the narrowest phones (a 320px screen's band is 18rem) even the short
-   date and "today" don't fit beside the other two columns, so the date stands
-   alone rather than ending in "tod…". */
-@container (max-width: 20rem) {
-  .blog-published-ago {
-    display: none;
-  }
 }
 
 .blog-article-meta {
@@ -806,9 +803,13 @@
     margin-bottom: var(--space-5);
   }
 
-  .blog-published-ago,
+  .blog-published-recent,
   .blog-margin .document-meta-edition {
     display: none;
+  }
+
+  .blog-published-print {
+    display: inline;
   }
 
   .leaflet-doc h2,
