@@ -279,9 +279,14 @@ blockquote {
 
 /* Paragraph break inside rendered post text (see renderPostText). A blank
    line in the source ("\n\n") becomes one of these block spacers instead of
-   a doubled <br>, giving a small paragraph gap — visible separation without
-   a full empty line's worth of dead space. */
+   a doubled <br>: half a line of the text it sits in, enough to read as a
+   new paragraph without a full empty line of dead space. It is set in
+   `lh`, not em: at 0.5em it came to about a third of a line in the feed's
+   tight leading, near enough to a wrapped line's spacing that the two read
+   as uneven leading rather than as lines and paragraphs. Half a line also
+   lands on the step a folded thread puts between its posts (.ledger-thread
+   in Feed.css), so a new post never sits closer than a new paragraph. */
 .post-para-break {
   display: block;
-  height: 0.5em;
+  height: 0.5lh;
 }
