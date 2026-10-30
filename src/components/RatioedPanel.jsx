@@ -743,7 +743,7 @@ export default function RatioedPanel({ agent, did }) {
           <Button
             onClick={repairAll}
             disabled={!!busy}
-            title="Fill in whatever each record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, and everything that has landed since the seal. Figures measured while a piece was alive are never re-read."
+            title="Fill in whatever each record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, the stretch the witnessed log missed while Jetstream still holds it, and everything that has landed since the seal. Figures measured while a piece was alive are never re-read."
           >
             <Wrench size={14} aria-hidden="true" />
             {busy === 'repair-all'

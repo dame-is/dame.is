@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
-import { replayWindow, watchSubject } from './jetstream.js';
+import { LOOKBACK_MS, replayWindow, watchSubject } from './jetstream.js';
 
 // A socket that does only what the test tells it to. `close()` reports
 // synchronously, which is harsher than a browser (there it lands a tick later)
@@ -174,5 +174,140 @@ describe('replayWindow settles', () => {
       reachedEnd: false,
       error: 'the replay ran out of time',
     });
+  });
+});
+
+describe('watchSubject starts in the past and keeps its place', () => {
+  const event = (atMs, seq, extra = {}) => ({
+    $type: 'message',
+    payload: {
+      did: 'did:plc:someone',
+      collection: 'app.bsky.feed.like',
+      operation: 'create',
+      rkey: `3other${seq}`,
+      record: { subject: { uri: 'at://did:plc:else/app.bsky.feed.post/3x' } },
+      seq,
+      time: new Date(atMs).toISOString(),
+      ...extra,
+    },
+  });
+  const cursorOf = (s) => new URL(s.url).searchParams.get('cursor');
+
+  it('asks for a timestamp cursor, and vouches only for where it landed', () => {
+    const now = Date.now();
+    const statuses = [];
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      fromMs: now - 3 * 60_000,
+      onStatus: (s) => statuses.push(s),
+    });
+    expect(cursorOf(latest())).toBe(String((now - 3 * 60_000) * 1000));
+
+    latest().open();
+    latest().message(event(now - 3 * 60_000 + 40, 100));
+    const last = statuses[statuses.length - 1];
+    expect(last.coveredFrom).toBe(now - 3 * 60_000 + 40);
+    expect(last.behindMs).toBe(3 * 60_000 - 40);
+    stop();
+  });
+
+  it('reports a later start when the server could not go back that far', () => {
+    const now = Date.now();
+    const statuses = [];
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      fromMs: now - 40 * 3600_000,
+      onStatus: (s) => statuses.push(s),
+    });
+    latest().open();
+    // What the v2 host actually sends for a cursor below its retention floor.
+    latest().message({
+      $type: 'message',
+      payload: {
+        $type: 'network.bsky.jetstream.subscribeEvents#info',
+        name: 'OutdatedCursor',
+        message:
+          'requested timestamp cursor below retention floor; starting at seq 7',
+      },
+    });
+    latest().message(event(now - 36 * 3600_000, 7));
+    expect(statuses[statuses.length - 1].coveredFrom).toBe(now - 36 * 3600_000);
+    stop();
+  });
+
+  it('resumes a long drop from its seq when the caller pays for it', async () => {
+    const now = Date.now();
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      maxReplayMs: LOOKBACK_MS,
+    });
+    latest().open();
+    latest().message(event(now, 500));
+    // A phone locked in a pocket: the socket is gone for ten minutes.
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    latest().close();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(cursorOf(latest())).toBe('500');
+    stop();
+  });
+
+  it('still starts live after a long drop by default', async () => {
+    const now = Date.now();
+    const stop = watchSubject(SUBJECT, { budgetBytes: null });
+    latest().open();
+    latest().message(event(now, 500));
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    latest().close();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(cursorOf(latest())).toBeNull();
+    stop();
+  });
+
+  it('falls back from a refused seq to a time, then to live, and counts what that lost', async () => {
+    const now = Date.now();
+    const statuses = [];
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      maxReplayMs: LOOKBACK_MS,
+      onStatus: (s) => statuses.push(s),
+    });
+    latest().open();
+    latest().message(event(now, 500));
+    latest().close();
+
+    // A seq the server no longer holds is refused before the upgrade: no
+    // open, no message, just the close. Twice, and the time is tried instead.
+    const cursors = [];
+    for (let i = 0; i < 4; i += 1) {
+      await vi.advanceTimersByTimeAsync(30_000);
+      cursors.push(cursorOf(latest()));
+      latest().close();
+    }
+    expect(cursors).toEqual([
+      '500',
+      '500',
+      String((now - 1000) * 1000),
+      String((now - 1000) * 1000),
+    ]);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(cursorOf(latest())).toBeNull();
+    latest().open();
+    const resumedAt = Date.now();
+    latest().message(event(resumedAt, 900));
+    const last = statuses[statuses.length - 1];
+    expect(last.coveredFrom).toBe(now);
+    expect(last.gapMs).toBe(resumedAt - now);
+    stop();
+  });
+
+  it('keeps retrying its starting cursor until something arrives', async () => {
+    const now = Date.now();
+    const from = now - 60_000;
+    const stop = watchSubject(SUBJECT, { budgetBytes: null, fromMs: from });
+    latest().close();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(cursorOf(latest())).toBe(String(from * 1000));
+    stop();
   });
 });

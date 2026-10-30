@@ -116,6 +116,27 @@ export function withdrawWitness(rows, rkey, atMs, postedAtMs) {
   );
 }
 
+/**
+ * A replayed stretch of stream as witness rows: creates folded in, deletes
+ * marked against them, in the order the stream delivered them.
+ *
+ * The same two steps the studio takes on each live event, so a stretch read
+ * back from Jetstream's lookback lands on the record exactly as it would have
+ * had the socket been open for it.
+ */
+export function witnessFromEvents(events, postedAtMs) {
+  let rows = [];
+  for (const ev of events || []) {
+    if (ev?.op === 'delete') {
+      rows = withdrawWitness(rows, ev.rkey, Date.parse(ev.time || ''), postedAtMs);
+      continue;
+    }
+    const row = witnessRow(ev, postedAtMs);
+    if (row) rows = mergeWitnessRow(rows, row);
+  }
+  return rows;
+}
+
 function sortWitness(rows) {
   return [...rows].sort((a, b) => a.offMs - b.offMs || String(a.rkey).localeCompare(String(b.rkey)));
 }

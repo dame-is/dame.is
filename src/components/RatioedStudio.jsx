@@ -108,7 +108,7 @@ import {
   ANNOUNCEMENT_BREAK,
   FEED_MAX as POST_MAX,
 } from '../lib/ratioedStudio.js';
-import { watchSubject } from '../lib/jetstream.js';
+import { watchSubject, LOOKBACK_MS } from '../lib/jetstream.js';
 import {
   resolvePds,
   getRecord,
@@ -155,6 +155,18 @@ const WITNESS_SAVE_MS = 2500;
 // that timer. A busy piece must still reach the record.
 const WITNESS_SAVE_MAX_MS = 12_000;
 
+
+// How far before the post the watch starts reading. Nothing can point at a post
+// before it exists, so this is margin for the relay's clock and nothing else.
+const WATCH_LEAD_MS = 5000;
+
+// Further behind real time than this, the stream is replaying rather than live.
+// Live it trails by a few hundred ms.
+const CATCHING_UP_MS = 5000;
+
+// How long a seal holds a catching-up stream open to read as far as the seal,
+// before measuring with whatever it has.
+const CATCH_UP_WAIT_MS = 90_000;
 
 // How long a live read gets before this panel calls what it has final.
 const PDS_DEADLINE_MS = 6000;
@@ -259,7 +271,16 @@ export default function RatioedStudio({ agent, did }) {
   const [orphan, setOrphan] = useState(null);
   const askedProfiles = useRef(new Set());
   const savedWitness = useRef({ rows: null, at: 0, busy: false, stop: false });
-  const [stream, setStream] = useState(null); // { state, bytes, seen, msgs, rate }
+  // { state, bytes, seen, msgs, rate, coveredFrom, gapMs, atMs, behindMs }
+  const [stream, setStream] = useState(null);
+  // The same two, for code that runs after the render that set them: the seal
+  // is one async function, and the feed it closes over is the one from the
+  // moment it was pressed.
+  const streamRef = useRef(null);
+  const feedRef = useRef([]);
+  // A seal that landed while the stream was still replaying. See the stream's
+  // effect: `{ rkey, sealedMs, release, done }`.
+  const linger = useRef(null);
   const [profiles, setProfiles] = useState({});
 
   // Set when the PLC read misses its deadline and the series is therefore the
@@ -436,13 +457,20 @@ export default function RatioedStudio({ agent, did }) {
 
   // The watch. Only runs while something is actually up and unsealed.
   // Either reader will do; the stream simply gets there first.
-  const streamLike = breakingWitness(feed);
+  //
+  // Except while it is replaying the piece so far. A like that was cast and
+  // taken back minutes ago arrives as a create and, a fraction of a second
+  // later, as its delete, and in between the panel would light up for a like
+  // nobody is holding. The poll reads the present and keeps the alarm honest
+  // until the stream has caught up to it.
+  const catchingUp = (stream?.behindMs || 0) > CATCHING_UP_MS;
+  const streamLike = catchingUp ? null : breakingWitness(feed);
   const seenLike = Boolean(streamLike) || Boolean(likes?.likes?.length);
   // Somebody liked it and took it back before it was sealed. The alarm must not
   // simply go quiet on that: it's the project's own subject matter happening in
   // front of you, and whether a withdrawn like still ends a piece is a question
   // for the artist, not for a boolean.
-  const withdrawn = !seenLike && withdrawnOnly(feed);
+  const withdrawn = !seenLike && !catchingUp && withdrawnOnly(feed);
   // Both watches are keyed on which piece is up and what it points at, never on
   // the `live` object: every refresh builds a new one for the same piece, and
   // keyed on that, each refresh closed the socket and opened another with no
@@ -538,13 +566,38 @@ export default function RatioedStudio({ agent, did }) {
     );
   }, [liveKey, recordedWitness, recordedFrom]);
 
+  useEffect(() => {
+    feedRef.current = feed;
+  }, [feed]);
+
   // The stream. Open only while a piece is actually up and unsealed — it is a
   // firehose, ~180 KB/s, and it exists to shave four seconds off noticing one
   // like. The moment the piece is sealed there is nothing left to notice.
+  //
+  // It reads from the moment the piece went up, not from the moment this panel
+  // opened. A watch that started live had a hole the size of whatever the
+  // panel wasn't open for: take 42's record says watching began 3m13s in, and
+  // two replies had landed before that which its log never saw. Jetstream
+  // holds 36 hours behind its live tail, so the first connection asks for the
+  // post's own second, reads the piece so far at a few hundred times real time,
+  // and carries on live on the same socket. Deletes come through in order too,
+  // which is the part nothing else can recover: a like cast and taken back
+  // while the tab was closed is replayed as both. It costs what keeping the tab
+  // open the whole time would have.
   useEffect(() => {
     if (!liveKey || sealedNow) return undefined;
-    setWitnessFrom((v) => v ?? Math.max(0, Date.now() - livePostedMs));
-    const close = watchSubject(liveSubject, {
+    let lingering = null;
+    let lingerTimer = null;
+    let close = () => {};
+    const finishLinger = () => {
+      const l = lingering;
+      lingering = null;
+      clearTimeout(lingerTimer);
+      close();
+      l?.release();
+      if (linger.current === l) linger.current = null;
+    };
+    close = watchSubject(liveSubject, {
       // No budget here. A cap made sense while this was a curiosity; it does not
       // survive contact with a piece that stands for an hour, because the thing
       // the cap ends is the watch, and the watch is the measurement. The bytes
@@ -553,8 +606,29 @@ export default function RatioedStudio({ agent, did }) {
       // notice. There is no switch, because there was never a moment during a
       // piece when throwing it was the right thing to do.
       budgetBytes: null,
-      onStatus: setStream,
+      fromMs: livePostedMs - WATCH_LEAD_MS,
+      // And a drop resumes exactly, however long it lasted: a phone locked in
+      // a pocket for ten minutes comes back to those ten minutes, not to now.
+      maxReplayMs: LOOKBACK_MS,
+      onStatus: (s) => {
+        streamRef.current = s;
+        setStream(s);
+        // What the record claims to have watched is what the stream actually
+        // delivered, read off its first event, not when this effect ran.
+        if (s.coveredFrom != null) {
+          const from = Math.max(0, s.coveredFrom - livePostedMs);
+          setWitnessFrom((v) => (v == null ? from : Math.min(v, from)));
+        }
+        if (lingering && s.atMs >= lingering.sealedMs) finishLinger();
+      },
       onEvent: (ev) => {
+        // Held open past a seal to finish a replay: what it reads from after
+        // the gate is the afterlife, which the measurement owns.
+        if (lingering) {
+          const row = ev.op === 'delete' ? null : witnessRow(ev, livePostedMs);
+          const at = row ? livePostedMs + row.offMs : Date.parse(ev.time || '');
+          if (!(at < lingering.sealedMs)) return;
+        }
         setFeed((f) => {
           if (ev.op === 'delete') {
             // Somebody taking it back, watched rather than inferred. Six of the
@@ -571,7 +645,23 @@ export default function RatioedStudio({ agent, did }) {
         });
       },
     });
-    return close;
+    return () => {
+      // Sealed while the stream was still replaying the piece so far. Closing
+      // now would leave the log ending wherever the replay had got to, under a
+      // `witnessFromMs` that says it covers the start, so the socket is held
+      // until it reads past the seal and the measurement waits for it.
+      const l = linger.current;
+      if (l && l.rkey === liveKey) {
+        lingering = l;
+        if ((streamRef.current?.atMs || 0) >= l.sealedMs) {
+          finishLinger();
+        } else {
+          lingerTimer = setTimeout(finishLinger, CATCH_UP_WAIT_MS);
+        }
+        return;
+      }
+      close();
+    };
   }, [liveKey, liveSubject, sealedNow, livePostedMs]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
@@ -923,6 +1013,19 @@ export default function RatioedStudio({ agent, did }) {
         },
       });
       // The artwork is finished as of this line. Say so before the read.
+      //
+      // If the stream is still replaying the piece so far (a panel opened or
+      // reloaded moments ago), it is held open past the seal rather than shut
+      // on it; `measureAndFinish` waits on `done`. Decided here, before the
+      // render that closes it, so the two can't race.
+      const s = streamRef.current;
+      if (s && s.state !== 'spent' && (s.behindMs || 0) > CATCHING_UP_MS) {
+        let release = () => {};
+        const done = new Promise((r) => {
+          release = r;
+        });
+        linger.current = { rkey: live.rkey, sealedMs: Date.parse(sealedAt), release, done };
+      }
       setSealed({ rkey: live.rkey, sealedAt });
       setNote('Sealed. Measuring…');
 
@@ -984,6 +1087,18 @@ export default function RatioedStudio({ agent, did }) {
       Object.entries(measuredProfiles).map(([k, p]) => [k, p.handle]).filter(([, h]) => h),
     );
 
+    // A seal that caught the stream mid-replay: let it read up to the seal
+    // first, so the log written below runs all the way to the gate.
+    const lingering = linger.current;
+    if (lingering?.rkey === piece.rkey) {
+      setNote('Sealed. Reading the stream up to the seal…');
+      await Promise.race([
+        lingering.done,
+        new Promise((r) => setTimeout(r, CATCH_UP_WAIT_MS + 1000)),
+      ]);
+      setNote('Sealed. Measuring…');
+    }
+
     // From here the measurement owns this record. A pending witness write is
     // cancelled by the effect that scheduled it, but one already in flight read
     // an unsealed record and would put the piece back to alive if it landed
@@ -999,14 +1114,23 @@ export default function RatioedStudio({ agent, did }) {
     // piece stopped being live and the panel let it go — and the log written
     // while it ran must survive that.
     const held = await readPiece(piece.rkey).catch(() => null);
-    const witnessRows = mergeWitness(witnessFromRecord(held?.witnessed) || [], feed);
+    // The panel's feed and its start belong to whichever piece is live, and
+    // "Measure" can be pressed on an older one while a new one is up. Only the
+    // piece they were collected for gets them.
+    const ours = piece.rkey === liveKey;
+    const witnessRows = mergeWitness(
+      witnessFromRecord(held?.witnessed) || [],
+      ours ? feedRef.current : [],
+    );
     const witnessed = witnessToRecord(witnessRows, { profiles });
-    const witnessFromMs =
-      typeof held?.witnessFromMs === 'number'
-        ? held.witnessFromMs
-        : witnessFrom != null
-          ? Math.round(witnessFrom)
-          : null;
+    // The earlier of the two. The record's used to win outright, so a panel
+    // that had replayed the piece from its first second sealed it still saying
+    // "watching began 3m13s in" — whatever a tab had written before it.
+    const fromCandidates = [
+      typeof held?.witnessFromMs === 'number' ? held.witnessFromMs : null,
+      ours && witnessFrom != null ? Math.round(witnessFrom) : null,
+    ].filter((v) => v != null);
+    const witnessFromMs = fromCandidates.length ? Math.min(...fromCandidates) : null;
 
     // Every name this pass has any claim on, weakest first.
     //
@@ -1707,6 +1831,9 @@ export default function RatioedStudio({ agent, did }) {
                 way: "As it happens" labelled a feed that is visibly happening,
                 "Live" said what the lit radio says, and "N matched" counted the
                 rows directly under it. */}
+            {/* While it is replaying the piece so far, the rate is tens of
+                thousands a second and says nothing; how far behind it is says
+                when the feed below will be whole. */}
             <span
               className={`rs-stream is-${stream?.state || 'connecting'}`}
               title={
@@ -1719,10 +1846,22 @@ export default function RatioedStudio({ agent, did }) {
             >
               <Radio size={12} aria-hidden="true" />
               {stream?.state === 'open'
-                ? `${(stream.rate || 0).toLocaleString()} rec/s`
+                ? catchingUp
+                  ? `catching up · ${fmtDuration(stream.behindMs)} behind`
+                  : `${(stream.rate || 0).toLocaleString()} rec/s`
                 : stream?.state || 'connecting'}
             </span>
           </div>
+
+          {/* Only when a reconnect could not resume and had to start live —
+              the server refused both the seq and the time. Rare, and the one
+              case where the log has a hole nothing on the record describes. */}
+          {stream?.gapMs > 0 && (
+            <p className="rs-note">
+              The stream lost {fmtDuration(stream.gapMs)} to a reconnect it couldn&rsquo;t resume.
+              Anything in that stretch wasn&rsquo;t witnessed.
+            </p>
+          )}
 
           {justSealed && (
             <p className="rs-note">
@@ -2229,7 +2368,7 @@ export default function RatioedStudio({ agent, did }) {
                       size="sm"
                       onClick={() => repair(p)}
                       disabled={!!busy}
-                      title="Fill in whatever this record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, and everything that has landed since the seal. The alive window is never re-read."
+                      title="Fill in whatever this record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, the stretch the witnessed log missed while Jetstream still holds it, and everything that has landed since the seal. The measured alive window is never re-read."
                     >
                       <Wrench size={12} aria-hidden="true" />
                       {busy === `repair:${p.rkey}` ? 'Repairing…' : 'Repair'}

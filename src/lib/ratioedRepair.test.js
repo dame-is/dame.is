@@ -6,6 +6,7 @@ import {
   healPiece,
   onlyOnPds,
   takeRuns,
+  replayUnwatched,
 } from './ratioedRepair.js';
 
 const POSTED = '2026-08-17T00:00:00.000Z';
@@ -385,5 +386,151 @@ describe('takeRuns', () => {
     expect(takeRuns([9, 1, 2, 2, 3])).toBe('1–3, 9');
     expect(takeRuns([7])).toBe('7');
     expect(takeRuns([])).toBe('');
+  });
+});
+
+describe('the unwatched start', () => {
+  // Take 42's shape: the studio's log began 3m13s in, and two replies had
+  // landed before it.
+  const WATCHED_FROM = 192_640;
+  const late = (over = {}) =>
+    piece({
+      breaker: { handle: 'ponder.ooo', did: 'did:plc:breaker', likeSurvives: true, reactionMs: 4000 },
+      events: [{ k: 'reply', offMs: 65_202, did: 'did:plc:a1', h: 'a1.test', pre: 1, fr: 100 }],
+      witnessed: [{ k: 'reply', offMs: 220_670, rkey: 'R3', did: 'did:plc:me', h: 'me.test' }],
+      witnessFromMs: WATCHED_FROM,
+      ...over,
+    });
+  const soon = postedMs + 60 * 60_000;
+
+  it('is a gap while Jetstream still holds it, and not after', () => {
+    expect(pieceGaps(late(), soon).unwatched).toBe(true);
+    expect(worthRepairing(late(), soon)).toBe(true);
+    expect(pieceGaps(late(), postedMs + 37 * 3600_000).unwatched).toBe(false);
+  });
+
+  it('is not a gap when the log started with the piece', () => {
+    expect(pieceGaps(late({ witnessFromMs: 600 }), soon).unwatched).toBe(false);
+    // Never watched at all is the whole piece unwatched.
+    expect(pieceGaps(late({ witnessFromMs: undefined }), soon).unwatched).toBe(true);
+  });
+
+  it('fills the stretch, lowers the start, and leaves the rows already there alone', () => {
+    const { value, changes } = healPiece(late(), {
+      profiles: { 'did:plc:early1': { handle: 'early.test' } },
+      witnessReplay: {
+        fromMs: 0,
+        rows: [
+          { k: 'reply', offMs: 158_300, rkey: 'R1', did: 'did:plc:early1', t: 'first' },
+          { k: 'reply', offMs: 159_300, rkey: 'R2', did: 'did:plc:early2' },
+          // Seen again by the follow-up replay: no new information.
+          { k: 'reply', offMs: 220_670, rkey: 'R3', did: 'did:plc:me' },
+        ],
+      },
+    });
+    expect(value.witnessFromMs).toBe(0);
+    expect(value.witnessed.map((r) => r.rkey)).toEqual(['R1', 'R2', 'R3']);
+    expect(value.witnessed[0]).toMatchObject({ h: 'early.test', t: 'first' });
+    expect(value.witnessed[2].h).toBe('me.test');
+    expect(changes).toContain('read the first 3m13s back from Jetstream (2 records)');
+  });
+
+  it('marks a like the live watch let go by, and lets it end the piece', () => {
+    // Cast in the unwatched stretch, deleted after the studio opened: the live
+    // watch saw the delete and could not tell whose it was.
+    const unnamed = late({
+      breaker: { handle: 'unknown', likeSurvives: false },
+      witnessed: [],
+    });
+    const { value, changes } = healPiece(unnamed, {
+      witnessReplay: {
+        fromMs: 0,
+        rows: [{ k: 'like', offMs: 120_000, rkey: 'L1', did: 'did:plc:gone', h: 'gone.test', goneMs: 400_000 }],
+      },
+    });
+    expect(value.witnessed[0]).toMatchObject({ rkey: 'L1', goneMs: 400_000 });
+    expect(value.breaker).toMatchObject({
+      handle: 'gone.test',
+      did: 'did:plc:gone',
+      likeSurvives: false,
+      reactionRecovered: true,
+      reactionMs: 900_000 - 120_000,
+    });
+    expect(changes.join(' ')).toMatch(/1 taken back/);
+  });
+
+  it('keeps nothing from after the seal', () => {
+    const { value } = healPiece(late(), {
+      witnessReplay: { fromMs: 0, rows: [{ k: 'like', offMs: 900_500, rkey: 'L9', did: 'did:plc:x' }] },
+    });
+    expect(value.witnessed.map((r) => r.rkey)).toEqual(['R3']);
+  });
+
+  describe('replayUnwatched', () => {
+    const SUBJECT = 'at://did:plc:me/app.bsky.feed.post/take16';
+    const create = (did, rkeyMs, kind = 'reply') => ({
+      kind,
+      op: 'create',
+      did,
+      rkey: tidAt(rkeyMs),
+      time: new Date(rkeyMs + 300).toISOString(),
+    });
+
+    it('scans the stretch, then follows whoever it found to the seal', async () => {
+      const calls = [];
+      const likeAt = postedMs + 100_000;
+      const replay = async (subject, opts) => {
+        calls.push({ subject, ...opts });
+        if (!opts.dids) {
+          return { reachedEnd: true, firstMs: postedMs - 4900, events: [create('did:plc:fan', likeAt, 'like')] };
+        }
+        return {
+          reachedEnd: true,
+          events: [
+            create('did:plc:fan', likeAt, 'like'),
+            { kind: 'like', op: 'delete', did: 'did:plc:fan', rkey: tidAt(likeAt), time: new Date(postedMs + 400_000).toISOString() },
+          ],
+        };
+      };
+      const out = await replayUnwatched(late(), undefined, replay);
+      expect(calls).toHaveLength(2);
+      expect(calls[0]).toMatchObject({ subject: SUBJECT, toMs: postedMs + WATCHED_FROM });
+      expect(calls[0].dids).toBeUndefined();
+      expect(calls[1]).toMatchObject({ dids: ['did:plc:fan'], toMs: Date.parse(SEALED) });
+      expect(out.fromMs).toBe(0);
+      expect(out.rows).toHaveLength(1);
+      expect(out.rows[0]).toMatchObject({ k: 'like', offMs: 100_000, goneMs: 400_000 });
+    });
+
+    it('vouches only for where the stream actually began', async () => {
+      const replay = async () => ({ reachedEnd: true, firstMs: postedMs + 30_000, events: [] });
+      const out = await replayUnwatched(late(), undefined, replay);
+      expect(out).toEqual({ rows: [], fromMs: 30_000 });
+    });
+
+    it('writes nothing from a replay that stopped short', async () => {
+      const short = async () => ({ reachedEnd: false, firstMs: postedMs, events: [] });
+      expect(await replayUnwatched(late(), undefined, short)).toBeNull();
+
+      // Or whose follow-up did: a like cast in the stretch could have been
+      // taken back afterwards, and only the follow-up would know.
+      const halfway = async (s, opts) =>
+        opts.dids
+          ? { reachedEnd: false, events: [] }
+          : { reachedEnd: true, firstMs: postedMs, events: [create('did:plc:fan', postedMs + 10_000, 'like')] };
+      expect(await replayUnwatched(late(), undefined, halfway)).toBeNull();
+    });
+
+    it('reads the whole piece in one pass when nothing was ever watching', async () => {
+      const calls = [];
+      const replay = async (s, opts) => {
+        calls.push(opts);
+        return { reachedEnd: true, firstMs: postedMs - 5000, events: [create('did:plc:fan', postedMs + 10_000)] };
+      };
+      const out = await replayUnwatched(late({ witnessFromMs: undefined }), undefined, replay);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].toMs).toBe(Date.parse(SEALED));
+      expect(out.rows).toHaveLength(1);
+    });
   });
 });

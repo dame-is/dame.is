@@ -20,7 +20,8 @@
 // therefore only ever:
 //
 //   • fills something absent (a name, a DID, a handle on a log row, a follower
-//     count, a reaction time nothing had timed),
+//     count, a reaction time nothing had timed, the stretch of a piece the
+//     witnessed log says nothing was watching),
 //   • or replaces the window that is DEFINED as re-readable: everything after
 //     the seal, which the lexicon says keeps accruing indefinitely.
 //
@@ -28,13 +29,47 @@
 // was alive. That is the whole contract, and it is why this can be one button.
 
 import { UNRESOLVED_HANDLE, measureWindows, buildEventLog } from './ratioedDiscovery.js';
-import { witnessFromRecord, resolveBreaker } from './ratioedLive.js';
-import { fetchPieceRecords } from './ratioed.js';
+import {
+  witnessFromRecord,
+  witnessFromEvents,
+  witnessToRecord,
+  mergeWitness,
+  resolveBreaker,
+} from './ratioedLive.js';
+import { fetchPieceRecords, fmtDuration } from './ratioed.js';
 import { resolveProfiles, resolveHandle, getPosts, tidToTimestamp } from './atproto.js';
 import { replayWindow, withinLookback } from './jetstream.js';
 
 /** How far past the seal a recovery replay looks. See `recoverable` below. */
 const REPLAY_TAIL_MS = 60_000;
+
+/**
+ * Below this, a late start to the witnessed log isn't worth a replay: it is the
+ * second it took the socket to open. The piece's page draws the same line
+ * before it says "watching began N in".
+ */
+const UNWATCHED_MIN_MS = 1000;
+
+/** How far before the post a replay of its unwatched start begins. Clock margin. */
+const UNWATCHED_LEAD_MS = 5000;
+
+/** Everything a piece can be pointed at from, which is what the live watch reads. */
+const WITNESS_COLLECTIONS = ['app.bsky.feed.like', 'app.bsky.feed.repost', 'app.bsky.feed.post'];
+
+/**
+ * What an unfiltered replay may read: a floor, plus a megabyte for every second
+ * of window. The three collections measured at about 0.25 MB/s on 2026-10-30,
+ * so this is four times what a window should cost and a ceiling all the same.
+ */
+const UNWATCHED_BUDGET_FLOOR = 32 * 1024 * 1024;
+const UNWATCHED_BYTES_PER_MS = 1024;
+
+/**
+ * Accounts the follow-up replay will filter to. Jetstream caps a filter list
+ * and refuses the socket past it, and an unwatched start that drew more people
+ * than this is better left as it is than half-read.
+ */
+const UNWATCHED_MAX_DIDS = 100;
 
 /** `[did, handle]` pairs as a map, dropping the ones missing either half. */
 export const handleMap = (pairs) =>
@@ -79,8 +114,13 @@ export function pieceGaps(value, nowMs = Date.now()) {
       audienceMissing: false,
       afterlife: false,
       needsAName: false,
+      unwatched: false,
     };
   }
+
+  // How much of the piece the witnessed log can speak for. A record with no
+  // `witnessFromMs` was never watched at all — the whole lifespan is unwatched.
+  const watchedFrom = typeof v.witnessFromMs === 'number' ? v.witnessFromMs : null;
 
   return {
     sealed: true,
@@ -104,6 +144,12 @@ export function pieceGaps(value, nowMs = Date.now()) {
     // A piece nobody has named and no log can name: only a person can fix this
     // one, which is why `nameBreaker` stays a form.
     needsAName: !named && !witnessedLike,
+    // The stretch nothing was watching, while Jetstream still holds it. The
+    // live studio now replays its own late start, but a piece sealed before
+    // that — or from a tab that never opened — has 36 hours.
+    unwatched:
+      (watchedFrom == null || watchedFrom > UNWATCHED_MIN_MS) &&
+      withinLookback(postedMs - UNWATCHED_LEAD_MS, nowMs),
   };
 }
 
@@ -194,7 +240,13 @@ export function takeRuns(takes) {
 export function worthRepairing(value, nowMs = Date.now()) {
   const g = pieceGaps(value, nowMs);
   return Boolean(
-    g.breakerUnnamed || g.breakerNoDid || g.reactionLost || g.replayable || g.unnamedRows || g.audienceMissing,
+    g.breakerUnnamed ||
+      g.breakerNoDid ||
+      g.reactionLost ||
+      g.replayable ||
+      g.unnamedRows ||
+      g.audienceMissing ||
+      g.unwatched,
   );
 }
 
@@ -211,6 +263,9 @@ export function worthRepairing(value, nowMs = Date.now()) {
  * @param {object} [inputs.texts]           `did/rkey` → the post's own text
  * @param {Array}  [inputs.records]         backlinks as `fetchPieceRecords` returns them
  * @param {{at:number,rkey:string}} [inputs.replayLike]  a like found by replaying
+ * @param {{rows:Array,fromMs:number}} [inputs.witnessReplay]  the unwatched
+ *   stretch read back from Jetstream: witness rows, and the offset after
+ *   postedAt from which the replay can vouch for everything
  * @param {string} [inputs.at]              the timestamp to stamp, ISO
  * @param {string} [inputs.selfDid]         the artist, whose records are excluded
  * @returns {{ value: object, changes: string[] }}
@@ -223,14 +278,50 @@ export function healPiece(value, inputs = {}) {
     texts = {},
     records = null,
     replayLike = null,
+    witnessReplay = null,
     selfDid = null,
   } = inputs;
   const at = inputs.at || new Date().toISOString();
   const postedMs = Date.parse(v.postedAt || '');
   const sealedMs = Date.parse(v.sealedAt || '');
-  const rows = witnessFromRecord(v.witnessed) || [];
+  let rows = witnessFromRecord(v.witnessed) || [];
   const changes = [];
   const next = { ...v };
+
+  /* --- what nothing was watching -------------------------------------- */
+
+  // First, because everything below reads the log: a like cast and taken back
+  // in the minutes before the studio opened can be the like that ended the
+  // piece, and it is only in the log once this has put it there.
+  //
+  // A fill, not a rewrite. Rows already on the record keep everything they
+  // carry; what the replay adds is rows nothing saw, and the withdrawals the
+  // live watch could not have recognised — it only knows a delete for a create
+  // it saw, and the creates in the unwatched stretch it never did.
+  if (witnessReplay && Array.isArray(witnessReplay.rows)) {
+    const lifespan = sealedMs - postedMs;
+    const found = witnessReplay.rows.filter((r) => !(r.offMs >= lifespan));
+    const merged = mergeWitness(rows, found);
+    const had = new Map(rows.map((r) => [r.rkey, r]));
+    const added = merged.filter((r) => !had.has(r.rkey)).length;
+    const takenBack = merged.filter(
+      (r) => r.goneMs != null && (!had.has(r.rkey) || had.get(r.rkey).goneMs == null),
+    ).length;
+    const from = Number.isFinite(witnessReplay.fromMs) ? Math.max(0, Math.round(witnessReplay.fromMs)) : null;
+    const was = typeof v.witnessFromMs === 'number' ? v.witnessFromMs : null;
+    const earlier = from != null && (was == null || from < was);
+    if (added || takenBack || earlier) {
+      rows = merged;
+      next.witnessed = witnessToRecord(merged, { profiles });
+      if (earlier) next.witnessFromMs = from;
+      const span = was == null ? 'the whole piece' : `the first ${fmtDuration(was)}`;
+      const what = [
+        `${added} record${added === 1 ? '' : 's'}`,
+        ...(takenBack ? [`${takenBack} taken back`] : []),
+      ].join(', ');
+      changes.push(`read ${span} back from Jetstream (${what})`);
+    }
+  }
 
   /* --- who ended it, and how fast it was caught -------------------- */
 
@@ -449,11 +540,19 @@ export async function repairPiece({ agent, did, collection, rkey, value, onProgr
     records = await fetchPieceRecords(v.subject).catch(() => null);
   }
 
+  // The stretch nothing was watching, read back while Jetstream still has it.
+  // Before the profiles, so whoever it turns up gets a name with everyone else.
+  let witnessReplay = null;
+  if (gaps.unwatched) {
+    witnessReplay = await replayUnwatched(v, say).catch(() => null);
+  }
+
   // Profiles for everyone the log names and everyone the index just turned up.
   const dids = Array.from(
     new Set([
       ...(v.events || []).map((e) => e.did),
       ...(records || []).map((r) => r.did),
+      ...(witnessReplay?.rows || []).map((r) => r.did),
       b.did || breakerDid || null,
     ].filter(Boolean)),
   );
@@ -516,6 +615,7 @@ export async function repairPiece({ agent, did, collection, rkey, value, onProgr
     texts,
     records,
     replayLike,
+    witnessReplay,
     selfDid: did,
   });
   if (!changes.length) return { changes, written: false };
@@ -523,4 +623,70 @@ export async function repairPiece({ agent, did, collection, rkey, value, onProgr
   say('writing');
   await agent.com.atproto.repo.putRecord({ repo: did, collection, rkey, record: healed });
   return { changes, written: true };
+}
+
+/**
+ * Read a sealed piece's unwatched stretch back off Jetstream, as witness rows.
+ *
+ * Two replays, because one cannot do both jobs cheaply. The first is
+ * unfiltered over the stretch itself — from the post to wherever the log
+ * starts — and costs what watching it would have, about a quarter of a
+ * megabyte a second: it is the only way to find out who turned up, since
+ * nothing on the network filters by what a record points at. The second
+ * follows just those accounts to the seal, which costs next to nothing and is
+ * what makes the rows true: a like cast in the unwatched stretch and taken
+ * back after the studio opened was deleted in front of a watch that had never
+ * seen it created, and so let it go by. Without the follow, that like would
+ * be written down as standing.
+ *
+ * All or nothing. A replay that ran out of budget or time, or a follow it
+ * could not run, returns null and the record is left as it was: a partial
+ * read here would put rows on the record that look complete and are not.
+ *
+ * @returns {Promise<{ rows: Array, fromMs: number } | null>}
+ */
+export async function replayUnwatched(value, say = () => {}, replay = replayWindow) {
+  const v = value || {};
+  const postedMs = Date.parse(v.postedAt || '');
+  const sealedMs = Date.parse(v.sealedAt || '');
+  if (!v.subject || !Number.isFinite(postedMs) || !Number.isFinite(sealedMs)) return null;
+  const fromMs = postedMs - UNWATCHED_LEAD_MS;
+  const watchedFrom = typeof v.witnessFromMs === 'number' ? v.witnessFromMs : sealedMs - postedMs;
+  const toMs = Math.min(sealedMs, postedMs + watchedFrom);
+  if (!(toMs > fromMs)) return null;
+  const windowMs = toMs - fromMs;
+
+  say(`replaying the unwatched ${fmtDuration(windowMs)}`);
+  const scan = await replay(v.subject, {
+    fromMs,
+    toMs,
+    collections: WITNESS_COLLECTIONS,
+    budgetBytes: UNWATCHED_BUDGET_FLOOR + windowMs * UNWATCHED_BYTES_PER_MS,
+    // The server sends history at about a hundred times real time; a twentieth
+    // leaves room for a slow phone parsing it.
+    maxMs: Math.max(2 * 60_000, windowMs / 20),
+  });
+  // Where it really began. Without a first event there is no telling whether
+  // the stream started where it was asked to, and so no claim to make.
+  if (!scan?.reachedEnd || !scan.firstMs) return null;
+
+  let events = scan.events;
+  const dids = Array.from(new Set(events.map((e) => e.did).filter(Boolean)));
+  if (dids.length && toMs < sealedMs) {
+    if (dids.length > UNWATCHED_MAX_DIDS) return null;
+    say(`following ${dids.length} account${dids.length === 1 ? '' : 's'} to the seal`);
+    const follow = await replay(v.subject, {
+      fromMs,
+      toMs: sealedMs,
+      dids,
+      collections: WITNESS_COLLECTIONS,
+    });
+    if (!follow?.reachedEnd) return null;
+    events = follow.events;
+  }
+
+  return {
+    rows: witnessFromEvents(events, postedMs),
+    fromMs: Math.max(0, Math.max(fromMs, scan.firstMs) - postedMs),
+  };
 }
