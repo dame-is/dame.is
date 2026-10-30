@@ -124,6 +124,9 @@
   /* Long-form's reading measure: the text column too, 27.8em at the 20px
      essay size (--text-prose), a median of about 66 characters. */
   --text-prose: 1.25rem;
+  /* One line of it, 31px (1.55): the unit a document is spaced in, so its
+     lines keep one rhythm past headings and figures (LeafletDocument.css). */
+  --line-prose: 1.9375rem;
   --measure-prose: var(--text);
   --leading: 1.6;
   --leading-tight: 1.3;

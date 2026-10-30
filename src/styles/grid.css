@@ -1,22 +1,25 @@
 /* A faint drawing of the page grid (theme.css) behind every page: a hairline
    at each edge of each column, so the gutters read as narrow lanes. It is the
-   same grid the running head ticks across the top, carried down the page.
+   same grid the running head ticks across the top, carried down the page. In
+   an essay the text's line rhythm is drawn too, as a rule under each line
+   (LeafletDocument.css says how the rhythm is kept).
 
-   Driven by `data-grid` on <html>:
-     columns   the column lines only
-     modules   the column lines, plus rows of the same size, so the page sits
-               on square fields of one column each, a gutter apart
+   On unless the reader turns it off from the sky sheet's display options:
+   `data-grid` on <html> is "on" or "off" (useGrid.jsx).
 
-   Painted as the app shell's own background, so it scrolls with the page and
-   sits under everything: anything with a fill (a photo, a card, the chrome)
-   covers it. The admin keeps a clean workbench. */
+   The columns are painted as the app shell's own background, so they scroll
+   with the page and sit under everything: anything with a fill (a photo, a
+   card, the chrome) covers them. The admin keeps a clean workbench. */
 
-[data-grid] .app-shell:not(.app-shell-admin) {
+[data-grid='on'] {
   /* The ink at a whisper, so it follows the sky through the day. */
   --grid-line: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+[data-grid='on'] .app-shell:not(.app-shell-admin) {
   /* The type area and its wings: every column the window has. */
   --grid-w: calc(var(--type-area) + 2 * var(--wing));
-  --grid-cols: repeating-linear-gradient(
+  background-image: repeating-linear-gradient(
     to right,
     var(--grid-line) 0,
     var(--grid-line) 1px,
@@ -27,32 +30,41 @@
     transparent var(--col),
     transparent var(--pitch)
   );
-  --grid-rows: none;
-  background-image: var(--grid-cols), var(--grid-rows);
   background-size: var(--grid-w) 100%;
   background-position: center top;
   background-repeat: no-repeat;
 }
 
-[data-grid='modules'] .app-shell:not(.app-shell-admin) {
-  --grid-rows: repeating-linear-gradient(
+/* An essay's line rhythm: a rule at the baseline of every line of its text,
+   across the text column, from the first line to the last and through the
+   blank lines between. useLineRhythm measures where the first rule falls
+   (--rhythm-phase); the gradient counts on from there one line at a time, so
+   a rule can't drift from its line down a long piece. Pictures and embeds
+   cover it. */
+[data-grid='on'] .app-shell:not(.app-shell-admin) .leaflet-doc {
+  --rule-at: var(--rhythm-phase, calc(var(--line-prose) * 0.72));
+  background-image: repeating-linear-gradient(
     to bottom,
-    var(--grid-line) 0,
-    var(--grid-line) 1px,
-    transparent 1px,
-    transparent calc(var(--col) - 1px),
-    var(--grid-line) calc(var(--col) - 1px),
-    var(--grid-line) var(--col),
-    transparent var(--col),
-    transparent var(--pitch)
+    var(--grid-line) calc(var(--rule-at) - var(--line-prose)),
+    var(--grid-line) calc(var(--rule-at) - var(--line-prose) + 1px),
+    transparent calc(var(--rule-at) - var(--line-prose) + 1px),
+    transparent var(--rule-at)
   );
+}
+
+/* Pictures, charts, embeds and the like are plates laid on the page: they
+   cover the grid where they sit, so a rule never runs through a caption or a
+   chart. At no specificity, so a block's own background still wins. */
+:where([data-grid='on'] .leaflet-doc)
+  > :where(:not(.leaflet-paragraph:not(.leaflet-credit), .leaflet-heading, .leaflet-list, .leaflet-spacer)) {
+  background-color: var(--page);
 }
 
 /* A phone is one column, so the drawing is that column's two edges. */
 @media (max-width: 700px) {
-  [data-grid] .app-shell:not(.app-shell-admin) {
+  [data-grid='on'] .app-shell:not(.app-shell-admin) {
     --grid-w: calc(100% - 2 * var(--edge));
-    --grid-cols: linear-gradient(
+    background-image: linear-gradient(
       to right,
       var(--grid-line) 0,
       var(--grid-line) 1px,

@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { PAPER_ENABLED } from './hooks/usePaper.jsx';
 import { FONT_SWITCHER_ENABLED } from './hooks/useFont.jsx';
+import { GRID_OPTIONS } from './hooks/useGrid.jsx';
 import { applySkyTheme, easternHour, setSkyTuning } from './lib/skyTheme.js';
 import { recoverFromChunkError } from './lib/chunkRecovery.js';
 import bakedSkyTuning from 'virtual:sky-tuning';
@@ -99,6 +100,12 @@ document.documentElement.setAttribute(
   'data-paper',
   PAPER_ENABLED && VALID_PAPER.includes(storedPaper) ? storedPaper : 'blank',
 );
+
+// The page grid drawn behind every page (on / off), from the sky sheet's
+// display options. Set before the first paint so a reader who turned it off
+// never sees it flash. Keep in sync with useGrid.jsx.
+const storedGrid = readStorage('dame.grid');
+document.documentElement.setAttribute('data-grid', GRID_OPTIONS.includes(storedGrid) ? storedGrid : 'on');
 
 // Font mode. The switcher is hidden and the site runs serif-only, so this
 // resolves to 'serif' regardless of any stored preference. Set before the

@@ -1,10 +1,17 @@
 import { memo, useCallback, useRef } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
+import Segmented from './Segmented.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import { useGrid } from '../hooks/useGrid.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { SKY_BANDS, easternHour, skyHourLabel } from '../lib/skyTheme.js';
 import './SkyHourSheet.css';
+
+const ON_OFF = [
+  { value: 'on', label: 'On' },
+  { value: 'off', label: 'Off' },
+];
 
 const TICKS = [
   [0, '12a'],
@@ -31,6 +38,11 @@ const TICKS = [
  * the prev/next row + "X/24 tuned" meta and drives a live tuning preview;
  * this one is for non-admin exploration.
  *
+ * Under the ribbon, the reader's display options: settings for how the page
+ * looks that aren't the hour, remembered in this browser. Each is a labelled
+ * segmented control, so another one is a row's worth of markup. The first is
+ * the page grid (useGrid.jsx), for a reader who wants a cleaner page.
+ *
  * Memoised, because the bottom bar that renders this re-renders as the page
  * scrolls. The sheet only renders its children while it's open, so closed,
  * none of the ribbon's work runs.
@@ -39,6 +51,7 @@ function SkyHourSheet() {
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'sky';
   const { skyHour, setSkyHour, skyOverridden } = useTheme();
+  const { grid, setGrid } = useGrid();
   const ribbonRef = useRef(null);
   const dragging = useRef(false);
   const liveHour = easternHour();
@@ -88,7 +101,7 @@ function SkyHourSheet() {
     <BottomSheet
       open={open}
       onClose={closePanel}
-      label="Time of day"
+      label="Time of day and display"
       id="chrome-sky-sheet"
       size="compact"
       className="sky-hour-sheet-panel"
@@ -171,6 +184,17 @@ function SkyHourSheet() {
           <ArrowRight size={16} aria-hidden="true" strokeWidth={1.75} />
         </button>
       </div>
+      <section className="sky-hour-sheet-options" aria-labelledby="sky-hour-sheet-options-head">
+        <h2 id="sky-hour-sheet-options-head" className="sky-hour-sheet-options-head small-caps">
+          Display
+        </h2>
+        <div className="sky-hour-sheet-option">
+          <span className="sky-hour-sheet-option-name" aria-hidden="true">
+            Grid
+          </span>
+          <Segmented label="Grid" options={ON_OFF} value={grid} onChange={setGrid} />
+        </div>
+      </section>
     </BottomSheet>
   );
 }

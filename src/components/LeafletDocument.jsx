@@ -23,6 +23,7 @@ import { avatarThumb } from '../lib/avatarThumb.js';
 import PostEmbed from './PostEmbed.jsx';
 import { AltList, BlobPlate } from './XrayBlob.jsx';
 import { useXray } from '../hooks/useXray.jsx';
+import useLineRhythm from '../hooks/useLineRhythm.js';
 import Time from './Time.jsx';
 import LinkCard from './LinkCard.jsx';
 import Lightbox from './Lightbox.jsx';
@@ -170,6 +171,8 @@ function collectImages(pages) {
 export default function LeafletDocument({ doc, contents = false, quotable = false }) {
   const docRef = useRef(null);
   const pages = useMemo(() => (Array.isArray(doc?.pages) ? doc.pages : []), [doc?.pages]);
+  // Every line of the text on one rhythm, past pictures and embeds too.
+  useLineRhythm(docRef, pages.length > 0);
   // A long piece opens with its contents, and its section heads carry their
   // numbers (COL-13). Only where the caller asks: an essay reads straight
   // through.
@@ -521,12 +524,15 @@ function LeafletPage({ page, firstIndex = -1, upTo = null }) {
 // Optional per-block layout hints (dame.is rendering extensions, set in the
 // admin blocks editor): `indent` forces a text paragraph's first-line indent
 // on/off (overriding the automatic book-style adjacency indent), and
-// `spaceTop`/`spaceBottom` add extra margin above/below any block so an author
-// can open up space without inserting empty spacer blocks.
+// `spaceTop`/`spaceBottom` add extra space above/below any block so an author
+// can open up space without inserting empty spacer blocks. The space is blank
+// lines of the text, one, two or three, so the lines after it stay on the
+// document's rhythm (LeafletDocument.css); it rides in as --hint-top and
+// --hint-bottom, which the rhythm adds to the block's own.
 const BLOCK_SPACE_SCALE = {
-  sm: 'var(--space-4)',
-  md: 'var(--space-6)',
-  lg: 'var(--space-8)',
+  sm: 'var(--line-prose)',
+  md: 'calc(2 * var(--line-prose))',
+  lg: 'calc(3 * var(--line-prose))',
 };
 
 // The author's paragraph roles (dame.is rendering extension, set in the admin
@@ -544,8 +550,8 @@ const TEXT_LAYOUT_VALUES = new Set(TEXT_LAYOUTS.map((l) => l.value));
 
 function blockLayoutStyle(block) {
   const style = {};
-  if (BLOCK_SPACE_SCALE[block.spaceTop]) style.marginTop = BLOCK_SPACE_SCALE[block.spaceTop];
-  if (BLOCK_SPACE_SCALE[block.spaceBottom]) style.marginBottom = BLOCK_SPACE_SCALE[block.spaceBottom];
+  if (BLOCK_SPACE_SCALE[block.spaceTop]) style['--hint-top'] = BLOCK_SPACE_SCALE[block.spaceTop];
+  if (BLOCK_SPACE_SCALE[block.spaceBottom]) style['--hint-bottom'] = BLOCK_SPACE_SCALE[block.spaceBottom];
   // Indent is a paragraph concept; only text blocks honor it. `null`/absent =
   // leave the CSS default (adjacent paragraphs auto-indent) untouched.
   if (block.$type === 'pub.leaflet.blocks.text' && block.indent != null) {
@@ -561,10 +567,9 @@ function blockLayoutStyle(block) {
  */
 export function LeafletBlock({ block, first = false, index = null, inGallery = false }) {
   if (!block) return null;
-  // Layout hints ride as an inline style on the block's own root element so
-  // they win over the stylesheet's adjacency rules (e.g. the `margin-bottom: 0`
-  // on stacked paragraphs) without wrapping the block — wrapping would break
-  // those `+` selectors. `null` when the block carries no hints.
+  // Layout hints ride as an inline style on the block's own root element, so
+  // they reach it without wrapping the block — wrapping would break the
+  // stylesheet's `+` selectors. `null` when the block carries no hints.
   const style = blockLayoutStyle(block);
   switch (block.$type) {
     case 'pub.leaflet.blocks.text':
