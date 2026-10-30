@@ -7,6 +7,7 @@
 
 import { COLLECTIONS, GUESTBOOK_NSID, BLOG_PUBLICATION } from '../config.js';
 import { BLOCK_ORDERS, DEFAULT_BLOCK_ORDER } from './arena.js';
+import { DEFAULT_NEWSLETTER_COPY } from './newsletterCopy.js';
 
 /**
  * Field types understood by the form renderer:
@@ -172,6 +173,39 @@ export const LEXICONS = {
       { key: 'intro', label: 'Intro', type: 'textarea' },
       { key: 'body', label: 'Body (Markdown)', type: 'markdown' },
       ...COMMON_TIMESTAMPS,
+    ],
+  },
+
+  [COLLECTIONS.newsletter]: {
+    label: 'Newsletter',
+    summary:
+      'What the site says around the newsletter’s form, wherever it is: in a post, on /blogging, and on /blogging/subscribe. A singleton at "self", and every field is optional: an empty one is the site’s own sentence. The subscribe page’s title and intro are its page record, in the panel above.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: 'self',
+    rkeyDefault: 'self',
+    typeFieldValue: COLLECTIONS.newsletter,
+    fields: [
+      {
+        key: 'name', label: 'Name', type: 'text', maxLength: 100,
+        placeholder: DEFAULT_NEWSLETTER_COPY.name,
+        hint: 'Set small above the title of /blogging/subscribe.',
+      },
+      {
+        key: 'heading', label: 'Form heading', type: 'text', maxLength: 100,
+        placeholder: DEFAULT_NEWSLETTER_COPY.heading,
+        hint: 'Over the form in a post and on /blogging.',
+      },
+      {
+        key: 'thanks', label: 'Thank-you', type: 'textarea', maxLength: 500,
+        placeholder: DEFAULT_NEWSLETTER_COPY.thanks,
+        hint: 'In place of the form once a reader has confirmed their address and come back.',
+      },
+      {
+        key: 'fine', label: 'Fine print', type: 'textarea', maxLength: 500,
+        placeholder: DEFAULT_NEWSLETTER_COPY.fine,
+        hint: 'Under the email field. {rss} becomes a link to the RSS feed.',
+      },
+      { key: 'updatedAt', label: 'Updated at', type: 'datetime', default: 'now', autoOnEdit: true },
     ],
   },
 

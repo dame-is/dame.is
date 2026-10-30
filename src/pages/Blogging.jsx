@@ -66,8 +66,9 @@ export default function Blogging() {
       atUri={`at://${ME_DID}/is.dame.page/blogging`}
       headTitle="dame.is blogging"
     >
-      {/* SUBSCRIBE_URL lands here: the address a post's "subscribe" link
-          gives everywhere the post's own forms aren't (email, feeds). */}
+      {/* Where a "subscribe" link written before the newsletter had a page
+          of its own (/blogging#subscribe) still lands, from an email or a
+          feed. Links now go to SUBSCRIBE_URL. */}
       <NewsletterSignup id={SUBSCRIBE_ID} />
       {loading ? (
         <FlatLedgerSkeleton rows={6} timeWidth="4.5rem" label="Loading the blog" />

@@ -33,6 +33,16 @@ export const PAGE_REGISTRY = {
     intro: 'A book of long-form posts. Each entry is a site.standard.document record.',
     collection: COLLECTIONS.blogging,
   },
+  // The newsletter's page, at /blogging/subscribe. Its panel sits atop the
+  // admin's Newsletter surface, beside the is.dame.newsletter record that holds
+  // the rest of what the newsletter says (lib/newsletterCopy.js).
+  subscribe: {
+    slug: 'subscribe',
+    label: 'Newsletter',
+    title: 'Letters from dame.is',
+    intro: 'New blog posts, along with updates, roundups and announcements when there’s something to share, sent to your inbox. Put your address on the To line; below it is a post the way it would arrive.',
+    collection: COLLECTIONS.newsletter,
+  },
   logging: {
     slug: 'logging',
     label: 'Logging',
@@ -98,7 +108,7 @@ export const PAGE_REGISTRY = {
     title: 'About this site',
     // The "What is this site?" primer shown in the bottom-bar info sheet.
     // Authored as markdown so it can migrate onto the PDS and be edited there.
-    body: `Dame is a product engineer and designer who builds social software. This is their website: essays under [blogging](/blogging), past work under [creating](/creating), moths under [mothing](/mothing), a running status log under [logging](/logging), and a guestbook under [welcoming](/welcoming). The [résumé](/available) is the quickest summary.
+    body: `Dame is a product engineer and designer who builds social software. This is their website: blog posts under [blogging](/blogging), past work under [creating](/creating), moths under [mothing](/mothing), a running status log under [logging](/logging), and a guestbook under [welcoming](/welcoming). The [résumé](/available) is the quickest summary.
 
 **dame.is** is built on top of the *AT Protocol*, so the data behind every record on this page is portable, open, and not stuck on this website.
 

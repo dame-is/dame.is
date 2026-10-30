@@ -726,4 +726,34 @@ describe('pages with no record behind them', () => {
     expect(deep.res.headers.get('x-robots-tag')).toBe('noindex');
     expect(deep.body).toContain('<meta name="robots" content="noindex" />');
   });
+
+  it('serves the newsletter’s page under /blogging rather than 404ing it as a post', async () => {
+    worldFetch();
+    const page = await html('/blogging/subscribe');
+    expect(page.res.status).toBe(200);
+    expect(page.body).toContain('<title>Subscribe to the dame.is newsletter</title>');
+    expect(page.body).not.toContain('content="noindex"');
+    // Its own card, drawn as the email, with the page's plain card behind it.
+    const image = page.body.match(/<meta property="og:image" content="([^"]+)"/)?.[1] || '';
+    const params = new URL(image.replace(/&amp;/g, '&')).searchParams;
+    expect(params.get('subscribe')).toBe('1');
+    expect(params.get('page')).toBe('/blogging/subscribe');
+  });
+
+  it('describes the newsletter’s page with its page record’s intro once there is one', async () => {
+    worldFetch({
+      snapshots: {
+        pages: {
+          subscribe: {
+            uri: `at://${ME_DID}/is.dame.page/subscribe`,
+            cid: 'c',
+            value: { title: 'Letters', intro: 'Posts and the odd roundup, by email.' },
+          },
+        },
+      },
+    });
+    const page = await html('/blogging/subscribe');
+    expect(page.body).toContain('content="Posts and the odd roundup, by email."');
+    expect(page.body).toContain(`<meta name="atproto:uri" content="at://${ME_DID}/is.dame.page/subscribe"`);
+  });
 });

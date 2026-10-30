@@ -294,14 +294,14 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
           {endSignup && <NewsletterSignup id={SUBSCRIBE_ID} />}
           {total > 1 && index >= 0 && (
             <SequenceFoot
-              label="Other essays"
-              earlierLabel="Earlier essay"
-              laterLabel="Later essay"
+              label="Other posts"
+              earlierLabel="Earlier post"
+              laterLabel="Later post"
               earlier={essayEntry(earlier)}
               later={essayEntry(later)}
               earlierNone={`None. This is the first of ${countWord(total)}.`}
               laterNone={`None yet. This is the latest of ${countWord(total)}.`}
-              all={{ to: '/blogging', label: `All ${total} essays in blogging` }}
+              all={{ to: '/blogging', label: `All ${total} posts in blogging` }}
             />
           )}
         </footer>

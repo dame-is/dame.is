@@ -43,6 +43,8 @@ const SOURCE_OVERRIDES = {
   '/available': { collection: COLLECTIONS.page, rkey: 'resume' },
   '/welcoming': { collection: COLLECTIONS.page, rkey: 'guestbook' },
   '/themself': { collection: COLLECTIONS.profile, rkey: 'self', fields: ['tagline'] },
+  // The one page below the top level with a record of its own.
+  '/blogging/subscribe': { collection: COLLECTIONS.page, rkey: 'subscribe' },
 };
 
 /**

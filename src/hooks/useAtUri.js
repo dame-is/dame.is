@@ -358,6 +358,7 @@ function pageRkeyForPath(pathname) {
   if (pathname === '/posting') return 'posting';
   if (pathname === '/logging') return 'logging';
   if (pathname === '/blogging') return 'blogging';
+  if (pathname === '/blogging/subscribe') return 'subscribe';
   if (pathname === '/creating') return 'creating';
   if (pathname === '/sharing') return 'sharing';
   if (pathname === '/listening') return 'listening';

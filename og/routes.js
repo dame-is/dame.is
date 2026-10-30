@@ -39,6 +39,9 @@ export const STATIC_ROUTE_PATTERNS = [
   '/listening/albums',
   '/listening/albums/:slug',
   '/blogging',
+  // The newsletter's own page. A literal segment, so it outranks the essays'
+  // `/blogging/:slug` below — see matchRoute.
+  '/blogging/subscribe',
   '/blogging/:slug',
   '/creating',
   '/creating/:slug',

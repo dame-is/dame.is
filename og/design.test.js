@@ -152,3 +152,29 @@ describe('the quote card', () => {
     expect(texts(el)).toContain('site.standard.document');
   });
 });
+
+describe('the newsletter card', () => {
+  const letterCard = (letter) =>
+    ogElement({
+      letter,
+      pathname: '/blogging/subscribe',
+      nsid: 'site.standard.publication',
+      folio: '12,230',
+      theme: THEMES.light,
+    });
+
+  it('draws the email: its title, the From, an empty To and the latest post as Subject', () => {
+    const words = texts(letterCard({ title: 'Letters from dame.is', subject: 'On Attie, atproto, and AI' }));
+    for (const w of ['Letters from dame.is', 'from', 'to', 'subject', 'dame.is blogging', 'you@example.com', 'Subscribe', 'On Attie, atproto, and AI', 'site.standard.publication']) {
+      expect(words).toContain(w);
+    }
+  });
+
+  it('keeps a long subject to its one row', () => {
+    const subject = 'Building an ATProto-based membership and feature gating system for Anisota, and everything that came after it';
+    const words = texts(letterCard({ title: 'Letters', subject }));
+    const line = words.find((w) => w.startsWith('Building an ATProto'));
+    expect(line).not.toBe(subject);
+    expect(line.endsWith('…')).toBe(true);
+  });
+});

@@ -1,0 +1,210 @@
+/* /blogging/subscribe (BloggingSubscribe.jsx): the newsletter's own page,
+   drawn as the email itself. A ruled header of From / To / Subject / Date
+   whose To line is the form, then a post's opening as it would arrive,
+   fading out above a link to the rest. Everything reads the hour's tokens,
+   so it holds at noon and at midnight. */
+
+.sub-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sub-head .eyebrow {
+  margin: 0;
+  max-width: none;
+  text-indent: 0;
+}
+
+.sub-head .page-title {
+  text-wrap: balance;
+}
+
+.sub-letter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.sub-mail {
+  background: var(--page);
+  border: 1px solid var(--rule);
+  box-shadow: 0 14px 30px -18px var(--shadow);
+}
+
+.sub-mail-head {
+  margin: 0;
+  padding: 0 var(--space-5);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  background: var(--page-edge);
+  border-bottom: 1px solid var(--rule);
+}
+
+.sub-mail-field {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.sub-mail-field + .sub-mail-field {
+  border-top: 1px solid var(--rule-soft);
+}
+
+.sub-mail-field dt {
+  font-variant: all-small-caps;
+  font-size: var(--text-sm);
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.sub-mail-field dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink);
+}
+
+.sub-mail-muted {
+  color: var(--ink-muted);
+}
+
+.sub-mail-subject {
+  font-weight: 600;
+}
+
+/* The To line holds the form, so it sits on the input's centre line rather
+   than a baseline, and gets the line's only wash. */
+.sub-mail-to {
+  align-items: start;
+  margin-inline: calc(-1 * var(--space-5));
+  padding-inline: var(--space-5);
+  background: var(--highlight);
+}
+
+.sub-mail-to dt {
+  padding-top: var(--space-2);
+  color: var(--accent);
+}
+
+.newsletter--inline {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.newsletter--inline .newsletter-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.newsletter--inline .newsletter-input {
+  background: var(--page);
+}
+
+.newsletter--inline .newsletter-fine {
+  margin-top: var(--space-2);
+}
+
+.sub-mail-body {
+  position: relative;
+  padding: var(--space-6) var(--space-6) 0;
+}
+
+.sub-mail-title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--serif);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+.sub-mail-dek {
+  margin: 0 0 var(--space-5);
+  font-style: italic;
+  font-size: var(--text-lg);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.sub-mail-prose {
+  max-height: 17rem;
+  overflow: hidden;
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  line-height: var(--leading);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+
+.sub-mail-prose p {
+  margin: 0;
+}
+
+.sub-mail-prose p + p {
+  text-indent: 1.5em;
+}
+
+.sub-mail-more {
+  margin: 0;
+  padding: var(--space-4) 0 var(--space-6);
+  text-align: center;
+  text-indent: 0;
+  max-width: none;
+}
+
+.sub-mail-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.sub-mail-count {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 700px) {
+  .sub-mail {
+    margin-inline: calc(-1 * var(--space-4));
+    border-inline: 0;
+  }
+
+  .sub-mail-head {
+    padding-inline: var(--space-4);
+  }
+
+  .sub-mail-field {
+    grid-template-columns: 3.75rem minmax(0, 1fr);
+  }
+
+  .sub-mail-to {
+    margin-inline: calc(-1 * var(--space-4));
+    padding-inline: var(--space-4);
+  }
+
+  .sub-mail-body {
+    padding: var(--space-5) var(--space-4) 0;
+  }
+
+  .sub-mail-nav {
+    padding-inline: var(--space-4);
+  }
+}
+
+/* Paper can't take an address. */
+@media print {
+  .sub-mail-to,
+  .sub-mail-nav {
+    display: none;
+  }
+}

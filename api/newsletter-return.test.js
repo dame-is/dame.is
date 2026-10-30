@@ -36,12 +36,12 @@ describe('/receive_auth_callback', () => {
     expect(res.ended).toBe(true);
   });
 
-  it('lands on the index form without a note', () => {
-    expect(call().headers.location).toBe('/blogging?subscribed=email#subscribe');
+  it('lands on the newsletter page’s form without a note', () => {
+    expect(call().headers.location).toBe('/blogging/subscribe?subscribed=email#subscribe');
   });
 
   it('never redirects off the site', () => {
     const res = call(`newsletter_return=${encodeURIComponent('//evil.example/')}`);
-    expect(res.headers.location).toBe('/blogging?subscribed=email#subscribe');
+    expect(res.headers.location).toBe('/blogging/subscribe?subscribed=email#subscribe');
   });
 });

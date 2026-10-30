@@ -16,6 +16,7 @@ import {
   subjectPost,
   subjectCardCopy,
   quotedDocument,
+  subscribeCard,
 } from './records.js';
 import {
   ME_DID,
@@ -758,5 +759,45 @@ describe('quoting an essay', () => {
       },
     });
     expect((await quotedDocument('3fresh', 'brand new passage', ORIGIN)).quote).toBe('brand new passage');
+  });
+});
+
+describe('subscribeCard — the newsletter page as its email', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const blog = (rkey, title, publishedAt, extra = {}) =>
+    doc(rkey, { title, publishedAt, site: BLOG_PUBLICATION, ...extra });
+
+  it('takes the newest post that the blog shows as the subject', async () => {
+    worldFetch({
+      snapshots: {
+        blogs: [
+          blog('3old', 'An older post', '2025-01-29T00:00:00Z'),
+          blog('3draft', 'Not yet', '2026-12-01T00:00:00Z', { draft: true }),
+          blog('3new', "On Attie, atproto, and AI", '2026-10-30T00:00:00Z'),
+        ],
+      },
+    });
+    const card = await subscribeCard(ORIGIN);
+    expect(card.subject).toBe('On Attie, atproto, and AI');
+    // No page record yet: the page's built-in title.
+    expect(card.title).toBe('Letters from dame.is');
+  });
+
+  it('heads it with the page record’s title once there is one', async () => {
+    worldFetch({
+      snapshots: {
+        blogs: [blog('3new', 'A post', '2026-10-30T00:00:00Z')],
+        pages: { subscribe: { uri: 'at://x/is.dame.page/subscribe', value: { title: 'Dispatches' } } },
+      },
+    });
+    expect((await subscribeCard(ORIGIN)).title).toBe('Dispatches');
+  });
+
+  it('draws nothing without a post, so the page’s plain card stands in', async () => {
+    worldFetch({ snapshots: { blogs: [] } });
+    expect(await subscribeCard(ORIGIN)).toBeNull();
+    worldFetch();
+    expect(await subscribeCard(ORIGIN)).toBeNull();
   });
 });

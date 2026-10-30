@@ -1132,6 +1132,124 @@ function nightCard(t, { night, avatarUri, nsid, folio }) {
   });
 }
 
+// ── THE NEWSLETTER: /blogging/subscribe, drawn as the email ────────────────
+// The page is the email the newsletter sends, with the reader's address to
+// fill in on its To line, so the card is too: the page's title as the
+// headline, then a ruled From / To / Subject frame whose rows sit between
+// coarse rules. The To line is an empty field beside a Subscribe button, and
+// the Subject is the latest post's title, which is what the next reader would
+// have been sent. The frame is opaque, a sheet laid on the ruled paper.
+const LETTER_ROW = P;
+const LETTER_TOP = 4 * P;
+const LETTER_LABEL_W = 120;
+
+function letterCard(t, { letter, avatarUri, nsid, folio }) {
+  const CX = 320, bcBy = P - LE;
+  const colW = W - PAD - CX;
+  const { size, lines } = fitHeadline(letter.title || '', colW, 1, 64, 44);
+  const inner = CX + 28;
+  const valueX = inner + LETTER_LABEL_W;
+  const valueW = W - PAD - 28 - valueX;
+  // A row's text sits on the middle of its band, which is a half-pitch rule.
+  const rowBy = (i, sz) => LETTER_TOP + i * LETTER_ROW + LETTER_ROW / 2 + 0.34 * sz;
+  const label = (text, i, color = t.inkFaint) =>
+    at(text, { size: 19, by: rowBy(i, 19), left: inner, color, weight: 400, ls: '0.12em' });
+
+  const BTN_W = 170;
+  const FIELD_H = 44;
+  const fieldTop = LETTER_TOP + LETTER_ROW + (LETTER_ROW - FIELD_H) / 2;
+  const fieldW = valueW - BTN_W - 12;
+
+  return shell(t, [
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, 'blogging', 'subscribe'), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
+    at(lines[0] || '', { size, by: 3 * P - 8, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
+
+    // The sheet, and the wash on its To line.
+    h('div', {
+      style: {
+        position: 'absolute',
+        left: CX,
+        top: LETTER_TOP,
+        width: colW,
+        height: 3 * LETTER_ROW,
+        background: t.page,
+        border: `1px solid ${t.rule}`,
+      },
+    }),
+    h('div', {
+      style: {
+        position: 'absolute',
+        left: CX + 1,
+        top: LETTER_TOP + LETTER_ROW,
+        width: colW - 2,
+        height: LETTER_ROW,
+        background: mix(t.page, t.accent, 0.14),
+        borderTop: `1px solid ${t.rule}`,
+        borderBottom: `1px solid ${t.rule}`,
+      },
+    }),
+
+    label('from', 0),
+    rowAt(
+      [
+        h('div', { style: { color: t.ink } }, 'dame.is blogging'),
+        h('div', { style: { color: t.inkMuted, fontWeight: 400 } }, 'via Leaflet'),
+      ],
+      { size: 26, by: rowBy(0, 26), left: valueX, gap: 8 },
+    ),
+
+    label('to', 1, t.accent),
+    h(
+      'div',
+      {
+        style: {
+          position: 'absolute',
+          left: valueX,
+          top: fieldTop,
+          width: fieldW,
+          height: FIELD_H,
+          paddingLeft: 16,
+          alignItems: 'center',
+          background: t.page,
+          border: `1px solid ${t.rule}`,
+          fontSize: 24,
+          color: t.inkFaint,
+        },
+      },
+      'you@example.com',
+    ),
+    h(
+      'div',
+      {
+        style: {
+          position: 'absolute',
+          left: valueX + fieldW + 12,
+          top: fieldTop,
+          width: BTN_W,
+          height: FIELD_H,
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: t.accent,
+          fontSize: 24,
+          fontWeight: 600,
+          color: t.page,
+        },
+      },
+      'Subscribe',
+    ),
+
+    label('subject', 2),
+    at(fitLine(letter.subject, 26, valueW), { size: 26, by: rowBy(2, 26), left: valueX, color: t.ink, weight: 600 }),
+
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+  });
+}
+
 // ── LISTENING: a play, an album, the shelf they sit on ──────────────────────
 // A song is its cover before it is any of its text. The generic record card
 // set a track title in serif and an artist under it and threw the one image
@@ -1411,6 +1529,7 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {string}  [o.verb]     the post card's breadcrumb gerund
  * @param {object}  [o.participant] render one Ratioed participant's card
  * @param {object}  [o.board]    render the Ratioed participants leaderboard
+ * @param {object}  [o.letter]   render the newsletter page's card: {title, subject}
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
  * @param {Array}   [o.hero]      [{text,color}] for the home hero card
  */
@@ -1454,6 +1573,10 @@ export function ogElement(o = {}) {
   // is read off the record, so it has no gerund label to fall back on either.
   if (o.post) {
     return postCard(t, { post: o.post, verb: o.verb || segs[0] || 'posting', avatarUri, nsid: o.nsid || '', folio });
+  }
+  // The newsletter's page draws the email it sends, under its own title.
+  if (o.letter) {
+    return letterCard(t, { letter: o.letter, avatarUri, nsid: o.nsid || '', folio });
   }
   // A quoted passage names its essay in its credit, not in a gerund label.
   if (o.quote) {

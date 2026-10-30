@@ -898,6 +898,16 @@ async function main() {
   );
   await writeJson('ratioedCopy', ratioedCopy || { value: {} });
 
+  // The newsletter's words around its form (src/lib/newsletterCopy.js), read
+  // here for the same reason: the form paints the written wording on its first
+  // frame. Absent until something is rewritten, and every field falls back.
+  const newsletterCopy = await safe(
+    'getRecord:newsletter',
+    () => getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.newsletter, rkey: 'self' }),
+    null,
+  );
+  await writeJson('newsletter', newsletterCopy || { value: {} });
+
   // --- Resume (is.dame.resume + backlinked jobs + education) ----------------
   // One combined snapshot so /resume paints instantly; the page re-fetches
   // all three collections live and resolves the backlinks in the browser.

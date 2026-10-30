@@ -15,6 +15,7 @@
 //   /api/og?like=3m…                  author's name (likewise a like)
 //   /api/og?doc=3mz4…&quote=a+passage → a passage of an essay, set as a
 //                                       quotation (found in the record first)
+//   /api/og?subscribe=1             → the newsletter's page, drawn as its email
 //   /api/og?title=Foo&subtitle=Bar  → ad-hoc copy
 //   /api/og?theme=dark              → dark (green-black) variant
 //   /api/og                         → the home "index" card
@@ -45,6 +46,7 @@ import {
   subjectCardCopy,
   SUBJECT_CARD_KEYS,
   quotedDocument,
+  subscribeCard,
 } from '../og/records.js';
 import { lookupArtwork } from './_lib/itunes.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
@@ -472,6 +474,15 @@ export default async function handler(req, res) {
         nsid = meta.nsid;
       }
     }
+    // The newsletter's page, drawn as the email it sends. Nothing comes in on
+    // the query but the flag: the title and the latest post are read from the
+    // build's snapshots. The middleware sends `page=/blogging/subscribe` with
+    // it, so a snapshot that can't be read draws that page's ordinary card.
+    let letter = null;
+    const quoteTaken = postTaken || (q.doc && q.quote);
+    if (!quoteTaken && (q.subscribe === '1' || q.subscribe === 'true')) {
+      letter = await subscribeCard(origin);
+    }
     // A post the PDS didn't answer for, or a repost whose post the AppView
     // couldn't name: that section's own card, as a missed play gets
     // /listening's.
@@ -535,9 +546,19 @@ export default async function handler(req, res) {
       flag(q.albums) ||
       q.post ||
       subjectKey ||
-      (q.doc && q.quote);
+      (q.doc && q.quote) ||
+      flag(q.subscribe);
     const drawn =
-      piece || participant || board || night || play || album || shelf || post || quoted?.quote;
+      piece ||
+      participant ||
+      board ||
+      night ||
+      play ||
+      album ||
+      shelf ||
+      post ||
+      quoted?.quote ||
+      letter;
     // A post card that lost every one of its photos on the way counts as a
     // miss too: it's a fair card, but not the one to keep for an hour.
     const missed = (Boolean(asked) && !drawn) || Boolean(post?.short);
@@ -565,6 +586,9 @@ export default async function handler(req, res) {
       nsid = quoted.nsid;
     } else if (q.doc && q.quote) {
       // The essay's own card, or the blog's, set up above.
+    } else if (letter) {
+      pathname = '/blogging/subscribe';
+      nsid = pageMeta(pathname).nsid;
     } else if (q.page) {
       pathname = cleanPath(clampText(q.page));
       const meta = pageMeta(pathname);
@@ -611,6 +635,7 @@ export default async function handler(req, res) {
       post,
       verb: postVerb,
       quote: quoted?.quote ? { text: quoted.quote, title: quoted.title, section: quoted.section } : null,
+      letter,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.

@@ -35,6 +35,9 @@ import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/at
 import { fetchMothObservations } from '../src/lib/inaturalist.js';
 import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
 import { arenaText } from '../src/lib/arena.js';
+import { isSubscribePath } from '../src/lib/newsletter.js';
+import { pageDefault } from '../src/lib/pageRegistry.js';
+import { smartenText } from '../src/lib/smartPunctuation.js';
 import { VERB_REGISTRY, VERB_LABELS } from '../src/lib/verbRegistry.js';
 import {
   TEAL_PLAY_NSIDS,
@@ -245,11 +248,19 @@ function extractCard(collection, value, ctx) {
 // to (src/lib/albums.js), because the router needs it too; re-exported here so
 // middleware.js gets it alongside everything else it asks this module for.
 export { ALBUMS_SEGMENT, isAlbumPath };
+// /blogging/subscribe is the newsletter's page, not an essay's rkey; the
+// router and the edge both ask the module that owns the newsletter.
+export { isSubscribePath };
 
 /** True if `pathname` looks like a slug-addressed record route we can resolve. */
 export function isRecordRoute(pathname) {
   const segs = (pathname || '').split('/').filter(Boolean);
-  return segs.length === 2 && RECORD_SECTIONS.has(segs[0]) && !isAlbumPath(pathname);
+  return (
+    segs.length === 2 &&
+    RECORD_SECTIONS.has(segs[0]) &&
+    !isAlbumPath(pathname) &&
+    !isSubscribePath(pathname)
+  );
 }
 
 // ── resolvers: snapshot-first, then a time-boxed live PDS fallback ───────────
@@ -1016,6 +1027,33 @@ export async function albumsIndex(origin, { max = 0 } = {}) {
     total: albums.length,
     plays: albums.reduce((n, a) => n + (a.plays || 0), 0),
     artists: new Set(albums.flatMap((a) => (a.artists || []).map((s) => s.toLowerCase()))).size,
+  };
+}
+
+/* ── /blogging/subscribe — the newsletter's page ─────────────────────────── */
+
+/**
+ * What the newsletter page's card draws, the page being the email it sends:
+ * the page's title (its is.dame.page/subscribe record, else the built-in) and
+ * the latest post, as the Subject. Null when the blog snapshot can't be read or
+ * holds no post, which sends the card back to the page's ordinary layout.
+ */
+export async function subscribeCard(origin) {
+  const [blogs, pages] = await Promise.all([
+    fetchSnapshot(origin, 'blogs'),
+    origin ? fetchJson(`${origin}/data/pages.json`, SNAPSHOT_TIMEOUT_MS) : null,
+  ]);
+  const posts = (blogs || [])
+    .filter((r) => r?.value?.title && !isDraft(r.value) && showOnBlog(r.value))
+    .map((r) => ({
+      title: String(r.value.title),
+      at: Date.parse(r.value.publishedAt || r.value.createdAt || '') || 0,
+    }))
+    .sort((a, b) => b.at - a.at);
+  if (!posts.length) return null;
+  return {
+    title: firstText(pages?.subscribe?.value?.title, pageDefault('subscribe')?.title),
+    subject: smartenText(posts[0].title),
   };
 }
 

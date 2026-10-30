@@ -70,6 +70,10 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   `createRecord`, no server), and also charts over time in the /logging
   dashboard (`src/components/StateStats.jsx`). See
   [`lexicons/STATE.md`](lexicons/STATE.md).
+- `is.dame.newsletter` — the newsletter's standing words, a singleton at
+  `self`: its name, the form's heading, the thank-you line and the fine
+  print. Every field falls back to the built-in sentence. Edited in the admin's
+  Newsletter surface; see [Newsletter](#newsletter).
 - `is.dame.nav` — optional PDS override for the nav-menu (dock sheet) route
   list. When its `enabled` flag is set, its `items` select / reorder / relabel /
   hide the entries; otherwise the site uses the hardcoded routes in
@@ -192,10 +196,27 @@ whole flow is described in [`src/lib/newsletter.js`](src/lib/newsletter.js).
   (`pub.leaflet.blocks.signup`, "Newsletter signup" in the admin block editor)
   wherever the author wants one. A post without any gets one after its last
   line, and `/blogging` keeps one at the top, at `#subscribe`.
-- **Linking to it.** A text link to `https://dame.is/blogging#subscribe` works
-  everywhere: on a dame.is page that has a form it moves to the nearest one
-  below it, and anywhere else (an email, a feed reader, Bluesky) it opens the
-  index's.
+- **Its own page.** `/blogging/subscribe`
+  ([`src/pages/BloggingSubscribe.jsx`](src/pages/BloggingSubscribe.jsx)) is
+  the page drawn as the email: the form is its To line, and the body is the
+  latest post's opening, with earlier posts a step away. It sits where a
+  post's rkey would, so the edge asks `isSubscribePath` first rather than
+  404ing it as a post that isn't there.
+- **Its words.** The subscribe page's title and intro are its
+  `is.dame.page/subscribe` record, like every page's. Everything else the site
+  says about the newsletter, wherever the form is, is the `is.dame.newsletter`
+  record ([`src/lib/newsletterCopy.js`](src/lib/newsletterCopy.js)): the name
+  above the page's title, the form's heading in a post, the thank-you line
+  and the fine print (`{rss}` becomes the feed's link). Both are edited in the
+  admin's Newsletter surface, and an absent record or field is the built-in
+  sentence.
+- **Linking to it.** Link to `https://dame.is/blogging/subscribe`. In a post,
+  that link (or one written the older way, to any dame.is page's
+  `#subscribe`) opens the page in the same tab; anywhere else (an email, a
+  feed reader, Bluesky) it opens like any link. Older links to
+  `/blogging#subscribe` still land on the index's form. A reader whose way
+  back from Leaflet has lost its page comes back to the newsletter page's
+  form.
 - **The form** is Leaflet's embeddable subscribe form as a plain GET form to
   `leaflet.pub/api/auth/email-login`. It only does anything once newsletter
   mode is on for the publication in Leaflet.

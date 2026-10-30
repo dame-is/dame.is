@@ -17,10 +17,11 @@
 //
 // A post places forms with Leaflet's `pub.leaflet.blocks.signup` block, which
 // carries no data of its own. A post with none gets one after its last line
-// (BlogPost.jsx), and the /blogging index keeps one at #subscribe. A text
-// link to SUBSCRIBE_URL works everywhere: on a dame.is page with a form it
-// moves to that form (jumpToSignup), and anywhere else (an email, a feed
-// reader, Bluesky) it opens the index's.
+// (BlogPost.jsx), and the /blogging index keeps one at #subscribe. The page
+// to link to is SUBSCRIBE_PATH, the newsletter's own (SUBSCRIBE_URL in full):
+// a post's link to it, or to any dame.is form by the older #subscribe, opens
+// that page in place (leafletRichText.jsx), and an email, a feed reader or
+// Bluesky opens it as any link.
 
 import { BLOG_PUBLICATION } from '../config.js';
 
@@ -30,7 +31,19 @@ export const SIGNUP_BLOCK_TYPE = 'pub.leaflet.blocks.signup';
 
 /** The first form on any page that has one. */
 export const SUBSCRIBE_ID = 'subscribe';
-export const SUBSCRIBE_URL = `${SITE_ORIGIN}/blogging#${SUBSCRIBE_ID}`;
+
+/**
+ * The newsletter's own page (BloggingSubscribe.jsx), where the form is the To
+ * line of an email. It sits under /blogging, where every other second segment
+ * is a post's rkey, so the edge asks isSubscribePath before treating it as a
+ * record that isn't there.
+ */
+export const SUBSCRIBE_PATH = '/blogging/subscribe';
+export const SUBSCRIBE_URL = `${SITE_ORIGIN}${SUBSCRIBE_PATH}`;
+
+export function isSubscribePath(pathname) {
+  return String(pathname || '').replace(/\/+$/, '') === SUBSCRIBE_PATH;
+}
 
 export const RETURN_PATH = '/receive_auth_callback';
 export const RETURN_COOKIE = 'newsletter_return';
@@ -39,7 +52,7 @@ export const RETURN_PARAM = 'subscribed';
 export const RETURN_VALUE = 'email';
 
 /** Where a reader goes when the cookie is missing or unusable. */
-const DEFAULT_RETURN = `/blogging#${SUBSCRIBE_ID}`;
+const DEFAULT_RETURN = `${SUBSCRIBE_PATH}#${SUBSCRIBE_ID}`;
 
 /**
  * Leaflet's `action` value: the JSON percent-encoded once, exactly as its own
@@ -149,41 +162,17 @@ export function hasSignupBlock(pages) {
   return signupBlockIds(pages).size > 0;
 }
 
-/** A link to a form on this site (SUBSCRIBE_URL, or any dame.is page's #subscribe). */
+/**
+ * A link that means "subscribe": the newsletter's page (SUBSCRIBE_URL), or a
+ * form on any dame.is page by its #subscribe, the way links were written
+ * before the page existed and still are in published posts.
+ */
 export function isSubscribeLink(href) {
   try {
     const url = new URL(href);
-    return /^(www\.)?dame\.is$/.test(url.hostname) && url.hash === `#${SUBSCRIBE_ID}`;
+    if (!/^(www\.)?dame\.is$/.test(url.hostname)) return false;
+    return isSubscribePath(url.pathname) || url.hash === `#${SUBSCRIBE_ID}`;
   } catch {
     return false;
   }
-}
-
-/**
- * Click handler for a subscribe link: on a page with a form, go to the next
- * form after the link (or the last one before it) and put the cursor in its
- * email field, instead of opening the index in a new tab. A modified click
- * still opens the link.
- */
-export function jumpToSignup(event) {
-  if (
-    event.defaultPrevented ||
-    event.button !== 0 ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey
-  ) {
-    return;
-  }
-  const link = event.currentTarget;
-  const forms = [...link.ownerDocument.querySelectorAll('[data-newsletter-signup]')];
-  if (!forms.length) return;
-  const after = forms.find(
-    (form) => link.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING,
-  );
-  const target = after || forms[forms.length - 1];
-  event.preventDefault();
-  target.scrollIntoView({ block: 'center' });
-  target.querySelector('input[type="email"]')?.focus({ preventScroll: true });
 }

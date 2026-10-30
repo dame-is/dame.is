@@ -35,6 +35,7 @@ import '../pages/Albums.css';
 import '../pages/Blogging.css';
 import '../components/Comments.css';
 import '../components/SequenceFoot.css';
+import '../pages/BloggingSubscribe.css';
 import '../pages/Creating.css';
 import '../components/RatioedLive.css';
 import '../components/RatioedReplay.css';
