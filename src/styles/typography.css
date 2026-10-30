@@ -244,6 +244,21 @@ blockquote {
   }
 }
 
+/* An initial that is a whole word ("I began", "A few") keeps a word space
+   after it: at the gap a cap gets from the rest of its word, "I BEGAN" read
+   as "IBEGAN". Crimson Pro's space is 0.19em; in the float fallback the em is
+   the 5.85em cap's, so the same space is 0.0325 of it. */
+.leaflet-doc > .first-paragraph.leaflet-cap-word::first-letter {
+  margin-right: 0.37em;
+}
+
+@supports not ((initial-letter: 3) or (-webkit-initial-letter: 3)) {
+  .leaflet-doc > .first-paragraph.leaflet-cap-word::first-letter {
+    margin-right: 0;
+    padding-right: 0.0725em;
+  }
+}
+
 /* An essay's opening phrase runs on from its initial in small caps, the book
    convention for where the text begins: "In November of 2007", not the
    whole first line, which read as shouting. Caps and small caps, so a

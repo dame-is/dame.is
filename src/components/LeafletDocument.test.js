@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { trimBlockText, LeafletBlock } from './LeafletDocument.jsx';
+import { trimBlockText, glueLastWords, LeafletBlock } from './LeafletDocument.jsx';
 
 // vitest.config.js runs without the React plugin, so JSX here compiles to
 // React.createElement against whatever `React` is in scope when it runs. The
@@ -42,7 +42,7 @@ describe('LeafletBlock — Leaflet\'s blockquote', () => {
       plaintext: '"Twitter is funding a small independent team" -- in 2019...',
     });
     expect(html).toMatch(
-      /^<blockquote class="leaflet-paragraph leaflet-inset">“Twitter is funding a small independent team” — in 2019…/,
+      /^<blockquote class="leaflet-paragraph leaflet-inset">“Twitter is funding a small independent team” — in\u00a02019…/,
     );
     // The typed text rides along for x-ray, hidden from a screen reader.
     expect(html).toContain('<span class="leaflet-xray-raw" aria-hidden="true">');
@@ -60,10 +60,56 @@ describe('LeafletBlock — Leaflet\'s blockquote', () => {
         },
       ],
     });
-    expect(html).toMatch(/^<blockquote class="leaflet-paragraph leaflet-inset"><a [^>]*href="https:\/\/example.com\/update"[^>]*>Atmosphere<\/a> update: apps are growing<\/blockquote>$/);
+    expect(html).toMatch(/^<blockquote class="leaflet-paragraph leaflet-inset"><a [^>]*href="https:\/\/example.com\/update"[^>]*>Atmosphere<\/a> update: apps are\u00a0growing<\/blockquote>$/);
   });
 
   it('draws no quotation for an empty one', () => {
     expect(draw({ $type: 'pub.leaflet.blocks.blockquote', plaintext: ' \n' })).not.toContain('<blockquote');
+  });
+});
+
+describe('glueLastWords', () => {
+  const NBSP = '\u00a0';
+  const bytes = (s) => new TextEncoder().encode(s);
+  const cut = (text, f) => new TextDecoder().decode(bytes(text).slice(f.index.byteStart, f.index.byteEnd));
+
+  it('holds a paragraph\'s last two short words together', () => {
+    expect(glueLastWords('there are too many to keep track of!').text).toBe(`there are too many to keep track${NBSP}of!`);
+  });
+
+  it('leaves two long words free to part', () => {
+    const text = 'it was entirely unprecedented, interconnected';
+    expect(glueLastWords(text).text).toBe(text);
+  });
+
+  it('leaves a one-word paragraph alone', () => {
+    expect(glueLastWords('Hello.').text).toBe('Hello.');
+  });
+
+  it('keeps every facet on its words across the wider space', () => {
+    // "café" is five bytes, so byte and character offsets part early on.
+    const text = 'the café on the corner sells au lait';
+    const facets = [
+      { index: { byteStart: 4, byteEnd: 9 }, features: [{ $type: 'pub.leaflet.richtext.facet#italic' }] },
+      { index: { byteStart: 33, byteEnd: 37 }, features: [{ $type: 'pub.leaflet.richtext.facet#bold' }] },
+      { index: { byteStart: 30, byteEnd: 37 }, features: [{ $type: 'pub.leaflet.richtext.facet#link' }] },
+    ];
+    const before = facets.map((f) => cut(text, f));
+    expect(before).toEqual(['café', 'lait', 'au lait']);
+    const out = glueLastWords(text, facets);
+    expect(out.text.endsWith(`au${NBSP}lait`)).toBe(true);
+    expect(out.facets.map((f) => cut(out.text, f))).toEqual(['café', 'lait', `au${NBSP}lait`]);
+    // A facet wholly before the space is the same object.
+    expect(out.facets[0]).toBe(facets[0]);
+  });
+
+  it('sets the page\'s copy glued and keeps the record\'s text for x-ray', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(LeafletBlock, {
+        block: { $type: 'pub.leaflet.blocks.text', plaintext: 'It\'s "pretty" -- and the end of it.' },
+      }),
+    );
+    expect(html).toContain(`the end of${NBSP}it.`);
+    expect(html).toContain('It&#x27;s &quot;pretty&quot; -- and the end of it.');
   });
 });

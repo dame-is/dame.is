@@ -110,6 +110,12 @@ describe('matchQuote', () => {
     expect(matchQuote(ESSAY, 'Atmosphere there')).not.toBeNull();
   });
 
+  it('reads a no-break space on the page as the space the record has', () => {
+    // The page holds a paragraph's last two words together (glueLastWords).
+    expect(matchQuote(ESSAY, 'the end of\u00a0it').words).toBe('the end of it');
+    expect(matchQuote(ESSAY, 'I don’t think it’s\u00a0true.').words).toBe("I don't think it's true.");
+  });
+
   it('cuts the right words after an emoji', () => {
     expect(matchQuote(ESSAY, 'with an emoji before').words).toBe('with an emoji before');
   });
