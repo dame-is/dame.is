@@ -19,7 +19,7 @@ import { avatarThumb } from '../lib/avatarThumb.js';
 import { xrayNotARecord } from '../lib/xray.js';
 import {
   batchCountLabel,
-  batchNameLine,
+  batchNames,
   isObservationBatch,
 } from '../lib/observationBatches.js';
 import { firstSightingCount } from '../lib/firstSightings.js';
@@ -87,7 +87,9 @@ const CRAFT_KIND_FALLBACK = {
 /** How many specimens a collapsed run shows before the count takes over. */
 const BATCH_THUMBS = 4;
 /** And how many species it names. Two, not the card's three: moth names run
-    long, and the ledger row's whole job is to be one row. */
+    long, and the ledger row's whole job is to be one row. Unlike the card,
+    the row doesn't trail off with "+ 11 more": its count closes the same
+    line ("15 moths +"), and a second "+" beside it was only clutter. */
 const BATCH_LEDGER_NAMES = 2;
 
 /**
@@ -790,7 +792,7 @@ function ObservationBatchLedgerBody({ item, expanded, onToggle }) {
   const shown = (item.observations || [])
     .filter((o) => o.payload?.photos?.[0])
     .slice(0, BATCH_THUMBS);
-  const names = batchNameLine(item, BATCH_LEDGER_NAMES);
+  const names = batchNames(item).slice(0, BATCH_LEDGER_NAMES).join(', ');
   const count = batchCountLabel(item);
   // The run's tally of new species, on a line under the species it turned up.
   // The row stands in for a whole night, so a first inside it has nowhere
