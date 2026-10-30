@@ -153,3 +153,20 @@
     display: none;
   }
 }
+
+/* Where the reading's age goes: in the lead on a phone ("dame's phone · 2h
+   ago"), after the readings on a desk, where the lead keeps to the note
+   column (ChromeBar.css). */
+.vitals-age-tail {
+  display: none;
+}
+
+@media (min-width: 701px) {
+  .vitals-age-lead {
+    display: none;
+  }
+
+  .vitals-age-tail {
+    display: inline;
+  }
+}

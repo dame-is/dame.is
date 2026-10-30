@@ -20,12 +20,14 @@
 
 /* ---- The shelf ---------------------------------------------------- */
 
+/* Two columns of the page grid to a cover (theme.css), across every column
+   the window has: three on a laptop, seven at 1920px. */
 .album-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  gap: var(--space-5) var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(calc(2 * var(--col) + var(--gutter)), 1fr));
+  gap: var(--space-5) var(--gutter);
   list-style: none;
-  margin: 0;
+  margin: 0 calc(-1 * var(--wing));
   padding: 0;
 }
 
@@ -260,6 +262,7 @@
 @media (max-width: 700px) {
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    column-gap: var(--space-4);
   }
 
   /* The cover stops being a sidebar and becomes the header image. */

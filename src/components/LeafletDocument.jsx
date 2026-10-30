@@ -810,6 +810,12 @@ function LeafletContents({ sections }) {
   );
 }
 
+// What a picture needs, in the record's own pixels, to hang past the text:
+// enough to fill the widened figure (904px at most) without blowing it up much,
+// and a landscape shape.
+const BLEED_MIN_WIDTH = 1200;
+const BLEED_MIN_RATIO = 1.2;
+
 function ImageBlock({ block, style, index = null, inGallery = false }) {
   const lightbox = useContext(LeafletLightboxContext);
   const { active: inspecting } = useXray();
@@ -827,6 +833,12 @@ function ImageBlock({ block, style, index = null, inGallery = false }) {
     : undefined;
   // The figure carries its ratio for a justified gallery's row maths.
   const figureStyle = ar?.width && ar?.height ? { ...(style || {}), '--ar': ar.width / ar.height } : style;
+  // A picture big enough to fill it, and wider than it is tall, may hang a
+  // column past the text on each side once the page grid has one to give
+  // (LeafletDocument.css). A small one would have to be blown up to land on
+  // those lines, and a tall one would run several screens, so they keep to
+  // the text. In a gallery the gallery decides.
+  const bleed = !inGallery && ar?.width >= BLEED_MIN_WIDTH && ar.width / ar.height >= BLEED_MIN_RATIO;
   const img = (
     <img
       src={url}
@@ -837,7 +849,11 @@ function ImageBlock({ block, style, index = null, inGallery = false }) {
     />
   );
   return (
-    <figure className="leaflet-image" style={figureStyle || undefined}>
+    <figure
+      className="leaflet-image"
+      style={figureStyle || undefined}
+      data-bleed={bleed ? '' : undefined}
+    >
       {lightbox?.openImage ? (
         <button
           type="button"

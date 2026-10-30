@@ -15,12 +15,14 @@
 
 /* Uniform square cells (are.na's own idiom) so the channel's curated
    position order reads left-to-right and nothing shifts as images load. */
+/* A channel's blocks across every column of the page grid, two columns to a
+   square: three across the type area, more as the wings open (theme.css). */
 .curating-block-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(calc(2 * var(--col) + var(--gutter)), 1fr));
+  gap: var(--gutter);
   list-style: none;
-  margin: 0;
+  margin: 0 calc(-1 * var(--wing));
   padding: 0;
 }
 
@@ -192,11 +194,21 @@
   text-indent: 0;
 }
 
+/* The contact sheet runs across every column the page grid has (theme.css),
+   past the type area into the wings, one square to a column: six on a
+   laptop, fourteen at 1920px, sixteen at most. Only the first row shows; the
+   rest of the blocks wait in rows of no height. Below the type area's full
+   width the squares share out what there is. */
 .curating-row-strip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(var(--col), 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: 0;
+  column-gap: var(--gutter);
+  row-gap: 0;
+  overflow: hidden;
   margin-top: var(--space-3);
+  margin-inline: calc(-1 * var(--wing));
   text-decoration: none;
 }
 
@@ -235,13 +247,20 @@
 @media (max-width: 700px) {
   .curating-row-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: auto;
     gap: 4px;
+    overflow: visible;
+  }
+
+  /* Two rows of three on a phone. */
+  .curating-strip-cell:nth-child(n + 7) {
+    display: none;
   }
 }
 
 /* A channel on a phone: a three-up contact sheet with 4px gutters, fifteen
-   or more images a screen instead of one. Wider screens keep the 11rem
-   track. */
+   or more images a screen instead of one. Wider screens take two grid
+   columns to a square (above). */
 @media (max-width: 700px) {
   .curating-block-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

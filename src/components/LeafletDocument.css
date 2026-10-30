@@ -243,6 +243,24 @@
   border: 1px solid var(--rule-soft);
 }
 
+/* A large landscape picture (ImageBlock's data-bleed) hangs one column past
+   the text on each side once the page grid has a column to give, and fills
+   that width; below that the pulls are 0 and it fills the text column. Its
+   caption is prose, and comes back to the text's left edge. */
+.leaflet-image[data-bleed] {
+  margin-inline-start: calc(-1 * var(--doc-fig-start, 0px));
+  margin-inline-end: calc(-1 * var(--doc-fig-end, 0px));
+}
+
+.leaflet-image[data-bleed] img {
+  width: 100%;
+}
+
+.leaflet-image[data-bleed] .leaflet-image-caption {
+  margin-inline-start: var(--doc-fig-start, 0px);
+  margin-inline-end: var(--doc-fig-end, 0px);
+}
+
 /* Wraps the image when it opens the document lightbox — a bare button
    reset that keeps the image's own box, with a zoom affordance and a
    focus ring for keyboard users. */

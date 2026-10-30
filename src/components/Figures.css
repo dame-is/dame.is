@@ -188,3 +188,54 @@
     gap: var(--space-4) var(--space-5);
   }
 }
+
+/* ---- On the page grid ------------------------------------------------
+
+   On the public site a band is the type area's width, so on a desk its cells
+   take whole columns of the page grid (theme.css): six tracks, a figure to a
+   column, or two to one where a figure has a note (Figures.jsx works out the
+   spans). A ruled band's cells keep their rule in the gutter before them and
+   their figures on the column's edge, because the band's own gutter is the
+   grid's. A narrow band keeps its two-up rows. */
+@container (min-width: 34.01rem) {
+  :root:not([data-admin-shell]) .figures-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  :root:not([data-admin-shell]) .figures[data-layout='ruled'] .figures-grid {
+    --figures-gutter: var(--gutter);
+  }
+
+  :root:not([data-admin-shell]) .figures-cell,
+  :root:not([data-admin-shell]) .figures[data-layout='ruled'] .figures-cell {
+    grid-column: span var(--span-grid, 1);
+  }
+
+  :root:not([data-admin-shell]) .figures[data-layout='inline'] .figures-grid {
+    gap: var(--space-4) var(--gutter);
+  }
+
+  :root:not([data-admin-shell]) .figures[data-layout='inline'] .figures-cell {
+    max-width: none;
+  }
+}
+
+/* A band asked for four to a row (Ratioed's figures) is a table, and on the
+   page grid a table may hang one column past the type area on each side
+   wherever the grid has a column to give: eight columns, two to a figure, all
+   four on one row. Where it hasn't, the band keeps to the type area and the
+   rules above set it three to a row. */
+:root:not([data-admin-shell]) .figures[data-columns='4'] {
+  margin-inline: calc(-1 * var(--wing-fig));
+}
+
+@container (min-width: 55rem) {
+  :root:not([data-admin-shell]) .figures[data-columns='4'] .figures-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+
+  :root:not([data-admin-shell]) .figures[data-columns='4'] .figures-cell {
+    grid-column: span var(--span-table, 2);
+  }
+}

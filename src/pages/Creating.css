@@ -6,8 +6,10 @@
 }
 
 /* Plates: the portfolio as a contents page of covers, in reading order row
-   by row. Three across at desktop width, two on a phone (min() keeps the
-   track from overflowing a 358px column). */
+   by row, two across. On a desk they sit on the page grid (theme.css): three
+   columns each across the type area, and four each once the grid has a
+   column to give either side, so the covers grow with the window. Two on a
+   phone too (min() keeps the track from overflowing a 358px column). */
 .creating-plates {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(16rem, 46%), 1fr));
@@ -114,6 +116,14 @@
   font-size: var(--text-lg);
   line-height: 1.25;
   text-wrap: balance;
+}
+
+@media (min-width: 701px) {
+  .creating-plates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--gutter);
+    margin-inline: calc(-1 * var(--wing-fig));
+  }
 }
 
 .creating-work-page {

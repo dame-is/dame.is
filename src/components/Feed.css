@@ -1846,12 +1846,15 @@ a.reference-card-profile:focus-visible {
    ---------------------------------------------------------------------- */
 
 /* Shared column metrics — the day header lays out on the same grid as
-   the rows, so both read from these. The verb column is sized to the
-   longest gerund ("photographing") at the mono x-small size. */
+   the rows, so both read from these. The record starts on the page grid's
+   text column (theme.css), so the margin note is the note column and most of
+   its gutter: room for the longest gerund ("photographing") at the mono
+   x-small size, and the record lands on the same line as the chrome's values
+   and an essay's text. */
 .feed-ledger {
-  --ledger-verb-col: 6.5rem;
-  --ledger-time-col: 4rem;
   --ledger-col-gap: var(--space-3);
+  --ledger-verb-col: calc(var(--text-inset) - var(--ledger-col-gap));
+  --ledger-time-col: 4rem;
 }
 
 /* Rows are separated by their own rules, not flex gaps. */
@@ -2710,11 +2713,9 @@ a.ledger-time:focus-visible {
 }
 
 /* /listening: the margin holds the session's cover, not the word
-   "listening" again, so it narrows to the cover's width. */
-.feed-ledger-covers {
-  --ledger-verb-col: 2.25rem;
-}
-
+   "listening" again. It keeps the note column's width on a desk, so the song
+   starts on the text column like every other record; a phone sets its own
+   cover-wide column below. */
 .feed-ledger-covers .feed-item-ledger {
   align-items: start;
 }

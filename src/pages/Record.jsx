@@ -434,7 +434,17 @@ export default function Record({ verb, nsid, source }) {
         {item && thread ? (
           <ThreadPosts thread={thread} />
         ) : item ? (
-          <div className="reveal">
+          <div className="reveal record-body">
+            {/* A post has no title to say what it is, so on a desk it gets the
+                ledger's margin note in the note column beside it: the verb
+                over the time, as the row it was opened from had them. Its
+                full date is the colophon under it. */}
+            {isPost && createdAt && (
+              <p className="record-note" aria-hidden="true">
+                <span className="ledger-verb">{verb}</span>
+                <Time value={createdAt} variant="clock" className="ledger-time" tabular />
+              </p>
+            )}
             <RecordBody verb={verb} item={item} ownReplies={selfThread.length ? 1 : 0} />
             {/* A post's colophon, under the post it dates and ahead of any
                 continuation of its thread. */}

@@ -15,16 +15,10 @@
    resolves against the viewport. Kept on :root — not the chrome scope —
    because the dock sheet is portalled to <body>, outside .chrome-bar. */
 :root {
-  --chrome-pad-base: clamp(var(--space-5), 6vw, var(--space-9));
+  --chrome-pad-base: var(--edge);
   --chrome-pad-x: calc(
     var(--chrome-pad-base) + max(0px, (100% - var(--frame) - 2 * var(--chrome-pad-base)) / 2)
   );
-}
-
-@media (max-width: 700px) {
-  :root {
-    --chrome-pad-base: var(--space-4);
-  }
 }
 
 .chrome-bar {
@@ -57,7 +51,7 @@
   overflow: visible;
   /* Full-bleed: the bar's surface + top/bottom hairlines span the whole
      viewport at every width. Its content is held on `.main`'s centered
-     72rem column by the shared `--chrome-pad-x` inset on `.chrome-bar-row`. */
+     type area by the shared `--chrome-pad-x` inset on `.chrome-bar-row`. */
   width: 100%;
 }
 
@@ -90,6 +84,78 @@
   gap: var(--space-2);
   flex: 1;
   min-width: 0;
+}
+
+/* On a desk every chrome row splits where a ledger row does (theme.css, the
+   page grid): its first item in the note column, the next starting on the
+   text column's edge, the right-hand group ending at the type area's. So the
+   wordmark, LISTENING TO and DAME'S PHONE stand over the feed's gerunds, and
+   the status, the song and the readings over the text. Each lead is held to
+   at least the note column rather than to exactly it, so a wordmark that sets
+   wider in another face pushes its row along instead of overlapping it. */
+@media (min-width: 701px) {
+  .chrome-cluster {
+    gap: var(--gutter);
+  }
+
+  .chrome-title {
+    min-width: var(--note);
+  }
+
+  .chrome-signal-now-playing {
+    gap: var(--gutter);
+  }
+
+  .chrome-signal-now-playing > .chrome-signal-label {
+    min-width: var(--note);
+  }
+
+  /* The vitals row spaces its items by --space-4; the lead makes up the
+     rest of the gutter itself. */
+  .vitals > .vitals-lead {
+    min-width: var(--note);
+    margin-right: calc(var(--gutter) - var(--space-4));
+  }
+
+  /* The bottom bar: the sky's hour in the note column, the page's tools from
+     the text column's edge. A grid so the chip keeps its size: the first
+     track ends one tool-gap short of the text column. */
+  .chrome-bottom-cluster:has(> .chrome-sky-hour:not(.is-out)) {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-columns: calc(var(--text-inset) - var(--space-2));
+    justify-items: start;
+  }
+}
+
+/* The grid's columns, ticked along the running head's lower edge like a
+   ruler: a mark at each side of every column, across the type area and the
+   wings beyond it. It's what carries the grid's lines out to the columns
+   only a gallery or a figure uses, on a page that leaves them empty. From
+   62rem, where the type area has its full width; below that the text column
+   gives up width and there are no whole columns to mark. */
+@media (min-width: 62rem) {
+  .chrome-bar-top::after {
+    content: '';
+    position: absolute;
+    left: calc(50% - var(--frame) / 2 - var(--wing));
+    bottom: 0;
+    width: calc(var(--frame) + 2 * var(--wing));
+    height: 5px;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--rule) 0 1px,
+      transparent 1px calc(var(--col) - 1px),
+      var(--rule) calc(var(--col) - 1px) var(--col),
+      transparent var(--col) var(--pitch)
+    );
+  }
+
+  /* The admin's workbench is its own wider frame, not the page grid. */
+  :root[data-admin-shell] .chrome-bar-top::after {
+    display: none;
+  }
 }
 
 /* The status and the trail share one grid cell and cross-fade, so swapping

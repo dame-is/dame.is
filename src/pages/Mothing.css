@@ -1,14 +1,15 @@
 /* /mothing — the iNaturalist moth almanac (nights by season) and each
    night's page of plates. */
 
-/* Plates: four to a row at desktop width, two on a phone (min() lets the
-   track drop to 46% of a 358px column instead of overflowing it to one). */
+/* Plates: two columns of the page grid to a plate (theme.css), across every
+   column the window has, two on a phone (min() lets the track drop to 46% of
+   a 358px column instead of overflowing it to one). */
 .mothing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(12rem, 46%), 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(calc(2 * var(--col) + var(--gutter)), 46%), 1fr));
+  gap: var(--space-4) var(--gutter);
   list-style: none;
-  margin: 0;
+  margin: 0 calc(-1 * var(--wing));
   padding: 0;
 }
 
@@ -242,11 +243,12 @@
   color: var(--ink-muted);
 }
 
-/* Most seen: six square plates, name in the serif and the count as ×12. */
+/* Most seen: six square plates, name in the serif and the count as ×12, one
+   to a column of the page grid (theme.css). */
 .mothing-seen-plates {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-3) var(--gutter);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -305,6 +307,7 @@
 @media (max-width: 700px) {
   .mothing-seen-plates {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: var(--space-3);
   }
 }
 
@@ -377,7 +380,7 @@
 
 .night-entry {
   display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
+  grid-template-columns: calc(var(--text-inset) - var(--space-4)) minmax(0, 1fr);
   gap: var(--space-4);
   padding: var(--space-4) 0;
   border-top: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
