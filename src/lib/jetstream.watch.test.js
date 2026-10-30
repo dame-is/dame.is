@@ -235,16 +235,16 @@ describe('watchSubject starts in the past and keeps its place', () => {
     stop();
   });
 
+  // A phone in a pocket: the page is frozen, timers and all, while the clock
+  // runs on. Nothing fires until it comes back.
+  const background = (ms) => vi.setSystemTime(Date.now() + ms);
+
   it('resumes a long drop from its seq when the caller pays for it', async () => {
     const now = Date.now();
-    const stop = watchSubject(SUBJECT, {
-      budgetBytes: null,
-      maxReplayMs: LOOKBACK_MS,
-    });
+    const stop = watchSubject(SUBJECT, { budgetBytes: null, maxReplayMs: LOOKBACK_MS });
     latest().open();
     latest().message(event(now, 500));
-    // A phone locked in a pocket: the socket is gone for ten minutes.
-    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    background(10 * 60_000);
     latest().close();
     await vi.advanceTimersByTimeAsync(1000);
     expect(cursorOf(latest())).toBe('500');
@@ -256,10 +256,52 @@ describe('watchSubject starts in the past and keeps its place', () => {
     const stop = watchSubject(SUBJECT, { budgetBytes: null });
     latest().open();
     latest().message(event(now, 500));
-    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    background(10 * 60_000);
     latest().close();
     await vi.advanceTimersByTimeAsync(1000);
     expect(cursorOf(latest())).toBeNull();
+    stop();
+  });
+
+  // The other way a phone hands a socket back: still "open", never closing,
+  // delivering nothing. The stall check is what notices.
+  it('drops a socket that came back from the background dead, and resumes', async () => {
+    const now = Date.now();
+    const states = [];
+    const stop = watchSubject(SUBJECT, {
+      budgetBytes: null,
+      maxReplayMs: LOOKBACK_MS,
+      onStatus: (s) => states.push(s.state),
+    });
+    const dead = latest();
+    dead.open();
+    dead.message(event(now, 500));
+    await vi.advanceTimersByTimeAsync(5000);
+    background(10 * 60_000);
+    // The interval frozen in the background fires as the page returns.
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(states[states.length - 1]).toBe('closed');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(latest()).not.toBe(dead);
+    expect(cursorOf(latest())).toBe('500');
+    // And the dead one's own close, whenever it comes, reaches nobody.
+    const count = sockets().length;
+    dead.onclose?.();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sockets()).toHaveLength(count);
+    stop();
+  });
+
+  it('leaves a socket alone while it keeps delivering', async () => {
+    const now = Date.now();
+    const stop = watchSubject(SUBJECT, { budgetBytes: null });
+    const live = latest();
+    live.open();
+    for (let i = 0; i < 12; i += 1) {
+      live.message(event(now + i * 5000, 500 + i));
+      await vi.advanceTimersByTimeAsync(5000);
+    }
+    expect(sockets()).toHaveLength(1);
     stop();
   });
 
@@ -275,12 +317,18 @@ describe('watchSubject starts in the past and keeps its place', () => {
     latest().message(event(now, 500));
     latest().close();
 
+    // Each reconnect, as soon as it is made.
+    const nextSocket = async () => {
+      const n = sockets().length;
+      while (sockets().length === n) await vi.advanceTimersByTimeAsync(100);
+      return latest();
+    };
+
     // A seq the server no longer holds is refused before the upgrade: no
     // open, no message, just the close. Twice, and the time is tried instead.
     const cursors = [];
     for (let i = 0; i < 4; i += 1) {
-      await vi.advanceTimersByTimeAsync(30_000);
-      cursors.push(cursorOf(latest()));
+      cursors.push(cursorOf(await nextSocket()));
       latest().close();
     }
     expect(cursors).toEqual([
@@ -290,8 +338,7 @@ describe('watchSubject starts in the past and keeps its place', () => {
       String((now - 1000) * 1000),
     ]);
 
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(cursorOf(latest())).toBeNull();
+    expect(cursorOf(await nextSocket())).toBeNull();
     latest().open();
     const resumedAt = Date.now();
     latest().message(event(resumedAt, 900));

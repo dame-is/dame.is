@@ -57,6 +57,17 @@ const TIME_RESUME_SLACK_MS = 1000;
 // event; a time resume lands a second early; only a live restart jumps.
 const HOLE_MS = 1000;
 
+// A socket that has delivered nothing for this long is dead, whatever its
+// readyState says. The watch reads the whole firehose, hundreds of messages a
+// second, so silence is never a quiet stream. It is what a phone hands back
+// when a backgrounded tab comes to the front again: the page resumes, the
+// socket still reads as open, and no close arrives until the network stack
+// gives up on it, which can take minutes. Checked on an interval, and an
+// interval that was frozen in the background fires as soon as the page is
+// back, so a dead socket is dropped within a moment of returning.
+const STALL_MS = 15_000;
+const STALL_CHECK_MS = 5_000;
+
 // What one watch is allowed to cost before it stops itself. ~24 minutes at the
 // measured rate. Stopping is reported, not silent.
 //
@@ -287,6 +298,9 @@ export function watchSubject(
   let delivered = false;
   let timed = false;
   let misses = 0;
+  // What the stall check last saw, and when it last saw it change.
+  let progressMsgs = 0;
+  let progressAt = 0;
   // null / 0 / Infinity all mean "run until told to stop".
   const capped = Number.isFinite(budgetBytes) && budgetBytes > 0;
   // Record keys this subscription has reported as creates. A delete names only
@@ -346,6 +360,8 @@ export function watchSubject(
     askedFrom = pick?.from ?? null;
     delivered = false;
     timed = false;
+    progressMsgs = msgs;
+    progressAt = Date.now();
 
     status('connecting');
     try {
@@ -471,15 +487,50 @@ export function watchSubject(
       /* onclose follows; reconnect is handled there */
     };
 
-    ws.onclose = () => {
-      if (openedAt && Date.now() - openedAt >= STABLE_MS) attempt = 0;
-      openedAt = 0;
-      if (usedCursor && !delivered) misses += 1;
-      lastEventMs = timeMsOf(lastRaw) || lastEventMs;
-      status('closed');
-      schedule();
-    };
+    ws.onclose = closed;
   };
+
+  // A connection over, by its own close or by the stall check deciding for it.
+  const closed = () => {
+    ws = null;
+    if (openedAt && Date.now() - openedAt >= STABLE_MS) attempt = 0;
+    openedAt = 0;
+    if (usedCursor && !delivered) misses += 1;
+    lastEventMs = timeMsOf(lastRaw) || lastEventMs;
+    status('closed');
+    schedule();
+  };
+
+  // Silenced before it's closed: a dead socket's own close can land minutes
+  // later, and by then another connection is the one reporting.
+  const drop = () => {
+    const old = ws;
+    if (old) {
+      old.onopen = old.onmessage = old.onerror = old.onclose = null;
+      try {
+        old.close();
+      } catch {
+        /* already gone */
+      }
+    }
+    closed();
+  };
+
+  const stall = setInterval(() => {
+    if (stopped) {
+      clearInterval(stall);
+      return;
+    }
+    // Between connections, waiting out a backoff: nothing to check.
+    if (!ws) return;
+    const nowMs = Date.now();
+    if (msgs !== progressMsgs) {
+      progressMsgs = msgs;
+      progressAt = nowMs;
+    } else if (nowMs - progressAt >= STALL_MS) {
+      drop();
+    }
+  }, STALL_CHECK_MS);
 
   const schedule = () => {
     if (stopped) return;
@@ -495,6 +546,7 @@ export function watchSubject(
     const wasStopped = stopped;
     stopped = true;
     if (timer) clearTimeout(timer);
+    clearInterval(stall);
     // Silenced before it's closed. The close lands a moment later, and its
     // 'closed' would be reported through the same onStatus as whatever watch
     // the caller has opened in this one's place.
