@@ -19,15 +19,21 @@
 // The ticks crowd at the left, which is the finding rather than a defect.
 
 import { fmtDuration, chaseTicks } from '../lib/ratioed.js';
+import { recordSentence } from '../lib/ratioedLedger.js';
 import './RatioedRecord.css';
 
 /**
  * `elapsedMs` is how long the live piece has stood. `record` is the longest
  * finished piece (see `longestPiece`) — null before anything has ended, which
  * is the state take #1 was in and nothing since. `pieces` is the rest of the
- * series, for the ticks; without it the bar draws as it always did.
+ * series, for the ticks; without it the bar draws as it always did. `marks`
+ * are moments on the piece's own clock worth a mark of their own — a like
+ * cast and taken back — as `{ offMs, title }`.
+ *
+ * The sentence comes first and the bar under it, since the ledger: the bar is
+ * the rule under the statement it illustrates, not a gauge with a caption.
  */
-export default function RatioedRecord({ elapsedMs = 0, record, pieces = null }) {
+export default function RatioedRecord({ elapsedMs = 0, record, pieces = null, marks = null }) {
   if (!record?.lifespanMs) return null;
   const target = record.lifespanMs;
   const beaten = elapsedMs >= target;
@@ -35,9 +41,18 @@ export default function RatioedRecord({ elapsedMs = 0, record, pieces = null }) 
   const take = String(record.take ?? '').padStart(2, '0');
   const ticks = chaseTicks(pieces, record, elapsedMs);
   const passed = ticks.filter((t) => t.passed).length;
+  // The count says what the ticks show, for anyone reading this on a screen
+  // reader or at a width where the marks blur together.
+  const say = recordSentence({
+    elapsedMs,
+    record,
+    passed,
+    total: ticks.length ? ticks.length + 1 : 0,
+  });
 
   return (
     <div className={`rr-chase${beaten ? ' is-beaten' : ''}`}>
+      <p className="rr-say">{say}</p>
       <div
         className="rr-track"
         role="progressbar"
@@ -58,28 +73,15 @@ export default function RatioedRecord({ elapsedMs = 0, record, pieces = null }) 
             title={`take ${String(t.take).padStart(2, '0')} · ${fmtDuration(t.lifespanMs)}`}
           />
         ))}
+        {(marks || []).map((m) => (
+          <span
+            key={`${m.offMs}-${m.title}`}
+            className="rr-mark"
+            style={{ left: `${Math.max(0, Math.min(1, m.offMs / target)) * 100}%` }}
+            title={m.title}
+          />
+        ))}
       </div>
-      <p className="rr-say">
-        {beaten ? (
-          <>
-            <strong>The longest piece in the series</strong>, by{' '}
-            {fmtDuration(elapsedMs - target)} over take {take}.
-          </>
-        ) : (
-          <>
-            <strong>{fmtDuration(target - elapsedMs)}</strong> from take {take}&rsquo;s record of{' '}
-            {fmtDuration(target)}.
-            {/* The count says what the ticks show, for anyone reading this on a
-                screen reader or at a width where the marks blur together. */}
-            {ticks.length > 0 && (
-              <>
-                {' '}
-                Past {passed} of {ticks.length + 1}.
-              </>
-            )}
-          </>
-        )}
-      </p>
     </div>
   );
 }

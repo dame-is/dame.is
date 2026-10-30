@@ -13,15 +13,23 @@
 // draws whatever belongs at the end of a row; `below` draws whatever belongs
 // under it. The public deck passes neither and gets exactly the feed it had.
 //
+// The rows are a ledger, the same three columns the site's own feeds use: what
+// the record did in the margin ("replied", "reposted", "liked"), who and what
+// they said in the middle, and when at the right edge. They were a row of
+// icons, faces and stamps that read as a dashboard and wrapped differently on
+// every row at a phone width; a column of verbs reads in one pass down the
+// left edge, which is what the chips were for, and says it in words.
+//
 // A row is also a post, and until recently it was a post with its text cut off
 // mid-sentence and no sign at all that the person had replied with a picture.
 // A witness row carries a record key, a DID and up to 300 characters (see
 // lib/ratioedLive.js); everything else about the post has to be asked for. So
 // the rows are hydrated from the AppView as they arrive, which buys two things:
 // a mark on the row saying what is attached, and the embed itself once somebody
-// opens the row. Opening it is also where the controls go, which is how a phone
-// gets them back — the row's own buttons are hidden at phone width, and have been
-// since they were costing a third of the width of a 358px row.
+// opens the row. Opening it is the only place the controls are, at every width:
+// they used to sit at the end of each row as a cluster of icons, hidden on a
+// phone because three of them cost a third of a 358px row, and in the ledger
+// they are words under what the person said ("reply · like · open elsewhere").
 //
 // The stylesheet is RatioedLive.css, and the class names are still
 // `.ratioed-live-*` — this is that component's markup, moved rather than
@@ -29,11 +37,12 @@
 // would be a diff nobody could read against a page nobody could check.
 
 import { useMemo, useState } from 'react';
-import { ArrowUpRight, ChevronDown, Link2, Play, Quote } from 'lucide-react';
+import { ChevronDown, Link2, Play, Quote } from 'lucide-react';
 import { fmtDuration } from '../lib/ratioed.js';
 import { embedMarks } from '../lib/ratioedEmbed.js';
 import { ME_DID } from '../config.js';
-import RatioedChip from './RatioedChip.jsx';
+import { breakingWitness } from '../lib/ratioedLive.js';
+import { rowVerb } from '../lib/ratioedLedger.js';
 import RatioedHandle from './RatioedHandle.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import ScrollFrame from './ScrollFrame.jsx';
@@ -125,14 +134,18 @@ function EmbedMarks({ marks }) {
  *                                 list has a page; absent in the studio, where
  *                                 the piece is still running and nobody is in
  *                                 the roster yet.
- * @param {boolean} [props.openable]  offer the "open it elsewhere" button. Off
- *                                 in the replay, where only some rows carry a
- *                                 record key and a button on half of them
+ * @param {boolean} [props.openable]  offer "open elsewhere" in an opened row.
+ *                                 Off in the replay, where only some rows carry
+ *                                 a record key and a control on half of them
  *                                 reads as a fault rather than as an offer
- * @param {(row) => JSX} [props.actions]  the row's controls: at the end of it
- *                                 while it is closed, inside the panel once it
- *                                 is open. One place at a time, never both
- * @param {(row) => JSX} [props.below]    drawn under a row, full width
+ * @param {(row) => JSX} [props.actions]  the row's controls, drawn under what
+ *                                 the person said once the row is open
+ * @param {(row) => JSX} [props.below]    drawn under a row's body
+ * @param {boolean} [props.bounded] scroll inside a window of its own. The page
+ *                                 and the replay keep one so the list does not
+ *                                 push everything after it a screen down; the
+ *                                 studio lets the thread run in the pane, where
+ *                                 the pinned seal bar follows it down.
  * @param {string} [props.label]   what the scroller is, for a reader who
  *                                 reaches it from the keyboard
  */
@@ -145,6 +158,7 @@ export default function RatioedTicker({
   actions = null,
   below = null,
   parent = null,
+  bounded = true,
   label = 'What has touched this piece',
 }) {
   const { openWaypoints } = useWaypointsModal();
@@ -167,8 +181,114 @@ export default function RatioedTicker({
   const uriKey = rows.map(rowUri).filter(Boolean).join('\n');
   const uris = useMemo(() => (uriKey ? uriKey.split('\n') : []), [uriKey]);
   const posts = usePostViews(uris);
+  // The like that ends the piece gets its row lit, the same row the sentence
+  // above the list names. Not in the replay: a piece that ended a year ago is
+  // read, not watched.
+  const breaker = useMemo(() => (quiet ? null : breakingWitness(rows)), [quiet, rows]);
 
   if (!rows.length) return <p className="ratioed-live-empty">{empty}</p>;
+
+  const list = (
+    <ul className={`ratioed-live-ticker${quiet ? ' is-quiet' : ''}`}>
+      {[...rows].reverse().map((r) => {
+        const handle = profiles[r.did]?.handle || r.h || r.did?.slice(0, 18) || 'somebody';
+        const avatar = profiles[r.did]?.avatar;
+        const mine = r.did === ME_DID;
+        const extra = actions?.(r);
+        const uri = rowUri(r);
+        const post = uri ? posts[uri] : null;
+        const marks = post ? embedMarks(post.embed) : NO_MARKS;
+        const standing = r.goneMs == null;
+        // The reader's one control, where the surface offers it and nothing
+        // else has claimed the slot.
+        const offerOpen = openable && standing && Boolean(uri) && !extra;
+        // Openable when there is something to press and something behind
+        // it. Both halves matter: a row with no text and no mark has no
+        // target that isn't the whole row, and a row whose panel would come
+        // up empty is a disclosure that discloses nothing.
+        const pressable = Boolean(r.t) || marks.length > 0;
+        const behind = Boolean(post?.embed) || Boolean(extra) || offerOpen;
+        const canOpen = standing && Boolean(uri) && pressable && behind;
+        // A row's identity. The live feeds' rows are records and their key
+        // is the record's; the replay's include measured rows nothing ever
+        // gave a key, and it names those itself in `id` rather than
+        // inventing an rkey a post could be asked for by.
+        const id = r.id ?? r.rkey;
+        const isOpen = canOpen && open.has(id);
+        const controls =
+          extra ||
+          (offerOpen && (
+            <button
+              type="button"
+              className="ratioed-live-act"
+              onClick={() => openWaypoints(uri)}
+              title={`Open @${handle}’s ${r.k} in another client`}
+            >
+              open elsewhere
+            </button>
+          ));
+        return (
+          <li
+            key={id}
+            className={`ratioed-live-row ratioed-k-${r.k}${standing ? '' : ' is-gone'}${
+              mine ? ' is-self' : ''
+            }${isOpen ? ' is-open' : ''}${r === breaker ? ' is-breaking' : ''}`}
+          >
+            <span className="ratioed-live-verb">{rowVerb(r, { selfDid: ME_DID })}</span>
+            <div className="ratioed-live-body">
+              {/* Titled, because a handle longer than its column is cut to fit
+                  rather than broken across two lines. */}
+              <span className="ratioed-live-who" title={`@${handle}`}>
+                {avatar ? (
+                  <img className="ratioed-live-face" src={avatar} alt="" loading="lazy" width="18" height="18" />
+                ) : (
+                  <span className="ratioed-live-face is-blank" aria-hidden="true" />
+                )}
+                <span className="ratioed-live-handle">
+                  {parent ? <RatioedHandle handle={handle} parent={parent} /> : `@${handle}`}
+                </span>
+              </span>
+              {/* A row from the afterlife. It reads as "+45m12s" beside a piece
+                  that stood 41m45s, which is decodable and not obvious; this is
+                  the line that makes it obvious. */}
+              {r.after && <span className="ratioed-live-after">after the seal</span>}
+              {!standing && (
+                <span className="ratioed-live-undone">took it back at +{fmtDuration(r.goneMs)}</span>
+              )}
+              {/* What they said, whole. Where the row opens, these words are
+                  also the control that opens it: they are already there and
+                  already the width of the column, so making them the target
+                  costs nothing. */}
+              {canOpen ? (
+                <button
+                  type="button"
+                  className="ratioed-live-text is-toggle"
+                  aria-expanded={isOpen}
+                  onClick={() => toggle(id)}
+                >
+                  {r.t}
+                  <ChevronDown size={12} className="ratioed-live-caret" aria-hidden="true" />
+                  <EmbedMarks marks={marks} />
+                </button>
+              ) : (
+                r.t && <span className="ratioed-live-text">{r.t}</span>
+              )}
+              {isOpen && (
+                <div className="ratioed-live-panel">
+                  {post?.embed && <PostEmbed embed={post.embed} did={post.did || r.did} nest={1} />}
+                  {controls && <div className="ratioed-live-panel-acts">{controls}</div>}
+                </div>
+              )}
+              {below?.(r)}
+            </div>
+            <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  if (!bounded) return <div className="ratioed-live-feed is-open-ended">{list}</div>;
   // Three elements for one list, and each does one thing. The frame scrolls and
   // fades whichever end still has rows behind it (see ScrollFrame.jsx); the
   // list is the list. The wrapper exists because a masked element's own border
@@ -178,111 +298,7 @@ export default function RatioedTicker({
   return (
     <div className="ratioed-live-feed">
       <ScrollFrame axis="y" className="ratioed-live-scroll" label={label}>
-        <ul className="ratioed-live-ticker">
-          {[...rows].reverse().map((r) => {
-            const handle = profiles[r.did]?.handle || r.h || r.did?.slice(0, 18) || 'somebody';
-            const avatar = profiles[r.did]?.avatar;
-            const mine = r.did === ME_DID;
-            const extra = actions?.(r);
-            const uri = rowUri(r);
-            const post = uri ? posts[uri] : null;
-            const marks = post ? embedMarks(post.embed) : NO_MARKS;
-            const standing = r.goneMs == null;
-            // The reader's one button, where the surface offers it and nothing
-            // else has claimed the slot.
-            const offerOpen = openable && standing && Boolean(uri) && !extra;
-            // Openable when there is something to press and something behind
-            // it. Both halves matter: a row with no text and no mark has no
-            // target that isn't the whole row, and a row whose panel would come
-            // up empty is a disclosure that discloses nothing.
-            const pressable = Boolean(r.t) || marks.length > 0;
-            const behind = Boolean(post?.embed) || Boolean(extra) || offerOpen;
-            const canOpen = standing && Boolean(uri) && pressable && behind;
-            // A row's identity. The live feeds' rows are records and their key
-            // is the record's; the replay's include measured rows nothing ever
-            // gave a key, and it names those itself in `id` rather than
-            // inventing an rkey a post could be asked for by.
-            const id = r.id ?? r.rkey;
-            const isOpen = canOpen && open.has(id);
-            // The controls live in one place at a time: at the end of the row
-            // while it is closed, in the panel once it is open. Rendered once
-            // either way, because two copies with one of them hidden is two
-            // sets of labels for a screen reader to read out.
-            const controls = extra || (
-              offerOpen && (
-                <button
-                  type="button"
-                  className="ratioed-live-open"
-                  onClick={() => openWaypoints(uri)}
-                  title={`Open @${handle}’s ${r.k} in another client`}
-                  aria-label={`Open this ${r.k} in another client`}
-                >
-                  <ArrowUpRight size={13} aria-hidden="true" />
-                  <span className="ratioed-live-open-say">Open in another client</span>
-                </button>
-              )
-            );
-            return (
-              <li
-                key={id}
-                className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}${
-                  mine ? ' is-self' : ''
-                }${isOpen ? ' is-open' : ''}`}
-              >
-                <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
-                {avatar ? (
-                  <img className="ratioed-live-face" src={avatar} alt="" loading="lazy" width="22" height="22" />
-                ) : (
-                  <span className="ratioed-live-face is-blank" aria-hidden="true" />
-                )}
-                {/* Titled, because a handle longer than its column is cut to fit
-                    rather than broken across two lines. */}
-                <span className="ratioed-live-who" title={`@${handle}`}>
-                  {parent ? <RatioedHandle handle={handle} parent={parent} /> : `@${handle}`}
-                  {mine && <span className="ratioed-live-self"> the artist</span>}
-                </span>
-                <RatioedChip kind={r.k} muted={quiet || r.goneMs != null} />
-                {/* A row from the afterlife. It reads as "+45m12s" beside a piece
-                    that stood 41m45s, which is decodable and not obvious; this is
-                    the sentence that makes it obvious. */}
-                {r.after && <span className="ratioed-live-after">after the seal</span>}
-                {r.goneMs != null && (
-                  <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
-                )}
-                {/* What they said, whole — it used to be one line under an
-                    ellipsis, which on a phone was four words of a reply. Where
-                    the row opens, these words are also the control that opens
-                    it: they are already there and already the width of the row,
-                    so making them the target costs nothing, where a button of
-                    its own would cost the width the handle needs. */}
-                {canOpen ? (
-                  <button
-                    type="button"
-                    className="ratioed-live-text is-toggle"
-                    aria-expanded={isOpen}
-                    onClick={() => toggle(id)}
-                  >
-                    {r.t}
-                    <ChevronDown size={12} className="ratioed-live-caret" aria-hidden="true" />
-                    <EmbedMarks marks={marks} />
-                  </button>
-                ) : (
-                  r.t && <span className="ratioed-live-text">{r.t}</span>
-                )}
-                {isOpen && (
-                  <div className="ratioed-live-panel">
-                    {post?.embed && (
-                      <PostEmbed embed={post.embed} did={post.did || r.did} nest={1} />
-                    )}
-                    {controls && <div className="ratioed-live-panel-acts">{controls}</div>}
-                  </div>
-                )}
-                {!isOpen && controls && <span className="ratioed-live-acts">{controls}</span>}
-                {below?.(r)}
-              </li>
-            );
-          })}
-        </ul>
+        {list}
       </ScrollFrame>
     </div>
   );

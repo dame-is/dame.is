@@ -34,29 +34,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RichText } from '@atproto/api';
-import {
-  Send,
-  Lock,
-  RefreshCw,
-  ExternalLink,
-  ArrowUpRight,
-  Radio,
-  Wrench,
-  Heart,
-  HeartOff,
-  MessageSquareReply,
-  UserPen,
-  FileText,
-  Coffee,
-} from 'lucide-react';
+import { Send, Lock, RefreshCw, Radio, Wrench, UserPen } from 'lucide-react';
 import Button from './Button.jsx';
 import Figures from './Figures.jsx';
 import SectionHead from './SectionHead.jsx';
 import Time from './Time.jsx';
-import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
-import RatioedRecord from './RatioedRecord.jsx';
-import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
+import RatioedStanding, { RatioedCounts } from './RatioedStanding.jsx';
+import RatioedTicker from './RatioedTicker.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
@@ -93,6 +78,7 @@ import {
   readWatchCheckpoint,
 } from '../lib/ratioedLive.js';
 import { useProfiles } from '../hooks/useProfiles.js';
+import { countOf } from '../lib/ratioedLedger.js';
 import {
   DEFAULT_TEMPLATE,
   DEFAULT_ANNOUNCEMENT,
@@ -570,6 +556,28 @@ export default function RatioedStudio({ agent, did }) {
       lock?.release().catch(() => {});
     };
   }, [keepAwake, liveKey]);
+
+  // Whether the seal's own row has scrolled out of reach, which is when the
+  // pinned bar takes its place at the top of the pane. Observed rather than
+  // measured on scroll: the pane is the scroller, and an observer reports its
+  // clipping without a handler on every frame of a thumb flicking through the
+  // thread. Out of view and above the middle of the screen means scrolled
+  // past; the row is near the top of the panel, so out of view below is a
+  // pane too short to show it, where a second seal would be no help.
+  const actionsRef = useRef(null);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    const el = actionsRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setPinned(false);
+      return undefined;
+    }
+    const io = new IntersectionObserver(([entry]) => {
+      setPinned(!entry.isIntersecting && entry.boundingClientRect.top < window.innerHeight / 2);
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [liveKey, sealedNow, pieces]);
 
   // What the record already holds, folded in. This is what makes the studio
   // survivable: a tab closed and reopened mid-piece, or a second one on another
@@ -1658,6 +1666,26 @@ export default function RatioedStudio({ agent, did }) {
   // Named once because three things below key off exactly this state — the
   // panel's own colour, the alarm box, and the state line it speaks for.
   const alarming = seenLike && !justSealed;
+  // One seal, drawn in its row and again in the pinned bar while the row is
+  // out of sight. Louder once somebody has liked it.
+  const sealButton = (
+    <Button variant="primary" className="rs-seal" onClick={seal} disabled={!!busy}>
+      <Lock size={alarming ? 17 : 15} aria-hidden="true" />
+      {busy === 'seal' ? 'Sealing…' : 'Seal'}
+    </Button>
+  );
+  // Likes cast and taken back, as marks on the record bar at the moment they
+  // landed: the one thing on that bar about this piece rather than the others.
+  const takenBackMarks = useMemo(
+    () =>
+      feed
+        .filter((r) => r.k === 'like' && r.goneMs != null && r.did !== did)
+        .map((r) => ({
+          offMs: r.offMs,
+          title: `liked at +${fmtDuration(r.offMs)}, taken back at +${fmtDuration(r.goneMs)}`,
+        })),
+    [feed, did],
+  );
 
   return (
     // `.rs-root` earns its place twice over. It is where the three --ratioed-*
@@ -1701,59 +1729,149 @@ export default function RatioedStudio({ agent, did }) {
         <section
           style={scale}
           className={`rs-live${alarming ? ' liked' : !justSealed && withdrawn ? ' withdrawn' : ''}`}
+          aria-label={`Take ${pieceSlug(live)}, live`}
         >
-          {/* The kit's section head, with the stopwatch in its meta slot: the
-              take is the panel's title, and how long it has stood is the one
-              figure read against it. */}
-          <SectionHead
-            className="rs-live-head"
-            title={`Take ${pieceSlug(live)}`}
-            meta={<span className="rs-live-clock">{fmtDuration(aliveMs)}</span>}
+          {/* THE SEAL, WHERE THE THREAD IS. The panel reads top to bottom and
+              the thread runs on under it in the pane, so reading the replies
+              used to mean scrolling the seal away. Once its row is out of
+              sight this bar holds it at the top of the pane, with the take,
+              the clock and the likes beside it. It takes no height of its own
+              (RatioedStudio.css), so arriving and leaving moves nothing. */}
+          <div className="rs-pin">
+            {pinned && !justSealed && (
+              <div className="rs-pin-bar">
+                <p className="rs-pin-say">
+                  {alarming ? (
+                    <>
+                      <span className="rs-pin-who">@{breakerName}</span> liked it
+                      {likeAtMs != null && (
+                        <>
+                          {' · '}
+                          <RatioedClock fromMs={likeAtMs} running={!busy} />
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <b>Take {pieceSlug(live)}</b> · {fmtDuration(aliveMs)} ·{' '}
+                      {tally.likes === 0 ? 'no likes' : countOf(tally.likes, 'like')}
+                    </>
+                  )}
+                </p>
+                {sealButton}
+              </div>
+            )}
+          </div>
+
+          {/* The take and when it went up, as the home feed heads a day: the
+              name on the left, its time in the margin's voice on the right,
+              and a rule under both. */}
+          <div className="rs-live-head">
+            <h2 className="rs-live-take">Take {pieceSlug(live)}</h2>
+            <p className="rs-live-posted">
+              posted <Time value={live.postedAt} variant="clock" />
+            </p>
+          </div>
+
+          {/* How long it has stood and how that compares — or, once somebody
+              has liked it, who and the reaction time running. The same block
+              either way and the same height, so the seal under it does not
+              move at the one moment it must not. The measurement freezes the
+              moment the seal is pressed, because that is when it stops being a
+              display and becomes what the record says. */}
+          <RatioedStanding
+            aliveMs={aliveMs}
+            record={longest}
+            pieces={done}
+            marks={takenBackMarks}
+            sealed={justSealed}
+            like={
+              alarming
+                ? { handle: breakerName, offMs: streamLike?.offMs ?? null, atMs: likeAtMs }
+                : null
+            }
+            clockRunning={!busy}
           />
 
-          {/* How this one is doing, in the only unit the project has: the
-              longest piece so far. */}
-          <RatioedRecord elapsedMs={aliveMs} record={longest} pieces={done} />
+          {/* What it has drawn, in one sentence, with the likes said apart:
+              the artist's own records are in the log and in none of the
+              figures, the rule the public page and the measurement follow. */}
+          <RatioedCounts rows={feed} selfDid={did} className="rs-counts" />
 
-          {/* The alarm. A like is the end of the piece and the start of the one
-              measurement this project exists to take, so it does not arrive as
-              one more row in a feed — it takes the top of the panel, in the
-              complement of the hour every other mark here is drawn in, with the
-              button that ends it inside the same box. */}
-          {alarming && (
-            <div className="rs-alarm" role="alert">
-              <RatioedChip kind="like" size="lg" />
-              <span className="rs-alarm-who">
-                @{breakerName}
-                {streamLike && (
-                  <span className="rs-alarm-when">liked it at +{fmtDuration(streamLike.offMs)}</span>
-                )}
+          <div className="rs-actions" ref={actionsRef}>
+            {/* ONE SEAL BUTTON, AND IT NEVER MOVES. It changes instead —
+                bigger, and in the seal's own colour (see `.rs-live.liked
+                .rs-seal`) — so the thumb that has been resting over it is
+                already over it. The pinned bar above is the same button for
+                when this one has scrolled out of reach. */}
+            {!justSealed && sealButton}
+            {/* A seal that landed and a measurement that did not. Without this
+                the only way back is a reload, which re-offers "Seal this piece"
+                and writes a second threadgate over the first — moving the one
+                timestamp the lifespan is measured from. */}
+            {justSealed && error && (
+              <Button
+                variant="primary"
+                className="rs-seal"
+                onClick={() => {
+                  setError(null);
+                  remeasure();
+                }}
+                disabled={!!busy}
+              >
+                <RefreshCw size={15} aria-hidden="true" />
+                {busy === 'measure' ? 'Measuring…' : 'Measure this piece'}
+              </Button>
+            )}
+            {/* The errands, as one quiet line of words beside the seal: open the
+                post, open its page, hold the screen awake. They were three
+                boxed icons, which put the seal and its row past a phone's
+                width; words cost less and say which is which. */}
+            <p className="rs-live-links">
+              <a
+                className="ratioed-live-act"
+                href={`https://bsky.app/profile/${ME_HANDLE}/post/${live.rkey}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                title="Open the post on Bluesky"
+              >
+                Bluesky
+              </a>
+              <span className="ratioed-live-sep" aria-hidden="true">
+                ·
               </span>
-              {/* The measurement, running. Frozen the moment the seal is
-                  pressed, because that is the moment it stops being a display
-                  and becomes what the record says. */}
-              {likeAtMs != null && (
-                <span className="rs-alarm-race">
-                  <RatioedClock fromMs={likeAtMs} running={!busy} className="rs-alarm-clock" />
-                  <span className="rs-alarm-race-label">
-                    your reaction, as the record will carry it
+              <Link className="ratioed-live-act" to={piecePath(live)} title="The piece’s own page">
+                page
+              </Link>
+              {CAN_WAKE && (
+                <>
+                  <span className="ratioed-live-sep" aria-hidden="true">
+                    ·
                   </span>
-                </span>
+                  <button
+                    type="button"
+                    className={`ratioed-live-act${keepAwake ? ' is-on' : ''}`}
+                    onClick={() => setKeepAwake((v) => !v)}
+                    aria-pressed={keepAwake}
+                    title={
+                      keepAwake
+                        ? 'The screen is being held awake — tap to let it sleep'
+                        : 'Keep the screen awake'
+                    }
+                  >
+                    {keepAwake ? 'kept awake' : 'keep awake'}
+                  </button>
+                </>
               )}
-            </div>
-          )}
+            </p>
+          </div>
 
-          {/* The panel speaks in words only where words are the answer: it has
-              been sealed, or somebody liked it and took it back. The other two
-              states have something better to speak with. The alarm is its own
-              box — it already names who liked it and holds the button, so a line
-              repeating that was furniture, and worse than furniture: `seenLike`
-              is true the moment the STREAM sees a like, while this line's own
-              reading came from the AppView poll a beat behind it, so for those
-              seconds the panel shouted a like over the words "Nobody has liked
-              it yet." And the ordinary state — nothing has happened — is now
-              said by the counts below, which say it as `0 likes` and say four
-              more things in the same line. */}
+          {/* Words only where words are the answer: it has been sealed, or
+              somebody liked it and took it back. The ordinary state is said by
+              the counts, and the liked one by the statement block. Under the
+              seal rather than over it: a like taken back is a moment the thumb
+              may be on its way to the button, and a paragraph arriving above
+              it would move it. */}
           {(justSealed || withdrawn) && !alarming && (
             <p className="rs-live-state">
               {justSealed && error ? (
@@ -1773,132 +1891,6 @@ export default function RatioedStudio({ agent, did }) {
             </p>
           )}
 
-          {/* The counts, in the panel rather than in the feed. They are about
-              the PIECE — what it has drawn, and from how many people — which is
-              what everything above this line is about; under the feed's own
-              header they sat in among the socket's readings instead, a bordered
-              band of their own, with the sentence they make redundant a hundred
-              pixels above them. In the ordinary state they ARE the sentence.
-              Same component and same figures the public deck and the replay
-              draw. */}
-          <RatioedCounters tally={tally} />
-
-          <div className="rs-actions">
-            {/* ONE SEAL BUTTON, AND IT NEVER MOVES. The alarm used to carry a
-                second one inside its own box, on the argument that the thing you
-                look at and the thing you press should not be a foot apart; the
-                cost was that the button you had been looking at for forty
-                minutes vanished at the exact moment it was needed and a
-                differently-sized one appeared somewhere else. It stays here and
-                changes instead — bigger, and in the seal's own red (see
-                `.rs-live.liked .rs-seal`) — so the thumb that has been resting
-                over it is already over it. */}
-            {!justSealed && (
-              <Button variant="primary" className="rs-seal" onClick={seal} disabled={!!busy}>
-                <Lock size={alarming ? 17 : 15} aria-hidden="true" />
-                {busy === 'seal' ? 'Sealing…' : 'Seal'}
-              </Button>
-            )}
-            {/* A seal that landed and a measurement that did not. Without this
-                the only way back is a reload, which re-offers "Seal this piece"
-                and writes a second threadgate over the first — moving the one
-                timestamp the lifespan is measured from. */}
-            {justSealed && error && (
-              <Button
-                variant="primary"
-                className="rs-seal"
-                onClick={() => {
-                  setError(null);
-                  remeasure();
-                }}
-                disabled={!!busy}
-              >
-                <RefreshCw size={15} aria-hidden="true" />
-                {busy === 'measure' ? 'Measuring…' : 'Measure this piece'}
-              </Button>
-            )}
-            {/* The rest of the row is one glyph each — the words live in the
-                title and the label — and the three squares sit flush as one
-                segment so the whole row still fits a phone beside the seal. */}
-            <div className="rs-live-acts">
-              <Button
-                as="a"
-                variant="icon"
-                className="rs-live-act"
-                href={`https://bsky.app/profile/${ME_HANDLE}/post/${live.rkey}`}
-                target="_blank"
-                rel="noreferrer noopener"
-                title="Open the post on Bluesky"
-                aria-label="Open the post on Bluesky"
-              >
-                <ExternalLink size={15} aria-hidden="true" />
-              </Button>
-              <Button
-                as={Link}
-                variant="icon"
-                className="rs-live-act"
-                to={piecePath(live)}
-                title="The piece’s own page"
-                aria-label="The piece’s own page"
-              >
-                <FileText size={15} aria-hidden="true" />
-              </Button>
-              {CAN_WAKE && (
-                <Button
-                  variant="icon"
-                  on={keepAwake}
-                  className="rs-live-act"
-                  onClick={() => setKeepAwake((v) => !v)}
-                  aria-pressed={keepAwake}
-                  title={
-                    keepAwake
-                      ? 'The screen is being held awake — tap to let it sleep'
-                      : 'Keep the screen awake'
-                  }
-                  aria-label="Keep the screen awake"
-                >
-                  <Coffee size={15} aria-hidden="true" />
-                </Button>
-              )}
-            </div>
-
-            {/* THE SOCKET, at the end of the row rather than on a line of its
-                own above the feed. One reading, and it is the one that moves:
-                a piece nobody has touched matches nothing for minutes, so the
-                rate is the only thing here that can tell a working socket from
-                a quiet one. It is resampled about once a second inside the
-                socket, on a 64-message mask, cheaper than the timestamp parse
-                already happening on every message. The two figures that used to
-                sit beside it were session totals — "N MB" and "N scanned" only
-                ever grew, and nothing anybody does during a vigil turns on
-                either — so they are on this one's `title` now rather than out
-                of the build, because what the watch costs in data is worth
-                being able to ask for. Earlier passes took the words the same
-                way: "As it happens" labelled a feed that is visibly happening,
-                "Live" said what the lit radio says, and "N matched" counted the
-                rows directly under it. */}
-            {/* While it is replaying the piece so far, the rate is tens of
-                thousands a second and says nothing; how far behind it is says
-                when the feed below will be whole. */}
-            <span
-              className={`rs-stream is-${stream?.state || 'connecting'}`}
-              title={
-                stream?.state === 'open'
-                  ? `${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB pulled, ${(
-                      stream.msgs || 0
-                    ).toLocaleString()} records scanned`
-                  : undefined
-              }
-            >
-              <Radio size={12} aria-hidden="true" />
-              {stream?.state === 'open'
-                ? catchingUp
-                  ? `catching up · ${fmtDuration(stream.behindMs)} behind`
-                  : `${(stream.rate || 0).toLocaleString()} rec/s`
-                : stream?.state || 'connecting'}
-            </span>
-          </div>
-
           {/* Only when a reconnect could not resume and had to start live —
               the server refused both the seq and the time. Rare, and the one
               case where the log has a hole nothing on the record describes. */}
@@ -1917,15 +1909,43 @@ export default function RatioedStudio({ agent, did }) {
           )}
 
           <div className="rs-feed">
-            {/* The rows the public deck shows, on the same markup it shows them
-                on: this feed and that one are the same list of the same
-                records, and they were once two implementations that had drifted
-                apart on avatars, spacing and what a withdrawn row looks like.
-                What the studio adds is the three buttons and the composer,
-                which arrive as render props. */}
+            {/* THE THREAD, headed as the home feed heads a day, and the socket's
+                reading at the head's far end. It used to close the seal's row,
+                where "catching up · 3m51s behind" was too long to fit beside
+                the seal and three icons on a phone and wrapped onto a line of
+                its own under them. Here it has the width of the panel, and it
+                sits over the list it is describing: while it is replaying, how
+                far behind it is says when the list below will be whole. The
+                session totals, what the watch costs in data, are on its title. */}
+            <div className="rs-thread-head">
+              <h3 className="rs-thread-label">Thread</h3>
+              <span
+                className={`rs-stream is-${stream?.state || 'connecting'}`}
+                title={
+                  stream?.state === 'open'
+                    ? `${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB pulled, ${(
+                        stream.msgs || 0
+                      ).toLocaleString()} records scanned`
+                    : undefined
+                }
+              >
+                <Radio size={12} aria-hidden="true" />
+                {stream?.state === 'open'
+                  ? catchingUp
+                    ? `catching up · ${fmtDuration(stream.behindMs)} behind`
+                    : `live · ${(stream.rate || 0).toLocaleString()} rec/s`
+                  : stream?.state || 'connecting'}
+              </span>
+            </div>
+            {/* The rows the public page shows, on the same markup it shows them
+                on. What the studio adds is its words under an opened row —
+                reply, like, open elsewhere — and the composer, which arrive as
+                render props. The list runs on in the pane rather than in a
+                window of its own: the pinned bar keeps the seal in reach. */}
             <RatioedTicker
               rows={feed}
               profiles={profiles}
+              bounded={false}
               empty="Nothing yet."
               actions={(e) => {
                 const mine = e.did === did;
@@ -1936,70 +1956,74 @@ export default function RatioedStudio({ agent, did }) {
                 if (!openable) return null;
                 const answerable = !mine && !justSealed;
                 const liked = Boolean(acted[e.rkey]?.likeUri);
-                return (
-                  <>
+                const answering = replyTo?.rkey === e.rkey;
+                const acts = [];
+                if (answerable) {
+                  acts.push(
                     <button
+                      key="reply"
                       type="button"
-                      className="rs-act"
-                      onClick={() => openWaypoints(rowUri(e))}
-                      title="Open this post in another client"
-                      aria-label="Open this post in another client"
+                      className={`ratioed-live-act${answering ? ' is-on' : ''}`}
+                      onClick={() => setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))}
+                      disabled={Boolean(acting)}
+                      aria-pressed={answering}
+                      title={e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'}
                     >
-                      <ArrowUpRight size={13} aria-hidden="true" />
-                    </button>
-                    {answerable && (
-                      <>
-                        {/* On the row, not the piece: this likes somebody's
-                            reply, which is not a backlink of the piece and is
-                            in none of its counts. */}
-                        <button
-                          type="button"
-                          className={`rs-act${liked ? ' is-on' : ''}`}
-                          onClick={() => likeRow(e)}
-                          disabled={Boolean(acting)}
-                          title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
-                          aria-label={liked ? 'Undo that like' : 'Like this reply'}
-                        >
-                          {liked ? (
-                            <HeartOff size={13} aria-hidden="true" />
-                          ) : (
-                            <Heart size={13} aria-hidden="true" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          className={`rs-act${replyTo?.rkey === e.rkey ? ' is-on' : ''}`}
-                          onClick={() =>
-                            setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
-                          }
-                          disabled={Boolean(acting)}
-                          title={
-                            e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'
-                          }
-                          aria-label="Reply to this"
-                        >
-                          <MessageSquareReply size={13} aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </>
+                      reply
+                    </button>,
+                    // On the row, not the piece: this likes somebody's reply,
+                    // which is not a backlink of the piece and is in none of
+                    // its counts.
+                    <button
+                      key="like"
+                      type="button"
+                      className="ratioed-live-act"
+                      onClick={() => likeRow(e)}
+                      disabled={Boolean(acting)}
+                      title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
+                    >
+                      {liked ? 'unlike' : 'like'}
+                    </button>,
+                  );
+                }
+                acts.push(
+                  <button
+                    key="open"
+                    type="button"
+                    className="ratioed-live-act"
+                    onClick={() => openWaypoints(rowUri(e))}
+                    title="Open this post in another client"
+                  >
+                    open elsewhere
+                  </button>,
+                );
+                return acts.flatMap((a, i) =>
+                  i === 0
+                    ? [a]
+                    : [
+                        <span key={`sep${i}`} className="ratioed-live-sep" aria-hidden="true">
+                          ·
+                        </span>,
+                        a,
+                      ],
                 );
               }}
               below={(e) =>
                 replyTo?.rkey === e.rkey ? (
                   <div className="rs-reply-box">
-                    <textarea
-                      className="admin-input"
-                      rows={3}
-                      autoFocus
-                      placeholder={
-                        e.k === 'quote'
-                          ? 'Replying under their quote post…'
-                          : 'Replying in the piece’s own thread…'
-                      }
-                      value={replyTo.text}
-                      onChange={(ev) => setReplyTo((r) => ({ ...r, text: ev.target.value }))}
-                    />
+                    <label className="rs-reply-label">
+                      <span className="rs-reply-where">
+                        {e.k === 'quote' ? 'Under their quote post' : 'In the piece’s thread'}
+                      </span>
+                      <textarea
+                        className="admin-input"
+                        rows={3}
+                        autoFocus
+                        placeholder={`Reply to @${profiles[e.did]?.handle || e.h || 'them'}…`}
+                        value={replyTo.text}
+                        onChange={(ev) => setReplyTo((r) => ({ ...r, text: ev.target.value }))}
+                      />
+                    </label>
                     <div className="rs-reply-acts">
                       <Button
                         size="sm"
@@ -2007,17 +2031,17 @@ export default function RatioedStudio({ agent, did }) {
                         disabled={Boolean(acting) || !replyTo.text.trim()}
                       >
                         <Send size={13} aria-hidden="true" />
-                        {acting === e.rkey ? 'Posting…' : 'Reply'}
+                        {acting === e.rkey ? 'Posting…' : 'Post reply'}
                       </Button>
                       <Button variant="text" size="sm" onClick={() => setReplyTo(null)}>
-                        Cancel
+                        cancel
                       </Button>
-                      <span className="rs-reply-where">
-                        {e.k === 'quote'
-                          ? 'their thread — this piece never sees it'
-                          : 'this piece’s thread, and your own records are excluded from every count'}
-                      </span>
                     </div>
+                    <p className="rs-reply-note">
+                      {e.k === 'quote'
+                        ? 'Their thread, which this piece never sees.'
+                        : 'Your own replies are left out of every count.'}
+                    </p>
                   </div>
                 ) : null
               }
