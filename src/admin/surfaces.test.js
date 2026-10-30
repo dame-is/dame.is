@@ -62,6 +62,7 @@ describe('the surface registry', () => {
       'ratioed-studio',
       'analytics',
       'legacy-blogs',
+      'alt-captions',
     ]) {
       const s = surfaceByKey(key);
       expect(s, `missing surface: ${key}`).toBeTruthy();

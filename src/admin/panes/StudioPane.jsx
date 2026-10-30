@@ -1,7 +1,7 @@
 // The single dispatch point for every studio surface — the bespoke tools that
 // own their own state (sky, nav, publications, guestbook, pages, resume,
-// ratioed, listening, analytics, legacy blogs) as opposed to the generic
-// record list.
+// ratioed, listening, analytics, legacy blogs, alt captions) as opposed to the
+// generic record list.
 //
 // Everything in this file exists to make ONE promise to the studios: you are a
 // body, not a page. The pane draws the title, the blurb and the surface's NSID;
@@ -14,8 +14,8 @@
 //
 //   { agent, did }            SkyThemeStudio, RatioedPanel, RatioedStudio,
 //                             NavMenuPanel, ResumeStudio, PagesOverview,
-//                             LegacyBlogMigration, ListeningManager,
-//                             AnalyticsStudio
+//                             LegacyBlogMigration, AltCaptionMigration,
+//                             ListeningManager, AnalyticsStudio
 //   { agent }                 GuestbookModerationPanel — it derives the repo from
 //                             agent.assertDid inside setEntryHidden
 //   { agent, did, rkey, isNew, onPaneMeta }
@@ -34,6 +34,7 @@
 //     moment another surface is selected.
 
 import { createElement, useCallback, useRef, useState } from 'react';
+import AltCaptionMigration from '../../components/AltCaptionMigration.jsx';
 import AnalyticsStudio from '../../components/AnalyticsStudio.jsx';
 import GuestbookModerationPanel from '../../components/GuestbookModerationPanel.jsx';
 import LegacyBlogMigration from '../../components/LegacyBlogMigration.jsx';
@@ -65,6 +66,7 @@ const STUDIOS = {
   analytics: AnalyticsStudio,
   moderation: ModerationStudio,
   'legacy-blogs': LegacyBlogMigration,
+  'alt-captions': AltCaptionMigration,
 };
 
 /**

@@ -459,6 +459,19 @@ export const SURFACES = Object.freeze([
     icon: 'PackageOpen',
     blurb: 'The old markdown blog, ready to publish to your PDS.',
   }),
+  surface({
+    key: 'alt-captions',
+    urlByView: true,
+    label: 'Alt text to captions',
+    shortLabel: 'Captions',
+    // A tool over site.standard.document, like `legacy-blogs`: it reads and
+    // rewrites documents but has no collection of its own to count.
+    nsid: null,
+    group: 'legacy',
+    kind: 'studio',
+    icon: 'Captions',
+    blurb: 'Copy alt text into captions where it was the caption all along.',
+  }),
 ]);
 
 /**
