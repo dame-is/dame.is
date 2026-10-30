@@ -229,7 +229,8 @@ function ReplyChildren({ node, depth }) {
   );
 }
 
-function MissingReply({ node }) {
+/** A deleted or blocked post in a reply tree, or in the conversation above a reply. */
+export function MissingReply({ node }) {
   if (node?.$type === 'app.bsky.feed.defs#blockedPost') {
     return <li className="comment comment-missing">a blocked post</li>;
   }
@@ -239,7 +240,13 @@ function MissingReply({ node }) {
   return null;
 }
 
-function ReplyCard({ post }) {
+/**
+ * One reply as the Replies section draws it: avatar, name and handle, its
+ * time linking to the post, then its words and embed. Record.jsx draws the
+ * conversation above a reply with it too, so a conversation reads the same
+ * above a post as below it.
+ */
+export function ReplyCard({ post }) {
   const author = post.author || {};
   const text = post.record?.text || '';
   const facets = post.record?.facets || null;

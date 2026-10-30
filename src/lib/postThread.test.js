@@ -14,6 +14,9 @@ import {
   repliesByPost,
   linearRun,
   postExcerpt,
+  foldConversation,
+  foldVoices,
+  voicesInProse,
 } from './postThread.js';
 
 const DAME = 'did:plc:dame';
@@ -347,5 +350,53 @@ describe('postExcerpt', () => {
       }),
     ).toBe('a picture');
     expect(postExcerpt({ record: {} })).toBe('a post');
+  });
+});
+
+describe('foldConversation', () => {
+  const posts = (n) => Array.from({ length: n }, (_, i) => ({ uri: `p${i}` }));
+  const uris = (list) => list.map((p) => p.uri);
+
+  it('keeps a short conversation whole', () => {
+    for (const n of [1, 2, 3, 4]) {
+      const { start, folded, end } = foldConversation(posts(n));
+      expect(uris(start)).toEqual(uris(posts(n)));
+      expect(folded).toEqual([]);
+      expect(end).toEqual([]);
+    }
+  });
+
+  it('folds the middle once that hides two or more posts', () => {
+    const { start, folded, end } = foldConversation(posts(9));
+    expect(uris(start)).toEqual(['p0']);
+    expect(uris(folded)).toEqual(['p1', 'p2', 'p3', 'p4', 'p5', 'p6']);
+    expect(uris(end)).toEqual(['p7', 'p8']);
+  });
+
+  it('starts from a placeholder when the first post is gone', () => {
+    const gone = { $type: 'app.bsky.feed.defs#notFoundPost', uri: 'gone' };
+    expect(foldConversation([gone, ...posts(5)]).start).toEqual([gone]);
+  });
+});
+
+describe('foldVoices', () => {
+  it('names each author once, in the order they first spoke', () => {
+    const by = (handle) => ({ author: { handle } });
+    const gone = { $type: 'app.bsky.feed.defs#notFoundPost' };
+    expect(
+      foldVoices([by('tynan'), by('eli'), by('tynan'), gone, by('garrison')]),
+    ).toEqual(['@tynan', '@eli', '@garrison']);
+  });
+});
+
+describe('voicesInProse', () => {
+  it('lists them as a sentence would', () => {
+    expect(voicesInProse([])).toBe('');
+    expect(voicesInProse(['@a'])).toBe('@a');
+    expect(voicesInProse(['@a', '@b'])).toBe('@a and @b');
+    expect(voicesInProse(['@a', '@b', '@c', '@d'])).toBe('@a, @b, @c and @d');
+    expect(voicesInProse(['@a', '@b', '@c', '@d', '@e'])).toBe(
+      '@a, @b, @c and 2 others',
+    );
   });
 });

@@ -315,7 +315,7 @@ export function linearRun(first) {
  */
 export function postExcerpt(post, max = 64) {
   const text = String(post?.record?.text || '')
-    .replace(/￼/g, '')
+    .replace(/\uFFFC/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   if (text) {
@@ -330,4 +330,51 @@ export function postExcerpt(post, max = 64) {
   if (type.includes('external')) return 'a link';
   if (type.includes('record')) return 'a quote';
   return 'a post';
+}
+
+/** How many posts stay in view at the end of a long conversation above a reply. */
+export const CONTEXT_KEEP_LAST = 2;
+
+/**
+ * The conversation above a reply, oldest first, split for drawing: `start`
+ * (the post it began with), `folded` (the middle, out of sight until asked
+ * for) and `end` (the last few before the reply). It folds only when that
+ * hides two or more posts; hiding one saves nothing, so a short conversation
+ * comes back whole in `start`.
+ */
+export function foldConversation(ancestors, keepLast = CONTEXT_KEEP_LAST) {
+  const posts = (ancestors || []).filter(Boolean);
+  const hidden = posts.length - 1 - keepLast;
+  if (hidden < 2) return { start: posts, folded: [], end: [] };
+  return {
+    start: posts.slice(0, 1),
+    folded: posts.slice(1, posts.length - keepLast),
+    end: posts.slice(posts.length - keepLast),
+  };
+}
+
+/**
+ * Who wrote the posts in a folded stretch, as @handles, each once, in the
+ * order they first spoke. Deleted and blocked posts have no author to name.
+ */
+export function foldVoices(posts) {
+  const seen = new Set();
+  const voices = [];
+  for (const post of posts || []) {
+    const handle = post?.author?.handle;
+    if (!handle || seen.has(handle)) continue;
+    seen.add(handle);
+    voices.push(`@${handle}`);
+  }
+  return voices;
+}
+
+/** "@a", "@a and @b", "@a, @b and @c"; past four, "@a, @b, @c and 2 others". */
+export function voicesInProse(voices, max = 4) {
+  if (voices.length <= 1) return voices[0] || '';
+  if (voices.length > max) {
+    const rest = voices.length - (max - 1);
+    return `${voices.slice(0, max - 1).join(', ')} and ${rest} others`;
+  }
+  return `${voices.slice(0, -1).join(', ')} and ${voices[voices.length - 1]}`;
 }
