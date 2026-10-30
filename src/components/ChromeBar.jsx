@@ -1,4 +1,5 @@
 import {
+  Fragment,
   memo,
   useEffect,
   useLayoutEffect,
@@ -549,8 +550,37 @@ const AtmosphereRows = memo(function AtmosphereRows() {
 /** The trail. In the masthead it opens with the root crumb, a link home; in
  *  the running head the wordmark beside it already goes home, so the slash is
  *  only a separator there. A crumb links only where a page answers
- *  (breadcrumbs.js). */
+ *  (breadcrumbs.js).
+ *
+ *  The running head keeps the trail to one line, and the explorer's runs
+ *  through identifiers far wider than a phone (exploring / did:plc:… /
+ *  site.standard.document / 3mz4…). There the identifiers between the
+ *  section and the page share one list item, which reads as one line and
+ *  folds as one, down to a single ellipsis (ChromeBar.css). */
 function Trail({ crumbs, withRoot = false }) {
+  const lastIndex = crumbs.length - 1;
+  const crumb = (c, i) => (
+    <Fragment key={c.path}>
+      {(i > 0 || !withRoot) && (
+        <span className="chrome-crumb-sep" aria-hidden="true">
+          /
+        </span>
+      )}
+      {i === lastIndex ? (
+        <span className="chrome-crumb-current" aria-current="page">
+          {c.label}
+        </span>
+      ) : c.to ? (
+        <Link to={c.to} className="chrome-crumb-link">
+          {c.label}
+        </Link>
+      ) : (
+        // A segment no page answers (see breadcrumbs.js): still part of
+        // where you are, just not somewhere to go.
+        <span className="chrome-crumb-text">{c.label}</span>
+      )}
+    </Fragment>
+  );
   return (
     <ol className="chrome-crumbs">
       {withRoot && (
@@ -560,33 +590,37 @@ function Trail({ crumbs, withRoot = false }) {
           </Link>
         </li>
       )}
-      {crumbs.map((c, i) => {
-        const last = i === crumbs.length - 1;
-        return (
-          <li key={c.path} className="chrome-crumb">
-            {(i > 0 || !withRoot) && (
-              <span className="chrome-crumb-sep" aria-hidden="true">
-                /
-              </span>
-            )}
-            {last ? (
-              <span className="chrome-crumb-current" aria-current="page">
-                {c.label}
-              </span>
-            ) : c.to ? (
-              <Link to={c.to} className="chrome-crumb-link">
-                {c.label}
-              </Link>
-            ) : (
-              // A segment no page answers (see breadcrumbs.js): still part of
-              // where you are, just not somewhere to go.
-              <span className="chrome-crumb-text">{c.label}</span>
-            )}
-          </li>
-        );
-      })}
+      {trailItems(crumbs, { runIdentifiers: !withRoot }).map((item) => (
+        <li
+          key={crumbs[item.at[0]].path}
+          className={`chrome-crumb${item.run ? ' chrome-crumb-run' : ''}`}
+        >
+          {item.at.map((i) => crumb(crumbs[i], i))}
+        </li>
+      ))}
     </ol>
   );
+}
+
+// A DID, a handle or an NSID, where a crumb is usually a word.
+const IDENTIFIER = /[.:]/;
+
+/** The trail's list items, as the indices of the crumbs in each: one crumb
+ *  apiece, or with `runIdentifiers`, the identifiers between the first crumb
+ *  and the last together in one (`run`). */
+function trailItems(crumbs, { runIdentifiers }) {
+  const items = [];
+  crumbs.forEach((c, i) => {
+    const between = i > 0 && i < crumbs.length - 1;
+    if (runIdentifiers && between && IDENTIFIER.test(c.label)) {
+      const prev = items[items.length - 1];
+      if (prev?.run) prev.at.push(i);
+      else items.push({ at: [i], run: true });
+    } else {
+      items.push({ at: [i], run: false });
+    }
+  });
+  return items;
 }
 
 /** A `matchMedia` query as state, following changes. */

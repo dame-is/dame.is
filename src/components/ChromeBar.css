@@ -129,16 +129,49 @@
 }
 
 /* The trail as a running head: one line, a step up from the masthead's
-   strip, the page's title in italic and ellipsized when it runs long. */
+   strip, ellipsized where it runs long. Clipped sideways so that however
+   deep the trail, it can never widen the page into a sideways scroll. */
+.chrome-head-trail {
+  overflow-x: clip;
+}
+
 .chrome-head-trail .chrome-crumbs {
   flex-wrap: nowrap;
   font-size: var(--text-sm);
 }
 
-/* The sections before it are short words and keep them; the title is what
-   gives way. */
+/* Words keep themselves; the page is what gives way. */
 .chrome-head-trail .chrome-crumb {
   flex: 0 0 auto;
+}
+
+/* The explorer's identifiers between the section and the page (a DID or
+   handle, an NSID) share one item (Trail, ChromeBar.jsx) and run as one line
+   of text, so they fold to a single ellipsis rather than one apiece. They take
+   only the room the page leaves them, up to their full width: on a phone the
+   trail reads "exploring / di… / 3mz4bbmjphc2l", on a wider screen in full. */
+.chrome-head-trail .chrome-crumb-run {
+  display: block;
+  flex: 1 0 0;
+  min-width: 2em;
+  max-width: max-content;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chrome-crumb-run > .chrome-crumb-sep {
+  margin-right: 0.4em;
+}
+
+.chrome-crumb-run > * + .chrome-crumb-sep {
+  margin-left: 0.4em;
+}
+
+/* The section word keeps itself up to most of the line, so a record under a
+   long NSID (fm.teal.alpha.feed.play / 3l…) still leaves the page some. */
+.chrome-head-trail .chrome-crumb:first-child:not(:last-child) {
+  max-width: 60%;
 }
 
 .chrome-head-trail .chrome-crumb:last-child {
@@ -441,6 +474,12 @@
   }
   .chrome-crumb-root::before {
     inset: -12px -14px;
+  }
+  /* The run clips to fold, which would clip its links' targets to the line:
+     the room they reach into is inside it, given back in margin. */
+  .chrome-head-trail .chrome-crumb-run {
+    padding-block: 12px;
+    margin-block: -12px;
   }
 }
 
