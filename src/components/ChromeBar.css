@@ -89,7 +89,7 @@
 /* On a desk every chrome row splits where a ledger row does (theme.css, the
    page grid): its first item in the note column, the next starting on the
    text column's edge, the right-hand group ending at the type area's. So the
-   wordmark, LISTENING TO and DAME'S PHONE stand over the feed's gerunds, and
+   wordmark, LISTENING TO and EXPERIENCING stand over the feed's gerunds, and
    the status, the song and the readings over the text. Each lead is held to
    at least the note column rather than to exactly it, so a wordmark that sets
    wider in another face pushes its row along instead of overlapping it. */
@@ -102,7 +102,8 @@
     min-width: var(--note);
   }
 
-  .chrome-signal-now-playing {
+  /* Two classes: the base .chrome-signal gap comes later in this sheet. */
+  .chrome-signal.chrome-signal-now-playing {
     gap: var(--gutter);
   }
 

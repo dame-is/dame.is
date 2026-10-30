@@ -67,7 +67,7 @@ export default memo(function VitalsPanel() {
     return (
       <div className="vitals vitals-empty">
         <span className="chrome-signal-label" aria-hidden="true">
-          dame’s phone
+          experiencing
         </span>
         <span className="chrome-signal-value" aria-hidden="true">
           &mdash;
@@ -91,12 +91,13 @@ export default memo(function VitalsPanel() {
           : "Current state from Dame's phone"
       }
     >
-      {/* The row says whose readings these are and when they were taken, in
-          the small-caps lead its siblings have (LISTENING TO, FOLLOWED BY):
-          "Dame's phone · 2h ago". Without it a newcomer couldn't tell a heart
-          rate from a battery. */}
+      {/* The row leads with a gerund in the small-caps voice its siblings
+          have (LISTENING TO, FOLLOWED BY), the way the ledger names what Dame
+          is doing: "experiencing · 2h ago", what the phone last read and
+          when. Without it a newcomer couldn't tell a heart rate from a
+          battery. */}
       <span className="chrome-signal-label vitals-lead">
-        dame’s phone{age ? <span className="vitals-age vitals-age-lead"> · {age}</span> : null}
+        experiencing{age ? <span className="vitals-age vitals-age-lead"> · {age}</span> : null}
       </span>
 
       {/* One is.dame.state record sits behind all five readings, so x-ray's
