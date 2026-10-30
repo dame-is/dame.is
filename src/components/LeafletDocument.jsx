@@ -204,7 +204,7 @@ export default function LeafletDocument({ doc, contents = false, quotable = fals
     <LeafletLightboxContext.Provider value={ctx}>
       <LeafletSectionsContext.Provider value={sections}>
         <LeafletSignupContext.Provider value={signupIds}>
-          <div ref={docRef} className={sections ? 'leaflet-doc leaflet-doc-sectioned' : 'leaflet-doc'}>
+          <div ref={docRef} className={sections ? 'leaflet-doc reading leaflet-doc-sectioned' : 'leaflet-doc reading'}>
             {pages.map((page, pi) =>
               cutoff && pi > cutoff.page ? null : (
                 <LeafletPage

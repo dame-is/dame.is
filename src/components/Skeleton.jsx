@@ -328,9 +328,10 @@ const DOC_BAND = {
  * `.creating-work-page` centres a work in the reading measure (Blogging.css,
  * Creating.css — both pages import those sheets). The title is the page's
  * `.page-title`, the band is a real `.document-meta` with bars in its cells,
- * and the text sits in `.leaflet-doc`, so the size, leading and measure are the
- * essay setting's own: each bar line is one line of the text, a drop cap
- * spans the first three, and later paragraphs open on the 1.5em indent.
+ * and the text sits in `.leaflet-doc.reading`, so the size, leading and
+ * measure are the essay setting's own: each bar line is one line of the text,
+ * a drop cap spans the first three, and later paragraphs open on the 1.5em
+ * indent.
  *
  * A work gets a figure after its first paragraph, as most of the portfolio
  * has (a cover, a screenshot, a link card) within its opening lines.
@@ -363,7 +364,7 @@ export function DocumentSkeleton({ kind = 'essay' }) {
         <Skeleton width={essay ? '72%' : '45%'} height="0.6em" />
       </h1>
       {essay ? <aside className="blog-margin">{band}</aside> : band}
-      <div className="leaflet-doc skeleton-doc" aria-hidden="true">
+      <div className="leaflet-doc reading skeleton-doc" aria-hidden="true">
         {blocks.map((block, b) =>
           block === DOC_FIGURE ? (
             <Skeleton key={b} block className="skeleton-doc-figure" height="auto" />
