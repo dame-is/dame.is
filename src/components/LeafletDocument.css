@@ -42,25 +42,24 @@
   -webkit-hyphenate-limit-after: 4;
 }
 
-/* Justified where the measure allows it: about 66 characters a line at the
-   essay size. Spaces can only widen in a browser, never narrow, and Crimson
-   Pro's is narrow already (0.19em), so justifying stretched them wide. A
-   slightly narrower base space (about 85%, the floor a book allows) lets a
-   line take one more word and widen less, and justified text takes more
-   hyphenation than ragged. Measured across four essays, lines wider than
+/* Justified, at every width. Spaces can only widen in a browser, never
+   narrow, and Crimson Pro's is narrow already (0.19em), so justifying
+   stretched them wide. A slightly narrower base space (about 85%, the floor
+   a book allows) lets a line take one more word and widen less, and
+   justified text takes more hyphenation than ragged. Measured across four
+   essays: at the desktop's 66 or so characters a line, lines wider than
    twice a normal space fell from 15% to 11% this way. A phone's 45 or so
-   characters can't be justified well by any method a browser offers (a
-   third of lines stayed loose even with optimal breaking), so there the
-   text stays ragged. Quotations justify with the prose; stacked lines and
-   credits keep their own setting. */
-@media (min-width: 701px) {
-  .leaflet-paragraph:not(.leaflet-stack, .leaflet-credit) {
-    text-align: justify;
-    word-spacing: -0.028em;
-    hyphenate-limit-chars: 6 3 3;
-    -webkit-hyphenate-limit-before: 3;
-    -webkit-hyphenate-limit-after: 3;
-  }
+   characters are harder: about a third of lines still run past twice a
+   normal space (no method a browser offers did much better, Knuth-Plass
+   included), which is the price of a justified edge there. Quotations
+   justify with the prose; stacked lines and credits keep their own
+   setting. */
+.leaflet-paragraph:not(.leaflet-stack, .leaflet-credit) {
+  text-align: justify;
+  word-spacing: -0.028em;
+  hyphenate-limit-chars: 6 3 3;
+  -webkit-hyphenate-limit-before: 3;
+  -webkit-hyphenate-limit-after: 3;
 }
 
 .leaflet-paragraph + .leaflet-paragraph {
