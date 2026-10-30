@@ -277,6 +277,20 @@ export function relativeDay(date, now = new Date()) {
 }
 
 /**
+ * How recent a date is, for as long as that's news: "today", "yesterday",
+ * then "2d ago" to "6d ago", and '' from a week on, when the date beside it
+ * says it better. The same calendar-day count as `relativeDay` and
+ * `relativeTime`, so a post that one calls "2d ago" this does too.
+ */
+export function recentDay(date, now = new Date()) {
+  const days = daysAgo(date, now);
+  if (days === null || days >= 7) return '';
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days}d ago`;
+}
+
+/**
  * Compact elapsed phrasing for narrow columns: "today", "yesterday",
  * "3 days", "2 wks", "5 mo", "1 yr".
  *

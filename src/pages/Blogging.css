@@ -158,14 +158,23 @@
 
 /* The essay's band sizes its columns to what they hold and shares out the
    rest, rather than cutting equal thirds: the published column carries its
-   date and how long ago that was, which in a third clipped "September 27,
-   2025 · 1 year ago" on a desk and "today" on a phone. With room to spare the
-   columns still come out near equal. The pairs' `min-width: 0` lets them
-   narrow past their text, to an ellipsis, only once nothing fits. */
+   date and, in its first week, "yesterday" or "3d ago" after it, which a
+   third had no room for on a phone. With room to spare the columns still come
+   out near equal. The pairs' `min-width: 0` lets them narrow past their text,
+   to an ellipsis, only once nothing fits. */
 .blog-margin .document-meta[data-columns] {
   grid-template-columns: none;
   grid-auto-columns: auto;
   grid-auto-flow: column;
+}
+
+/* On the narrowest phones (a 320px screen's band is 18rem) even the short
+   date and "today" don't fit beside the other two columns, so the date stands
+   alone rather than ending in "tod…". */
+@container (max-width: 20rem) {
+  .blog-published-ago {
+    display: none;
+  }
 }
 
 .blog-article-meta {

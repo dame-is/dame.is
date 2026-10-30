@@ -4,6 +4,7 @@ import {
   groupByDay,
   relativeDay,
   relativeDayShort,
+  recentDay,
   formatDayLabel,
   formatDayShortLabel,
   formatDateLong,
@@ -147,6 +148,34 @@ describe('relativeDay', () => {
 
   it('returns empty string for an invalid date', () => {
     expect(relativeDay('nope', now)).toBe('');
+  });
+});
+
+describe('recentDay', () => {
+  const now = new Date('2020-06-15T12:00:00-04:00');
+
+  it('says today, yesterday, then days for the rest of the week', () => {
+    expect(recentDay(now, now)).toBe('today');
+    expect(recentDay(noonBefore(1), now)).toBe('yesterday');
+    expect(recentDay(noonBefore(2), now)).toBe('2d ago');
+    expect(recentDay(noonBefore(6), now)).toBe('6d ago');
+  });
+
+  it('says nothing from a week on', () => {
+    expect(recentDay(noonBefore(7), now)).toBe('');
+    expect(recentDay(noonBefore(400), now)).toBe('');
+  });
+
+  it('counts calendar days in New York', () => {
+    const justAfter = new Date('2026-10-28T00:01:00-04:00');
+    expect(recentDay('2026-10-27T23:59:00-04:00', justAfter)).toBe('yesterday');
+    expect(recentDay('2026-10-28T03:59:00Z', justAfter)).toBe('yesterday');
+  });
+
+  it('treats a future date as today, and no date as nothing', () => {
+    expect(recentDay('2020-06-20T12:00:00-04:00', now)).toBe('today');
+    expect(recentDay(null, now)).toBe('');
+    expect(recentDay('not a date', now)).toBe('');
   });
 });
 

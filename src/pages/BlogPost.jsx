@@ -16,7 +16,8 @@ import { transformRecords } from '../lib/feedBuilder.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { showOnBlog, isDraft } from '../lib/publications.js';
 import { smartenText } from '../lib/smartPunctuation.js';
-import { formatDateFull, formatDateShort, relativeDay, relativeDayShort } from '../lib/time.js';
+import { formatDateFull, formatDateShort, recentDay } from '../lib/time.js';
+import { documentWords, readingMinutes } from '../lib/readingTime.js';
 import { shortenCid } from '../lib/xray.js';
 import { hasSignupBlock, SUBSCRIBE_ID } from '../lib/newsletter.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -245,24 +246,26 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
   const later = index >= 0 && index < total - 1 ? essays[index + 1] : null;
 
   // The colophon, a band under the title: when the essay was published, with
-  // how long ago that was beside the date (a column of its own read "Elapsed:
-  // today"), where it sits in the blog, and its edition, the record's CID
-  // ("this exact version" in x-ray's words), linked to the record in the
-  // explorer.
+  // "today", "yesterday" or "3d ago" beside the date for its first week; how
+  // long it takes to read; and its edition, the record's CID ("this exact
+  // version" in x-ray's words), linked to the record in the explorer. Where
+  // it sits in the blog is the earlier/later foot's to say.
   // Where the author placed signup blocks, those are the post's forms; a post
   // without one gets the newsletter after its last line.
   const endSignup = !hasSignupBlock(value.content?.pages);
   const edition = record?.cid ? <Edition atUri={record.uri} cid={record.cid} /> : null;
+  const minutes = readingMinutes(documentWords(value.content));
+  const recent = created ? recentDay(created) : '';
   const columns = created
     ? [
         {
           key: 'date',
           label: 'Published',
-          long: <PublishedOn date={formatDateFull(created)} ago={relativeDay(created)} />,
-          short: <PublishedOn date={formatDateShort(created)} ago={relativeDayShort(created)} />,
+          long: <PublishedOn date={formatDateFull(created)} ago={recent} />,
+          short: <PublishedOn date={formatDateShort(created)} ago={recent} />,
         },
-        ...(index >= 0 && total > 1
-          ? [{ key: 'essay', label: 'Essay', long: `${index + 1} of ${total} in blogging`, short: `${index + 1} of ${total}` }]
+        ...(minutes
+          ? [{ key: 'reading', label: 'Reading time', long: `${minutes} minute${minutes === 1 ? '' : 's'}`, short: `${minutes} min` }]
           : []),
         ...(edition ? [{ key: 'edition', label: 'Edition', long: edition, short: edition }] : []),
       ]
@@ -320,8 +323,9 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
 }
 
 /**
- * The published date with how long ago it was, the second half quieter and
- * left off paper, where "today" is wrong by the time anyone reads it.
+ * The published date with how recent it is during its first week, the second
+ * half quieter and left off paper, where "today" is wrong by the time anyone
+ * reads it.
  */
 function PublishedOn({ date, ago }) {
   return (
