@@ -102,27 +102,18 @@
   margin-top: 0;
 }
 
-/* The CID edition and its inspect switch. */
+/* How long ago the essay was published, after its date: a step quieter, since
+   the date is the fact and this is a reading of it. */
+.blog-published-ago {
+  color: var(--ink-faint);
+}
+
+/* The CID edition, a link to the record in the explorer. */
 .blog-edition-cid {
   font-family: var(--code);
   font-size: 0.85em;
   background: none;
   padding: 0;
-}
-
-.blog-edition-inspect {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: var(--text-meta);
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  text-decoration: underline;
-  text-decoration-color: var(--accent-soft);
-  text-underline-offset: 3px;
-  cursor: pointer;
 }
 
 /* The essay's end: a fleuron centred on the text block, the site's one
@@ -159,16 +150,16 @@
   margin-bottom: var(--space-5);
 }
 
-/* The band keeps three columns: published, elapsed, and where this sits in
-   the blog. The tag and the CID edition are x-ray's to show. */
-.blog-margin .document-meta,
+/* The essay's band sizes its columns to what they hold and shares out the
+   rest, rather than cutting equal thirds: the published column carries its
+   date and how long ago that was, which in a third clipped "September 27,
+   2025 · 1 year ago" on a desk and "today" on a phone. With room to spare the
+   columns still come out near equal. The pairs' `min-width: 0` lets them
+   narrow past their text, to an ellipsis, only once nothing fits. */
 .blog-margin .document-meta[data-columns] {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.blog-margin .document-meta-tag,
-.blog-margin .document-meta-edition {
-  display: none;
+  grid-template-columns: none;
+  grid-auto-columns: auto;
+  grid-auto-flow: column;
 }
 
 .blog-article-meta {
@@ -767,7 +758,7 @@
    white; this sets the essay itself for paper. The text block takes the
    sheet's width, the colophon band keeps only what stays true once printed
    (the published date, never "2 years ago"), and the screen's furniture
-   (the CID's inspect switch, the earlier/later essays, the replies, embedded
+   (the CID's link, the earlier/later essays, the replies, embedded
    players) gives way to a printed colophon that says where the essay lives
    and which record it was set from. */
 @media print {
@@ -800,7 +791,7 @@
     margin-bottom: var(--space-5);
   }
 
-  .blog-margin .document-meta-elapsed,
+  .blog-published-ago,
   .blog-margin .document-meta-edition {
     display: none;
   }
@@ -817,8 +808,10 @@
     break-inside: avoid;
   }
 
-  /* A player can't play on paper; its caption still names it. */
-  .leaflet-embed-frame {
+  /* A player can't play on paper; its caption still names it. Nor can an
+     embedded post's "Open in…" open anything. */
+  .leaflet-embed-frame,
+  .leaflet-bsky-embed-actions {
     display: none;
   }
 
