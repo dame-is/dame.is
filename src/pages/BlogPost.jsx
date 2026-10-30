@@ -10,15 +10,15 @@ import NewsletterSignup from '../components/NewsletterSignup.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
-import { resolvePds, getRecord, isRecordNotFound } from '../lib/atproto.js';
+import { resolvePds, getRecord, isRecordNotFound, explorerPathFromAtUri } from '../lib/atproto.js';
 import { getPostThread } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { showOnBlog, isDraft, primaryTag } from '../lib/publications.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
+import { showOnBlog, isDraft } from '../lib/publications.js';
 import { smartenText } from '../lib/smartPunctuation.js';
 import { formatDateFull, formatDateShort, relativeDay, relativeDayShort } from '../lib/time.js';
 import { shortenCid } from '../lib/xray.js';
 import { hasSignupBlock, SUBSCRIBE_ID } from '../lib/newsletter.js';
-import { useXray } from '../hooks/useXray.jsx';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
 
@@ -62,7 +62,16 @@ export default function BlogPost() {
       // posts — ones not yet in the prefetched snapshot — render their images.
       // The snapshot path already does this at build time via transformRecords.
       transformRecords(records, COLLECTIONS.blogging, pds, ME_DID);
-      return records;
+      if (!records.length) return records;
+      // The essay's place in the blog ("Essay 3 of 7", the earlier and later
+      // essays) needs the rest of the blog, which one record can't say. The
+      // build's copy supplies it, with this live record in place of its own
+      // entry, or added when it was published after the build.
+      const snapshot = await fetchSnapshot('blogs').catch(() => null);
+      const others = Array.isArray(snapshot)
+        ? snapshot.filter((r) => r?.uri !== records[0].uri)
+        : [];
+      return [...others, ...records];
     },
     mapItems: (data) => resolveById(data, id),
     deps: [id],
@@ -229,48 +238,33 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
   // The record keeps the title as typed; the page sets it (curly quotes,
   // real apostrophes), including in the tab.
   const title = smartenText(value.title || id);
-  const { toggle: toggleXray } = useXray();
 
   const index = essays.findIndex((r) => r?.uri === record?.uri);
   const total = essays.length;
   const earlier = index > 0 ? essays[index - 1] : null;
   const later = index >= 0 && index < total - 1 ? essays[index + 1] : null;
 
-  // The colophon. In the margin on a wide screen, folded back into the band
-  // under the title below that, where the edition (the record's CID, "this
-  // exact version" in x-ray's words) drops out to keep three columns.
-  // `primaryTag`, not `workCategory`: a post's tags name subjects, and the
-  // medium inference behind `workCategory` would caption a cross-posted post
-  // "case study", a value its record never carries.
-  const tag = primaryTag(value);
+  // The colophon, a band under the title: when the essay was published, with
+  // how long ago that was beside the date (a column of its own read "Elapsed:
+  // today"), where it sits in the blog, and its edition, the record's CID
+  // ("this exact version" in x-ray's words), linked to the record in the
+  // explorer.
   // Where the author placed signup blocks, those are the post's forms; a post
   // without one gets the newsletter after its last line.
   const endSignup = !hasSignupBlock(value.content?.pages);
+  const edition = record?.cid ? <Edition atUri={record.uri} cid={record.cid} /> : null;
   const columns = created
     ? [
-        { key: 'date', label: 'Published', long: formatDateFull(created), short: formatDateShort(created) },
-        { key: 'elapsed', label: 'Elapsed', long: relativeDay(created), short: relativeDayShort(created) },
+        {
+          key: 'date',
+          label: 'Published',
+          long: <PublishedOn date={formatDateFull(created)} ago={relativeDay(created)} />,
+          short: <PublishedOn date={formatDateShort(created)} ago={relativeDayShort(created)} />,
+        },
         ...(index >= 0 && total > 1
           ? [{ key: 'essay', label: 'Essay', long: `${index + 1} of ${total} in blogging`, short: `${index + 1} of ${total}` }]
           : []),
-        ...(tag ? [{ key: 'tag', label: 'Tagged', long: tag, short: tag }] : []),
-        ...(record?.cid
-          ? [
-              {
-                key: 'edition',
-                label: 'Edition',
-                long: (
-                  <>
-                    <code className="blog-edition-cid">{shortenCid(record.cid)}</code>{' '}
-                    <button type="button" className="blog-edition-inspect" onClick={toggleXray}>
-                      inspect
-                    </button>
-                  </>
-                ),
-                short: null,
-              },
-            ]
-          : []),
+        ...(edition ? [{ key: 'edition', label: 'Edition', long: edition, short: edition }] : []),
       ]
     : null;
 
@@ -282,7 +276,7 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
       <article className="blog-article blog-book reveal">
         <h1 className="page-title blog-title">{title}</h1>
         <aside className="blog-margin">
-          {columns && <DocumentMeta columns={columns.map((c) => ({ ...c, short: c.short ?? c.long }))} />}
+          {columns && <DocumentMeta columns={columns} />}
         </aside>
         <InspectMargin atUri={record?.uri} cid={record?.cid} />
         {/* The `description` field is intentionally not rendered here — it's the
@@ -322,6 +316,34 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
         )}
       </article>
     </PageShell>
+  );
+}
+
+/**
+ * The published date with how long ago it was, the second half quieter and
+ * left off paper, where "today" is wrong by the time anyone reads it.
+ */
+function PublishedOn({ date, ago }) {
+  return (
+    <>
+      {date}
+      {ago && <span className="blog-published-ago"> · {ago}</span>}
+    </>
+  );
+}
+
+/**
+ * The record's CID, shortened, linking to the record in the explorer, which
+ * shows it whole. The full CID rides in the title for a hover.
+ */
+function Edition({ atUri, cid }) {
+  const path = explorerPathFromAtUri(atUri);
+  const short = shortenCid(cid);
+  if (!path) return <code className="blog-edition-cid">{short}</code>;
+  return (
+    <Link to={path} className="blog-edition-cid" title={cid}>
+      {short}
+    </Link>
   );
 }
 

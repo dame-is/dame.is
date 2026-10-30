@@ -1,0 +1,93 @@
+/* Alt text to captions (AltCaptionMigration.jsx): one ruled row per document,
+   its tick at the left, its alt texts listed under its facts so the choice is
+   made on the words themselves. */
+
+.acm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+/* The box sits on the title's first line. */
+.acm-check {
+  flex-shrink: 0;
+  padding-top: 0.2em;
+}
+
+.acm-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.acm-title {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+
+.acm-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+/* The "·" belongs to the fact after it, as on the legacy migration's rows. */
+.acm-meta > * + *::before {
+  content: '·';
+  margin-right: var(--space-2);
+  color: var(--ink-faint);
+}
+
+/* The alt texts as they would print, set off on a hairline like a quotation. */
+.acm-alts {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0 0 0 var(--space-3);
+  border-left: 1px solid var(--rule-soft);
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.acm-alts li {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.acm-more summary {
+  width: fit-content;
+  margin-top: var(--space-1);
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.acm-status {
+  margin: var(--space-1) 0 0;
+  text-indent: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.acm-status.ss-error {
+  color: var(--danger);
+}
+
+.acm-status.ss-saved {
+  color: var(--accent);
+}
+
+/* A document whose captions are in reads as finished. */
+.acm-row.is-done .acm-alts {
+  color: var(--ink-muted);
+}

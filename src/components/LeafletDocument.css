@@ -303,9 +303,24 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
    Level one of the nesting scale (see styles/theme.css). It was --page, the
    same colour as the document it sits in, so a card with a rule around it was
    the only thing saying a post had started — and the quotes inside it, which
-   are levels two and three, had nothing to be a step away from. */
-.leaflet-bsky-post {
+   are levels two and three, had nothing to be a step away from.
+
+   The block is the card with its "Open in…" under it, so the wrapper holds
+   the block's space and the card sits flush inside it. */
+.leaflet-bsky-embed {
   margin: var(--space-5) 0;
+}
+
+.leaflet-bsky-embed-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: var(--space-1) 0 0;
+  max-width: none;
+  text-indent: 0;
+}
+
+.leaflet-bsky-post {
+  margin: 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--rule);
   border-radius: var(--radius-3);

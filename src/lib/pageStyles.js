@@ -19,6 +19,7 @@
 // recomputes it from the source and fails, printing the list, when a page
 // gains or loses a stylesheet.
 
+import '../components/WaypointsSheet.css';
 import '../components/ScrollFrame.css';
 import '../components/RatioedHandle.css';
 import '../components/blocks/RatioedBlock.css';
@@ -32,7 +33,6 @@ import '../components/StateStats.css';
 import '../components/ListeningStats.css';
 import '../pages/Albums.css';
 import '../pages/Blogging.css';
-import '../components/WaypointsSheet.css';
 import '../components/Comments.css';
 import '../components/SequenceFoot.css';
 import '../pages/Creating.css';

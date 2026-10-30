@@ -26,6 +26,7 @@ import { useXray } from '../hooks/useXray.jsx';
 import Time from './Time.jsx';
 import LinkCard from './LinkCard.jsx';
 import Lightbox from './Lightbox.jsx';
+import { OpenInButton } from './AturiActions.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import { Skeleton, SkeletonText } from './Skeleton.jsx';
 // Where RatioedBlock used to be imported: the stylesheets it brings stay here,
@@ -798,9 +799,9 @@ function ImageBlock({ block, style, index = null, inGallery = false }) {
   const url = imageBlockUrl(block);
   if (!url) return null;
   const alt = block.alt || '';
-  // `caption` is the visible caption; `alt` stays the screen-reader text.
-  // Legacy blocks doubled `alt` as the caption, so fall back to it.
-  const caption = block.caption || alt;
+  // `caption` is the visible caption; `alt` is the screen-reader text and
+  // never printed under the picture (x-ray shows it).
+  const caption = block.caption || '';
   const field = index == null ? 'image' : `blocks[${index}]`;
   const ar = block.aspectRatio;
   const imgStyle = ar?.width && ar?.height
@@ -844,29 +845,19 @@ function ImageBlock({ block, style, index = null, inGallery = false }) {
         img
       )}
       {caption && <figcaption className="leaflet-image-caption">{caption}</figcaption>}
-      {inspecting && !inGallery && altHidden(block) && (
+      {inspecting && !inGallery && (
         <AltList items={[{ index: index ?? 0, alt }]} field={() => `${field}.alt`} />
       )}
     </figure>
   );
 }
 
-/**
- * Whether an image block's alt text is out of sight: it has none, or it has a
- * caption of its own to show instead. A block with no caption shows its alt
- * as one (see ImageBlock), so x-ray has nothing to add there.
- */
-function altHidden(block) {
-  const alt = block?.alt || '';
-  return !alt || Boolean(block.caption && block.caption !== alt);
-}
-
-/** The alt text of a gallery run's tiles that x-ray has to print for them. */
+/** The alt text of a gallery run's tiles, which x-ray prints for them. */
 function galleryAlts(blocks, run) {
   const out = [];
   for (let k = run.start; k <= run.end; k += 1) {
     const block = blocks[k]?.block;
-    if (!block || !imageBlockUrl(block) || !altHidden(block)) continue;
+    if (!block || !imageBlockUrl(block)) continue;
     out.push({ index: k, alt: block.alt || '' });
   }
   return out;
@@ -979,23 +970,39 @@ function ListItem({ item, ordered }) {
 }
 
 /**
- * Embedded Bluesky post. Loads the post via the AppView `getPostThread`
- * endpoint (depth 0), through the shared cache above. On miss, renders a hint
- * linking to bsky.app so the reader can still chase the reference.
+ * Embedded Bluesky post, with "Open in…" under it: the waypoints picker
+ * (@aturi.to/waypoints), so a reader can take the post to the client of their
+ * choice. The picker needs only the block's at:// URI, so the action is there
+ * from the first paint, while the post loads and if it never does.
  */
 function BskyPostBlock({ block, style }) {
   const uri = block?.postRef?.uri || null;
+  if (!uri) return null;
+  return (
+    <div className="leaflet-bsky-embed" style={style || undefined}>
+      <BskyPostCard uri={uri} />
+      <p className="leaflet-bsky-embed-actions">
+        <OpenInButton atUri={uri} />
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The post itself. Loads it via the AppView `getPostThread` endpoint
+ * (depth 0), through the shared cache above. On miss, renders a hint linking
+ * to bsky.app so the reader can still chase the reference.
+ */
+function BskyPostCard({ uri }) {
   const entry = useEmbeddedPost(uri);
   const post = entry?.post || null;
 
-  if (!uri) return null;
   if (!entry) {
     // Shaped like the post it stands in for (byline, a few lines), so the
     // block opens at something near its size rather than as one short line.
     return (
       <div
         className="leaflet-bsky-post leaflet-bsky-post-loading"
-        style={style || undefined}
         role="status"
         aria-label="Loading post"
       >
@@ -1009,7 +1016,7 @@ function BskyPostBlock({ block, style }) {
   }
   if (!post) {
     return (
-      <div className="leaflet-bsky-post leaflet-bsky-post-missing" style={style || undefined}>
+      <div className="leaflet-bsky-post leaflet-bsky-post-missing">
         <a href={bskyAppUrlFromAtUri(uri)} target="_blank" rel="noreferrer noopener">
           Open the embedded post on bsky.app
         </a>
@@ -1026,7 +1033,7 @@ function BskyPostBlock({ block, style }) {
   const externalHref = !localHref ? bskyAppUrlFromAtUri(post.uri, author.handle) : null;
 
   return (
-    <article className="leaflet-bsky-post" data-at-uri={post.uri} style={style || undefined}>
+    <article className="leaflet-bsky-post" data-at-uri={post.uri}>
       <header className="leaflet-bsky-post-head">
         {author.avatar && (
           <img
