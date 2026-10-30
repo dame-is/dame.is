@@ -85,20 +85,28 @@ function isWaypointAllowed(id, parsed) {
   return false;
 }
 
+// Forks are listed together under their own heading and never lifted into
+// "Recommended". The catalog recommends Blacksky for a post, which put one
+// fork above the clients while Mu and Northsky sat below with the forks.
+const FORK_CATEGORY = 'blueskyForks';
+
 /**
  * Apply the site waypoint policy to a raw resolve result — trimming both the
- * `waypoints` list and the `recommended.ids` to the allowed set.
+ * `waypoints` list and the `recommended.ids` to the allowed set, and keeping
+ * forks out of the recommendations.
  */
 function applyWaypointPolicy(result) {
   if (!result) return result;
   const waypoints = (result.waypoints || []).filter((w) => isWaypointAllowed(w.id, result.parsed));
-  const allowedIds = new Set(waypoints.map((w) => w.id));
+  const recommendable = new Set(
+    waypoints.filter((w) => w.category !== FORK_CATEGORY).map((w) => w.id),
+  );
   return {
     ...result,
     waypoints,
     recommended: {
       ...result.recommended,
-      ids: (result.recommended?.ids || []).filter((id) => allowedIds.has(id)),
+      ids: (result.recommended?.ids || []).filter((id) => recommendable.has(id)),
     },
   };
 }
