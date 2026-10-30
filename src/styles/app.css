@@ -129,8 +129,10 @@ html {
 .page-title {
   font-family: var(--serif);
   font-weight: 600;
-  font-size: var(--text-4xl);
-  line-height: 1.1;
+  /* Fluid: 36px on a phone to 48px at 1028px, where the grid gains its wing
+     columns (theme.css --type-title). */
+  font-size: var(--type-title);
+  line-height: var(--leading-display);
   letter-spacing: -0.01em;
   margin: 0;
   /* A title can be one long unbroken word — a Ratioed participant's
@@ -461,9 +463,6 @@ html {
 @media (max-width: 700px) {
   .main {
     padding: calc(var(--space-6) + var(--chrome-crumb-pin-h, 0px)) var(--main-gutter) var(--space-6);
-  }
-  .page-title {
-    font-size: var(--text-3xl);
   }
 }
 

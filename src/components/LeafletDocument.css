@@ -1,19 +1,13 @@
-/* The essay setting: 20/31 in a 28em measure (--measure-prose), about 66
-   characters a line, stepping to 18px on a phone. */
+/* A document. Its size and leading come from the reading context it also
+   wears (`.reading`, typography.css): 18 on 28.8 in the text column at every
+   width, about 76 characters a line. (Phones were meant to step down to 18px
+   from 20, but the rule that did it set --text-prose on :root here, and this
+   sheet lands ahead of theme.css in the bundle, so it never applied.) */
 .leaflet-doc {
-  font-family: var(--serif);
-  font-size: var(--text-prose);
-  line-height: 1.55;
   color: var(--ink);
   /* Long unbreakable tokens (bare URLs, AT URIs, NSIDs) must wrap instead of
      pushing the column wide and forcing a horizontal scroll. */
   overflow-wrap: break-word;
-}
-
-@media (max-width: 700px) {
-  :root {
-    --text-prose: 1.125rem;
-  }
 }
 
 /* One paragraph signal: the indent. No paragraph carries space below it, so
@@ -122,25 +116,27 @@
 
 /* The heading ladder: levels told apart by style as well as size, each with
    about twice as much space above as below. The page title is the h1, so a
-   document's headings start at h2. (h4 to h6 used to fall back to body size
-   through an undefined --text-md, so the guide's 46 of them read as bold
-   sentences.) */
+   document's headings start at h2. Sizes are in em of the reading size, so
+   the ladder holds its proportions wherever the text is set: 27 and 21.6px
+   on screen, 17.25 and 13.8pt over print's 11.5pt. (h4 to h6 used to fall
+   back to body size through an undefined --text-md, so the guide's 46 of
+   them read as bold sentences.) */
 .leaflet-heading {
   font-family: var(--serif);
   margin: var(--space-6) 0 var(--space-3);
-  line-height: 1.2;
+  line-height: var(--leading-heading);
   text-wrap: balance;
 }
 
 .leaflet-heading-2 {
-  font-size: var(--text-2xl);
+  font-size: 1.5em;
   font-weight: 600;
   margin-top: var(--space-7);
   padding-top: var(--space-4);
   border-top: 1px solid var(--rule-soft);
 }
 .leaflet-heading-3 {
-  font-size: var(--text-xl);
+  font-size: 1.2em;
   font-style: italic;
   font-weight: 500;
 }

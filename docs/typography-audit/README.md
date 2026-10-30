@@ -1,6 +1,6 @@
 # dame.is typography audit
 
-*Taken 30 October 2026 against `main` at `9dd272b`, which includes the column grid from #363. Rendered sizes, line lengths and screenshots come from the live site in Chromium (Playwright) at widths from 390 to 2560px; code references are to this repository. No code has been changed yet.*
+*Taken 30 October 2026 against `main` at `9dd272b`, which includes the column grid from #363. Rendered sizes, line lengths and screenshots come from the live site in Chromium (Playwright) at widths from 390 to 2560px; code references are to this repository. The recommendations were then built; see [As built](#as-built) at the end.*
 
 *Interactive mock-ups of every option below, set on the grid with live line-length readouts, are in a private artifact shared in the session that produced this audit.*
 
@@ -264,3 +264,51 @@ The 1.25 and 1.35 values (19 uses) need a look case by case. Once migrated, `lin
 - **The essay title.** With 18px body text, the 48px title is 2.67 times the text instead of 2.4. It may want to step down on essays (to 40px, say); judge after R1.
 - **The About bio and résumé summary.** Should they take the reading size (18px) or stay at body size?
 - **TYP-05.** The label decision comes before any merging at the small end of the scale (finding 5).
+
+## As built
+
+Built on `claude/festive-edison-244lxy` on 30 October 2026, taking the recommended answer to each question. The type is set out on `/colophon` under **Type**: the roles and where each lives on the grid, the reading setting with its measured line length, the scale, the leading tokens and the rules. Every size there is read back from the page as it renders.
+
+**What changed**
+
+- **Essays at 18px on 1.6, at every width** (R1). Long-form now has one setting: a `.reading` context in `typography.css`, using `--type-reading` (`--text-lg`) and `--leading-reading`. LeafletDocument puts it on every document it renders, and the document skeleton wears it too, so its placeholder lines match the text's. `--text-prose` is gone. Legacy markdown long-form (`.blog-prose`: older works, `/sharing`, About's legacy body) moved from a raw 16.8px to the same size.
+- **The phone bug is fixed by deletion** (R2). The `:root` rule in `LeafletDocument.css` is removed. `src/styles/tokens.test.js` fails if any stylesheet outside `src/styles/` sets a theme token on a bare `:root`; run against the old file, it reports `--text-prose`.
+- **Roles and leading tokens** (R3, R7) are in `theme.css`. The roles are `--type-title`, `--type-reading`, `--type-body`, `--type-caption`, `--type-meta` and `--type-label`. The leading tokens are `--leading-reading`, `--leading-ui`, `--leading-heading`, `--leading-display` and `--leading-solid`, next to the existing two. The files this change touched use them; the rest of the stylesheets are untouched (see below).
+- **The heading ladder is in em** (R4): h2 is 1.5em (27px) and h3 is 1.2em in italic (21.6px). In print the same ladder lands at 17.25pt and 13.8pt over the 11.5pt text, with no print rule of its own.
+- **Titles are fluid through the role** (R5): `--type-title` grows from 36px on a 390px phone to 48px at 1028px, then holds. `.page-title` (and with it the home hero and every page title) and `.resume-title` use it, and their phone swaps are gone. Print pins the role back to 48px.
+
+**Where this departs from the recommendations**
+
+- **The fluid size lives on the title role, not the 3xl and 4xl steps.** Making the steps fluid would also have shrunk Ratioed's figures, the About heading and the generic `h1` on phones. Record titles (`.record-title`) keep their own 3xl-to-2xl swap.
+- **The leading tokens and roles weren't migrated across every stylesheet.** Folding about 140 raw values in some 40 files would conflict with a lot of in-flight work for no visual change, so new and touched code uses them and the rest can move as it is edited. The `/colophon` rules say so.
+- **No reader size setting** (R6 dropped). Everything is in rem, so browser zoom and a reader's default font size already scale type and grid together. At a 20px default, an essay's column grows to 695px and still holds 76 characters a line.
+- **The open questions, answered.** The size is 18px, not 19. The essay title stays at the shared 48px, so titles keep one size across routes. The About bio and the résumé summary stay at body size, since they sit among interface text; About's long-form body, a document, reads at 18px. TYP-05 is untouched.
+
+**Roles resolve on `:root`.** A scope that re-sizes steps (the admin's `.wb`, résumé print) doesn't reach a role, so such a scope has to set the role it relies on as well. That's also why reading has its own leading token: the admin's `.wb` tightens `--leading` to 1.45, and the editor's document preview should still match the published page. It does: 18px on 28.8px.
+
+**How it was checked**
+
+On a local build with live data and the clock pinned to 1 pm Eastern, ten page types (two essays, the long guide, a work, Ratioed, home, the blog index, About, the résumé, /posting) were captured at 390, 768, 1024, 1440 and 1920px, before and after. Each page also had its type measured.
+
+| | Before | After |
+| --- | --- | --- |
+| Essay text, phone | 20px, 42–43 a line | 18px, 47–49 a line |
+| Essay text, desk | 20px, 68–70 a line | 18px, 76 a line |
+| Page title at 390 / 768 / 1024 / 1440px | 36 / 48 / 48 / 48px | 36 / 43.1 / 47.9 / 48px |
+| Section heads h2 / h3 / h4 | 28 / 22 / 20px | 27 / 21.6 / 18px |
+| Loose justified lines (average space over twice a normal one), five documents | 6.7% | 5.9% |
+| Sideways overflow, any page or width | none | none |
+
+The justification and hyphenation settings were left as they were; at the longer line they did slightly better on average, though individual documents moved both ways. Also checked:
+
+- **A 20px default font size:** type and grid scale together and lines still hold 76 characters.
+- **200% zoom on a 1440px window** (a 720px viewport at 2×): no overflow, 71–72 a line.
+- **A 320px reflow:** no overflow.
+- **Print:** 11.5pt text, 17.25pt and 13.8pt heads, a 48px title, and an unchanged résumé.
+- **The loading skeleton at both widths:** each placeholder line is one 28.8px text line.
+- **The admin's document preview:** matches the published setting.
+- **`/colophon`** through the harness, at 1440 and 390px.
+- **Tests and lint:** 2,771 tests, ESLint, stylelint and a production build all pass.
+
+Firefox wasn't available in the test environment, so its drop-cap fallback (the float in `typography.css`) wasn't re-measured at 18px. It is set in em and was tuned at 16 and 16.8px, so it should hold, but it's worth one look.
+

@@ -364,9 +364,13 @@
   margin-bottom: var(--space-5);
 }
 
+/* Long-form from before the block documents: a work's or the About page's
+   markdown body, /sharing. It reads at the documents' size (--type-reading,
+   typography.css) rather than a size of its own; the résumé's summary, which
+   borrows the class, sets itself back to body size (Resume.css). */
 .blog-prose {
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--type-reading);
 }
 
 .blog-prose p {
@@ -851,7 +855,9 @@
     display: grid;
   }
 
-  .leaflet-doc {
+  /* Two classes: the reading context (typography.css) sets the screen size
+     on `.reading` and loads after this sheet, so one class would lose. */
+  .leaflet-doc.reading {
     font-size: 11.5pt;
     line-height: 1.5;
   }

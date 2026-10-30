@@ -11,6 +11,7 @@ import LinkCard from '../components/LinkCard.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
 import { SheetHeader } from '../components/BottomSheet.jsx';
 import NotFound from './NotFound.jsx';
+import ColophonType from './ColophonType.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { contrastRatio, paletteForHour, skyHourLabel } from '../lib/skyTheme.js';
 import { labelPreviewOn, setLabelPreview } from '../lib/labelPreview.js';
@@ -42,9 +43,10 @@ function hourStyle(vars) {
 }
 
 /**
- * The colophon: the site's shared parts, set under four hours of sky, so a
- * change to one is seen everywhere it lands before it ships (SYS-09). Only
- * the owner can open it; anyone else gets the not-found page.
+ * The colophon: the site's type on its grid (ColophonType), then its shared
+ * parts, set under four hours of sky, so a change to one is seen everywhere
+ * it lands before it ships (SYS-09). Only the owner can open it; anyone else
+ * gets the not-found page.
  *
  * It's also where the label voice is decided. Today's labels are small caps
  * the browser draws by shrinking capitals; the audit proposes real capitals
@@ -68,7 +70,7 @@ export default function Colophon() {
   return (
     <PageShell
       title="Colophon"
-      intro="The site's parts, each set under four hours of sky. Only you can see this page."
+      intro="The site's type on its grid, then its parts, each set under four hours of sky. Only you can see this page."
       headTitle="Colophon — dame.is"
     >
       <div className="kit-switch">
@@ -88,6 +90,8 @@ export default function Colophon() {
             : 'Switch to capitals to see them on every page of the site, in this browser only.'}
         </p>
       </div>
+
+      <ColophonType />
 
       <div className="kit-hours">
         {HOURS.map((hour) => (
