@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { trimBlockText } from './LeafletDocument.jsx';
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { trimBlockText, LeafletBlock } from './LeafletDocument.jsx';
+
+// vitest.config.js runs without the React plugin, so JSX here compiles to
+// React.createElement against whatever `React` is in scope when it runs. The
+// app's build uses the automatic runtime and needs none of this.
+globalThis.React = React;
 
 describe('trimBlockText', () => {
   it('drops a credit block\'s opening newline and shifts its facets with it', () => {
@@ -23,5 +30,37 @@ describe('trimBlockText', () => {
     const facets = [{ index: { byteStart: 0, byteEnd: 2 }, features: [] }];
     const out = trimBlockText('hi there', facets);
     expect(out.facets).toBe(facets);
+  });
+});
+
+describe('LeafletBlock — Leaflet\'s blockquote', () => {
+  const draw = (block) => renderToStaticMarkup(React.createElement(LeafletBlock, { block }));
+
+  it('sets the quotation the way an inset is set, typeset', () => {
+    const html = draw({
+      $type: 'pub.leaflet.blocks.blockquote',
+      plaintext: '"Twitter is funding a small independent team" -- in 2019...',
+    });
+    expect(html).toBe(
+      '<blockquote class="leaflet-paragraph leaflet-inset">“Twitter is funding a small independent team” — in 2019…</blockquote>',
+    );
+  });
+
+  it('keeps its links', () => {
+    const html = draw({
+      $type: 'pub.leaflet.blocks.blockquote',
+      plaintext: 'Atmosphere update: apps are growing',
+      facets: [
+        {
+          index: { byteStart: 0, byteEnd: 10 },
+          features: [{ $type: 'pub.leaflet.richtext.facet#link', uri: 'https://example.com/update' }],
+        },
+      ],
+    });
+    expect(html).toMatch(/^<blockquote class="leaflet-paragraph leaflet-inset"><a [^>]*href="https:\/\/example.com\/update"[^>]*>Atmosphere<\/a> update: apps are growing<\/blockquote>$/);
+  });
+
+  it('draws nothing for an empty one', () => {
+    expect(draw({ $type: 'pub.leaflet.blocks.blockquote', plaintext: ' \n' })).toBe('');
   });
 });

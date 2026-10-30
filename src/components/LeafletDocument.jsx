@@ -154,6 +154,7 @@ function collectImages(pages) {
  *   - pub.leaflet.blocks.website       (link card w/ preview)
  *   - pub.leaflet.blocks.bskyPost      (embedded Bluesky post)
  *   - pub.leaflet.blocks.code          (preformatted code)
+ *   - pub.leaflet.blocks.blockquote    (a quotation, set like an inset)
  *   - pub.leaflet.blocks.unorderedList (recursive list w/ #listItem children)
  *   - pub.leaflet.blocks.orderedList   (same shape as unorderedList)
  *   - pub.leaflet.blocks.signup        (the newsletter's email form)
@@ -577,6 +578,8 @@ export function LeafletBlock({ block, first = false, index = null, inGallery = f
       return <BskyPostBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.code':
       return <CodeBlock block={block} style={style} />;
+    case 'pub.leaflet.blocks.blockquote':
+      return <BlockquoteBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.unorderedList':
     case 'pub.leaflet.blocks.orderedList':
       return (
@@ -710,6 +713,27 @@ function TextBlock({ block, style, first = false }) {
         </span>
       )}
     </p>
+  );
+}
+
+/**
+ * Leaflet's own quotation block. It used to fall through to nothing, so an
+ * essay written in Leaflet lost every quotation it set this way, Jack
+ * Dorsey's and Jay Graber's among them, and read as if it introduced them and
+ * moved on. Set exactly as a text block's Quotation layout is (inset on the
+ * accent rule, in italic), so a quotation looks the same whichever editor
+ * wrote it, and wearing the same classes, so the paragraph after it starts
+ * flush as it does after an inset. Its text is somebody else's, so quoting a
+ * passage (src/lib/quote.js) leaves it out, as it does an inset.
+ */
+function BlockquoteBlock({ block, style }) {
+  const raw = block.plaintext || '';
+  if (!raw.trim()) return null;
+  const { text, facets } = trimBlockText(raw, block.facets);
+  return (
+    <blockquote className="leaflet-paragraph leaflet-inset" style={style || undefined}>
+      {renderLeafletText(text, facets, { smart: true })}
+    </blockquote>
   );
 }
 
