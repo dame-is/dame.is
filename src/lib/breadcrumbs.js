@@ -32,6 +32,7 @@ export const DECLARED_ROUTES = [
   '/listening/albums',
   '/listening/albums/:slug',
   '/blogging',
+  '/blogging/subscribe',
   '/blogging/:slug',
   '/creating',
   '/creating/:slug',

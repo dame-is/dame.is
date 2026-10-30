@@ -726,4 +726,12 @@ describe('pages with no record behind them', () => {
     expect(deep.res.headers.get('x-robots-tag')).toBe('noindex');
     expect(deep.body).toContain('<meta name="robots" content="noindex" />');
   });
+
+  it('serves the newsletter’s page under /blogging rather than 404ing it as an essay', async () => {
+    worldFetch();
+    const page = await html('/blogging/subscribe');
+    expect(page.res.status).toBe(200);
+    expect(page.body).toContain('<title>Subscribe to dame.is blogging</title>');
+    expect(page.body).not.toContain('content="noindex"');
+  });
 });

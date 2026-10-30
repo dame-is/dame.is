@@ -35,6 +35,7 @@ import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/at
 import { fetchMothObservations } from '../src/lib/inaturalist.js';
 import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
 import { arenaText } from '../src/lib/arena.js';
+import { isSubscribePath } from '../src/lib/newsletter.js';
 import { VERB_REGISTRY, VERB_LABELS } from '../src/lib/verbRegistry.js';
 import {
   TEAL_PLAY_NSIDS,
@@ -245,11 +246,19 @@ function extractCard(collection, value, ctx) {
 // to (src/lib/albums.js), because the router needs it too; re-exported here so
 // middleware.js gets it alongside everything else it asks this module for.
 export { ALBUMS_SEGMENT, isAlbumPath };
+// /blogging/subscribe is the newsletter's page, not an essay's rkey; the
+// router and the edge both ask the module that owns the newsletter.
+export { isSubscribePath };
 
 /** True if `pathname` looks like a slug-addressed record route we can resolve. */
 export function isRecordRoute(pathname) {
   const segs = (pathname || '').split('/').filter(Boolean);
-  return segs.length === 2 && RECORD_SECTIONS.has(segs[0]) && !isAlbumPath(pathname);
+  return (
+    segs.length === 2 &&
+    RECORD_SECTIONS.has(segs[0]) &&
+    !isAlbumPath(pathname) &&
+    !isSubscribePath(pathname)
+  );
 }
 
 // ── resolvers: snapshot-first, then a time-boxed live PDS fallback ───────────

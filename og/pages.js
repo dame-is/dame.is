@@ -57,6 +57,14 @@ export const PAGES = {
     desc: 'Long-form essays on the open social web, atproto, and building in public.',
     nsid: 'site.standard.document',
   },
+  // The newsletter's page (src/pages/BloggingSubscribe.jsx): the blog's card,
+  // asking for an address.
+  '/blogging/subscribe': {
+    label: 'blogging',
+    title: 'Subscribe to dame.is blogging',
+    desc: 'New essays from dame.is by email: long-form writing on the open social web, atproto, and building in public. Sent through Leaflet.',
+    nsid: 'site.standard.publication',
+  },
   '/creating': {
     label: 'creating',
     title: 'dame.is creating',

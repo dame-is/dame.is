@@ -19,8 +19,11 @@ import './NewsletterSignup.css';
  * a document numbers its signup blocks (signupBlockIds), and the page-level
  * forms use SUBSCRIBE_ID. Back from Leaflet at this form, it says thanks
  * instead of asking again.
+ *
+ * `title` replaces the "Newsletter" label and `className` adds to the box's,
+ * for a page that sets the form as its whole subject (BloggingSubscribe.jsx).
  */
-export default function NewsletterSignup({ id, style }) {
+export default function NewsletterSignup({ id, style, title = 'Newsletter', className = '' }) {
   const fallbackId = useId();
   const formId = id || `subscribe-${fallbackId.replace(/[^a-z0-9]/gi, '')}`;
   const rootRef = useRef(null);
@@ -58,14 +61,14 @@ export default function NewsletterSignup({ id, style }) {
   return (
     <aside
       ref={rootRef}
-      className="newsletter"
+      className={`newsletter ${className}`.trim()}
       id={formId}
       data-newsletter-signup=""
       aria-labelledby={`${formId}-label`}
       style={style || undefined}
     >
       <p className="newsletter-title" id={`${formId}-label`}>
-        Newsletter
+        {title}
       </p>
       {returned ? (
         <p className="newsletter-done" role="status">

@@ -29,6 +29,7 @@ import {
   recordMeta,
   albumMeta,
   isAlbumPath,
+  isSubscribePath,
   pieceMeta,
   participantMeta,
   participantsMeta,
@@ -61,6 +62,7 @@ const VARY = 'Accept, Accept-Encoding';
 const STANDARD_DOC_NSID = 'site.standard.document';
 const SECTION_PUBLICATION = {
   '/blogging': BLOG_PUBLICATION,
+  '/blogging/subscribe': BLOG_PUBLICATION,
   '/creating': PORTFOLIO_PUBLICATION,
 };
 
@@ -405,8 +407,11 @@ export default async function middleware(request) {
     // a 404 when nothing answers to the slug), so it joins it by the side door.
     const onAlbums = isAlbumPath(path);
     const isOneAlbum = onAlbums && segs.length === 3;
+    // /blogging/subscribe is a page of its own (the newsletter's form), in the
+    // place an essay's rkey would be. Asked for as an essay it would 404.
+    const onSubscribe = isSubscribePath(path);
     const isRecordRoute =
-      (segs.length === 2 && RECORD_SECTIONS.has(sectionSeg) && !onAlbums) ||
+      (segs.length === 2 && RECORD_SECTIONS.has(sectionSeg) && !onAlbums && !onSubscribe) ||
       isOneAlbum ||
       (segs.length >= 3 && segs.length <= 4 && sectionSeg === 'creating');
     if (isRecordRoute) {

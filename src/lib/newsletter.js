@@ -32,6 +32,17 @@ export const SIGNUP_BLOCK_TYPE = 'pub.leaflet.blocks.signup';
 export const SUBSCRIBE_ID = 'subscribe';
 export const SUBSCRIBE_URL = `${SITE_ORIGIN}/blogging#${SUBSCRIBE_ID}`;
 
+/**
+ * The page that is only the form (BloggingSubscribe.jsx). It sits under
+ * /blogging, where every other second segment is an essay's rkey, so the edge
+ * asks isSubscribePath before treating it as a record that isn't there.
+ */
+export const SUBSCRIBE_PATH = '/blogging/subscribe';
+
+export function isSubscribePath(pathname) {
+  return String(pathname || '').replace(/\/+$/, '') === SUBSCRIBE_PATH;
+}
+
 export const RETURN_PATH = '/receive_auth_callback';
 export const RETURN_COOKIE = 'newsletter_return';
 export const RETURN_MAX_AGE = 86_400;

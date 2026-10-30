@@ -5,13 +5,17 @@ import {
   hasSignupBlock,
   isReturnTo,
   isSubscribeLink,
+  isSubscribePath,
   returnCookie,
   returnLocation,
   RETURN_COOKIE,
   SIGNUP_BLOCK_TYPE,
   signupBlockIds,
+  SUBSCRIBE_PATH,
   withoutReturnMarker,
 } from './newsletter.js';
+import { isRecordRoute } from '../../og/records.js';
+import { matchRoute } from '../../og/routes.js';
 import { BLOG_PUBLICATION } from '../config.js';
 
 const wrap = (block) => ({ $type: 'pub.leaflet.pages.linearDocument#block', block });
@@ -116,6 +120,24 @@ describe('signupBlockIds', () => {
   it('finds none in a document without one, or without pages', () => {
     expect(hasSignupBlock([{ blocks: [text('one')] }])).toBe(false);
     expect(hasSignupBlock(undefined)).toBe(false);
+  });
+});
+
+describe('the subscribe page', () => {
+  it('claims its own path, with or without a trailing slash, and nothing else', () => {
+    expect(SUBSCRIBE_PATH).toBe('/blogging/subscribe');
+    expect(isSubscribePath('/blogging/subscribe')).toBe(true);
+    expect(isSubscribePath('/blogging/subscribe/')).toBe(true);
+    expect(isSubscribePath('/blogging')).toBe(false);
+    expect(isSubscribePath('/blogging/3mz4bbmjphc2l')).toBe(false);
+    expect(isSubscribePath('/creating/subscribe')).toBe(false);
+  });
+
+  it('is a page at the edge, not an essay that would 404', () => {
+    expect(matchRoute('/blogging/subscribe')).toBe('/blogging/subscribe');
+    expect(matchRoute('/blogging/3mz4bbmjphc2l')).toBe('/blogging/:slug');
+    expect(isRecordRoute('/blogging/subscribe')).toBe(false);
+    expect(isRecordRoute('/blogging/3mz4bbmjphc2l')).toBe(true);
   });
 });
 

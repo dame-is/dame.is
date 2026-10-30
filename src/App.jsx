@@ -71,6 +71,7 @@ const ListeningAlbums = page(() => import('./pages/ListeningAlbums.jsx'));
 const ListeningAlbum = page(() => import('./pages/ListeningAlbum.jsx'));
 const Blogging = page(() => import('./pages/Blogging.jsx'));
 const BlogPost = page(() => import('./pages/BlogPost.jsx'));
+const BloggingSubscribe = page(() => import('./pages/BloggingSubscribe.jsx'));
 const Creating = page(() => import('./pages/Creating.jsx'));
 const CreatingWork = page(() => import('./pages/CreatingWork.jsx'));
 const RatioedPiece = page(() => import('./pages/RatioedPiece.jsx'));
@@ -373,6 +374,7 @@ export default function App() {
                   <Route path="/listening/albums" element={<ListeningAlbums />} />
                   <Route path="/listening/albums/:slug" element={<ListeningAlbum />} />
                   <Route path="/blogging" element={<Blogging />} />
+                  <Route path="/blogging/subscribe" element={<BloggingSubscribe />} />
                   <Route path="/blogging/:slug" element={<BlogPost />} />
                   <Route path="/creating" element={<Creating />} />
                   <Route path="/creating/:slug" element={<CreatingWork />} />
