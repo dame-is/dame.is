@@ -26,20 +26,29 @@ import { resolveHandle } from './atproto.js';
 // curated set:
 //
 //   - aturiExplore  — universal raw-record explorer; always offered.
-//   - bluesky / reddwarf / anisota — Bluesky clients; offered for Bluesky
-//     records (app.bsky.*) and bare profiles / repos.
+//   - bluesky / reddwarf / anisota / impro / mu / blacksky / northsky —
+//     Bluesky clients and forks; offered for Bluesky records (app.bsky.*) and
+//     bare profiles / repos.
 //   - leaflet / anisotaReader — publication readers; offered for blog and
 //     standard-site documents (pub.leaflet.*, site.standard.*).
 //   - grain, streamplace, semble, tangled, margin, popfeed, sifa, blento —
 //     app-specific; offered only when the record itself is native to that app
 //     (its collection sits under the app's own lexicon).
 //
-// Every other catalog entry (Bluepy, Blacksky, Witchsky, Catsky, Deer,
-// Pinkleap, the Aturi universal link, Offprint, pckt, PDSls, atp.tools) is
-// intentionally hidden.
+// Every other catalog entry (Bluepy, Witchsky, Deer, Pinkleap, Lea, Taproot,
+// Standard Reader, the Aturi universal link, Offprint, pckt, PDSls, atp.tools)
+// is intentionally hidden.
 
 const ALWAYS_WAYPOINTS = new Set(['aturiExplore']);
-const BLUESKY_CLIENT_WAYPOINTS = new Set(['bluesky', 'reddwarf', 'anisota']);
+const BLUESKY_CLIENT_WAYPOINTS = new Set([
+  'bluesky',
+  'reddwarf',
+  'anisota',
+  'impro',
+  'mu',
+  'blacksky',
+  'northsky',
+]);
 // App-specific destinations, shown only when the record is native to them.
 // The native NSID prefixes come from the catalog's own `expectedCollections`
 // (minus the generic `app.bsky.` prefix, so plain Bluesky records don't count).
