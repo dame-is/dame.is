@@ -122,6 +122,14 @@
   border-top: 1px solid var(--rule-soft);
   border-bottom: 1px solid var(--rule-soft);
 }
+
+/* On a desk, a counter to a column of the page grid. */
+@media (min-width: 701px) {
+  .ratioed-live-counters {
+    grid-template-columns: repeat(auto-fill, minmax(var(--col), 1fr));
+    column-gap: var(--gutter);
+  }
+}
 .ratioed-live-counters dt {
   font-size: var(--text-xs);
   color: var(--ink-muted);
@@ -189,6 +197,19 @@
   align-items: baseline;
   padding: var(--space-3) 0;
   border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+}
+
+/* On a desk, on the page grid as the home feed's ledger is: the verb in the
+   note column and most of its gutter, so the record starts on the text
+   column's line, and the time in the last column. */
+@media (min-width: 701px) {
+  .ratioed-live-ticker {
+    --rl-verb: calc(var(--text-inset) - var(--space-3));
+    --rl-time: var(--col);
+  }
+  .ratioed-live-row {
+    column-gap: var(--space-3);
+  }
 }
 .ratioed-live-row:last-child { border-bottom: 0; }
 

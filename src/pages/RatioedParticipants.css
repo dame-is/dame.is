@@ -54,6 +54,30 @@
   gap: var(--space-3);
 }
 
+/* On a desk with wings, the board hangs a column into each, as the figures
+   above it do: the rank in the left one, the portrait on the type area's
+   edge, and every column after it on the page grid, the role taking two
+   (its longest, "broke #15 & #16 & #26", needs more than one). The frame is a
+   container because the rows can't tell from the window whether the grid has
+   wings. Narrower than eight columns, the board keeps to the type area on its
+   own widths. */
+@media (min-width: 701px) {
+  .ratioed-board-frame {
+    container: board / inline-size;
+    margin-inline: calc(-1 * var(--wing-fig));
+  }
+}
+
+@container board (min-width: 56rem) {
+  .ratioed-board-head,
+  .ratioed-board-row {
+    grid-template-columns:
+      var(--col) minmax(0, 1fr) var(--col) var(--col)
+      calc(2 * var(--col) + var(--gutter));
+    column-gap: var(--gutter);
+  }
+}
+
 /* The column heads are labels, in the site's label voice (typography.css
    .eyebrow), at the eyebrow's size rather than the 9.3px they were set at. */
 .ratioed-board-head {

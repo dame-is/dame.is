@@ -14,12 +14,8 @@
 [data-grid='on'] {
   /* The ink at a whisper, so it follows the sky through the day. */
   --grid-line: color-mix(in srgb, var(--ink) 7%, transparent);
-}
-
-[data-grid='on'] .app-shell:not(.app-shell-admin) {
-  /* The type area and its wings: every column the window has. */
-  --grid-w: calc(var(--type-area) + 2 * var(--wing));
-  background-image: repeating-linear-gradient(
+  /* The columns, from a column's left edge onward. */
+  --grid-columns: repeating-linear-gradient(
     to right,
     var(--grid-line) 0,
     var(--grid-line) 1px,
@@ -30,6 +26,12 @@
     transparent var(--col),
     transparent var(--pitch)
   );
+}
+
+[data-grid='on'] .app-shell:not(.app-shell-admin) {
+  /* The type area and its wings: every column the window has. */
+  --grid-w: calc(var(--type-area) + 2 * var(--wing));
+  background-image: var(--grid-columns);
   background-size: var(--grid-w) 100%;
   background-position: center top;
   background-repeat: no-repeat;
@@ -52,12 +54,25 @@
   );
 }
 
-/* Pictures, charts, embeds and the like are plates laid on the page: they
-   cover the grid where they sit, so a rule never runs through a caption or a
+/* Pictures, charts, embeds and the like are plates laid on the page: the
+   essay's rules stop at them, so a rule never runs through a caption or a
    chart. At no specificity, so a block's own background still wins. */
 :where([data-grid='on'] .leaflet-doc)
   > :where(:not(.leaflet-paragraph:not(.leaflet-credit), .leaflet-heading, .leaflet-list, .leaflet-spacer)) {
   background-color: var(--page);
+}
+
+/* The columns carry on through a plate, since it is set on them too: every
+   plate starts on a column line, wherever it hangs, so they are drawn again
+   from its own left edge. A chart's parts hang past its figure into the
+   margins on either side, so they take the same. */
+@media (min-width: 701px) {
+  :where([data-grid='on'] .leaflet-doc)
+    > :where(:not(.leaflet-paragraph:not(.leaflet-credit), .leaflet-heading, .leaflet-list, .leaflet-spacer)),
+  :where([data-grid='on'] .leaflet-doc > .ratioed) > :where(:not(figcaption)) {
+    background-color: var(--page);
+    background-image: var(--grid-columns);
+  }
 }
 
 /* A phone is one column, so the drawing is that column's two edges. */
