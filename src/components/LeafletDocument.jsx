@@ -41,6 +41,8 @@ import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import { SIGNUP_BLOCK_TYPE, signupBlockIds } from '../lib/newsletter.js';
 import NewsletterSignup from './NewsletterSignup.jsx';
 import QuoteShare from './QuoteShare.jsx';
+import { LinkPreviewProvider } from './LinkPreview.jsx';
+import { documentLinks } from '../lib/linkPreviews.js';
 import './LeafletDocument.css';
 
 // Lazy: Ratioed's charts appear in one essay, but they carry the project's
@@ -166,8 +168,12 @@ function collectImages(pages) {
  * highlights the one a `?quote=` link arrived for (QuoteShare.jsx). Only for
  * a site.standard.document, the one kind of record whose quote links unfurl
  * as the passage (see middleware.js).
+ *
+ * `atUri` and `cid` name the record the document belongs to, which is what
+ * its links' hover previews are filed under (LinkPreview.jsx). Without them
+ * (the block editor's preview) the links are plain, as they always were.
  */
-export default function LeafletDocument({ doc, contents = false, quotable = false }) {
+export default function LeafletDocument({ doc, contents = false, quotable = false, atUri = null, cid = null }) {
   const docRef = useRef(null);
   const pages = useMemo(() => (Array.isArray(doc?.pages) ? doc.pages : []), [doc?.pages]);
   // A long piece opens with its contents, and its section heads carry their
@@ -179,6 +185,7 @@ export default function LeafletDocument({ doc, contents = false, quotable = fals
     return found.list.length >= CONTENTS_MIN_SECTIONS ? found : null;
   }, [contents, pages]);
   const images = useMemo(() => collectImages(pages), [pages]);
+  const links = useMemo(() => (atUri ? documentLinks(pages) : []), [atUri, pages]);
   const signupIds = useMemo(() => signupBlockIds(pages), [pages]);
   const cutoff = useEmbedCutoff(pages);
   const indexBySrc = useMemo(() => {
@@ -204,18 +211,20 @@ export default function LeafletDocument({ doc, contents = false, quotable = fals
     <LeafletLightboxContext.Provider value={ctx}>
       <LeafletSectionsContext.Provider value={sections}>
         <LeafletSignupContext.Provider value={signupIds}>
-          <div ref={docRef} className={sections ? 'leaflet-doc reading leaflet-doc-sectioned' : 'leaflet-doc reading'}>
-            {pages.map((page, pi) =>
-              cutoff && pi > cutoff.page ? null : (
-                <LeafletPage
-                  key={pi}
-                  page={page}
-                  firstIndex={pi === 0 ? firstIndex : -1}
-                  upTo={cutoff && pi === cutoff.page ? cutoff.block : null}
-                />
-              ),
-            )}
-          </div>
+          <LinkPreviewProvider atUri={atUri} cid={cid} links={links}>
+            <div ref={docRef} className={sections ? 'leaflet-doc reading leaflet-doc-sectioned' : 'leaflet-doc reading'}>
+              {pages.map((page, pi) =>
+                cutoff && pi > cutoff.page ? null : (
+                  <LeafletPage
+                    key={pi}
+                    page={page}
+                    firstIndex={pi === 0 ? firstIndex : -1}
+                    upTo={cutoff && pi === cutoff.page ? cutoff.block : null}
+                  />
+                ),
+              )}
+            </div>
+          </LinkPreviewProvider>
           {quotable && <QuoteShare docRef={docRef} content={doc} />}
         </LeafletSignupContext.Provider>
         {images.length > 0 && (

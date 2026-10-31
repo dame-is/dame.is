@@ -1,0 +1,390 @@
+/* Hover previews for a document's links (LinkPreview.jsx), and the site icon
+   after each link.
+
+   The card is a slip of the page laid over it: the page's own paper inside a
+   --rule hairline, lifted by a shadow, square like everything else. Its parts
+   keep the reference card's voice (LinkCard.css): the host, then a serif
+   title, then a muted description. The eyebrow names what kind of place the
+   link opens; the foot, the address it really ends up at. */
+
+/* The icon after a link's last word, about a cap height tall. The word and
+   the icon share a no-wrap run, so the icon never starts a line alone. */
+.post-rich-link-end:has(.post-rich-link-icon) {
+  white-space: nowrap;
+}
+
+.post-rich-link-icon {
+  display: inline-block;
+  width: 0.68em;
+  height: 0.68em;
+  margin-left: 0.22em;
+  vertical-align: 0.04em;
+  object-fit: contain;
+  text-indent: 0;
+}
+
+/* Room held while the previews load, so the paragraph doesn't reflow when
+   the icons land. */
+.post-rich-link-icon.is-pending {
+  visibility: hidden;
+}
+
+.post-rich-link.is-previewing {
+  border-bottom-color: var(--accent);
+  background: var(--wash-hover);
+}
+
+/* The card, floating by its link. Under the chrome bars and the quote
+   toolbar (z 28–31), over everything in the page. */
+.link-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 27;
+  width: min(22rem, calc(100vw - 2 * var(--space-4)));
+  cursor: pointer;
+}
+
+.link-preview-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--page);
+  border: 1px solid var(--rule);
+  box-shadow:
+    0 18px 40px -20px var(--shadow),
+    0 4px 14px -8px var(--shadow);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  font-style: normal;
+  line-height: 1.4;
+  text-align: left;
+  text-indent: 0;
+  overflow: hidden;
+  animation: link-preview-in 140ms ease-out;
+}
+
+.link-preview[data-side='above'] .link-preview-card {
+  animation-name: link-preview-in-above;
+}
+
+@keyframes link-preview-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes link-preview-in-above {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link-preview-card,
+  .link-preview[data-side='above'] .link-preview-card {
+    animation: none;
+  }
+}
+
+.link-preview-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.link-preview-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  object-fit: contain;
+}
+
+.link-preview-host {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.link-preview-kind {
+  margin-left: auto;
+  padding-left: var(--space-2);
+  white-space: nowrap;
+  color: var(--ink-faint);
+}
+
+.link-preview-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+  padding: var(--space-3);
+}
+
+.link-preview-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.22;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-preview-meta {
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.link-preview-desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--ink-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The share image, at the 1.91:1 every og:image is drawn for. Its box is
+   there before the picture is, so the card never changes size under the
+   pointer. */
+.link-preview-image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1.91 / 1;
+  object-fit: cover;
+  background: var(--page-edge);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.link-preview-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--rule-soft);
+  color: var(--ink-faint);
+}
+
+.link-preview-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: calc(var(--text-2xs) * var(--mono-scale));
+}
+
+.link-preview-path b {
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+.link-preview-go {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: var(--text-meta);
+  color: var(--accent);
+}
+
+/* A post: who, when, what they said. Avatars square in a hairline, as an
+   embedded post draws them (PostEmbed.css). */
+.link-preview-author {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.link-preview-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+  background: var(--page-edge);
+}
+
+.link-preview-avatar.is-initial {
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: var(--text-lg);
+  color: var(--ink-muted);
+}
+
+.link-preview-who {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.link-preview-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-preview-handle {
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-preview-when {
+  margin-left: auto;
+  align-self: start;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.link-preview-text {
+  margin: 0;
+  line-height: 1.42;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-preview-text.is-bio {
+  -webkit-line-clamp: 4;
+  color: var(--ink-soft);
+}
+
+.link-preview-post-image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+  background: var(--page-edge);
+}
+
+/* A post's link card, one nest step in, as a card inside a card is drawn
+   everywhere else (theme.css, the nesting scale). */
+.link-preview-ext {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  border: 1px solid var(--rule-soft);
+  background: var(--page-edge);
+  background: color-mix(in oklab, var(--ink) var(--nest-step), var(--page));
+}
+
+.link-preview-ext-thumb {
+  display: block;
+  width: 3.75rem;
+  height: 100%;
+  min-height: 2.75rem;
+  object-fit: cover;
+}
+
+.link-preview-ext-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  padding: var(--space-1) var(--space-2);
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.link-preview-ext-title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-preview-ext-host {
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+/* A profile: the banner across the top, the avatar standing on its edge. */
+.link-preview-banner {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+  background: var(--page-edge);
+}
+
+.is-profile .link-preview-body {
+  padding-top: 0;
+}
+
+.link-preview-avatar.is-large {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-top: -1.75rem;
+  border: 3px solid var(--page);
+  box-sizing: content-box;
+  position: relative;
+}
+
+/* Wikipedia: the section the link points at, the page's title and gloss
+   beside its picture, then the summary. */
+.link-preview-section {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.link-preview-wiki {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.link-preview-wiki-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.link-preview-gloss {
+  font-style: italic;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.link-preview-thumb {
+  width: 4.75rem;
+  height: 4.75rem;
+  object-fit: contain;
+  background: var(--page-edge);
+  border: 1px solid var(--rule-soft);
+}
+
+.link-preview-desc.is-extract {
+  -webkit-line-clamp: 6;
+  color: var(--ink-soft);
+}
+
+@media print {
+  .link-preview {
+    display: none;
+  }
+}

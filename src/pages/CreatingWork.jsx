@@ -176,6 +176,8 @@ export default function CreatingWork() {
           {v?.content?.pages ? (
             <LeafletDocument
               doc={v.content}
+              atUri={record?.uri}
+              cid={record?.cid}
               contents
               quotable={String(record?.uri || '').includes(`/${STANDARD_DOC}/`)}
             />
