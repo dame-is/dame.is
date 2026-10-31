@@ -104,6 +104,9 @@
 }
 
 .newsletter--inline .newsletter-input {
+  /* A To line is one line: the field gives way to the button on a phone
+     rather than pushing it onto a line of its own, until neither fits. */
+  flex-basis: 8rem;
   background: var(--page);
 }
 
@@ -173,31 +176,30 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A phone keeps the letter inside the type area, on the page grid's column
+   lines like everything else on the page, and takes the room it needs from
+   its own padding instead of the page's margins. */
 @media (max-width: 700px) {
-  .sub-mail {
-    margin-inline: calc(-1 * var(--space-4));
-    border-inline: 0;
-  }
-
   .sub-mail-head {
-    padding-inline: var(--space-4);
+    padding-inline: var(--space-3);
   }
 
   .sub-mail-field {
     grid-template-columns: 3.75rem minmax(0, 1fr);
+    gap: var(--space-2);
   }
 
   .sub-mail-to {
-    margin-inline: calc(-1 * var(--space-4));
-    padding-inline: var(--space-4);
+    margin-inline: calc(-1 * var(--space-3));
+    padding-inline: var(--space-3);
   }
 
   .sub-mail-body {
-    padding: var(--space-5) var(--space-4) 0;
+    padding: var(--space-5) var(--space-3) 0;
   }
 
   .sub-mail-nav {
-    padding-inline: var(--space-4);
+    padding-inline: var(--space-3);
   }
 }
 
