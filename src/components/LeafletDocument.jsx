@@ -207,7 +207,7 @@ export default function LeafletDocument({ doc, contents = false, quotable = fals
     <LeafletLightboxContext.Provider value={ctx}>
       <LeafletSectionsContext.Provider value={sections}>
         <LeafletSignupContext.Provider value={signupIds}>
-          <div ref={docRef} className={sections ? 'leaflet-doc leaflet-doc-sectioned' : 'leaflet-doc'}>
+          <div ref={docRef} className={sections ? 'leaflet-doc reading leaflet-doc-sectioned' : 'leaflet-doc reading'}>
             {pages.map((page, pi) =>
               cutoff && pi > cutoff.page ? null : (
                 <LeafletPage
@@ -530,9 +530,9 @@ function LeafletPage({ page, firstIndex = -1, upTo = null }) {
 // document's rhythm (LeafletDocument.css); it rides in as --hint-top and
 // --hint-bottom, which the rhythm adds to the block's own.
 const BLOCK_SPACE_SCALE = {
-  sm: 'var(--line-prose)',
-  md: 'calc(2 * var(--line-prose))',
-  lg: 'calc(3 * var(--line-prose))',
+  sm: 'var(--rhythm-l)',
+  md: 'calc(2 * var(--rhythm-l))',
+  lg: 'calc(3 * var(--rhythm-l))',
 };
 
 // The author's paragraph roles (dame.is rendering extension, set in the admin

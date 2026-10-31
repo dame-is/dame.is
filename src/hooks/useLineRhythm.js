@@ -7,14 +7,17 @@ const HUNG = '.leaflet-credit';
 // has its rule and a little space above the line (LeafletDocument.css).
 const LINE_INSIDE = '.leaflet-heading';
 
-// The baseline's depth in a line box of the document's text, which is where
-// the drawn rule goes (grid.css). Measured, because it depends on the face's
-// own ascent and descent; kept once the fonts have loaded.
-const baselines = new Map();
+// One line box of the document's text as the browser draws it, and the
+// baseline's depth in it, which is where the drawn rule goes (grid.css). The
+// line is measured rather than read from the stylesheet because a line that
+// isn't a whole pixel is rounded to the layout's own unit, and the depth
+// because it depends on the face's ascent and descent. Kept once the fonts
+// have loaded.
+const metrics = new Map();
 
-function baselineDepth(cs) {
+function lineMetrics(cs) {
   const key = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily} ${cs.lineHeight}`;
-  if (baselines.has(key)) return baselines.get(key);
+  if (metrics.has(key)) return metrics.get(key);
   const probe = document.createElement('div');
   probe.setAttribute('aria-hidden', 'true');
   Object.assign(probe.style, {
@@ -32,20 +35,21 @@ function baselineDepth(cs) {
   Object.assign(mark.style, { display: 'inline-block', width: '0', height: '0' });
   probe.append(mark, 'x');
   document.body.append(probe);
-  const depth = mark.getBoundingClientRect().top - probe.getBoundingClientRect().top;
+  const box = probe.getBoundingClientRect();
+  const found = { line: box.height, depth: mark.getBoundingClientRect().top - box.top };
   probe.remove();
-  if (document.fonts?.status === 'loaded') baselines.set(key, depth);
-  return depth;
+  if (document.fonts?.status === 'loaded') metrics.set(key, found);
+  return found;
 }
 
 /** Measure the document's blocks and write the pads and the rule's phase. All
  *  the reads come before any write, so it costs one layout. */
 function settle(doc) {
   const cs = getComputedStyle(doc);
-  const line = parseFloat(cs.lineHeight);
   // Not on screen (print), or the rhythm's stylesheet isn't in.
-  if (!(line > 0) || cs.display !== 'flex') return;
-  const baseline = baselineDepth(cs);
+  if (cs.display !== 'flex') return;
+  const { line, depth: baseline } = lineMetrics(cs);
+  if (!(line > 0)) return;
   const blocks = [];
   for (const el of doc.children) {
     if (el.getClientRects().length === 0) continue;
@@ -68,9 +72,12 @@ function settle(doc) {
     if (pad) blocks[i].style.setProperty('--rhythm-pad', `${pad}px`);
     else blocks[i].style.removeProperty('--rhythm-pad');
   });
-  // The baseline's depth is the face's alone; the phase also counts where the
-  // first line starts. A part's rule is placed by the first, so it can't feed
-  // back into the second when a document opens on a part.
+  // The line, at full precision: it is the layout's own unit, and rounding it
+  // would bring back the drift it is measured to prevent. The baseline's
+  // depth is the face's alone; the phase also counts where the first line
+  // starts. A part's rule is placed by the first, so it can't feed back into
+  // the second when a document opens on a part.
+  doc.style.setProperty('--rhythm-line', `${line}px`);
   doc.style.setProperty('--rhythm-baseline', `${Math.round(baseline * 100) / 100}px`);
   doc.style.setProperty('--rhythm-phase', `${rhythmPhase(tops[0], baseline, line)}px`);
 }

@@ -1,24 +1,15 @@
-/* The essay setting: 20/31 in a 28em measure (--measure-prose), about 66
-   characters a line, stepping to 18/28 on a phone. The line is a length
-   (--line-prose), not a ratio, because everything in a document is spaced in
-   whole lines of it: see "The line rhythm" at the end of this file. */
+/* A document. Its size and leading come from the reading context it also
+   wears (`.reading`, typography.css): 18 on 28.8 in the text column at every
+   width, about 76 characters a line. Everything in a document is spaced in
+   whole lines of it: see "The line rhythm" at the end of this file. (Phones
+   were meant to step down to 18px from 20, but the rule that did it set
+   --text-prose on :root here, and this sheet lands ahead of theme.css in the
+   bundle, so it never applied.) */
 .leaflet-doc {
-  font-family: var(--serif);
-  font-size: var(--text-prose);
-  line-height: var(--line-prose);
   color: var(--ink);
   /* Long unbreakable tokens (bare URLs, AT URIs, NSIDs) must wrap instead of
      pushing the column wide and forcing a horizontal scroll. */
   overflow-wrap: break-word;
-}
-
-@media (max-width: 700px) {
-  :root {
-    --text-prose: 1.125rem;
-    /* 1.556, the nearest whole pixel to 1.55, so a phone's lines don't
-       gather a fraction of a pixel each down a long essay. */
-    --line-prose: 1.75rem;
-  }
 }
 
 /* One paragraph signal: the indent. No paragraph carries space below it, so
@@ -117,22 +108,24 @@
 /* The heading ladder: levels told apart by style as well as size, each set on
    a line of the text with a blank line above it (two for a part, with its
    rule between them) and its section starting on the next line. The page
-   title is the h1, so a document's headings start at h2. (h4 to h6 used to
-   fall back to body size through an undefined --text-md, so the guide's 46
-   of them read as bold sentences.) */
+   title is the h1, so a document's headings start at h2. Sizes are in em of
+   the reading size, so the ladder holds its proportions wherever the text is
+   set: 27 and 21.6px on screen, 17.25 and 13.8pt over print's 11.5pt. (h4 to
+   h6 used to fall back to body size through an undefined --text-md, so the
+   guide's 46 of them read as bold sentences.) */
 .leaflet-heading {
   font-family: var(--serif);
-  line-height: 1.2;
+  line-height: var(--leading-heading);
   text-wrap: balance;
 }
 
 .leaflet-heading-2 {
-  font-size: var(--text-2xl);
+  font-size: 1.5em;
   font-weight: 600;
   border-top: 1px solid var(--rule-soft);
 }
 .leaflet-heading-3 {
-  font-size: var(--text-xl);
+  font-size: 1.2em;
   font-style: italic;
   font-weight: 500;
 }
@@ -589,14 +582,20 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 }
 
 /* ── The line rhythm ────────────────────────────────────────────────
-   Every line of a document's text lands on one rhythm, a line of the essay
-   (--line-prose) apart, from the first paragraph to the last, past headings,
-   quotations, lists and pictures. Text is set on whole lines of it and the
-   space between blocks is whole lines too. Anything whose height is its own
+   Every line of a document's text lands on one rhythm, a line of the reading
+   setting (--line-prose, 28.8px) apart, from the first paragraph to the
+   last, past headings, quotations, lists and pictures. Text is set on whole
+   lines of it and the space between blocks is whole lines too. Anything whose height is its own
    (a picture, an embed, a chart, a code sample, a credit) is followed by just
    the space that brings the next line back onto the rhythm, which
    useLineRhythm measures and writes onto that next block as --rhythm-pad.
    With the grid drawn (grid.css) the rhythm is the rule under each line.
+
+   On screen the unit is --rhythm-l: the line as the browser draws it, which
+   the hook measures and writes as --rhythm-line, so that a line that isn't a
+   whole pixel (28.8 is 28.797 in Chromium's layout units) can't gather a
+   fraction a line down a long essay; before the hook has run, the line as
+   specified.
 
    A block's space is its --above and --below. On screen the document is a
    flex column, so margins add and never collapse, through a block or between
@@ -608,6 +607,7 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
    block. */
 @media screen {
   .leaflet-doc {
+    --rhythm-l: var(--rhythm-line, var(--line-prose));
     display: flex;
     flex-direction: column;
   }
@@ -630,14 +630,6 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   margin-block: var(--rhythm-mt) var(--rhythm-mb);
 }
 
-/* Only the text is set on the line. Anything else in a document (a code
-   sample, an embedded post, a chart, and whatever block comes next) keeps the
-   setting's ratio rather than inheriting 31px lines; at no specificity, so a
-   block's own leading still wins. */
-:where(.leaflet-doc) > :where(:not(.leaflet-paragraph, .leaflet-heading, .leaflet-list, .leaflet-spacer)) {
-  line-height: 1.55;
-}
-
 /* A raised figure or a superscript would make its line taller than the rest
    and push every line after it off the rhythm; inline code is set in another
    face, whose own line box sits a pixel or two lower. */
@@ -651,12 +643,12 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 
 /* An empty paragraph is a blank line. */
 .leaflet-doc > .leaflet-spacer {
-  --above: var(--line-prose);
+  --above: var(--rhythm-l);
 }
 
 .leaflet-doc > .leaflet-inset {
-  --above: var(--line-prose);
-  --below: var(--line-prose);
+  --above: var(--rhythm-l);
+  --below: var(--rhythm-l);
 }
 
 /* Quotations in a row share the blank line between them. */
@@ -665,11 +657,11 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 }
 
 .leaflet-doc > :not(.leaflet-stack) + .leaflet-stack {
-  --above: var(--line-prose);
+  --above: var(--rhythm-l);
 }
 
 .leaflet-doc > .leaflet-stack:not(:has(+ .leaflet-stack)) {
-  --below: var(--line-prose);
+  --below: var(--rhythm-l);
 }
 
 /* A heading takes one line of the text however large it is set, with a blank
@@ -677,14 +669,14 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
    drawn rule would fall (grid.css), so with the grid on it is that line's rule
    drawn darker rather than a second line beside it. */
 .leaflet-doc > .leaflet-heading {
-  --above: var(--line-prose);
-  line-height: var(--line-prose);
+  --above: var(--rhythm-l);
+  line-height: var(--rhythm-l);
 }
 
 .leaflet-doc > .leaflet-heading-2 {
-  --rule-depth: var(--rhythm-baseline, calc(var(--line-prose) * 0.71));
-  --above: calc(var(--line-prose) + var(--rule-depth));
-  padding-top: calc(var(--line-prose) - var(--rule-depth) - 1px);
+  --rule-depth: var(--rhythm-baseline, calc(var(--rhythm-l) * 0.71));
+  --above: calc(var(--rhythm-l) + var(--rule-depth));
+  padding-top: calc(var(--rhythm-l) - var(--rule-depth) - 1px);
 }
 
 /* A figure, an embed, a chart: a blank line above, and at least 12px below
@@ -702,12 +694,12 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
     .ratioed,
     .skeleton-doc-figure
   ) {
-  --above: var(--line-prose);
+  --above: var(--rhythm-l);
   --below: var(--space-3);
 }
 
 .leaflet-doc > .leaflet-contents {
-  --above: var(--line-prose);
+  --above: var(--rhythm-l);
 }
 
 .leaflet-doc > .ratioed-note {
@@ -733,7 +725,7 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 
 @media print {
   .leaflet-doc {
-    --line-prose: 1.5em;
+    --rhythm-l: 1.5em;
     --rhythm-live: 0;
   }
 }

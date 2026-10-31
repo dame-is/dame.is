@@ -170,3 +170,169 @@
   margin: 0;
   font-size: var(--text-sm);
 }
+
+/* The type (ColophonType.jsx), set on the page grid it documents: each row's
+   key in the note column and its specimen in the text column, one column on
+   a phone. Sizes and leadings are read back from the page as it renders. */
+.kit-type {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.kit-type .section-head {
+  margin-bottom: 0;
+}
+
+.kit-type :is(.kit-type-sample, .kit-type-note) {
+  margin: 0;
+  max-width: none;
+  text-indent: 0;
+}
+
+/* Prose about the type starts on the text column, like the text it shows. */
+.kit-type :is(.kit-type-lead, .kit-type-aside, .kit-type-rules) {
+  margin-block: 0;
+  margin-inline: var(--text-inset) 0;
+  max-width: var(--text);
+  text-indent: 0;
+}
+
+.kit-type-lead {
+  color: var(--ink-soft);
+}
+
+.kit-type-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.kit-type-block-title {
+  margin: 0;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.kit-type-roles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kit-type-row {
+  display: grid;
+  grid-template-columns: var(--note) minmax(0, var(--text));
+  column-gap: var(--gutter);
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.kit-type-key {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  font-size: var(--type-meta);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+}
+
+.kit-type-key .ident {
+  white-space: nowrap;
+}
+
+.kit-type-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.kit-type-figure {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.kit-type-sample:not(.page-title) {
+  line-height: var(--leading-tight);
+}
+
+.kit-type-note,
+.kit-type-aside {
+  font-size: var(--type-caption);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+}
+
+.kit-type-note {
+  margin-top: var(--space-2);
+}
+
+.kit-type-home {
+  color: var(--ink-soft);
+}
+
+.kit-type-reading .leaflet-doc > :first-child {
+  margin-top: 0;
+}
+
+.kit-type-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3) var(--space-5);
+}
+
+.kit-type-steps li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  font-size: var(--type-meta);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+}
+
+.kit-type-step {
+  line-height: var(--leading-solid);
+  color: var(--ink);
+}
+
+.kit-type-leading {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+  font-size: var(--type-meta);
+}
+
+.kit-type-leading dd {
+  margin: 0.15rem 0 0;
+  font-size: var(--type-caption);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+}
+
+.kit-type-rules {
+  padding-left: 1.25em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  line-height: var(--leading-ui);
+}
+
+@media (max-width: 700px) {
+  .kit-type-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-2);
+  }
+
+  .kit-type-key {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--space-3);
+  }
+}
