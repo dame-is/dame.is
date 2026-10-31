@@ -371,6 +371,35 @@ html {
   padding: 0;
 }
 
+/* The pen and the shuffle sit at the row's right end, apart from the three
+   destinations. On a desk the row is on the page grid: each destination a
+   column wide, and the pen and the shuffle together in the type area's last
+   column, one against each of its edges, so the row ends on the type area's
+   right edge. */
+.home-hero-guestbook-btn {
+  margin-left: auto;
+}
+
+@media (min-width: 701px) {
+  .home-hero-cta {
+    display: grid;
+    grid-template-columns: repeat(3, var(--col)) minmax(0, 1fr) var(--col);
+    column-gap: var(--gutter);
+  }
+  .home-hero-guestbook-btn,
+  .home-hero-shuffle {
+    grid-row: 1;
+    grid-column: 5;
+  }
+  .home-hero-guestbook-btn {
+    justify-self: start;
+    margin-left: 0;
+  }
+  .home-hero-shuffle {
+    justify-self: end;
+  }
+}
+
 @media (pointer: coarse) {
   .home-hero-cta-btn {
     min-height: var(--control-h-touch);
