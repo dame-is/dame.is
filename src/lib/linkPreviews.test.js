@@ -223,6 +223,14 @@ describe('sentencesUpTo', () => {
     expect(sentencesUpTo('One. Two two. Three three three.', 15)).toBe('One. Two two.');
     expect(sentencesUpTo('Short.', 100)).toBe('Short.');
   });
+  it('doesn’t take the point in a version number for the end of a sentence', () => {
+    const text =
+      'Sherlock is a search tool carried through to early versions of Mac OS X. Sherlock was introduced in 1998 with Mac OS 8.5 as an extension of Finder. It searched the web too.';
+    expect(sentencesUpTo(text, 160)).toBe(
+      'Sherlock is a search tool carried through to early versions of Mac OS X. Sherlock was introduced in 1998 with Mac OS 8.5 as an extension of Finder.',
+    );
+    expect(sentencesUpTo(text, 100)).toBe('Sherlock is a search tool carried through to early versions of Mac OS X.');
+  });
 });
 
 describe('building previews', () => {

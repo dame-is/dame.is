@@ -387,7 +387,10 @@ export function monthFromPath(url) {
 export function sentencesUpTo(text, max = 360) {
   const s = collapse(text);
   if (s.length <= max) return s;
-  const parts = s.match(/[^.!?]+[.!?]+["”’)]?(\s|$)/g) || [];
+  // A sentence ends at a stop followed by a space or the end, so the point
+  // inside "Mac OS 8.5" or "e.g." mid-word never cuts one in two. The pieces
+  // run on from each other, so joined they are the text as written.
+  const parts = s.match(/[\s\S]*?[.!?]+["”’)]?(?=\s|$)/g) || [];
   let out = '';
   for (const p of parts) {
     if ((out + p).length > max) break;
