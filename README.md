@@ -228,6 +228,44 @@ whole flow is described in [`src/lib/newsletter.js`](src/lib/newsletter.js).
   there, where the form says thanks. The path is rewritten to that function in
   `vercel.json` and kept out of the middleware like the other non-SPA paths.
 
+## Link previews
+
+Every link in an essay, a work or the long-form profile ends on the icon of
+the site it goes to, and hovering it (or tabbing to it) opens a card saying
+where it leads: a Bluesky post's author, words and counts; a profile's banner
+and bio; an article's headline, byline and date; a Wikipedia summary, with the
+section linked to; a post on X; a Leaflet or other standard.site document's
+publication; or a site's own description and share image. The card's foot
+shows the address, and where the link really lands when it redirects
+(`attie.ai → attie.ai/login`, `twitter.com → x.com`). Touch opens nothing; a
+tap follows the link as before.
+
+- **Looked up at build time.** `scripts/prefetch.mjs` walks every document's
+  link facets and writes one file per document,
+  `public/data/link-previews/<collection>/<rkey>.json`, with each link's
+  preview, the icons (32px WebP, inlined), and the links it couldn't read.
+  Share images are shrunk with `sharp` into `public/data/link-previews/img/`,
+  so a reader's browser never asks another site for anything. A link that
+  can't be read keeps the previous build's preview.
+- **Each kind of place in its own terms.** Bluesky posts and profiles from
+  the public AppView, Wikipedia from its page-summary API, X from
+  `publish.twitter.com` oEmbed, a standard.site document from the record its
+  page declares (read through Slingshot), and everything else from the
+  page's `<head>`, fetched through the SSRF guard with every redirect
+  re-checked. The shared, pure half is
+  [`src/lib/linkPreviews.js`](src/lib/linkPreviews.js); the fetching half is
+  [`api/_lib/linkPreviews.js`](api/_lib/linkPreviews.js).
+- **Newer than the build.** A document published or edited since the last
+  build asks [`api/link-previews.js`](api/link-previews.js) for the links its
+  file doesn't have. It only reads the owner's own documents, takes the
+  record's current `cid` (so the CDN can keep each version's answer for a
+  week), and sends pictures through the image proxy until the next build
+  shrinks them.
+- **Drawn by** [`src/components/LinkPreview.jsx`](src/components/LinkPreview.jsx):
+  `LeafletDocument` provides the previews when its page passes `atUri` and
+  `cid`; without them (the block editor's preview) links are drawn exactly as
+  before.
+
 ## Local development
 
 ```sh

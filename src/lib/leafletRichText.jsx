@@ -1,9 +1,10 @@
 import { Fragment } from 'react';
-import { Link } from 'react-router-dom';
 import { isLikelyBareHttpUrl, truncateUrlDisplay } from './feedUrlFormat.jsx';
 import { safeHref } from './safeHref.js';
 import { smartenText } from './smartPunctuation.js';
 import { isSubscribeLink, SUBSCRIBE_PATH } from './newsletter.js';
+import { splitLinkEnd } from './linkPreviews.js';
+import { LinkEnd, PreviewLink } from '../components/LinkPreview.jsx';
 
 // Facet features whose text must reach the page exactly as written: a curled
 // quote in code or a URL changes what the reader copies.
@@ -189,41 +190,51 @@ function wrapWithFeatures(features, text) {
   const useTrunc = Boolean(link?.uri) && isLikelyBareHttpUrl(text);
   const sourceText = useTrunc ? truncateUrlDisplay(trimmed) : text;
 
-  let node = withLineBreaks(sourceText);
+  // The link URI is foreign record data, so gate it through the scheme
+  // allowlist. A rejected URI falls through to the plain formatted node,
+  // so a hostile URI never becomes a live link.
+  const href = link?.uri ? safeHref(link.uri) : undefined;
+
+  // A link ends on its site's icon (LinkPreview.jsx), held to its last word
+  // so the icon never begins a line by itself. Outside a document that
+  // looks links up, the two halves are drawn as the one run of text.
+  let node;
+  if (href) {
+    const [head, end] = splitLinkEnd(sourceText);
+    node = (
+      <>
+        {withLineBreaks(head)}
+        <LinkEnd url={link.uri}>{withLineBreaks(end)}</LinkEnd>
+      </>
+    );
+  } else {
+    node = withLineBreaks(sourceText);
+  }
   for (const t of formatTypes) {
     const Wrapper = INLINE_FORMATS[t];
     node = <Wrapper>{node}</Wrapper>;
   }
 
-  // The link URI is foreign record data, so gate it through the scheme
-  // allowlist. A rejected URI falls through to the plain formatted node,
-  // so a hostile URI never becomes a live link.
-  const href = link?.uri ? safeHref(link.uri) : undefined;
   if (href) {
     // A link whose words don't say where it goes ("(source)", "shortcut
     // link") names its host on hover. It used to be a sidenote in the
-    // essay's margin, which the one-column page no longer has.
+    // essay's margin, which the one-column page no longer has. Where the
+    // document has a preview for the link, the preview card says it instead.
     const titleAttr =
       useTrunc && sourceText.length < trimmed.length ? trimmed : hostOf(href) || undefined;
     // A link to the newsletter, the page's or a form's, opens the
     // newsletter's page in this tab rather than leaving the site in another.
     if (isSubscribeLink(href)) {
       return (
-        <Link className="post-rich-link" to={SUBSCRIBE_PATH}>
+        <PreviewLink className="post-rich-link" url={link.uri} to={SUBSCRIBE_PATH}>
           {node}
-        </Link>
+        </PreviewLink>
       );
     }
     return (
-      <a
-        className="post-rich-link"
-        href={href}
-        target="_blank"
-        rel="noreferrer noopener"
-        title={titleAttr}
-      >
+      <PreviewLink className="post-rich-link" url={link.uri} href={href} title={titleAttr}>
         {node}
-      </a>
+      </PreviewLink>
     );
   }
   return node;

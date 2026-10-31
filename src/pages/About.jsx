@@ -178,7 +178,7 @@ export default function About() {
 
       {blockBody && (
         <div className="blog-prose about-longform">
-          <LeafletDocument doc={blockBody} />
+          <LeafletDocument doc={blockBody} atUri={extended?.uri} cid={extended?.cid} />
         </div>
       )}
       {longHtml && (

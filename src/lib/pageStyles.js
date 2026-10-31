@@ -19,6 +19,7 @@
 // recomputes it from the source and fails, printing the list, when a page
 // gains or loses a stylesheet.
 
+import '../components/LinkPreview.css';
 import '../components/WaypointsSheet.css';
 import '../components/ScrollFrame.css';
 import '../components/RatioedHandle.css';

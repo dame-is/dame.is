@@ -30,7 +30,7 @@
 // per-collection errors so a missing or renamed lexicon (e.g. teal.fm)
 // degrades to an empty array.
 
-import { writeFile, readFile, mkdir } from 'node:fs/promises';
+import { writeFile, readFile, mkdir, access } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -83,6 +83,8 @@ import {
   workSlug,
 } from '../src/lib/publications.js';
 import { rosterFromEvents, mergeRoster } from '../src/lib/ratioedRoster.js';
+import { documentLinks, linkPreviewsName } from '../src/lib/linkPreviews.js';
+import { buildMedia, liveMedia, resolveLinks } from '../api/_lib/linkPreviews.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -743,6 +745,111 @@ function buildAtomFeed({ blogRecords, builtAt }) {
   );
 }
 
+/**
+ * The hover previews for every link in every document (src/lib/linkPreviews.js):
+ * one file per document at data/link-previews/<collection>/<rkey>.json, so an
+ * essay downloads only its own, holding each link's preview, the icons of the
+ * sites it links to (inlined, since they show beside the links at once) and the
+ * links that couldn't be read. Share images are shrunk and written beside them
+ * under data/link-previews/img, so no reader's browser asks another site for one.
+ *
+ * Every link is looked up once however many documents hold it, and the whole
+ * pass is bounded, so a slow site costs its own preview and never the build. A
+ * link that can't be read this time keeps the last build's preview, the
+ * picture included, the way the snapshots above keep their last good copy.
+ */
+async function writeLinkPreviews(records) {
+  const docs = (records || [])
+    .filter((r) => r?.uri && r?.value && !isDraft(r.value) && linkPreviewsName(r.uri))
+    .map((r) => ({ uri: r.uri, cid: r.cid || null, links: documentLinks(r.value.content ?? r.value) }))
+    .filter((d) => d.links.length > 0);
+  if (!docs.length) return { documents: 0, links: 0, failed: 0, carried: 0 };
+
+  const imgDir = resolve(OUT, 'link-previews/img');
+  await mkdir(imgDir, { recursive: true });
+  let media;
+  try {
+    const { default: sharp } = await import('sharp');
+    media = buildMedia({ sharp, dir: imgDir, writeFile });
+  } catch (err) {
+    // Without sharp the pictures can't be shrunk; send them through the image
+    // proxy as the live endpoint does, and keep only the icons already small.
+    warn(`link previews: sharp unavailable (${err?.message || err}), using the live endpoint's media`);
+    media = liveMedia();
+  }
+
+  const urls = [...new Set(docs.flatMap((d) => d.links))];
+  const started = Date.now();
+  const { previews, icons, failed } = await resolveLinks(urls, {
+    media,
+    concurrency: 10,
+    deadlineMs: 120_000,
+    log: warn,
+  });
+  log(`link previews: ${urls.length - failed.length}/${urls.length} links read in ${Math.round((Date.now() - started) / 1000)}s`);
+
+  // A picture the last build shrank, fetched back from the deployed copy, since
+  // public/data starts empty on CI. '' when it can't be had.
+  const carryImage = async (src) => {
+    if (typeof src !== 'string' || !src.startsWith('/data/link-previews/img/')) return src || '';
+    const local = resolve(PUBLIC, `.${src}`);
+    try {
+      await access(local);
+      return src;
+    } catch {
+      /* not on disk yet — fetch it below */
+    }
+    try {
+      const res = await fetch(`${SITE_ORIGIN}${src}`, { signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) return '';
+      await writeFile(local, Buffer.from(await res.arrayBuffer()));
+      return src;
+    } catch {
+      return '';
+    }
+  };
+
+  const builtAt = new Date().toISOString();
+  let carried = 0;
+  let stillFailed = 0;
+  for (const doc of docs) {
+    const name = linkPreviewsName(doc.uri);
+    const path = resolve(OUT, `${name}.json`);
+    const file = { uri: doc.uri, cid: doc.cid, builtAt, previews: {}, icons: {}, failed: [] };
+    let previous;
+    for (const url of doc.links) {
+      let preview = previews[url];
+      let iconValue = preview?.icon ? icons[preview.icon] : '';
+      if (!preview) {
+        previous ??= (await previousSnapshotData(name, path)) || {};
+        const prev = previous.previews?.[url];
+        if (prev) {
+          preview = { ...prev };
+          for (const key of ['image', 'thumb']) {
+            if (preview[key]) preview[key] = await carryImage(preview[key]);
+            if (!preview[key]) delete preview[key];
+          }
+          iconValue = prev.icon ? previous.icons?.[prev.icon] || '' : '';
+          carried += 1;
+        }
+      }
+      if (!preview) {
+        file.failed.push(url);
+        stillFailed += 1;
+        continue;
+      }
+      if (preview.icon && iconValue) file.icons[preview.icon] = iconValue;
+      else delete preview.icon;
+      file.previews[url] = preview;
+    }
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, serializeSnapshot(file), 'utf-8');
+  }
+  if (carried) warn(`link previews: ${carried} kept from the previous build`);
+  log(`wrote link previews for ${docs.length} document(s), ${stillFailed} link(s) unread`);
+  return { documents: docs.length, links: urls.length, failed: stillFailed, carried };
+}
+
 async function main() {
   log(`me=${ME_DID}`);
   let pds = await safe('resolvePds', () => resolvePds(ME_DID), null);
@@ -1156,6 +1263,22 @@ async function main() {
 
   await writeFirstSightings(mothing, written);
 
+  // --- Link previews (every document's links, looked up once) ---------------
+  // From what landed on disk, so the previews describe the documents the site
+  // will actually serve. One attempt: the pass is long, bounded, and carries
+  // the last build's previews forward for any link it can't read.
+  const linkPreviewStats = await safe(
+    'linkPreviews',
+    () =>
+      writeLinkPreviews([
+        ...(Array.isArray(written.blogs) ? written.blogs : []),
+        ...(Array.isArray(written.creations) ? written.creations : []),
+        ...(extendedProfile?.value ? [extendedProfile] : []),
+      ]),
+    null,
+    { attempts: 1 },
+  );
+
   await writeResume({
     resumes,
     jobs: resumeJobs,
@@ -1260,6 +1383,9 @@ async function main() {
     // Recorded rather than consumed: Home counts the trimmed feed today. Keys
     // match FeedFilters.feedFilterCounts (verb names + `replying`).
     feedCounts: feedFilterCounts(unified, ME_DID),
+    // The hover previews: documents and links looked up, and how many links
+    // neither this build nor the last could read.
+    linkPreviews: linkPreviewStats,
     homeFeedCount: homeFeed.length,
     // §8.3: snapshots kept from a prior good build instead of an empty fetch.
     preserved: preservedSnapshots,
