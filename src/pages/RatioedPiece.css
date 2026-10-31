@@ -173,6 +173,15 @@
   margin: 0;
   font-size: var(--text-sm);
 }
+
+/* On a desk, the names in two columns of the page grid and the values from
+   the third. */
+@media (min-width: 701px) {
+  .ratioed-piece-kv {
+    grid-template-columns: calc(2 * var(--col) + var(--gutter)) minmax(0, 1fr);
+    column-gap: var(--gutter);
+  }
+}
 .ratioed-piece-kv dt { color: var(--ink-muted); }
 .ratioed-piece-kv dd { margin: 0; overflow-wrap: anywhere; }
 

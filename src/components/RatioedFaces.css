@@ -21,6 +21,14 @@
   gap: var(--space-4) var(--space-3);
 }
 
+/* On a desk, a face to a column of the page grid. */
+@media (min-width: 701px) {
+  .ratioed-faces-grid {
+    grid-template-columns: repeat(auto-fill, minmax(var(--col), 1fr));
+    column-gap: var(--gutter);
+  }
+}
+
 .ratioed-face { min-width: 0; }
 .ratioed-face-link {
   display: flex;

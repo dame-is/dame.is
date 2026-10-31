@@ -116,6 +116,7 @@ import { ChromePanelProvider } from './hooks/useChromePanel.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { FontProvider } from './hooks/useFont.jsx';
 import { PaperProvider } from './hooks/usePaper.jsx';
+import { GridProvider } from './hooks/useGrid.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import {
@@ -344,6 +345,7 @@ export default function App() {
     <ThemeProvider>
       <FontProvider>
       <PaperProvider>
+      <GridProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
       <FeedFilterProvider>
@@ -472,6 +474,7 @@ export default function App() {
       </FeedFilterProvider>
       </AtprotoSessionProvider>
       </ChromeBarProvider>
+      </GridProvider>
       </PaperProvider>
       </FontProvider>
     </ThemeProvider>

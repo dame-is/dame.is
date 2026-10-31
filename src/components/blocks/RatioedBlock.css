@@ -13,8 +13,13 @@
   --ratioed-repost: #4a6a86; /* slate */
   --ratioed-quote: #8a6f24;  /* yellow ochre */
   --ratioed-seal: #8c3a2e;   /* red oxide — the like, the threadgate, death */
-  --ratioed-lab: 156px;
-  --ratioed-gut: 124px;
+  /* A row's label and its after-the-seal gutter take one column and its gutter
+     each, so the plot between them starts and ends on the page grid's lines
+     (theme.css): a chart spans whole columns, from the grid's left edge to its
+     right, so the plot is every column but the first and the last. A phone,
+     which has one column, keeps its own widths (narrow, below). */
+  --ratioed-lab: var(--pitch);
+  --ratioed-gut: var(--pitch);
   margin-block: var(--space-6);
   /* How far this block hangs out of the reading column on each side. A chart
      is not a sentence: the measure that makes a paragraph legible is what was
@@ -563,9 +568,17 @@
    RatioedBlock.jsx switches on the same width (TWO_UP); it has to know the
    count too, because how many blank cells a short last row needs depends on it
    and CSS cannot count children per row. */
+/* On the page grid, each tile is two columns and a gutter wide, and the four
+   are centred in the block, so the hairlines between them fall in the middle
+   of a gutter and each figure starts on a column line: under the charts' plot
+   at ten columns, across the whole block at eight, inset evenly beyond. The
+   tracks overhang the block by half a gutter where the four fill it, which the
+   clip below hides. A block narrower than eight columns (the type area alone,
+   from 992 to 1028px) gives each tile a quarter. */
 .ratioed-tiles {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, min(calc(2 * var(--pitch)), calc((100% + var(--gutter)) / 4)));
+  justify-content: center;
   border-block: 1px solid var(--rule);
   /* Clips the hairlines the tiles cast outward (below), so the ones that would
      land on the grid's own left edge and top edge never show. */
@@ -573,7 +586,7 @@
 }
 .ratioed-tile {
   background: var(--page);
-  padding: var(--space-4) var(--space-4) var(--space-3);
+  padding: var(--space-4) calc(var(--gutter) / 2) var(--space-3);
   /* One hairline above each tile and one to its left. Cast by the tiles rather
      than left as a 1px gap over a rule-coloured container, which is what this
      was: that draws the separators out of cells, and the cells a short last row
@@ -581,14 +594,13 @@
      of rule colour. One tile in a row of five used to leave four of them. */
   box-shadow: -1px 0 0 var(--rule), 0 -1px 0 var(--rule);
 }
-/* The outer columns take their edge from the block, so the figures start on
-   the line the rules end on rather than a gutter in from it. Both column
-   counts are written out in full where the count changes: an :nth-child
-   selector outranks a plain one whatever a media query says, so the
-   four-column rules have to be put back before the two-column ones replace
-   them, or cell 5 keeps a first-column edge it no longer sits in. */
-.ratioed-tile:nth-child(4n + 1) { padding-left: 0; }
-.ratioed-tile:nth-child(4n) { padding-right: 0; }
+/* A row's first tile casts no hairline to its left: the rules run between
+   tiles, not round them. Both column counts are written out in full where the
+   count changes: an :nth-child selector outranks a plain one whatever a media
+   query says, so the four-column rule has to be put back before the
+   two-column one replaces it, or cell 5 keeps a first-column edge it no
+   longer sits in. */
+.ratioed-tile:nth-child(4n + 1) { box-shadow: 0 -1px 0 var(--rule); }
 .ratioed-tile-v {
   display: block;
   font-family: var(--font-crimson, serif);
@@ -633,20 +645,19 @@
    on the same width. Two is the floor: one figure per line turns a strip into
    a list, and these are meant to be scanned rather than read. */
 @media (max-width: 61.99rem) {
-  .ratioed-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ratioed-tile:nth-child(4n + 1) { padding-left: var(--space-4); }
-  .ratioed-tile:nth-child(4n) { padding-right: var(--space-4); }
-  .ratioed-tile:nth-child(odd) { padding-left: 0; }
-  .ratioed-tile:nth-child(even) { padding-right: 0; }
+  .ratioed-tiles { grid-template-columns: repeat(2, calc((100% + var(--gutter)) / 2)); }
+  .ratioed-tile:nth-child(4n + 1) { box-shadow: -1px 0 0 var(--rule), 0 -1px 0 var(--rule); }
+  .ratioed-tile:nth-child(odd) { box-shadow: 0 -1px 0 var(--rule); }
 }
 
 /* --- hidden replies ----------------------------------------------- */
 
 .ratioed-hidden-list { border-top: 1px solid var(--rule); }
+/* The time in the text column's first column, the reply from its second. */
 .ratioed-hidden-row {
   display: grid;
-  grid-template-columns: 5rem 1fr;
-  gap: var(--space-4);
+  grid-template-columns: var(--col) minmax(0, 1fr);
+  gap: var(--space-4) var(--gutter);
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--rule-soft);
 }
@@ -861,6 +872,16 @@
   gap: 0 var(--space-3);
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--rule-soft);
+}
+
+/* On a desk, the same label, plot and gutter as the other charts, so a reach
+   bar starts and ends where a lifeline does. The gutter is a column and a
+   gutter, room for that longest pair. */
+@media (min-width: 701px) {
+  .ratioed-reach-row {
+    grid-template-columns: var(--ratioed-lab) minmax(0, 1fr) var(--ratioed-gut);
+    column-gap: 0;
+  }
 }
 .ratioed-reach-row > .ratioed-take-link {
   grid-area: take;

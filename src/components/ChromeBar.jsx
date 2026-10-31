@@ -661,7 +661,7 @@ function ChipBody({ glyph: Glyph, sheetOpen = false, children }) {
 // draws them. Their actions stay with the bar (ChromeBarBottom), which
 // publishes the current set through the dock context.
 const TOOL_META = {
-  sky: { word: 'sky', title: 'Sky: pick an hour of Dame’s sky to see the site in' },
+  sky: { word: 'sky', title: 'Sky: pick an hour of Dame’s sky to see the site in, and set the display' },
   filter: { word: 'filter', glyph: ListFilterPlus, title: 'Filter: choose what this feed shows' },
   search: { word: 'search', glyph: Search, title: 'Search this feed' },
   info: { word: 'about', glyph: Info, title: 'About this site, and a key to these buttons' },
@@ -1073,7 +1073,7 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                   title={
                     inSkyStudio
                       ? `Sky: ${hourLabel} Eastern time. Tap to advance an hour`
-                      : `Sky: the site is coloured like Dame’s sky at ${hourLabel} Eastern time. Tap to pick an hour`
+                      : `Sky: the site is coloured like Dame’s sky at ${hourLabel} Eastern time. Tap to pick an hour or set the display`
                   }
                 >
                   <ChipBody sheetOpen={skyPanelOpen}>

@@ -382,6 +382,9 @@ export default function RatioedParticipants() {
             />
           </div>
 
+          {/* One frame for the header strip and the rows, so both can hang
+              into the page grid's wings together (RatioedParticipants.css). */}
+          <div className="ratioed-board-frame">
           <div className="ratioed-board-head" aria-hidden="true">
             <span />
             <span>who</span>
@@ -435,6 +438,7 @@ export default function RatioedParticipants() {
               );
             })}
           </ol>
+          </div>
 
           {wanted ? (
             <p className="ratioed-piece-note">

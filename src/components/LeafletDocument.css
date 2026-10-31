@@ -1,8 +1,10 @@
 /* A document. Its size and leading come from the reading context it also
    wears (`.reading`, typography.css): 18 on 28.8 in the text column at every
-   width, about 76 characters a line. (Phones were meant to step down to 18px
-   from 20, but the rule that did it set --text-prose on :root here, and this
-   sheet lands ahead of theme.css in the bundle, so it never applied.) */
+   width, about 76 characters a line. Everything in a document is spaced in
+   whole lines of it: see "The line rhythm" at the end of this file. (Phones
+   were meant to step down to 18px from 20, but the rule that did it set
+   --text-prose on :root here, and this sheet lands ahead of theme.css in the
+   bundle, so it never applied.) */
 .leaflet-doc {
   color: var(--ink);
   /* Long unbreakable tokens (bare URLs, AT URIs, NSIDs) must wrap instead of
@@ -62,9 +64,8 @@
 }
 
 /* A quotation, set by the author: inset on the blockquote rule, its text on
-   the paragraph indent, with space around it. */
+   the paragraph indent, with a blank line either side. */
 .leaflet-paragraph.leaflet-inset {
-  margin: var(--space-4) 0;
   padding-left: calc(1.5em - 2px);
   border-left: 2px solid var(--accent-soft);
   color: var(--ink-soft);
@@ -72,25 +73,16 @@
   text-indent: 0;
 }
 
-/* Short specimen lines ("Dame is watching a movie"): inset, unindented and
-   4px apart, so they read as a stack of examples, not stray paragraphs. */
+/* Short specimen lines ("Dame is watching a movie"): inset, unindented, on
+   consecutive lines with a blank line around the run, so they read as a
+   stack of examples, not stray paragraphs. */
 .leaflet-paragraph.leaflet-stack {
-  margin: 4px 0 0;
   padding-left: 1.5em;
   text-indent: 0;
 }
 
-.leaflet-paragraph:not(.leaflet-stack) + .leaflet-stack {
-  margin-top: var(--space-4);
-}
-
-.leaflet-stack + .leaflet-paragraph:not(.leaflet-stack) {
-  margin-top: var(--space-4);
-}
-
 /* A credit sits directly under its figure, at caption size. */
 .leaflet-paragraph.leaflet-credit {
-  margin: calc(-1 * var(--space-4)) 0 var(--space-5);
   font-size: var(--text-sm);
   line-height: 1.4;
   color: var(--ink-muted);
@@ -103,10 +95,9 @@
   text-indent: 0;
 }
 
-/* Empty text blocks act as paragraph breaks: reset the indent that
-   follows so the next "real" paragraph starts flush. */
+/* Empty text blocks act as paragraph breaks, a blank line each: reset the
+   indent that follows so the next "real" paragraph starts flush. */
 .leaflet-spacer {
-  margin: 0 0 var(--space-4);
   height: 0;
 }
 
@@ -114,16 +105,16 @@
   text-indent: 0;
 }
 
-/* The heading ladder: levels told apart by style as well as size, each with
-   about twice as much space above as below. The page title is the h1, so a
-   document's headings start at h2. Sizes are in em of the reading size, so
-   the ladder holds its proportions wherever the text is set: 27 and 21.6px
-   on screen, 17.25 and 13.8pt over print's 11.5pt. (h4 to h6 used to fall
-   back to body size through an undefined --text-md, so the guide's 46 of
-   them read as bold sentences.) */
+/* The heading ladder: levels told apart by style as well as size, each set on
+   a line of the text with a blank line above it (two for a part, with its
+   rule between them) and its section starting on the next line. The page
+   title is the h1, so a document's headings start at h2. Sizes are in em of
+   the reading size, so the ladder holds its proportions wherever the text is
+   set: 27 and 21.6px on screen, 17.25 and 13.8pt over print's 11.5pt. (h4 to
+   h6 used to fall back to body size through an undefined --text-md, so the
+   guide's 46 of them read as bold sentences.) */
 .leaflet-heading {
   font-family: var(--serif);
-  margin: var(--space-6) 0 var(--space-3);
   line-height: var(--leading-heading);
   text-wrap: balance;
 }
@@ -131,8 +122,6 @@
 .leaflet-heading-2 {
   font-size: 1.5em;
   font-weight: 600;
-  margin-top: var(--space-7);
-  padding-top: var(--space-4);
   border-top: 1px solid var(--rule-soft);
 }
 .leaflet-heading-3 {
@@ -146,7 +135,6 @@
    so a 14,000px data essay says what it holds before the reader commits to
    the scroll (COL-13). */
 .leaflet-contents {
-  margin: var(--space-6) 0 0;
   padding: var(--space-3) 0;
   border-top: 1px solid var(--rule-soft);
   border-bottom: 1px solid var(--rule-soft);
@@ -217,18 +205,12 @@
   font-size: 1em;
   font-weight: 600;
   color: var(--accent);
-  margin: var(--space-5) 0 var(--space-2);
 }
 .leaflet-heading-5,
 .leaflet-heading-6 {
   font-size: 1em;
   font-style: italic;
   font-weight: 500;
-  margin: var(--space-5) 0 var(--space-2);
-}
-
-.leaflet-image {
-  margin: var(--space-5) 0;
 }
 
 .leaflet-image img {
@@ -309,11 +291,12 @@
   border-radius: var(--radius-2);
   padding: var(--space-3) var(--space-4);
   overflow-x: auto;
-  margin: var(--space-4) 0;
 }
 
+/* Items on consecutive lines, as the text runs: the marker is what tells one
+   from the next. */
 .leaflet-list {
-  margin: var(--space-3) 0 var(--space-4);
+  margin: 0;
   padding-left: 1.5em;
 }
 
@@ -339,7 +322,6 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 
 .leaflet-list li {
   display: list-item;
-  margin-bottom: var(--space-2);
 }
 
 .leaflet-list li::marker {
@@ -358,10 +340,6 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 
    The block is the card with its "Open in…" under it, so the wrapper holds
    the block's space and the card sits flush inside it. */
-.leaflet-bsky-embed {
-  margin: var(--space-5) 0;
-}
-
 .leaflet-bsky-embed-actions {
   display: flex;
   justify-content: flex-end;
@@ -451,7 +429,6 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
-  margin: var(--space-5) 0;
 }
 
 .leaflet-gallery .leaflet-image {
@@ -557,10 +534,6 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 }
 
 /* Inline video / embed — responsive 16:9 frame. */
-.leaflet-embed {
-  margin: var(--space-5) 0;
-}
-
 .leaflet-embed-frame {
   position: relative;
   width: 100%;
@@ -606,4 +579,153 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 .leaflet-code.hljs .hljs-type,
 .leaflet-code.hljs .hljs-attribute {
   color: var(--ink-muted);
+}
+
+/* ── The line rhythm ────────────────────────────────────────────────
+   Every line of a document's text lands on one rhythm, a line of the reading
+   setting (--line-prose, 28.8px) apart, from the first paragraph to the
+   last, past headings, quotations, lists and pictures. Text is set on whole
+   lines of it and the space between blocks is whole lines too. Anything whose height is its own
+   (a picture, an embed, a chart, a code sample, a credit) is followed by just
+   the space that brings the next line back onto the rhythm, which
+   useLineRhythm measures and writes onto that next block as --rhythm-pad.
+   With the grid drawn (grid.css) the rhythm is the rule under each line.
+
+   On screen the unit is --rhythm-l: the line as the browser draws it, which
+   the hook measures and writes as --rhythm-line, so that a line that isn't a
+   whole pixel (28.8 is 28.797 in Chromium's layout units) can't gather a
+   fraction a line down a long essay; before the hook has run, the line as
+   specified.
+
+   A block's space is its --above and --below. On screen the document is a
+   flex column, so margins add and never collapse, through a block or between
+   two: the gap between two blocks is exactly the first's --below plus the
+   second's --above, and a pad moves everything after it by its own size,
+   which is what lets the hook work every pad out in one pass. An author's
+   extra space (blockLayoutStyle) rides in as --hint-top and --hint-bottom,
+   in whole lines. Print keeps the spacing, drops the pads and flows as a
+   block. */
+@media screen {
+  .leaflet-doc {
+    --rhythm-l: var(--rhythm-line, var(--line-prose));
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.leaflet-doc > * {
+  --above: 0px;
+  --below: 0px;
+  --rhythm-mt: calc(
+    var(--above) + var(--hint-top, 0px) + var(--rhythm-pad, 0px) * var(--rhythm-live, 1)
+  );
+  --rhythm-mb: calc(var(--below) + var(--hint-bottom, 0px));
+  margin-block: var(--rhythm-mt) var(--rhythm-mb);
+}
+
+/* Blocks whose stylesheets set their own margins, which would outrank the
+   rule above. */
+.leaflet-doc > :is(.newsletter, .ratioed, .ratioed-note, .skeleton-doc-figure),
+.leaflet-doc > .post-embed-link-card.is-full {
+  margin-block: var(--rhythm-mt) var(--rhythm-mb);
+}
+
+/* A raised figure or a superscript would make its line taller than the rest
+   and push every line after it off the rhythm; inline code is set in another
+   face, whose own line box sits a pixel or two lower. */
+.leaflet-doc :is(sup, sub) {
+  line-height: 0;
+}
+
+.leaflet-doc :not(pre) > code {
+  line-height: 1;
+}
+
+/* An empty paragraph is a blank line. */
+.leaflet-doc > .leaflet-spacer {
+  --above: var(--rhythm-l);
+}
+
+.leaflet-doc > .leaflet-inset {
+  --above: var(--rhythm-l);
+  --below: var(--rhythm-l);
+}
+
+/* Quotations in a row share the blank line between them. */
+.leaflet-doc > .leaflet-inset + .leaflet-inset {
+  --above: 0px;
+}
+
+.leaflet-doc > :not(.leaflet-stack) + .leaflet-stack {
+  --above: var(--rhythm-l);
+}
+
+.leaflet-doc > .leaflet-stack:not(:has(+ .leaflet-stack)) {
+  --below: var(--rhythm-l);
+}
+
+/* A heading takes one line of the text however large it is set, with a blank
+   line above it. A part (h2) has two, its rule on the first of them where the
+   drawn rule would fall (grid.css), so with the grid on it is that line's rule
+   drawn darker rather than a second line beside it. */
+.leaflet-doc > .leaflet-heading {
+  --above: var(--rhythm-l);
+  line-height: var(--rhythm-l);
+}
+
+.leaflet-doc > .leaflet-heading-2 {
+  --rule-depth: var(--rhythm-baseline, calc(var(--rhythm-l) * 0.71));
+  --above: calc(var(--rhythm-l) + var(--rule-depth));
+  padding-top: calc(var(--rhythm-l) - var(--rule-depth) - 1px);
+}
+
+/* A figure, an embed, a chart: a blank line above, and at least 12px below
+   before the pad takes the next line back to the rhythm, so a figure is
+   followed by 12 to 43px where it used to have 24. */
+.leaflet-doc
+  > :is(
+    .leaflet-image,
+    .leaflet-gallery,
+    .leaflet-embed,
+    .leaflet-bsky-embed,
+    .leaflet-code,
+    .leaflet-website,
+    .newsletter,
+    .ratioed,
+    .skeleton-doc-figure
+  ) {
+  --above: var(--rhythm-l);
+  --below: var(--space-3);
+}
+
+.leaflet-doc > .leaflet-contents {
+  --above: var(--rhythm-l);
+}
+
+.leaflet-doc > .ratioed-note {
+  --above: var(--space-3);
+  --below: var(--space-3);
+}
+
+/* A credit hangs 8px under its figure, taking back the figure's own space
+   below, and is the one block the rhythm doesn't place: the line after it
+   is. */
+.leaflet-doc > .leaflet-credit {
+  --above: var(--space-2);
+  --below: var(--space-3);
+}
+
+.leaflet-doc > :is(.leaflet-image, .leaflet-gallery, .leaflet-embed) + .leaflet-credit {
+  --above: calc(var(--space-2) - var(--space-3));
+}
+
+.leaflet-doc > :first-child {
+  --above: 0px;
+}
+
+@media print {
+  .leaflet-doc {
+    --rhythm-l: 1.5em;
+    --rhythm-live: 0;
+  }
 }

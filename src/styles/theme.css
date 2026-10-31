@@ -215,6 +215,10 @@
      doesn't follow a step changed further down the tree. */
   --type-title: clamp(var(--text-3xl), 1.792rem + 1.881vw, var(--text-4xl));
   --type-reading: var(--text-lg);
+  /* One line of reading text, 18 on 1.6: the unit a document is spaced in, so
+     its lines keep one rhythm past headings and figures (LeafletDocument.css,
+     "The line rhythm"). */
+  --line-prose: calc(var(--type-reading) * var(--leading-reading));
   --type-body: var(--text-base);
   --type-caption: var(--text-sm);
   --type-meta: var(--text-meta);
