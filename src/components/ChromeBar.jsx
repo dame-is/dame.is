@@ -85,8 +85,8 @@ function skyBand(hour) {
 
 export default function ChromeBar() {
   const { expanded, toggle, crumbNote: pageNote } = useChromeBar();
-  const { open: dockOpen, toggle: toggleDock } = useActionDock();
-  const { panel } = useChromePanel();
+  const { open: dockOpen, toggle: toggleDock, closeDock } = useActionDock();
+  const { panel, closePanel } = useChromePanel();
   const reduce = useReducedMotion();
   const location = useLocation();
   const topRef = useRef(null);
@@ -246,14 +246,27 @@ export default function ChromeBar() {
   // atmosphere in place and remembers that (the reader's standing choice).
   // Once the atmosphere has scrolled away it brings it back over the page
   // instead, for a look, and leaves the choice alone.
+  //
+  // A sheet up out of the bottom bar (the compass's menu, or any panel, the
+  // admin's among them) covers the atmosphere, or at least veils it, masthead
+  // and peek alike, so while one is up the atmosphere isn't showing and the
+  // chevron says so. Tapped then, it takes the sheet down and
+  // shows the atmosphere: where it stands open in view, that's all it takes.
+  // Opening the peek without taking the sheet down got it folded again at
+  // once (the effect below), so the chevron seemed to do nothing.
   const tierInView = !inAdmin && tierMode !== 'closed' && head.tierInView;
-  const atmosphereShown = peekOpen || (expanded && (tierInView || tierSliding));
+  const sheetUp = dockOpen || panel !== null;
+  const inPlace = !inAdmin && expanded && (tierInView || tierSliding);
+  const atmosphereShown = !sheetUp && (peekOpen || inPlace);
   function onAtmosphere() {
-    if (peekOpen) {
+    if (sheetUp) {
+      closeDock();
+      closePanel();
+      if (inPlace) return;
+    } else if (peekOpen) {
       setPeekOpen(false);
       return;
-    }
-    if (!inAdmin && expanded && (tierInView || tierSliding)) {
+    } else if (inPlace) {
       toggle();
       return;
     }
