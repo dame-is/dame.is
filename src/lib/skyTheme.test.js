@@ -10,6 +10,8 @@ import {
   SKY_TEXT_FLOOR,
   NEST_STEP,
   TEXT_CONTRAST_MIN,
+  skyHourKey,
+  skyHourLabel,
 } from './skyTheme.js';
 import { effectiveSkyTuning } from './skyTuning.js';
 import { injectSkyBoot, SKY_BOOT_MARKER } from './skyBoot.js';
@@ -100,6 +102,19 @@ describe.each([
     // theme.css: --accent-fill is the accent mixed 15% toward the ink.
     const fill = mixSrgb(v['--sky-accent'], v['--sky-ink'], 0.85);
     expect(contrastRatio(v['--sky-page'], fill)).toBeGreaterThanOrEqual(SKY_TEXT_FLOOR);
+  });
+});
+
+describe('skyHourLabel', () => {
+  it('writes the hour with a capital AM or PM', () => {
+    expect(skyHourLabel(0)).toBe('12 AM');
+    expect(skyHourLabel(9)).toBe('9 AM');
+    expect(skyHourLabel(12)).toBe('12 PM');
+    expect(skyHourLabel(21)).toBe('9 PM');
+  });
+
+  it('leaves the key, which names the avatar files, lowercase', () => {
+    expect(skyHourKey(21)).toBe('9pm');
   });
 });
 

@@ -63,7 +63,7 @@ function BarKey() {
           <div className="info-key-row" key={word}>
             <dt className="info-key-term">
               <span className={`info-key-chip${sky ? ' is-text' : ''}`} aria-hidden="true">
-                {sky ? `${skyHourLabel(skyHour)} et` : <Glyph strokeWidth={1.75} />}
+                {sky ? `${skyHourLabel(skyHour)} ET` : <Glyph strokeWidth={1.75} />}
               </span>
               <span className="info-key-word">{word}</span>
             </dt>

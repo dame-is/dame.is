@@ -37,9 +37,10 @@ export function skyHourKey(hour) {
   return KEYS[((hour % 24) + 24) % 24];
 }
 
-/** The hour as it's said and read in running text: "1 pm", "12 am". */
+/** The hour as the chrome shows it: "1 PM", "12 AM". The key stays
+ *  lowercase, since it names the avatar's files. */
 export function skyHourLabel(hour) {
-  return skyHourKey(hour).replace(/(am|pm)$/, ' $1');
+  return skyHourKey(hour).replace(/(am|pm)$/, (m) => ` ${m.toUpperCase()}`);
 }
 
 // Sampled top/bottom band averages per hour (0 = 12am … 23 = 11pm).
