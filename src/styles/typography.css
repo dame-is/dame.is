@@ -269,18 +269,31 @@ blockquote {
   letter-spacing: 0.06em;
 }
 
+/* The reading context: long-form text, set in one place. LeafletDocument puts
+   it on every document it renders (essays, works, the About page's body, any
+   site.standard.document), and the skeleton that stands in for one wears it
+   too, so its line boxes are the text's. 18px on 1.6 at every width, in the
+   text column: about 76 characters a line on a desk and 48 on a 390px phone.
+   Headings inside are sized in em (LeafletDocument.css), so the ladder
+   follows whatever the reading size is. */
+.reading {
+  font-family: var(--serif);
+  font-size: var(--type-reading);
+  line-height: var(--leading-reading);
+}
+
 /* Figures in running text are oldstyle, the book convention: "in November of
    2007" sits on the x-height instead of standing as tall as the capitals. The
    self-hosted Crimson Pro carries `onum`; Google's build didn't, which is why
    this waited (TYP-06). Headings, tables, captions and code keep lining
    figures, and the ledger, stat and time columns set their own tabular ones. */
-.leaflet-doc,
+.reading,
 .blog-prose,
 .about-longform {
   font-variant-numeric: oldstyle-nums proportional-nums;
 }
 
-:is(.leaflet-doc, .blog-prose, .about-longform)
+:is(.reading, .blog-prose, .about-longform)
   :is(h1, h2, h3, h4, h5, h6, table, figcaption, code, pre, .small-caps, .eyebrow) {
   font-variant-numeric: lining-nums;
 }
