@@ -143,21 +143,6 @@ export const RATIOED_DOC_RKEY = '3mrlnl6oyuj2d';
  */
 export const RATIOED_PATH = 'ratioed';
 
-/**
- * The Ratioed publication — its own `site.standard.publication`, so a piece
- * page shared on Bluesky renders under a "Ratioed" masthead rather than the
- * portfolio's. The essay itself stays homed in PORTFOLIO_PUBLICATION (it is an
- * overview of the project, and belongs with the creative works); this is the
- * masthead the per-piece pages carry.
- *
- * Made in the admin Publications panel, which shows each publication's `at://`
- * URI for exactly this. Its `url` must stay `https://dame.is/creating/ratioed`
- * — verification fetches `{url}/.well-known/site.standard.publication`, which
- * api/well-known.js answers at the path RATIOED_PATH names above.
- */
-export const RATIOED_PUBLICATION =
-  'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/site.standard.publication/3msyhy6r7af2p';
-
 // --- are.na ------------------------------------------------------------------
 // The /curating galleries render live from are.na (ARENA_CHANNEL_NSID records
 // point at channels), and the whole account is mirrored onto the PDS by
