@@ -72,15 +72,15 @@
   background-repeat: no-repeat;
 }
 
-/* The two bars are a row of the grid too. Every button in them is a 28px
-   face (ChromeBar.css, .chrome-nav-face and .chrome-expand-face) centred in
-   the bar's 56px, so a hairline along the faces' tops and another along
-   their bottoms draws the bar's margins, across the same columns. The
-   strips between (the atmosphere, the trail, the footer) hold text rather
-   than boxes, and their own rules already frame them, so they keep only the
-   columns. Keep the face's height here in step with ChromeBar.css. */
+/* The two bars are a row of the grid too. Every button in them, and the
+   brand mark, is a 28px face (--chrome-face, ChromeBar.css) centred in the
+   bar's 56px, so a hairline along the faces' tops and another along their
+   bottoms draws the bar's margins, across the same columns. The strips
+   between (the atmosphere, the trail, the footer) hold text rather than
+   boxes, and their own rules already frame them, so they keep only the
+   columns. */
 [data-grid='on'] {
-  --grid-band-in: calc((var(--chrome-h) - 1.75rem) / 2);
+  --grid-band-in: calc((var(--chrome-h) - var(--chrome-face)) / 2);
   --grid-band: linear-gradient(
     to bottom,
     transparent var(--grid-band-in),
