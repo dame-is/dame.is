@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { Signature } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
+import GuestbookSheet from '../components/GuestbookSheet.jsx';
 import { CommentsSkeleton } from '../components/Skeleton.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
-import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import { useChromePanelActions } from '../hooks/useChromePanel.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import {
@@ -25,9 +25,6 @@ import './Guestbook.css';
 // Stable empty set so "nothing new arrived" keeps the same reference between
 // paints and rows don't re-key on it.
 const NO_ARRIVALS = new Set();
-// How long a freshly-arrived signature stays flagged — long enough for the
-// entrance to play once, short enough that a later re-render doesn't replay it.
-const ARRIVAL_HOLD_MS = 1400;
 
 /**
  * The guestbook. Every signature on this page is a record on the SIGNER's
@@ -36,15 +33,17 @@ const ARRIVAL_HOLD_MS = 1400;
  *
  * The page reads as a register: numbered lines, newest first, each a note
  * with a small signature line under it. The call to action is the book's
- * next blank line, which opens the shared bottom-chrome sign sheet
- * (GuestbookSheet, also opened from the home page).
+ * next blank line, which opens the sign sheet (GuestbookSheet): a fresh page
+ * of the book, numbered for that line. The sheet is this page's own. The
+ * home page's pen and the About ledger link here rather than opening it over
+ * themselves.
  */
 export default function Guestbook() {
   const { title, intro } = usePageContent('guestbook');
   const { agent, did, restore } = useAtprotoSession();
-  const { openPanel } = useChromePanel();
-  const location = useLocation();
-  const navigate = useNavigate();
+  // Only ever opens the sheet, so the actions alone: the register doesn't
+  // re-render as the sheet opens and closes (the sheet reads which is open).
+  const { openPanel } = useChromePanelActions();
 
   // A returning signer's session waits for a page that can use it — this one,
   // where it's what puts "remove" on their own signature.
@@ -76,11 +75,14 @@ export default function Guestbook() {
   const [retrying, setRetrying] = useState(false);
   entriesRef.current = entries;
 
-  // Signatures that arrived on the live read and weren't in the snapshot, so
-  // the page can slide them in the way the home feed does.
+  // Signatures that arrived after the book first painted (on the live read,
+  // or just signed in the sheet), so the page can slide them in the way the
+  // home feed does. A row keeps its entrance for good once it has one: the
+  // flag used to drop after 1.4s, which swapped the row back to the list's
+  // first-paint rise, and swapping an animation's name replays it, so every
+  // arrival blinked out and rose a second time.
   const [newUris, setNewUris] = useState(NO_ARRIVALS);
   const seenUrisRef = useRef(new Set());
-  const arrivalTimerRef = useRef(null);
   // What's currently on the page: 'none' → 'snapshot' → 'live'. The snapshot
   // paints only while nothing better has landed; the live read always wins.
   const sourceRef = useRef('none');
@@ -137,12 +139,7 @@ export default function Guestbook() {
 
     // The first paint isn't an arrival — every signature is new to the reader.
     if (!animate || fresh.size === 0) return;
-    setNewUris(fresh);
-    if (arrivalTimerRef.current) clearTimeout(arrivalTimerRef.current);
-    arrivalTimerRef.current = setTimeout(() => {
-      arrivalTimerRef.current = null;
-      setNewUris(NO_ARRIVALS);
-    }, ARRIVAL_HOLD_MS);
+    setNewUris((prev) => new Set([...prev, ...fresh]));
   }, []);
 
   // Opening the book. Two reads race: the build-time snapshot (one request,
@@ -202,14 +199,6 @@ export default function Guestbook() {
     setRetryKey((k) => k + 1);
   }
 
-  // Retire a pending arrival highlight on unmount.
-  useEffect(
-    () => () => {
-      if (arrivalTimerRef.current) clearTimeout(arrivalTimerRef.current);
-    },
-    [],
-  );
-
   async function loadMore() {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
@@ -252,25 +241,15 @@ export default function Guestbook() {
     setTotal((t) => (typeof t === 'number' ? t + 1 : t));
   }, []);
 
-  // A signature just written from the sign sheet arrives via navigation state.
-  // A ref of consumed URIs guards against a re-render replaying the same state
-  // and inserting it twice.
-  //
-  // The state is then cleared from the history entry. The browser keeps
-  // history state across a reload, and consumedRef doesn't survive one — so a
-  // signature written, removed, and followed by a reload used to come back
-  // from the entry's state, and come back again on every paint after, since
-  // the index it waits on will never list a deleted record.
-  const consumedRef = useRef(new Set());
-  useEffect(() => {
-    const fresh = location.state?.justSigned;
-    if (!fresh?.uri) return;
-    const { pathname, search, hash } = location;
-    navigate({ pathname, search, hash }, { replace: true, state: null });
-    if (consumedRef.current.has(fresh.uri)) return;
-    consumedRef.current.add(fresh.uri);
-    addSigned(fresh);
-  }, [location, navigate, addSigned]);
+  // A signature written in the sign sheet: on the book at once, and dropped
+  // into place with the same entrance a late arrival gets.
+  const handleSigned = useCallback(
+    (fresh) => {
+      addSigned(fresh);
+      setNewUris((prev) => new Set([...prev, fresh.uri]));
+    },
+    [addSigned],
+  );
 
   // Returning from the guestbook-only sign-in flow (see signIn's intent): the
   // note written before the hop is waiting in sessionStorage, so write it now,
@@ -297,15 +276,14 @@ export default function Guestbook() {
         const { uri, cid, value } = await signGuestbook(agent, draft);
         clearDraft();
         const profile = await getProfile(did).catch(() => null);
-        consumedRef.current.add(uri);
-        addSigned({ uri, cid, did, rkey: rkeyFromAtUri(uri), value, profile });
+        handleSigned({ uri, cid, did, rkey: rkeyFromAtUri(uri), value, profile });
         setReturnSign(null);
       } catch (err) {
         setReturnSign({ error: err?.message || String(err) });
         openPanel('guestbook');
       }
     })();
-  }, [did, agent, openPanel, addSigned]);
+  }, [did, agent, openPanel, handleSigned]);
 
   async function handleRemove(entry) {
     // The session's Agent loads a beat after the session itself.
@@ -466,6 +444,8 @@ export default function Guestbook() {
         )}
       </section>
 
+      <GuestbookSheet lineNumber={nextNumber} onSigned={handleSigned} />
+
       <p className="guestbook-source gutter">
         Signatures are gathered from backlinks by{' '}
         <a href="https://microcosm.blue" target="_blank" rel="noopener noreferrer">
@@ -480,8 +460,9 @@ export default function Guestbook() {
 /**
  * The book's next blank line: the call to action, numbered where the next
  * signature will go, with the page's one filled button at its end. It opens
- * the same sign sheet as the home page's button, with the cursor in the note.
- * While a note written before a sign-in hop is being saved, it says so.
+ * the sign sheet on a page numbered for this line, with the cursor in the
+ * note under a mouse. While a note written before a sign-in hop is being
+ * saved, it says so.
  */
 function BlankLine({ number, first = false, status = null, onSign }) {
   return (

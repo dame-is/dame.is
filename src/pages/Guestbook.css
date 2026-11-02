@@ -2,60 +2,137 @@
 
 /* --- the pen ------------------------------------------------------------ */
 
-/* The pen sits flush inside the sign sheet — no card padding/border/background;
-   the sheet supplies its own inset. Writing comes first, then signing. */
-.guestbook-form {
+/* The sign sheet (GuestbookSheet): a full-height BottomSheet, which owns the
+   positioning, the surface, the slide and the header. The panel is a column
+   here so the pen fills what's left of it; the panel scrolls only when a
+   short window (a phone on its side) can't hold the pen's least height. */
+.guestbook-sheet-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
 }
 
-/* Every line of the form is its own paragraph, not the second of a passage. */
-.guestbook-form p {
+.guestbook-sheet-body {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--space-5);
+}
+
+/* The pen is a line of the register, on the same grid (.guestbook-list
+   below): a margin for the line number and the "as" / "from" labels, then
+   the text column, which holds everything written.
+
+   On a desk the margin is the note column and the gap the gutter, as the
+   ledger's, so the sheet's columns land on the page grid's lines (grid.css
+   draws them over the sheet). On a phone the margin is 2.25rem and the gap
+   0.5rem: the text column starts 2.75rem in, exactly where the register's
+   notes do (2rem + 0.75rem), and the labels get the wider margin they need. */
+.guestbook-pen {
+  --gb-num-col: 2.25rem;
+  --gb-num-gap: var(--space-2);
+  /* The size the note is written at: the reading size, or 16px wherever
+     app.css holds form fields there against iOS's zoom, so the number beside
+     the first line and the rules under the lines keep step with the text. */
+  --pen-size: var(--type-reading);
+  --pen-rule: color-mix(in srgb, var(--ink) 14%, transparent);
+  flex: 1 0 auto;
+  display: grid;
+  grid-template-columns: var(--gb-num-col) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  column-gap: var(--gb-num-gap);
+}
+
+@media (max-width: 700px), (pointer: coarse) {
+  .guestbook-pen {
+    --pen-size: var(--text-base);
+  }
+}
+
+@media (min-width: 701px) {
+  .guestbook-pen {
+    --gb-num-col: var(--note);
+    --gb-num-gap: var(--gutter);
+  }
+}
+
+.guestbook-pen p {
   text-indent: 0;
 }
 
-.guestbook-form .signin-button {
-  align-self: flex-start;
+/* The line number the signature will take, in the margin beside the note's
+   first line, set as the register sets its numbers. */
+.guestbook-pen-number {
+  align-self: start;
+  font-family: var(--serif);
+  font-size: 0.9375rem;
+  line-height: calc(var(--pen-size) * var(--leading-reading));
+  font-variant-numeric: oldstyle-nums tabular-nums;
+  color: var(--ink-muted);
+  text-align: right;
 }
 
-.guestbook-note-field {
+.guestbook-pen-note {
+  grid-column: 2;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-/* The note is set as it will read: the serif, at the register's size, on the
-   page colour rather than a grey well. */
-.guestbook-textarea {
+/* The note is written as it will read: the serif at the reading size, on
+   ruled paper (the /welcoming intro's 14% ink rules, at the note's own line
+   height), with no box around it. It takes all the height the sheet has, so
+   the sheet reads as a fresh page; the rules scroll with the text. While
+   it's being written the rules take the accent. */
+.guestbook-pen-write {
+  flex: 1 1 auto;
   width: 100%;
-  resize: vertical;
-  min-height: 5.5em;
-  padding: var(--space-2) var(--space-3);
+  min-height: calc(4 * var(--pen-size) * var(--leading-reading));
+  margin: 0;
+  padding: 0;
+  resize: none;
   font-family: var(--serif);
-  font-size: var(--text-lg);
-  line-height: 1.5;
+  font-size: var(--pen-size);
+  line-height: var(--leading-reading);
   color: var(--ink);
-  background: var(--page);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-2);
+  background-color: transparent;
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--leading-reading) * 1em - 1px),
+    var(--pen-rule) calc(var(--leading-reading) * 1em - 1px)
+  );
+  background-size: 100% calc(var(--leading-reading) * 1em);
+  background-position: 0 -3px;
+  background-attachment: local;
+  border: 0;
+  border-radius: 0;
   outline: none;
-  transition: border-color 120ms ease;
 }
 
-.guestbook-textarea:focus {
-  border-color: var(--accent);
+.guestbook-pen-write:focus-visible {
+  --pen-rule: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
-.guestbook-note-foot {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+/* The lines are the focus indicator for the fields drawn on them: the note's
+   rules take the accent, and a field on a signature line turns its hairline
+   into a 2px accent rule (.guestbook-pen-line:focus-within). The site's ring
+   (reset.css) would box a field that's drawn without a box, so it stays on
+   the pin and the buttons only. */
+.guestbook-pen-write:focus-visible,
+.guestbook-pen-input:focus-visible {
+  outline: none;
+}
+
+.guestbook-pen-write::placeholder,
+.guestbook-pen-input::placeholder {
+  font-style: italic;
+  color: var(--ink-muted);
+  opacity: 1;
 }
 
 /* Always shown, so the limit is known before it's hit. */
 .guestbook-count {
-  margin-left: auto;
+  align-self: flex-end;
   font-family: var(--sans);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
@@ -69,128 +146,149 @@
   color: var(--danger);
 }
 
-/* "Add a place": the optional field stays folded until asked for. */
-.guestbook-add-place {
-  display: inline-flex;
+/* The signature block: who and where, on two lines that are there from the
+   start, under the dashed rule the register draws below its blank line. It
+   spans the margin and the text column on the same tracks as the note. */
+.guestbook-pen-sign {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: var(--gb-num-col) minmax(0, 1fr);
+  column-gap: var(--gb-num-gap);
   align-items: center;
-  gap: 0.35em;
-  padding: 0;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  color: var(--ink-soft);
-  background: none;
-  border: 0;
-  text-decoration: underline dotted;
-  text-underline-offset: 0.2em;
-  cursor: pointer;
+  margin-top: var(--space-3);
+  padding-top: var(--space-1);
+  border-top: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);
 }
 
-.guestbook-add-place:hover,
-.guestbook-add-place:focus-visible {
-  color: var(--accent);
-}
-
-/* "Signing from" — its own labelled block so it's obvious what the field
-   is, with the locate button and the never-your-town promise beside it. */
-.guestbook-location-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.guestbook-location-label {
-  color: var(--ink-muted);
-  letter-spacing: 0.18em;
-  font-size: var(--text-xs);
-}
-
-.guestbook-location-row {
-  display: flex;
-  gap: var(--space-2);
-  max-width: 26rem;
-}
-
-.guestbook-location {
-  flex: 1 1 auto;
-  width: auto;
-  min-width: 0;
-}
-
-/* Icon-only "fill in my region" button beside the place field. */
-.guestbook-locate {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-2) var(--space-3);
-  color: var(--ink-soft);
-  background: transparent;
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-2);
-  cursor: pointer;
-  transition: border-color 120ms ease, color 120ms ease;
-}
-
-.guestbook-locate:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--ink);
-}
-
-.guestbook-locate:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.guestbook-location-hint {
-  font-size: var(--text-xs);
-  color: var(--ink-muted);
-  max-width: 52ch;
-}
-
-/* Signing, once: one handle field and one button, or "Signing as". */
-.guestbook-signas {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--rule-soft);
-}
-
-.guestbook-signas-label {
-  color: var(--ink-muted);
-  letter-spacing: 0.18em;
-  font-size: var(--text-xs);
-}
-
-.guestbook-signas-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.guestbook-signas-row .signin-input {
-  flex: 1 1 14rem;
-  width: auto;
-  min-width: 0;
-}
-
-.guestbook-signas-hint,
-.guestbook-signas-line {
-  margin: 0;
-  max-width: 52ch;
-  color: var(--ink-muted);
-}
-
-.guestbook-signas-hint {
-  font-size: var(--text-xs);
-}
-
-.guestbook-signas-line {
+/* "as" and "from", in the margin, set to its right edge like the numbers. */
+.guestbook-pen-label {
+  font-family: var(--serif);
   font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--ink-muted);
+  text-align: right;
 }
 
-.guestbook-signas-handle {
-  font-family: var(--mono-ui);
+/* A signature line: whatever's on it sits on one hairline, which takes the
+   accent, two pixels deep, while a field on it has focus. */
+.guestbook-pen-line {
+  min-width: 0;
+  min-height: var(--control-h-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  border-bottom: 1px solid var(--ink-muted);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.guestbook-pen-line:focus-within {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+
+@media (pointer: coarse) {
+  .guestbook-pen-line {
+    min-height: var(--control-h-touch);
+  }
+}
+
+.guestbook-pen-input {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
   color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+}
+
+/* The place, in italic, as the register sets it. */
+.guestbook-pen-place .guestbook-pen-input {
+  font-style: italic;
+}
+
+.guestbook-pen-avatar {
+  align-self: center;
+}
+
+.guestbook-pen-name {
+  font-size: var(--text-base);
+}
+
+.guestbook-pen-pending {
+  font-style: italic;
+}
+
+/* "not you?" closes the line, at its far end. */
+.guestbook-pen-switch {
+  margin-left: auto;
+}
+
+/* The pin at the end of the "from" line: the kit's small icon button. It
+   pulses while the region is found, and wears the "on" look while the line
+   holds the region it found. */
+.guestbook-pen-locate {
+  flex: none;
+}
+
+.guestbook-pen-locate.is-busy svg {
+  animation: guestbook-pen-locating 1s ease-in-out infinite;
+}
+
+@keyframes guestbook-pen-locating {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guestbook-pen-locate.is-busy svg {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+.guestbook-pen-submit {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+/* One line of help, which is also where anything that goes wrong is said, so
+   an error replaces it rather than pushing the sheet about. */
+.guestbook-pen-help {
+  margin: 0;
+  max-width: none;
+  font-size: var(--text-xs);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+}
+
+.guestbook-pen-help.is-error {
+  color: var(--danger);
+}
+
+/* Under a thumb the button runs the width of the text column. */
+@media (max-width: 700px) {
+  .guestbook-pen-button {
+    align-self: stretch;
+  }
 }
 
 /* --- the register -------------------------------------------------------- */

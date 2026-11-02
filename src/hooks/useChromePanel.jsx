@@ -19,9 +19,9 @@ import { useActionDock } from './useActionDock.jsx';
  */
 const ChromePanelContext = createContext(null);
 // The three actions alone, in a context whose value never changes. A control
-// that only OPENS a panel, like the hero's guestbook button, has no use for
-// `panel`, and reading the full context re-rendered it on every panel opening
-// and closing, its own included.
+// that only OPENS a panel, like the guestbook's blank line, has no use for
+// `panel`, and reading the full context re-rendered it (and there, the whole
+// register) on every panel opening and closing, its own included.
 const ChromePanelActionsContext = createContext(null);
 
 // The known transient panels. Kept as a constant so callers and tests can

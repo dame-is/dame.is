@@ -366,7 +366,8 @@ html {
 }
 
 /* The guestbook pen and the shuffle are icon buttons: square, as tall as the
-   row. The guestbook one opens the sign sheet rather than going somewhere. */
+   row. The pen goes to the book (/welcoming); the shuffle stays put and
+   reshuffles the hero. */
 .home-hero-shuffle,
 .home-hero-guestbook-btn {
   width: var(--control-h-md);

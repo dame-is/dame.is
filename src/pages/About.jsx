@@ -19,7 +19,6 @@ import { isRecent } from '../lib/time.js';
 import { pageDefault } from '../lib/pageRegistry.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useNavRoutes } from '../hooks/useNavRoutes.js';
-import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { safeHref } from '../lib/safeHref.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './About.css';
@@ -203,7 +202,6 @@ export default function About() {
  * résumé (its email and title), and the guestbook's count.
  */
 function FindDame({ profile }) {
-  const { openPanel } = useChromePanel();
   const [resume, setResume] = useState(null);
   const [book, setBook] = useState(null);
   useEffect(() => {
@@ -270,9 +268,7 @@ function FindDame({ profile }) {
         <div>
           <dt>guestbook</dt>
           <dd>
-            <button type="button" className="about-ledger-action" onClick={() => openPanel('guestbook')}>
-              sign it&nbsp;&rarr;
-            </button>
+            <Link to="/welcoming">sign it&nbsp;&rarr;</Link>
             {book?.total ? (
               <span className="about-ledger-note">
                 {book.total} {book.total === 1 ? 'signature' : 'signatures'}
