@@ -29,7 +29,6 @@ import {
   OBSERVING_OBSERVATION_NSID,
   RATIOED_PATH,
   RATIOED_DOC_RKEY,
-  PORTFOLIO_PUBLICATION,
 } from '../src/config.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/atproto.js';
 import { fetchMothObservations } from '../src/lib/inaturalist.js';
@@ -1167,12 +1166,10 @@ export async function pieceMeta(pathname, origin) {
     atUri: record.uri || null,
     cid: record.cid || null,
     nsid: COLLECTIONS.ratioedPiece,
-    // A piece is not a site.standard.document, so it carries no document ref —
-    // only the publication it belongs to: the portfolio, where the Ratioed
-    // essay itself lives. Ratioed is a work in that publication, not one of
-    // its own; a publication of its own would hold no documents, and readers
-    // list it as an empty one.
-    publication: PORTFOLIO_PUBLICATION,
+    // No Standard Site refs. A piece is a measurement record, not a
+    // site.standard.document, and it isn't an entry in any publication: the
+    // Ratioed essay is the one work the portfolio carries for the project. The
+    // custom card below is what a shared piece shows.
     date: v.postedAt || null,
     canonicalPath: `/creating/${RATIOED_PATH}/${take}`,
     // A piece gets a card of its own rather than the generic record card — it
@@ -1441,7 +1438,6 @@ export async function participantMeta(pathname, origin, opts) {
     atUri: null,
     cid: null,
     nsid: COLLECTIONS.ratioedPiece,
-    publication: PORTFOLIO_PUBLICATION,
     date: card.debut,
     canonicalPath: `/creating/${RATIOED_PATH}/participant/${encodeURIComponent(card.handle)}`,
     ogQuery: `participant=${encodeURIComponent(card.handle)}`,
@@ -1471,7 +1467,6 @@ export async function participantsMeta(pathname, origin, opts) {
     atUri: null,
     cid: null,
     nsid: COLLECTIONS.ratioedPiece,
-    publication: PORTFOLIO_PUBLICATION,
     date: null,
     canonicalPath: `/creating/${RATIOED_PATH}/participants`,
     ogQuery: 'board=1',

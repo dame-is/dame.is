@@ -494,12 +494,6 @@ export default async function middleware(request) {
         if (rec.nsid === STANDARD_DOC_NSID) {
           stdDoc = rec.atUri;
           stdPub = rec.publication;
-        } else if (rec.publication) {
-          // A Ratioed piece is a measurement record, not a standard document,
-          // so it has no document ref to declare — but it does belong to the
-          // portfolio publication, and saying so is what puts the page under
-          // that masthead rather than the site's default one.
-          stdPub = rec.publication;
         }
       } else {
         // A record route whose record can't be fetched degrades to the
