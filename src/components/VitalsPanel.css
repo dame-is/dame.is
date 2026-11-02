@@ -152,21 +152,12 @@
   .vitals .chrome-signal-day {
     display: none;
   }
-}
-
-/* Where the reading's age goes: in the lead on a phone ("experiencing · 2h
-   ago"), after the readings on a desk, where the lead keeps to the note
-   column (ChromeBar.css). */
-.vitals-age-tail {
-  display: none;
-}
-
-@media (min-width: 701px) {
-  .vitals-age-lead {
+  /* No "experiencing · 2h ago" on a phone: the glyphs and units say what
+     each reading is, and the row starts with the readings. A stale reading
+     still reads as one, dimmed and with the heart stopped. The empty row
+     keeps its label, since a dash alone would say nothing. */
+  .vitals .vitals-lead,
+  .vitals .vitals-age {
     display: none;
-  }
-
-  .vitals-age-tail {
-    display: inline;
   }
 }

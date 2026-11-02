@@ -86,14 +86,12 @@ export default memo(function VitalsPanel() {
           : "Current state from Dame's phone"
       }
     >
-      {/* The row leads with a gerund in the small-caps voice its siblings
-          have (LISTENING TO, FOLLOWED BY), the way the ledger names what Dame
-          is doing: "experiencing · 2h ago", what the phone last read and
-          when. Without it a newcomer couldn't tell a heart rate from a
-          battery. */}
-      <span className="chrome-signal-label vitals-lead">
-        experiencing{age ? <span className="vitals-age vitals-age-lead"> · {age}</span> : null}
-      </span>
+      {/* On a desk the row leads with a gerund in the small-caps voice its
+          siblings have (LISTENING TO, FOLLOWED BY), in the note column over
+          the feed's gerunds. A phone drops it, and the reading's age with it
+          (VitalsPanel.css): the glyphs and units say what each reading is,
+          and the row's room goes to the readings. */}
+      <span className="chrome-signal-label vitals-lead">experiencing</span>
 
       {/* One is.dame.state record sits behind all four readings, so x-ray's
           underline spans them (the inner span) and its tag follows (the
@@ -142,12 +140,10 @@ export default memo(function VitalsPanel() {
         </span>
       </span>
 
-      {/* On a desk the lead sits in the note column, which holds "dame's
-          phone" and no more, so the reading's age follows the readings there
-          instead, the way a song's age follows the song one row up. The lead
-          keeps its own copy for a phone's stacked row (VitalsPanel.css). */}
+      {/* The reading's age follows the readings, the way a song's age
+          follows the song one row up. Desk only, like the lead. */}
       {age ? (
-        <span className="vitals-age vitals-age-tail" aria-hidden="true">
+        <span className="vitals-age" aria-hidden="true">
           {age}
         </span>
       ) : null}
