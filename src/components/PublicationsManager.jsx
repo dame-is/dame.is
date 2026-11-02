@@ -935,8 +935,8 @@ function AtUriRow({ did, rkey }) {
         {copied ? 'Copied' : 'Copy'}
       </Button>
       <p className="ss-hint pub-uri-hint">
-        Paste into <code>src/config.js</code> — <code>PORTFOLIO_PUBLICATION</code>,{' '}
-        <code>BLOG_PUBLICATION</code> or <code>RATIOED_PUBLICATION</code> — and redeploy. Until then
+        Paste into <code>src/config.js</code> — <code>PORTFOLIO_PUBLICATION</code> or{' '}
+        <code>BLOG_PUBLICATION</code> — and redeploy. Until then
         the site doesn&rsquo;t know this publication exists.
       </p>
     </div>
