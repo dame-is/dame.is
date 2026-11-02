@@ -684,9 +684,8 @@
   font-weight: 600;
 }
 
-/* "on day N of their life" — lay the three pieces out with the same 0.45em
-   gap that .chrome-signal puts between a label and its value on every other
-   row, so the number gets equal, comfortable breathing room on both sides
+/* "on day N" — lay the two pieces out with the same 0.45em gap that
+   .chrome-signal puts between a label and its value on every other row,
    instead of a tight word-space. */
 .chrome-signal-day-phrase {
   display: inline-flex;
