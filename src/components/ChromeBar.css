@@ -553,7 +553,11 @@
 .chrome-title {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.55em;
+  /* The mark is the bars' full face (--chrome-face), so the lockup is set
+     close to keep mark, gap and name inside the note column on a desk (about
+     28 + 6 + 58px of its 92): any wider and the status beside it is pushed off
+     the text column's edge. */
+  gap: 0.35em;
   font-family: var(--serif);
   font-weight: 600;
   font-size: var(--text-lg);
@@ -592,8 +596,8 @@
 .chrome-mark {
   display: inline-block;
   align-self: center;
-  width: 1.3em;
-  height: 1.3em;
+  width: var(--chrome-face);
+  height: var(--chrome-face);
   line-height: 1;
   border: 1px solid var(--rule);
   background-color: var(--rule-soft);
@@ -734,7 +738,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 1.75rem;
+  min-height: var(--chrome-face);
   padding: 0;
   border: 0;
   background: transparent;
@@ -747,8 +751,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: var(--chrome-face);
+  height: var(--chrome-face);
   border: 1px solid var(--rule);
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
@@ -805,7 +809,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-height: 1.75rem;
+  min-height: var(--chrome-face);
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -823,8 +827,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  min-width: 1.75rem;
-  height: 1.75rem;
+  min-width: var(--chrome-face);
+  height: var(--chrome-face);
   padding: 0;
   /* The bar's own hairline colour, so the chips read as part of its
      vocabulary; the glyph carries the contrast (--ink-soft). A lighter chip
@@ -989,7 +993,7 @@
 
 .chrome-nav.chrome-admin-action .chrome-nav-face {
   flex: 0 1 auto;
-  min-width: 1.75rem;
+  min-width: var(--chrome-face);
   max-width: 100%;
   padding: 0 var(--space-2);
   font-size: var(--text-meta);
@@ -1002,7 +1006,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   display: block;
-  line-height: calc(1.75rem - 2px);
+  line-height: calc(var(--chrome-face) - 2px);
 }
 
 /* A destructive action never reaches this button — the admin publishes the last

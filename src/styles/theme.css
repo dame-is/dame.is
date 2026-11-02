@@ -156,6 +156,11 @@
   --radius-3: 0;
 
   --chrome-h: 56px;
+  /* The face every button in the bars is drawn on (the bottom bar's chips,
+     the running head's chevron) and the brand mark beside the wordmark: one
+     28px square, centred in the bar's 56px (ChromeBar.css). The grid rules
+     the bars along its top and bottom (grid.css). */
+  --chrome-face: 1.75rem;
 
   /* Control heights (controls.css). Small for record actions, x-ray and an
      in-table "more"; md for every button on a desktop pointer; touch for the
