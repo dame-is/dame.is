@@ -16,6 +16,7 @@ import {
   bucketStartMs,
   blockReach,
   comparePeriods,
+  compareRates,
   compactPostFromFeedItem,
   compactPostFromRecord,
   cumulativeSeries,
@@ -24,12 +25,16 @@ import {
   engagementOf,
   fmtCompact,
   fmtDelta,
+  givenEvents,
   inboundFromNotification,
+  isOwnVoicePost,
   movingAverage,
   nextBucketMs,
   oldestEventMs,
   outboundFromPosts,
   outboundFromRecord,
+  rateSeries,
+  rollingRate,
   topActors,
   topPosts,
   unitChoicesFor,
@@ -400,5 +405,58 @@ describe('small helpers', () => {
     // ENGAGEMENT_KINDS. The former must extend the latter, never diverge.
     expect(EVENT_KINDS.slice(0, ENGAGEMENT_KINDS.length)).toEqual([...ENGAGEMENT_KINDS]);
     expect(ANALYTICS_PERIODS.at(-1).days).toBeNull();
+  });
+});
+
+describe('engagement rate', () => {
+  const ME = 'did:plc:me';
+  const post = (day, likes, replyTo = null) => ({ at: new Date(at(day)).toISOString(), likes, reposts: 0, replies: 0, quotes: 0, replyTo });
+
+  it('counts top-level posts and threads as the owner’s voice, not replies to others', () => {
+    expect(isOwnVoicePost(post(1, 0), ME)).toBe(true);
+    expect(isOwnVoicePost(post(1, 0, ME), ME)).toBe(true);
+    expect(isOwnVoicePost(post(1, 0, 'did:plc:them'), ME)).toBe(false);
+  });
+
+  it('divides each bucket’s engagement by its posts, and leaves an empty bucket without a rate', () => {
+    const series = rateSeries([post(1, 10), post(1, 2), post(3, 5)], { unit: 'day', t0: at(1, 0), t1: at(3, 23) });
+    expect(series.map((b) => b.v)).toEqual([6, null, 5]);
+    expect(series.map((b) => b.posts)).toEqual([2, 0, 1]);
+  });
+
+  it('trends by ratio of sums, so a busy day outweighs a quiet one', () => {
+    // Day 1: 1 post with 30 likes. Day 2: 9 posts with 0 likes each.
+    const posts = [post(1, 30), ...Array.from({ length: 9 }, () => post(2, 0))];
+    const series = rateSeries(posts, { unit: 'day', t0: at(1, 0), t1: at(2, 23) });
+    const trend = rollingRate(series, 3);
+    // Averaging the two daily rates would say 15; ten posts earned 30.
+    expect(trend[0].v).toBe(3);
+    expect(rollingRate([{ t: 0, v: null, total: 0, posts: 0 }], 3)[0].v).toBeNull();
+  });
+
+  it('compares this period’s rate with the last one’s', () => {
+    const now = at(20);
+    const posts = [post(19, 8), post(18, 4), post(12, 3)];
+    const res = compareRates(posts, { days: 7, now });
+    expect(res.current).toBe(6);
+    expect(res.previous).toBe(3);
+    expect(res.pct).toBe(100);
+    expect(compareRates([post(19, 8)], { days: 7, now }).pct).toBeNull();
+  });
+});
+
+describe('givenEvents', () => {
+  it('joins likes and reposts with replies and quotes, leaving out the owner’s own threads', () => {
+    const ME = 'did:plc:me';
+    const outbound = [
+      { uri: 'l1', did: 'did:plc:a', kind: 'like', at: '2026-06-01T00:00:00Z' },
+      { uri: 'l2', did: ME, kind: 'like', at: '2026-06-01T00:00:00Z' },
+    ];
+    const posts = [
+      { uri: 'p1', at: '2026-06-02T00:00:00Z', replyTo: 'did:plc:b', quoteOf: null },
+      { uri: 'p2', at: '2026-06-02T00:00:00Z', replyTo: ME, quoteOf: 'did:plc:c' },
+    ];
+    const kinds = givenEvents(outbound, posts, ME).map((e) => `${e.kind}:${e.did}`);
+    expect(kinds).toEqual(['like:did:plc:a', 'reply:did:plc:b', 'quote:did:plc:c']);
   });
 });

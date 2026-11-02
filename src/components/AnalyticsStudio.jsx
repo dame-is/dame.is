@@ -24,6 +24,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
+  Check,
   Heart,
   MessageCircle,
   MessagesSquare,
@@ -45,15 +46,20 @@ import {
   bucketSeries,
   comparePeriods,
   compactPostFromRecord,
+  compareRates,
   cumulativeSeries,
   defaultUnitFor,
   engagementOf,
   fmtCompact,
   fmtDelta,
+  givenEvents,
+  isOwnVoicePost,
   movingAverage,
   oldestEventMs,
   outboundFromPosts,
   outboundFromRecord,
+  rateSeries,
+  rollingRate,
   topActors,
   topPosts,
   unitChoicesFor,
@@ -106,6 +112,12 @@ const RELATIONS = [
   { key: 'following', label: 'Following' },
 ];
 
+/** The Engagement tab's two directions: what your posts earn, what you give. */
+const DIRECTIONS = [
+  { key: 'received', label: 'Received' },
+  { key: 'given', label: 'Given' },
+];
+
 /** How many people a People list shows at first, and adds per "Show more". */
 const PEOPLE_PAGE = 12;
 
@@ -124,6 +136,7 @@ export default function AnalyticsStudio({ agent, did }) {
   const [periodKey, setPeriodKey] = useState('30d');
   const [kind, setKind] = useState('all');
   const [relation, setRelation] = useState('all');
+  const [direction, setDirection] = useState('received');
 
   const period = ANALYTICS_PERIODS.find((p) => p.key === periodKey) || ANALYTICS_PERIODS[1];
   // One "now" per data/filter change, so every memo below agrees about it —
@@ -168,6 +181,14 @@ export default function AnalyticsStudio({ agent, did }) {
               onChange={setPeriodKey}
               options={ANALYTICS_PERIODS.map((p) => ({ value: p.key, label: p.label }))}
             />
+            {tab === 'engagement' && (
+              <Segmented
+                label="Engagement direction"
+                value={direction}
+                onChange={setDirection}
+                options={DIRECTIONS.map((d) => ({ value: d.key, label: d.label }))}
+              />
+            )}
             {showKind && (
               <Segmented
                 label="Engagement type"
@@ -191,8 +212,17 @@ export default function AnalyticsStudio({ agent, did }) {
           {tab === 'followers' && <FollowersTab archive={archive} period={period} nowMs={nowMs} />}
           {tab === 'blocks' && <BlocksTab archive={archive} period={period} nowMs={nowMs} />}
           {tab === 'posts' && <PostsTab archive={archive} period={period} nowMs={nowMs} />}
-          {tab === 'engagement' && (
-            <EngagementTab archive={archive} period={period} kind={kind === 'mention' ? 'all' : kind} nowMs={nowMs} />
+          {tab === 'engagement' && direction === 'received' && (
+            <EngagementTab
+              archive={archive}
+              did={did}
+              period={period}
+              kind={kind === 'mention' ? 'all' : kind}
+              nowMs={nowMs}
+            />
+          )}
+          {tab === 'engagement' && direction === 'given' && (
+            <GivenTab archive={archive} did={did} period={period} kind={kind === 'mention' ? 'all' : kind} nowMs={nowMs} />
           )}
           {tab === 'people' && (
             <PeopleTab
@@ -910,11 +940,13 @@ function SyncStrip({ archive }) {
 
 /**
  * A sync under way: which step of how many, what it is doing and how far,
- * then one segment per step — finished ones full, failed ones marked, the
- * one under way filled by its own measured share (or moving, when there is
- * nothing honest to measure it by), the rest waiting. The segments are
- * equal on purpose: they say where in the sync it is, and each one's fill is
- * the only number on the bar, so no part of it is a guess about the whole.
+ * then every step, named, with its own segment and state — finished ones
+ * full and ticked, failed ones marked, the one under way filled by its own
+ * measured share (or moving, when there is nothing honest to measure it by),
+ * the rest waiting. The segments are equal on purpose: they say where in the
+ * sync it is, and each one's fill is the only number on the bar, so no part
+ * of it is a guess about the whole. A row of six on a wide screen, a grid of
+ * three across on a phone — every stage stays named either way.
  */
 function SyncProgress({ sync, onCancel }) {
   const { plan, done, failed, step, fraction, detail, doing } = sync;
@@ -954,7 +986,16 @@ function SyncProgress({ sync, onCancel }) {
                 />
               </span>
               <span className="an-sync-name">
-                {SYNC_STEPS[key]?.label || key}
+                <span className="an-sync-label">{SYNC_STEPS[key]?.label || key}</span>
+                <span className="an-sync-state" aria-hidden="true">
+                  {state === 'done' ? (
+                    <Check size={12} />
+                  ) : state === 'failed' ? (
+                    'failed'
+                  ) : state === 'active' ? (
+                    pct != null ? `${pct}%` : '…'
+                  ) : null}
+                </span>
                 <span className="visually-hidden">
                   {state === 'done'
                     ? ', done'
@@ -1129,9 +1170,9 @@ function FollowersTab({ archive, period, nowMs }) {
               value={mode}
               onChange={setMode}
               options={[
-                { key: 'cumulative', label: 'Cumulative' },
-                { key: 'together', label: 'Together' },
-                ...model.units.map((u) => ({ key: u, label: unitLabel(u) })),
+                MODE_TOTAL,
+                { ...MODE_BOTH, title: 'Followers and blocks on one chart' },
+                ...model.units.map((u) => ({ key: u, label: unitLabel(u), title: unitTitle(u, 'new followers') })),
               ]}
             />
           }
@@ -1320,10 +1361,10 @@ function BlocksTab({ archive, period, nowMs }) {
               value={mode}
               onChange={setMode}
               options={[
-                { key: 'cumulative', label: 'Cumulative' },
-                { key: 'stacked', label: 'Stacked' },
-                { key: 'together', label: 'Together' },
-                ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit) })),
+                MODE_TOTAL,
+                MODE_STACK,
+                { ...MODE_BOTH, title: 'Block reach and followers on one chart' },
+                ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit), title: unitTitle(unit, 'new blocks') })),
               ]}
             />
           }
@@ -1487,9 +1528,10 @@ function PostsTab({ archive, period, nowMs }) {
 /* Engagement                                                           */
 /* ================================================================== */
 
-function EngagementTab({ archive, period, kind, nowMs }) {
+function EngagementTab({ archive, did, period, kind, nowMs }) {
   const { posts } = archive;
   const [unitPick, setUnitPick] = useState(null);
+  const [rateUnitPick, setRateUnitPick] = useState(null);
 
   const model = useMemo(() => {
     const dated = posts.map((p) => ({ ...p, atMs: Date.parse(p.at) })).filter((p) => Number.isFinite(p.atMs));
@@ -1502,17 +1544,31 @@ function EngagementTab({ archive, period, kind, nowMs }) {
     const value = (p) => engagementOf(p, kind);
     const total = inWindow.reduce((sum, p) => sum + value(p), 0);
     const series = bucketSeries(inWindow, { unit, t0, t1: nowMs, pickTime: (p) => p.atMs, pickValue: value });
+
+    // The rate: engagement per post, over the owner's own voice only — top-
+    // level posts and threads, never replies to other people.
+    const own = dated.filter((p) => isOwnVoicePost(p, did));
+    const ownInWindow = own.filter((p) => p.atMs >= t0 && p.atMs <= nowMs);
+    const ownTotal = ownInWindow.reduce((sum, p) => sum + value(p), 0);
+    const rateUnit =
+      rateUnitPick && units.includes(rateUnitPick) ? rateUnitPick : units.includes('week') ? 'week' : unit;
+    const rate = rateSeries(ownInWindow, { unit: rateUnit, t0, t1: nowMs, kind });
     return {
       unit,
       units,
       series,
       trend: movingAverage(series, 7),
       total,
-      perPost: inWindow.length ? total / inWindow.length : 0,
       top: topPosts(inWindow, { kind, t0, t1: nowMs, limit: 10 }),
       compare: comparePeriods(dated, { days: period.days || spanDays, now: nowMs, pickTime: (p) => p.atMs, pickValue: value }),
+      rateUnit,
+      rate,
+      rateTrend: rollingRate(rate, 5),
+      ownPosts: ownInWindow.length,
+      ownRate: ownInWindow.length ? ownTotal / ownInWindow.length : null,
+      rateCompare: period.days ? compareRates(own, { days: period.days, now: nowMs, kind }) : null,
     };
-  }, [posts, period, kind, unitPick, nowMs]);
+  }, [posts, did, period, kind, unitPick, rateUnitPick, nowMs]);
 
   if (!posts.length) {
     return <p className="an-empty">The post archive is empty — build it from the strip above.</p>;
@@ -1535,7 +1591,17 @@ function EngagementTab({ archive, period, kind, nowMs }) {
               ? `on posts from the previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
               : null,
           }),
-          stat({ label: 'Per post', value: Math.round(model.perPost * 10) / 10, exact: true }),
+          // Per post is the engagement rate charted below: posts and threads only.
+          stat({
+            label: 'Per post',
+            value: model.ownRate == null ? 0 : Math.round(model.ownRate * 10) / 10,
+            exact: true,
+            sub: 'posts & threads',
+            delta: model.rateCompare ? model.rateCompare.pct : undefined,
+            deltaTitle: model.rateCompare
+              ? `vs previous ${period.label.toLowerCase()}: ${fmtRate(model.rateCompare.previous)} per post`
+              : null,
+          }),
           stat({ label: 'Best post', value: model.top.length ? engagementOf(model.top[0], kind) : 0 }),
         ]}
       />
@@ -1568,6 +1634,48 @@ function EngagementTab({ archive, period, kind, nowMs }) {
       </div>
 
       <div className="an-card">
+        <SectionHead
+          as="h3"
+          title={kind === 'all' ? 'Engagement rate' : `${head} per post`}
+          meta={
+            <ModeToggle
+              value={model.rateUnit}
+              onChange={setRateUnitPick}
+              options={model.units.map((u) => ({ key: u, label: unitLabel(u), title: `Per post, by ${unitNoun(u)}` }))}
+            />
+          }
+        />
+        <SeriesChart
+          series={model.rate}
+          trend={model.rateTrend}
+          mode="bars"
+          unit={model.rateUnit}
+          zeroBase
+          format={fmtRate}
+          ariaLabel={`${head} per post, by the ${model.rateUnit} each post was made, over ${period.label}`}
+        />
+        <ChartTable
+          series={model.rate}
+          secondary={model.rate.map((b) => ({ t: b.t, v: b.posts }))}
+          trend={model.rateTrend}
+          unit={model.rateUnit}
+          valueHead="Per post"
+          secondaryHead="Posts"
+          format={fmtRate}
+        />
+        <p className="an-card-caption">
+          {kindLabel === 'all' ? 'Engagement' : head} per post, averaged over the posts made each{' '}
+          {unitNoun(model.rateUnit)}: your top-level posts and the replies in your own threads, so
+          replies to other people don’t pull it down. A gap is a {unitNoun(model.rateUnit)} with
+          nothing posted. The trend weighs every post equally, so a busy {unitNoun(model.rateUnit)}{' '}
+          counts for more than a quiet one. The newest posts are still collecting engagement, so the
+          last bar can run low.
+          {model.ownPosts > 0 &&
+            ` ${model.ownPosts.toLocaleString('en-US')} ${model.ownPosts === 1 ? 'post' : 'posts'} in this window.`}
+        </p>
+      </div>
+
+      <div className="an-card">
         <SectionHead as="h3" title="Top posts" />
         {model.top.length === 0 ? (
           <p className="an-empty">No posts in this window.</p>
@@ -1579,6 +1687,139 @@ function EngagementTab({ archive, period, kind, nowMs }) {
           </ol>
         )}
       </div>
+    </section>
+  );
+}
+
+/* ================================================================== */
+/* Engagement given                                                     */
+/* ================================================================== */
+
+const GIVEN_NOUN = { like: 'likes', repost: 'reposts', reply: 'replies', quote: 'quotes' };
+
+function GivenTab({ archive, did, period, kind, nowMs }) {
+  const { posts, outbound, meta } = archive;
+  const [unitPick, setUnitPick] = useState(null);
+
+  const model = useMemo(() => {
+    const all = [];
+    let oldest = Infinity;
+    for (const ev of givenEvents(outbound, posts, did)) {
+      const atMs = Date.parse(ev.at);
+      if (!Number.isFinite(atMs)) continue;
+      all.push({ ...ev, atMs });
+      if (atMs < oldest) oldest = atMs;
+    }
+    const t0 = period.days ? nowMs - period.days * DAY_MS : Number.isFinite(oldest) ? oldest : nowMs;
+    const spanDays = Math.max(1, Math.round((nowMs - t0) / DAY_MS));
+    const units = unitChoicesFor(period.days ?? spanDays);
+    const unit = unitPick && units.includes(unitPick) ? unitPick : defaultUnitFor(period.days ?? spanDays);
+    const inWindowAll = all.filter((e) => e.atMs >= t0 && e.atMs <= nowMs);
+    const byKind = Object.keys(GIVEN_NOUN)
+      .map((k) => ({ kind: k, count: inWindowAll.filter((e) => e.kind === k).length }))
+      .sort((a, b) => b.count - a.count);
+    const events = kind === 'all' ? all : all.filter((e) => e.kind === kind);
+    const inWindow = kind === 'all' ? inWindowAll : inWindowAll.filter((e) => e.kind === kind);
+    const series = bucketSeries(inWindow, { unit, t0, t1: nowMs, pickTime: (e) => e.atMs });
+    return {
+      unit,
+      units,
+      series,
+      trend: movingAverage(series, 7),
+      total: inWindow.length,
+      perDay: inWindow.length / spanDays,
+      accounts: new Set(inWindow.map((e) => e.did)).size,
+      byKind,
+      compare: comparePeriods(events, { days: period.days || spanDays, now: nowMs, pickTime: (e) => e.atMs }),
+    };
+  }, [posts, outbound, did, period, kind, unitPick, nowMs]);
+
+  if (!posts.length && !outbound.length) {
+    return <p className="an-empty">Nothing given on record yet — build the archive from the strip above.</p>;
+  }
+
+  const head = kind === 'all' ? 'Engagement' : ENGAGEMENT_KINDS.find((k) => k.key === kind)?.label || 'Engagement';
+  // The CAR carries every like and repost ever; only the fallback sweep (when
+  // the repo pull failed) stops short, and says how far it reached.
+  const coverageMs = meta.outbound?.coverageMs || 0;
+  const maxKind = model.byKind[0]?.count || 1;
+
+  return (
+    <section className="an-panel" aria-label="Engagement given">
+      <Figures
+        className="an-figures"
+        label="Engagement given in figures"
+        items={[
+          stat({
+            label: `${head} given`,
+            value: model.total,
+            delta: period.days ? model.compare.pct : null,
+            deltaTitle: period.days
+              ? `vs previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
+              : null,
+          }),
+          stat({
+            label: 'Per day',
+            value: model.perDay < 10 ? Math.round(model.perDay * 10) / 10 : Math.round(model.perDay),
+            exact: true,
+          }),
+          stat({ label: 'Accounts', value: model.accounts, sub: 'engaged with' }),
+        ]}
+      />
+
+      <div className="an-card">
+        <SectionHead
+          as="h3"
+          title={`${head} given per ${unitNoun(model.unit)}`}
+          meta={
+            <ModeToggle
+              value={model.unit}
+              onChange={setUnitPick}
+              options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
+            />
+          }
+        />
+        <SeriesChart
+          series={model.series}
+          trend={model.trend}
+          mode="bars"
+          unit={model.unit}
+          zeroBase
+          ariaLabel={`${head} given per ${model.unit} over ${period.label}`}
+        />
+        <ChartTable series={model.series} trend={model.trend} unit={model.unit} valueHead={`${head} given`} />
+        <p className="an-card-caption">
+          Counted on the day you gave it. Replies and quotes aimed at your own posts are threading,
+          not engagement, and are left out.
+        </p>
+      </div>
+
+      {kind === 'all' && (
+        <div className="an-card">
+          <SectionHead as="h3" title="By kind" />
+          <ol className="an-actors an-collections">
+            {model.byKind.map((k) => (
+              <li key={k.kind} className="an-actor">
+                <span className="an-actor-main">
+                  <span className="an-actor-name">{GIVEN_NOUN[k.kind].charAt(0).toUpperCase() + GIVEN_NOUN[k.kind].slice(1)}</span>
+                </span>
+                <span className="an-actor-track" aria-hidden="true">
+                  <span className="an-actor-fill" style={{ width: `${(k.count / maxKind) * 100}%` }} />
+                </span>
+                <span className="an-actor-count">{k.count.toLocaleString('en-US')}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      <p className="an-note">
+        Likes and reposts come from your repo archive
+        {coverageMs > 0
+          ? `, which reaches back to ${formatDateShort(coverageMs)} so far`
+          : ' — every one you have ever made'}
+        ; replies and quotes from the post archive. Who you engage with most is on the People tab.
+      </p>
     </section>
   );
 }
@@ -2074,16 +2315,29 @@ function stat({ label, value, unit = null, delta = undefined, deltaTitle = null,
   };
 }
 
-/** A chart's own switch (cumulative, weekly, …): the kit's Segmented. */
+/**
+ * A chart's own switch: the kit's Segmented. The keys are one short word each
+ * — Total, Stack, Both, Daily — so a chart's whole switch fits one row on a
+ * phone; each key's tooltip says it in full.
+ */
 function ModeToggle({ value, onChange, options, label = 'Chart' }) {
   return (
     <Segmented
       label={label}
       value={value}
       onChange={onChange}
-      options={options.map((o) => ({ value: o.key, label: o.label }))}
+      options={options.map((o) => ({ value: o.key, label: o.label, title: o.title }))}
     />
   );
+}
+
+const MODE_TOTAL = { key: 'cumulative', label: 'Total', title: 'Running total over the window' };
+const MODE_STACK = { key: 'stacked', label: 'Stack', title: 'Running total, stacked by direct blocks and moderation lists' };
+const MODE_BOTH = { key: 'together', label: 'Both' };
+
+/** "New followers per week", for a unit key's tooltip. */
+function unitTitle(unit, noun) {
+  return `${noun.charAt(0).toUpperCase()}${noun.slice(1)} per ${unitNoun(unit)}`;
 }
 
 function unitLabel(unit) {
@@ -2123,6 +2377,10 @@ const GHOST_GUTTER = 28;
  * and suspended accounts the swept curve cannot see. Dashed and in faint
  * ink on purpose: it is a simulation, not a measurement, and it must never
  * dress like the data. `{ v, label }`.
+ *
+ * `format` writes a value for the readout and the table — a rate wants a
+ * decimal, and a bucket with no value (null: nothing posted that week) wants
+ * words, not a zero. Null points draw no bar and break the trend line.
  */
 function SeriesChart({
   series,
@@ -2134,8 +2392,10 @@ function SeriesChart({
   unit = 'day',
   zeroBase = true,
   ghost = null,
+  format = null,
   ariaLabel,
 }) {
+  const fmt = format || fmtCount;
   const plotRef = useRef(null);
   const [w, setW] = useState(0);
   const [hover, setHover] = useState(null);
@@ -2173,7 +2433,7 @@ function SeriesChart({
   const dataMax = Math.max(
     ...values,
     ...secondaryValues,
-    trend ? Math.max(...trend.map((p) => p.v)) : 0,
+    trend ? Math.max(...trend.map((p) => p.v ?? 0)) : 0,
     showGhost ? ghost.v : 0,
   );
   const dataMin = Math.min(...values, ...secondaryValues);
@@ -2219,9 +2479,19 @@ function SeriesChart({
           .map(({ p, i }) => `L${x(i).toFixed(1)},${y(p.v).toFixed(1)}`)
           .join(' ')} Z`
       : null;
+  // A trend point with no value (a window with nothing in it) breaks the
+  // line; the next real point starts a new run rather than diving to zero.
   const trendPath = trend
-    ? trend.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
+    ? trend
+        .map((p, i) => {
+          if (p.v == null) return '';
+          const move = i === 0 || trend[i - 1].v == null ? 'M' : 'L';
+          return `${move}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`;
+        })
+        .filter(Boolean)
+        .join(' ')
     : null;
+  const trendEnd = trend ? trend.findLastIndex((p) => p.v != null) : -1;
 
   return (
     <div className="an-chart">
@@ -2239,7 +2509,7 @@ function SeriesChart({
             height={H}
             viewBox={`0 0 ${w} ${H}`}
             role="img"
-            aria-label={`${ariaLabel || 'Series'}: ${n} ${unit} buckets, peak ${Math.round(dataMax).toLocaleString('en-US')}${showGhost ? `; dashed reference reaching ${Math.round(ghost.v).toLocaleString('en-US')}` : ''}`}
+            aria-label={`${ariaLabel || 'Series'}: ${n} ${unit} buckets, peak ${fmt(dataMax)}${showGhost ? `; dashed reference reaching ${Math.round(ghost.v).toLocaleString('en-US')}` : ''}`}
             onPointerMove={onMove}
             onPointerLeave={() => setHover(null)}
           >
@@ -2256,7 +2526,7 @@ function SeriesChart({
                 and a chart is not the place the system softens. */}
             {mode === 'bars' &&
               series.map((p, i) =>
-                p.v > 0 ? (
+                p.v != null && p.v > 0 ? (
                   <rect
                     key={p.t}
                     className={`an-chart-bar${hover === i ? ' is-hover' : ''}`}
@@ -2314,10 +2584,15 @@ function SeriesChart({
                 );
               })()}
 
-            {trendPath && (
+            {trendPath && trendEnd >= 0 && (
               <>
                 <path className="an-chart-trend" d={trendPath} />
-                <text className="an-chart-trendlabel" x={Math.min(x(n - 1) + 4, w - PAD.r)} y={y(trend[n - 1].v) - 4} textAnchor="end">
+                <text
+                  className="an-chart-trendlabel"
+                  x={Math.min(x(trendEnd) + 4, w - PAD.r)}
+                  y={y(trend[trendEnd].v) - 4}
+                  textAnchor="end"
+                >
                   trend
                 </text>
               </>
@@ -2338,7 +2613,7 @@ function SeriesChart({
             className="an-chart-tip"
             style={{ left: clamp(x(hp.i), 40, w - 40), top: Math.max(PAD.t, y(hp.v)) }}
           >
-            <strong>{seriesLabel && `${seriesLabel} `}{Math.round(hp.v).toLocaleString('en-US')}</strong>
+            <strong>{seriesLabel && `${seriesLabel} `}{fmt(hp.v)}</strong>
             {secondaryHp && (
               <strong className="an-chart-tip-secondary">
                 {secondary.label} {Math.round(secondaryHp.v).toLocaleString('en-US')}
@@ -2350,8 +2625,8 @@ function SeriesChart({
               </strong>
             )}
             <span className="an-chart-tip-when">{bucketLabel(hp.t, unit)}</span>
-            {trend && trend[hp.i] && (
-              <span className="an-chart-tip-trend">trend {Math.round(trend[hp.i].v).toLocaleString('en-US')}</span>
+            {trend && trend[hp.i]?.v != null && (
+              <span className="an-chart-tip-trend">trend {fmt(trend[hp.i].v)}</span>
             )}
           </div>
         )}
@@ -2404,8 +2679,19 @@ function clamp(v, lo, hi) {
   return Math.min(hi, Math.max(lo, v));
 }
 
+/** A count as the charts write it: whole, with thousands separators. */
+function fmtCount(v) {
+  return v == null ? '—' : Math.round(v).toLocaleString('en-US');
+}
+
+/** A rate (engagement per post): one decimal while small; words for none. */
+function fmtRate(v) {
+  if (v == null) return 'no posts';
+  return v < 10 ? (Math.round(v * 10) / 10).toLocaleString('en-US') : Math.round(v).toLocaleString('en-US');
+}
+
 /** Every chart's plain twin — the same buckets as a real table. */
-function ChartTable({ series, secondary = null, trend = null, unit, valueHead, secondaryHead = null }) {
+function ChartTable({ series, secondary = null, trend = null, unit, valueHead, secondaryHead = null, format = fmtCount }) {
   if (!series || series.length === 0) return null;
   return (
     <details className="an-tableview">
@@ -2424,9 +2710,9 @@ function ChartTable({ series, secondary = null, trend = null, unit, valueHead, s
             {series.map((p, i) => (
               <tr key={p.t}>
                 <th scope="row">{bucketLabel(p.t, unit)}</th>
-                <td>{Math.round(p.v).toLocaleString('en-US')}</td>
-                {secondary && <td>{Math.round(secondary[i]?.v ?? 0).toLocaleString('en-US')}</td>}
-                {trend && <td>{Math.round(trend[i]?.v ?? 0).toLocaleString('en-US')}</td>}
+                <td>{format(p.v)}</td>
+                {secondary && <td>{fmtCount(secondary[i]?.v ?? 0)}</td>}
+                {trend && <td>{trend[i]?.v == null ? '—' : format(trend[i].v)}</td>}
               </tr>
             ))}
           </tbody>

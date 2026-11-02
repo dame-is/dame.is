@@ -162,16 +162,38 @@
   }
 }
 
-/* The step names in the label voice, under their segments. */
+/* Each step's name in the label voice under its segment, its state at the
+   right: a tick when done, its share while under way. */
 .an-sync-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
   font-family: var(--sans);
   font-size: var(--text-2xs);
   font-variant: all-small-caps;
   letter-spacing: 0.08em;
   color: var(--ink-faint);
   white-space: nowrap;
+}
+
+.an-sync-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.an-sync-state {
+  flex: none;
+  display: inline-flex;
+  font-variant: normal;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.an-sync-step[data-state='done'] .an-sync-state {
+  color: var(--accent);
 }
 
 .an-sync-step[data-state='active'] .an-sync-name {
@@ -271,10 +293,12 @@
     white-space: nowrap;
   }
 
-  /* The labels under the step segments would crowd seven to a phone's width;
-     the status line above already names the step under way. */
-  .an-sync-name {
-    display: none;
+  /* Six named stages won't share a phone's width, so they sit three across:
+     every one still named, still showing its state. */
+  .an-sync-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2) 3px;
   }
 }
 
