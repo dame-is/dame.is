@@ -35,7 +35,7 @@ import Figures from './Figures.jsx';
 import SectionHead from './SectionHead.jsx';
 import Segmented from './Segmented.jsx';
 import { ME_HANDLE } from '../config.js';
-import { getProfile, resolvePds } from '../lib/atproto.js';
+import { getProfile, resolvePds, rkeyFromAtUri } from '../lib/atproto.js';
 import {
   ANALYTICS_PERIODS,
   ENGAGEMENT_KINDS,
@@ -66,10 +66,23 @@ import {
   hydrateActors,
   sweepBlocks,
   sweepFollowers,
+  sweepFollowing,
   sweepInbound,
   sweepOutbound,
   sweepPosts,
 } from '../lib/analyticsSync.js';
+import {
+  SYNC_PLAN,
+  SYNC_STEPS,
+  blocksFraction,
+  partsFraction,
+  repoDownloadFraction,
+  repoReadFraction,
+  repoSaveFraction,
+  share,
+  timeFraction,
+  walkFraction,
+} from '../lib/syncProgress.js';
 import { formatDateShort, relativeTime } from '../lib/time.js';
 import './AnalyticsStudio.css';
 
@@ -83,6 +96,18 @@ const REHYDRATE_DAYS = 30;
 
 /** How far back the event sweeps ever dig. Matches the longest dated period. */
 const EVENT_DEPTH_DAYS = 365;
+
+const FOLLOW = 'app.bsky.graph.follow';
+
+/** The People tab's relationship filter, against the owner's own follows. */
+const RELATIONS = [
+  { key: 'all', label: 'Everyone' },
+  { key: 'not', label: 'Not following' },
+  { key: 'following', label: 'Following' },
+];
+
+/** How many people a People list shows at first, and adds per "Show more". */
+const PEOPLE_PAGE = 12;
 
 const TABS = [
   { key: 'followers', label: 'Followers' },
@@ -98,6 +123,7 @@ export default function AnalyticsStudio({ agent, did }) {
   const [tab, setTab] = useState('followers');
   const [periodKey, setPeriodKey] = useState('30d');
   const [kind, setKind] = useState('all');
+  const [relation, setRelation] = useState('all');
 
   const period = ANALYTICS_PERIODS.find((p) => p.key === periodKey) || ANALYTICS_PERIODS[1];
   // One "now" per data/filter change, so every memo below agrees about it —
@@ -150,6 +176,16 @@ export default function AnalyticsStudio({ agent, did }) {
                 options={kinds.map((k) => ({ value: k.key, label: k.label }))}
               />
             )}
+            {/* Only once the follows are known: filtering against an empty
+                set would call everyone "not following". */}
+            {tab === 'people' && archive.meta.following && (
+              <Segmented
+                label="Show people"
+                value={relation}
+                onChange={setRelation}
+                options={RELATIONS.map((r) => ({ value: r.key, label: r.label }))}
+              />
+            )}
           </div>
 
           {tab === 'followers' && <FollowersTab archive={archive} period={period} nowMs={nowMs} />}
@@ -159,7 +195,14 @@ export default function AnalyticsStudio({ agent, did }) {
             <EngagementTab archive={archive} period={period} kind={kind === 'mention' ? 'all' : kind} nowMs={nowMs} />
           )}
           {tab === 'people' && (
-            <PeopleTab archive={archive} did={did} period={period} kind={kind} nowMs={nowMs} />
+            <PeopleTab
+              archive={archive}
+              did={did}
+              period={period}
+              kind={kind}
+              relation={archive.meta.following ? relation : 'all'}
+              nowMs={nowMs}
+            />
           )}
           {tab === 'atmosphere' && <AtmosphereTab archive={archive} period={period} nowMs={nowMs} />}
         </>
@@ -179,6 +222,7 @@ function useAnalyticsArchive(agent, did) {
     blocked: false,
     posts: [],
     followers: [],
+    following: [],
     blocks: [],
     inbound: [],
     outbound: [],
@@ -187,7 +231,10 @@ function useAnalyticsArchive(agent, did) {
     rev: 0,
   });
   const [actors, setActors] = useState(() => new Map());
-  const [sync, setSync] = useState(null); // { phase, fetched, est } while running
+  // While running: { plan, done, failed, step, fraction, detail, doing } —
+  // the steps this sync will take, which have finished or failed, and the
+  // one under way with its own measured share (null: nothing to measure by).
+  const [sync, setSync] = useState(null);
   const [syncError, setSyncError] = useState(null);
   const storeRef = useRef(null);
   const abortRef = useRef(null);
@@ -195,10 +242,11 @@ function useAnalyticsArchive(agent, did) {
   const attemptedActorsRef = useRef(new Set());
 
   async function reload(store) {
-    const [posts, followers, blocks, inbound, outbound, atmosphere, actorRows, pm, fm, bm, im, om, rm] =
+    const [posts, followers, following, blocks, inbound, outbound, atmosphere, actorRows, pm, fm, gm, bm, im, om, rm] =
       await Promise.all([
         store.all('posts'),
         store.all('followers'),
+        store.all('following'),
         store.all('blocks'),
         store.all('inbound'),
         store.all('outbound'),
@@ -206,6 +254,7 @@ function useAnalyticsArchive(agent, did) {
         store.all('actors'),
         store.getMeta('posts'),
         store.getMeta('followers'),
+        store.getMeta('following'),
         store.getMeta('blocks'),
         store.getMeta('inbound'),
         store.getMeta('outbound'),
@@ -221,11 +270,12 @@ function useAnalyticsArchive(agent, did) {
       blocked: store.blocked === true,
       posts,
       followers,
+      following,
       blocks,
       inbound,
       outbound,
       atmosphere,
-      meta: { posts: pm, followers: fm, blocks: bm, inbound: im, outbound: om, repo: rm },
+      meta: { posts: pm, followers: fm, following: gm, blocks: bm, inbound: im, outbound: om, repo: rm },
       rev: prev.rev + 1,
     }));
     return { posts, meta: { posts: pm, blocks: bm, inbound: im, outbound: om } };
@@ -258,8 +308,39 @@ function useAnalyticsArchive(agent, did) {
     setSyncError(null);
     const startedAt = Date.now();
     const errors = [];
-    const progress = (phase, est = null, unit = null) => setSync({ phase, fetched: 0, est, unit });
-    const tick = (p) => setSync((s) => (s ? { ...s, fetched: p.fetched } : s));
+
+    /* The bar: one segment per step, each filled by its own measurement.
+       `begin` closes the step before it and returns a reporter bound to the
+       new one, so a late report from a finished step can never move the
+       next step's segment. A share only ever moves forward. */
+    const plan = [...SYNC_PLAN];
+    const done = [];
+    const failed = [];
+    let current = null;
+    const begin = (step, { fraction = 0, detail = '', doing = null } = {}) => {
+      // Starting the same step again (a repo diff falling back to a full
+      // pull) restarts its segment; it never marks it finished.
+      if (current && current !== step && !failed.includes(current) && !done.includes(current)) done.push(current);
+      current = step;
+      setSync({ plan: [...plan], done: [...done], failed: [...failed], step, fraction, detail, doing });
+      return (nextFraction, nextDetail, nextDoing) =>
+        setSync((s) => {
+          if (!s || s.step !== step) return s;
+          const fraction =
+            nextFraction == null ? s.fraction : s.fraction == null ? nextFraction : Math.max(s.fraction, nextFraction);
+          return {
+            ...s,
+            plan: [...plan],
+            fraction,
+            detail: nextDetail ?? s.detail,
+            doing: nextDoing ?? s.doing,
+          };
+        });
+    };
+    const fail = (step, message) => {
+      errors.push(`${step}: ${message}`);
+      if (!failed.includes(step)) failed.push(step);
+    };
     // A deploy landing mid-sweep must not reload the tab out from under a
     // 250-page build; the auto-updater applies it on a poll after release.
     const releaseHold = holdReload('analytics-sync');
@@ -274,9 +355,15 @@ function useAnalyticsArchive(agent, did) {
          wonder why two parts of their own site disagree. */
       const prof = await getProfile(did).catch(() => null);
 
-      /* Followers — always the full set; only a full set can see unfollows. */
-      progress('followers', prof?.followersCount ?? data.meta.followers?.count ?? null);
-      const fw = await sweepFollowers(agent, did, { signal: ac.signal, onProgress: tick });
+      /* Followers — always the full set; only a full set can see unfollows.
+         Measured against the last sweep's listable count rather than the
+         profile counter, which runs ahead of what can be listed. */
+      const followerEst = data.meta.followers?.count || prof?.followersCount || null;
+      let report = begin('followers', { fraction: followerEst ? 0 : null });
+      const fw = await sweepFollowers(agent, did, {
+        signal: ac.signal,
+        onProgress: (p) => report(share(p.fetched, followerEst), ofAbout(p.fetched, followerEst, 'followers')),
+      });
       if (fw.complete) {
         await store.clear('followers');
         await store.putAll('followers', fw.followers);
@@ -287,7 +374,25 @@ function useAnalyticsArchive(agent, did) {
           profileCount: typeof prof?.followersCount === 'number' ? prof.followersCount : null,
         });
       } else if (fw.error) {
-        errors.push(`followers: ${fw.error}`);
+        fail('followers', fw.error);
+      }
+      if (ac.signal.aborted) return;
+
+      /* Who the owner follows — the People tab's Follow buttons. A few pages
+         of the owner's own repo; replaced only by a complete set, so a
+         failed read never turns a real follow into a "Follow" button. */
+      const followingEst = data.meta.following?.count || prof?.followsCount || null;
+      report = begin('following', { fraction: followingEst ? 0 : null });
+      const fl = await sweepFollowing(agent, did, {
+        signal: ac.signal,
+        onProgress: (p) => report(share(p.fetched, followingEst), ofAbout(p.fetched, followingEst, 'follows')),
+      });
+      if (fl.complete) {
+        await store.clear('following');
+        await store.putAll('following', fl.following);
+        await store.setMeta('following', { syncedAt: startedAt, count: fl.following.length, complete: true });
+      } else if (fl.error) {
+        fail('following', fl.error);
       }
       if (ac.signal.aborted) return;
 
@@ -295,8 +400,12 @@ function useAnalyticsArchive(agent, did) {
          repos that point at this DID. Their rkeys are TIDs, giving the same
          reconstructed timeline the follower graph uses. Replace only after
          a complete sweep so a failed request cannot erase good data. */
-      progress('blocks');
-      const bw = await sweepBlocks(did, { signal: ac.signal, onProgress: tick });
+      const directEstimate = data.blocks.filter((b) => b.source === 'direct').length || null;
+      report = begin('blocks');
+      const bw = await sweepBlocks(did, {
+        signal: ac.signal,
+        onProgress: (p) => report(blocksFraction(p, { directEstimate }), blocksDetail(p, directEstimate)),
+      });
       if (bw.complete) {
         const reach = blockReach(bw.blocks);
         await store.clear('blocks');
@@ -309,7 +418,7 @@ function useAnalyticsArchive(agent, did) {
           complete: true,
         });
       } else if (bw.error) {
-        errors.push(`blocks: ${bw.error}`);
+        fail('blocks', bw.error);
       }
       if (ac.signal.aborted) return;
 
@@ -321,34 +430,42 @@ function useAnalyticsArchive(agent, did) {
       let carEntries = null;
       const repoMeta = data.meta.repo;
       try {
-        progress('repo', null, 'MB');
         const pds = await resolvePds(did);
-        const mb = (p) =>
-          setSync((s) =>
-            s
-              ? {
-                  ...s,
-                  fetched: Math.round(p.bytes / 1048576),
-                  est: p.total ? Math.round(p.total / 1048576) : s.est,
-                }
-              : s,
-          );
+        // The PDS streams the CAR without a Content-Length, so a full pull
+        // is measured against the size of the last one. A diff has no such
+        // yardstick — it is small, and shows motion rather than a guess.
         const pull = async (since) => {
-          const bytes = await fetchRepoCar(pds, did, { since, signal: ac.signal, onProgress: mb });
-          progress('repo-read');
-          return readRepoCar(bytes);
+          const full = since == null;
+          const totalGuess = full ? repoMeta?.bytes || null : null;
+          report = begin('repo', {
+            fraction: totalGuess ? 0 : null,
+            doing: full ? 'Downloading the repo' : 'Downloading what changed in the repo',
+          });
+          const bytes = await fetchRepoCar(pds, did, {
+            since,
+            signal: ac.signal,
+            onProgress: (p) =>
+              report(repoDownloadFraction(p.bytes, p.total || totalGuess), megabytes(p.bytes, p.total || totalGuess)),
+          });
+          const expectedRecords = full ? data.atmosphere.length || null : null;
+          report(null, '', 'Reading the repo archive');
+          const parsed = await readRepoCar(bytes, {
+            onProgress: (p) => report(repoReadFraction(p, { expectedRecords }), carDetail(p)),
+          });
+          return { parsed, size: bytes.byteLength };
         };
         let since = mode !== 'full' && repoMeta?.rev ? repoMeta.rev : null;
-        let parsed;
+        let pulled;
         try {
-          parsed = await pull(since);
+          pulled = await pull(since);
         } catch (err) {
           // A diff 400s when the PDS no longer holds that rev; the honest
           // recovery is a full pull, not a failed phase.
           if (!since || ac.signal.aborted) throw err;
           since = null;
-          parsed = await pull(null);
+          pulled = await pull(null);
         }
+        const { parsed } = pulled;
         if (ac.signal.aborted) return;
 
         const atmoRows = [];
@@ -367,26 +484,47 @@ function useAnalyticsArchive(agent, did) {
             if (ev) outRows.push(ev);
           }
         }
+        // The size of the last FULL pull is the next one's yardstick.
+        const bytesMeta = since == null ? pulled.size : (repoMeta?.bytes ?? null);
+        // Writing ~190,000 rows into IndexedDB is the longest part of a full
+        // pull, so it is measured too: in chunks, row by row.
+        const toWrite = atmoRows.length + outRows.length;
+        let written = 0;
+        const saved = (rows) => {
+          written += rows;
+          report(repoSaveFraction(written, toWrite), `${num(written)} of ${num(toWrite)} rows`);
+        };
+        report(repoSaveFraction(0, toWrite), `${num(0)} of ${num(toWrite)} rows`, 'Saving the repo to this browser');
         if (since == null) {
           // Full pull: replace, so deleted records actually leave. The rev
           // is nulled first — a death mid-write must make the NEXT sync
           // pull full again, never diff across a half-written store.
           await store.clear('atmosphere');
           await store.clear('outbound');
-          await store.setMeta('repo', { syncedAt: startedAt, rev: null });
+          await store.setMeta('repo', { syncedAt: startedAt, rev: null, bytes: bytesMeta });
         }
         for (let i = 0; i < atmoRows.length; i += 5000) {
-          await store.putAll('atmosphere', atmoRows.slice(i, i + 5000));
+          const chunk = atmoRows.slice(i, i + 5000);
+          await store.putAll('atmosphere', chunk);
+          saved(chunk.length);
         }
-        await store.putAll('outbound', outRows);
-        await store.setMeta('repo', { syncedAt: startedAt, rev: parsed.rev });
+        for (let i = 0; i < outRows.length; i += 5000) {
+          const chunk = outRows.slice(i, i + 5000);
+          await store.putAll('outbound', chunk);
+          saved(chunk.length);
+        }
+        // An empty diff names no rev — nothing was written since the one held.
+        await store.setMeta('repo', { syncedAt: startedAt, rev: parsed.rev || since, bytes: bytesMeta });
         // The CAR is now the complete outbound record: mark coverage as
         // total so the fallback sweep, if it ever runs again, knows it.
         await store.setMeta('outbound', { syncedAt: startedAt, coverageMs: 0, truncated: false });
         carEntries = parsed.entries;
       } catch (err) {
         if (ac.signal.aborted) return;
-        errors.push(`repo: ${err?.message || String(err)}`);
+        if (current !== 'repo') begin('repo');
+        fail('repo', err?.message || String(err));
+        // Without the CAR, likes and reposts need their own walk at the end.
+        plan.push('outbound');
       }
       if (ac.signal.aborted) return;
 
@@ -400,12 +538,21 @@ function useAnalyticsArchive(agent, did) {
       const resume = !full && mode === 'resume' && !postsMeta.complete;
       let est = data.posts.length || null;
       if ((full || resume) && prof?.postsCount) est = prof.postsCount;
+      // The dates the walk is measured against: the repo's own post records
+      // on a fresh build, the archive otherwise.
+      let heldPosts = data.posts;
+      const building = full || resume;
+      report = begin('posts', {
+        fraction: null,
+        doing: building ? 'Archiving posts' : 'Refreshing recent posts',
+      });
       if (full) {
         await store.clear('posts');
         // Mark the build as underway BEFORE page one. From here on, however
         // the tab dies — cancel, crash, the deploy auto-reload — the archive
         // reads as incomplete and resumable, never as "never started".
         await store.setMeta('posts', { syncedAt: startedAt, complete: false, cursor: null });
+        heldPosts = [];
         if (carEntries) {
           // Seed the freshly-cleared archive with the repo's own post
           // records — counts all zero, because only the AppView knows them —
@@ -419,13 +566,23 @@ function useAnalyticsArchive(agent, did) {
             if (row) seed.push(row);
           }
           if (seed.length) {
+            report(null, `copying ${num(seed.length)} posts from the repo so the charts can draw`);
             await store.putAll('posts', seed);
             await reload(store);
           }
+          heldPosts = seed;
         }
       }
-      progress('posts', est);
-      const building = full || resume;
+      const postTimes = heldPosts
+        .map((p) => Date.parse(p.at))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+      // A build walks to the oldest post; a top-up walks back through the
+      // recent window whose counts it refreshes.
+      const postTarget = building ? (postTimes[0] ?? null) : startedAt - REHYDRATE_DAYS * DAY_MS;
+      const measurable = postTarget != null && walkFraction(postTimes, null, postTarget) != null;
+      const postsEst = building ? est : null;
+      if (measurable || postsEst) report(0, '');
       const known = building ? null : new Set(data.posts.map((p) => p.uri));
       const ps = await sweepPosts({
         did,
@@ -442,9 +599,13 @@ function useAnalyticsArchive(agent, did) {
             await store.setMeta('posts', { syncedAt: startedAt, complete: false, cursor });
           }
         },
-        onProgress: tick,
+        onProgress: (p) =>
+          report(
+            (measurable ? walkFraction(postTimes, p.reachedMs, postTarget) : null) ?? share(p.fetched, postsEst),
+            reachedDetail(ofAbout(p.fetched, postsEst, 'posts'), p.reachedMs),
+          ),
       });
-      if (ps.error) errors.push(`posts: ${ps.error}`);
+      if (ps.error) fail('posts', ps.error);
       if (building) {
         await store.setMeta('posts', {
           syncedAt: startedAt,
@@ -459,17 +620,26 @@ function useAnalyticsArchive(agent, did) {
       /* Inbound + outbound engagement events */
       const cutoffMs = startedAt - EVENT_DEPTH_DAYS * DAY_MS;
 
-      progress('inbound');
       const im = data.meta.inbound;
+      // A top-up stops about where the last sync started; a sweep still
+      // digging toward the cutoff has the cutoff to reach. Measured by time:
+      // nothing held can say how many notifications lie in between.
+      const inCovered = im?.coverageMs != null && im.coverageMs <= cutoffMs;
+      const inTarget = inCovered && im?.syncedAt ? im.syncedAt : cutoffMs;
+      report = begin('inbound');
       const inb = await sweepInbound(agent, {
         cutoffMs,
         knownUris: new Set(data.inbound.map((e) => e.uri)),
         coveredToMs: im?.coverageMs ?? null,
         signal: ac.signal,
         onPage: (rows) => store.putAll('inbound', rows),
-        onProgress: tick,
+        onProgress: (p) =>
+          report(
+            timeFraction(startedAt, p.reachedMs, inTarget),
+            reachedDetail(`${num(p.fetched)} engagement ${p.fetched === 1 ? 'event' : 'events'} read`, p.reachedMs),
+          ),
       });
-      if (inb.error) errors.push(`inbound: ${inb.error}`);
+      if (inb.error) fail('inbound', inb.error);
       else if (!inb.aborted) {
         const coverage = Math.min(im?.coverageMs ?? Infinity, inb.complete ? cutoffMs : (inb.reachedMs ?? Infinity));
         await store.setMeta('inbound', {
@@ -484,17 +654,23 @@ function useAnalyticsArchive(agent, did) {
          successful CAR already wrote the complete like/repost history, and
          a 240-page sweep after it would re-fetch a strict subset. */
       if (!carEntries) {
-        progress('outbound');
         const om = data.meta.outbound;
+        const outCovered = om?.coverageMs != null && om.coverageMs <= cutoffMs;
+        const outTarget = outCovered && om?.syncedAt ? om.syncedAt : cutoffMs;
+        report = begin('outbound');
         const outb = await sweepOutbound(agent, did, {
           cutoffMs,
           knownUris: new Set(data.outbound.map((e) => e.uri)),
           coveredToMs: om?.coverageMs ?? null,
           signal: ac.signal,
           onPage: (rows) => store.putAll('outbound', rows),
-          onProgress: tick,
+          onProgress: (p) =>
+            report(
+              partsFraction(p.part, p.parts, timeFraction(startedAt, p.reachedMs, outTarget)),
+              reachedDetail(`${p.part === 0 ? 'likes' : 'reposts'} · ${p.fetched.toLocaleString('en-US')} read`, p.reachedMs),
+            ),
         });
-        if (outb.error) errors.push(`outbound: ${outb.error}`);
+        if (outb.error) fail('outbound', outb.error);
         else if (!outb.aborted) {
           const coverage = Math.min(om?.coverageMs ?? Infinity, outb.complete ? cutoffMs : (outb.reachedMs ?? Infinity));
           await store.setMeta('outbound', {
@@ -507,6 +683,15 @@ function useAnalyticsArchive(agent, did) {
     } finally {
       releaseHold();
       abortRef.current = null;
+      // Every step has had its turn; what is left is reading the archive back
+      // for the charts. Said as such, so the last step's segment doesn't sit
+      // short of full while it happens.
+      if (current && !failed.includes(current) && !done.includes(current) && !ac.signal.aborted) {
+        done.push(current);
+      }
+      setSync((s) =>
+        s ? { ...s, done: [...done], failed: [...failed], step: null, fraction: null, detail: '', doing: null } : s,
+      );
       // One reload, one render of new charts — the sweeps persisted as they
       // went, so even an aborted sync surfaces everything it banked.
       const store2 = storeRef.current;
@@ -514,6 +699,39 @@ function useAnalyticsArchive(agent, did) {
       setSync(null);
       if (errors.length) setSyncError(errors.join(' · '));
     }
+  }
+
+  /**
+   * Follow or unfollow one account from the People tab: a follow record
+   * written to (or every one deleted from) the owner's own repo, then the
+   * archive's copy updated to match, so the button holds across a reload
+   * without waiting for the next sync. Throws on failure — the row says so.
+   */
+  async function setFollow(subject, on) {
+    const store = storeRef.current;
+    if (!agent || !store || !subject) return;
+    if (on) {
+      const createdAt = new Date().toISOString();
+      const res = await agent.com.atproto.repo.createRecord({
+        repo: did,
+        collection: FOLLOW,
+        record: { $type: FOLLOW, subject, createdAt },
+      });
+      const row = { uri: res?.data?.uri, did: subject, followedAt: createdAt };
+      if (!row.uri) throw new Error('the PDS did not return the follow record');
+      await store.putAll('following', [row]);
+      setData((prev) => ({ ...prev, following: [...prev.following, row] }));
+      return;
+    }
+    // Every record for this subject: a repo can hold more than one, and
+    // deleting only the first would leave the account still followed.
+    const rows = data.following.filter((f) => f.did === subject);
+    for (const row of rows) {
+      const rkey = rkeyFromAtUri(row.uri);
+      if (rkey) await agent.com.atproto.repo.deleteRecord({ repo: did, collection: FOLLOW, rkey });
+    }
+    await store.remove('following', rows.map((r) => r.uri));
+    setData((prev) => ({ ...prev, following: prev.following.filter((f) => f.did !== subject) }));
   }
 
   /* Pick incomplete builds back up, and top up a stale archive, quietly. */
@@ -529,9 +747,10 @@ function useAnalyticsArchive(agent, did) {
       runSync('resume');
       return;
     }
-    // Existing archives may predate either the blocks store or moderation-list
-    // reach. Populate the current shape even when posts are still fresh.
-    if (data.meta.blocks?.version !== 2) {
+    // Existing archives may predate the blocks store, moderation-list reach
+    // or the follows the People tab marks. Populate the current shape even
+    // when posts are still fresh.
+    if (data.meta.blocks?.version !== 2 || !data.meta.following) {
       runSync('incremental');
       return;
     }
@@ -563,6 +782,7 @@ function useAnalyticsArchive(agent, did) {
     sync,
     syncError,
     runSync,
+    setFollow,
     wantActors,
     cancelSync: () => abortRef.current?.abort(),
     agent,
@@ -574,15 +794,46 @@ function useAnalyticsArchive(agent, did) {
 /* Sync strip + first run                                               */
 /* ================================================================== */
 
-const PHASE_LABEL = {
-  followers: 'Sweeping followers',
-  blocks: 'Reading direct and list blocks',
-  repo: 'Downloading the repo',
-  'repo-read': 'Reading the repo archive',
-  posts: 'Archiving posts',
-  inbound: 'Reading notifications',
-  outbound: 'Reading likes & reposts',
-};
+/* The words beside the bar. Each says what was measured, in its own unit. */
+
+const num = (v) => Math.round(v).toLocaleString('en-US');
+
+/** "2,300 of ~5,592 followers", or "2,300 followers" with nothing to go by. */
+function ofAbout(fetched, est, noun) {
+  return est ? `${num(fetched)} of ~${num(est)} ${noun}` : `${num(fetched)} ${noun}`;
+}
+
+/** A walk's count, then how far back in time it has reached. */
+function reachedDetail(head, reachedMs) {
+  return reachedMs != null ? `${head} · back to ${formatDateShort(reachedMs)}` : head;
+}
+
+function blocksDetail(p, directEstimate) {
+  switch (p?.stage) {
+    case 'direct':
+      return ofAbout(p.done, directEstimate, 'direct blocks');
+    case 'lists':
+      return `finding the lists you’re on · ${num(p.done)} ${p.done === 1 ? 'membership' : 'memberships'}`;
+    case 'check':
+      return `checking ${num(p.done)} of ${num(p.total)} lists for moderation lists`;
+    case 'subscribers':
+      return `moderation lists ${num(p.done)} of ${num(p.total)} · ${num(p.fetched)} block paths`;
+    default:
+      return '';
+  }
+}
+
+function megabytes(bytes, total) {
+  const mb = (v) => (v / 1048576).toFixed(v < 10 * 1048576 ? 1 : 0);
+  return total ? `${mb(bytes)} of ~${mb(total)} MB` : `${mb(bytes)} MB`;
+}
+
+function carDetail(p) {
+  if (p?.stage === 'index') return 'indexing blocks';
+  if (p?.stage === 'walk') return `${num(p.done)} records found`;
+  if (p?.stage === 'decode') return `${num(p.done)} of ${num(p.total)} records`;
+  return '';
+}
 
 function SyncStrip({ archive }) {
   const {
@@ -599,25 +850,7 @@ function SyncStrip({ archive }) {
   } = archive;
   const currentBlockReach = blockReach(blocks).people.length;
 
-  if (sync) {
-    const pct = sync.est ? Math.min(100, Math.round((sync.fetched / sync.est) * 100)) : null;
-    const u = sync.unit ? ` ${sync.unit}` : '';
-    return (
-      <div className="an-strip" role="status">
-        <span className="an-strip-label">
-          {PHASE_LABEL[sync.phase] || 'Syncing'}…
-          {(sync.fetched > 0 || sync.est) &&
-            ` ${sync.fetched.toLocaleString('en-US')}${u}${sync.est ? ` of ~${sync.est.toLocaleString('en-US')}${u}` : ''}`}
-        </span>
-        <span className="an-strip-track" aria-hidden="true">
-          <span className="an-strip-fill" style={{ width: pct != null ? `${pct}%` : '30%' }} data-indeterminate={pct == null ? '' : undefined} />
-        </span>
-        <Button size="sm" onClick={cancelSync}>
-          Cancel
-        </Button>
-      </div>
-    );
-  }
+  if (sync) return <SyncProgress sync={sync} onCancel={cancelSync} />;
 
   const pm = meta.posts;
   if (!pm) return null;
@@ -675,6 +908,73 @@ function SyncStrip({ archive }) {
   );
 }
 
+/**
+ * A sync under way: which step of how many, what it is doing and how far,
+ * then one segment per step — finished ones full, failed ones marked, the
+ * one under way filled by its own measured share (or moving, when there is
+ * nothing honest to measure it by), the rest waiting. The segments are
+ * equal on purpose: they say where in the sync it is, and each one's fill is
+ * the only number on the bar, so no part of it is a guess about the whole.
+ */
+function SyncProgress({ sync, onCancel }) {
+  const { plan, done, failed, step, fraction, detail, doing } = sync;
+  const index = plan.indexOf(step);
+  const finishing = step == null;
+  const pct = fraction == null || finishing ? null : Math.round(fraction * 100);
+  const stateOf = (key) =>
+    failed.includes(key) ? 'failed' : done.includes(key) ? 'done' : key === step ? 'active' : 'pending';
+  return (
+    <div className="an-strip an-sync">
+      <div className="an-sync-head">
+        <span className="an-strip-label" role="status">
+          <span className="an-sync-count">
+            {finishing ? 'Finishing' : `Step ${index + 1} of ${plan.length}`}
+          </span>{' '}
+          <span className="an-sync-doing">
+            {finishing ? 'Loading the archive into the charts' : doing || SYNC_STEPS[step]?.doing || 'Syncing'}
+          </span>
+          {detail && <span className="an-sync-detail"> · {detail}</span>}
+          {pct != null && <span className="an-sync-pct"> · {pct}%</span>}
+        </span>
+        <Button size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+      <ol className="an-sync-steps" aria-label="Sync steps">
+        {plan.map((key) => {
+          const state = stateOf(key);
+          const width = state === 'done' || state === 'failed' ? 100 : state === 'active' ? (pct ?? 0) : 0;
+          return (
+            <li key={key} className="an-sync-step" data-state={state}>
+              <span className="an-sync-track" aria-hidden="true">
+                <span
+                  className="an-sync-fill"
+                  style={state === 'active' && pct == null ? undefined : { width: `${width}%` }}
+                  data-indeterminate={state === 'active' && pct == null ? '' : undefined}
+                />
+              </span>
+              <span className="an-sync-name">
+                {SYNC_STEPS[key]?.label || key}
+                <span className="visually-hidden">
+                  {state === 'done'
+                    ? ', done'
+                    : state === 'failed'
+                      ? ', failed'
+                      : state === 'active'
+                        ? pct != null
+                          ? `, ${pct}% done`
+                          : ', under way'
+                        : ', waiting'}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 /* The export reads the archive already in memory, the same rows the charts
    draw, so a file always matches what the studio is showing. */
 
@@ -710,8 +1010,8 @@ function FirstRun({ archive }) {
       <p className="an-hero-body">
         Analytics are derived client-side from your own data: the repo’s own archive (one download
         that yields every record in every collection, all-time), every current follower with the
-        date their follow record was minted, every current direct or moderation-list block path, your
-        recent notifications — and every post’s engagement counts via the public AppView, which is
+        date their follow record was minted, everyone you follow, every current direct or
+        moderation-list block path, your recent notifications — and every post’s engagement counts via the public AppView, which is
         the long part: a couple of hundred requests, a minute or two, with the charts painting from
         the repo archive while it runs.
         Everything lands in this browser’s IndexedDB; after the first build, syncs only top up
@@ -1324,8 +1624,21 @@ function KindCount({ glyph: Glyph, label, value, dim }) {
 /* People                                                               */
 /* ================================================================== */
 
-function PeopleTab({ archive, did, period, kind, nowMs }) {
-  const { posts, inbound, outbound, followers, actors, wantActors } = archive;
+function PeopleTab({ archive, did, period, kind, relation, nowMs }) {
+  const { posts, inbound, outbound, followers, following, actors, wantActors, setFollow, sync } = archive;
+  const followsKnown = Boolean(archive.meta.following);
+  const [limits, setLimits] = useState({ in: PEOPLE_PAGE, out: PEOPLE_PAGE });
+  // did → { busy, error } for the Follow buttons pressed this visit.
+  const [pending, setPending] = useState(() => new Map());
+  // People followed or unfollowed under the current relationship filter stay
+  // in its list until the filter changes: following someone from "Not
+  // following" leaves their row in place, now reading Following, rather than
+  // snatching it away with the undo under it.
+  const [kept, setKept] = useState(() => ({ relation, dids: new Set() }));
+  const keptDids = kept.relation === relation ? kept.dids : null;
+
+  const followingSet = useMemo(() => new Set(following.map((f) => f.did)), [following]);
+  const followerSet = useMemo(() => new Set(followers.map((f) => f.did)), [followers]);
 
   const model = useMemo(() => {
     const t1 = nowMs;
@@ -1334,23 +1647,40 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
       const oldest = oldestEventMs(events);
       return oldest ?? nowMs;
     };
+    // The relationship filter runs BEFORE the cut to a page, so "Not
+    // following" shows the top people you don't follow — not whichever of
+    // the overall top twelve happen not to be followed.
+    const keep = (row) =>
+      keptDids?.has(row.did) ||
+      (relation === 'not' ? !followingSet.has(row.did) : relation === 'following' ? followingSet.has(row.did) : true);
     const outboundAll = [...outbound, ...outboundFromPosts(posts)];
     const inT0 = windowFor(inbound);
     const outT0 = windowFor(outboundAll);
+    const inAll = topActors(inbound, { kind, t0: inT0, t1, limit: Infinity, excludeDid: did });
+    const outAll = topActors(outboundAll, { kind, t0: outT0, t1, limit: Infinity, excludeDid: did });
     return {
-      inTop: topActors(inbound, { kind, t0: inT0, t1, limit: 12, excludeDid: did }),
-      outTop: topActors(outboundAll, { kind, t0: outT0, t1, limit: 12, excludeDid: did }),
+      inRanked: inAll.filter(keep),
+      outRanked: outAll.filter(keep),
+      inAny: inAll.length > 0,
+      outAny: outAll.length > 0,
+      // Of everyone in the window, how many the owner doesn't follow yet.
+      inNotFollowing: inAll.filter((r) => !followingSet.has(r.did)).length,
       inOldest: oldestEventMs(inbound),
-      outOldest: oldestEventMs(outboundAll),
       inT0,
     };
-  }, [posts, inbound, outbound, period, kind, did, nowMs]);
+  }, [posts, inbound, outbound, period, kind, relation, followingSet, keptDids, did, nowMs]);
+
+  const inTop = useMemo(() => model.inRanked.slice(0, limits.in), [model, limits.in]);
+  const outTop = useMemo(
+    () => (kind === 'mention' ? [] : model.outRanked.slice(0, limits.out)),
+    [model, kind, limits.out],
+  );
 
   // Resolve the faces this render actually shows — two getProfiles calls at
   // most, cached in the actors store afterwards.
   const wanted = useMemo(
-    () => [...model.inTop, ...model.outTop].map((r) => r.did).filter((d) => !actors.get(d)?.handle),
-    [model, actors],
+    () => [...inTop, ...outTop].map((r) => r.did).filter((d) => !actors.get(d)?.handle),
+    [inTop, outTop, actors],
   );
   useEffect(() => {
     if (wanted.length) wantActors(wanted);
@@ -1360,10 +1690,55 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
   const followerCards = useMemo(() => new Map(followers.map((f) => [f.did, f])), [followers]);
   const cardFor = (actorDid) => actors.get(actorDid) || followerCards.get(actorDid) || null;
 
+  // While the sync is re-reading the follows, a button pressed now could be
+  // overwritten by the read already in flight; hold them for that second.
+  const followsLocked = sync?.step === 'following';
+
+  async function toggleFollow(actorDid) {
+    const on = !followingSet.has(actorDid);
+    setPending((m) => new Map(m).set(actorDid, { busy: true, error: null }));
+    try {
+      await setFollow(actorDid, on);
+      setKept((k) => ({ relation, dids: new Set(k.relation === relation ? k.dids : []).add(actorDid) }));
+      setPending((m) => {
+        const next = new Map(m);
+        next.delete(actorDid);
+        return next;
+      });
+    } catch (err) {
+      setPending((m) =>
+        new Map(m).set(actorDid, {
+          busy: false,
+          error: `Couldn’t ${on ? 'follow' : 'unfollow'}: ${err?.message || String(err)}`,
+        }),
+      );
+    }
+  }
+
+  const relationFor = (actorDid) => ({
+    following: followsKnown ? followingSet.has(actorDid) : null,
+    followsYou: followerSet.has(actorDid),
+    busy: followsLocked || Boolean(pending.get(actorDid)?.busy),
+    error: pending.get(actorDid)?.error || null,
+  });
+
   const inCoverage =
     model.inOldest != null && period.days && model.inOldest > model.inT0
       ? `Notification history reaches back to ${formatDateShort(model.inOldest)} so far — earlier ${period.label.toLowerCase()} events are outside it.`
       : null;
+
+  // A filtered list is only "everyone's followed" when there was someone in
+  // it to begin with; an empty window says so in its own words.
+  const emptyFor = (side) =>
+    relation === 'not' && (side === 'in' ? model.inAny : model.outAny)
+      ? side === 'in'
+        ? 'You already follow everyone who engaged with you in this window.'
+        : 'You already follow everyone you engaged with in this window.'
+      : relation === 'following' && (side === 'in' ? model.inAny : model.outAny)
+        ? 'Nobody you follow in this window.'
+        : side === 'in'
+          ? 'No inbound engagement recorded in this window yet — sync to gather notifications.'
+          : 'No outbound engagement in this window — likes, reposts, replies and quotes land here after a sync.';
 
   return (
     <section className="an-panel" aria-label="People">
@@ -1377,8 +1752,24 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
                 They engage with you
               </>
             }
+            meta={
+              followsKnown && relation !== 'not' && model.inNotFollowing > 0
+                ? `${model.inNotFollowing.toLocaleString('en-US')} you don’t follow`
+                : null
+            }
           />
-          <ActorList rows={model.inTop} cardFor={cardFor} empty="No inbound engagement recorded in this window yet — sync to gather notifications." />
+          <ActorList
+            rows={inTop}
+            cardFor={cardFor}
+            relationFor={relationFor}
+            onToggleFollow={toggleFollow}
+            empty={emptyFor('in')}
+          />
+          <MoreButton
+            shown={inTop.length}
+            total={model.inRanked.length}
+            onMore={() => setLimits((l) => ({ ...l, in: l.in + PEOPLE_PAGE }))}
+          />
           {inCoverage && <p className="an-card-caption">{inCoverage}</p>}
         </div>
         <div className="an-card">
@@ -1394,20 +1785,51 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
           {kind === 'mention' ? (
             <p className="an-empty">Mentions are tracked inbound only.</p>
           ) : (
-            <ActorList rows={model.outTop} cardFor={cardFor} empty="No outbound engagement in this window — likes, reposts, replies and quotes land here after a sync." />
+            <>
+              <ActorList
+                rows={outTop}
+                cardFor={cardFor}
+                relationFor={relationFor}
+                onToggleFollow={toggleFollow}
+                empty={emptyFor('out')}
+              />
+              <MoreButton
+                shown={outTop.length}
+                total={model.outRanked.length}
+                onMore={() => setLimits((l) => ({ ...l, out: l.out + PEOPLE_PAGE }))}
+              />
+            </>
           )}
         </div>
       </div>
       <p className="an-note">
         Inbound counts come from notifications (likes, reposts, replies, quotes, mentions aimed at
         you); outbound counts from the repo archive&rsquo;s complete like and repost history plus
-        the replies and quotes in the post archive.
+        the replies and quotes in the post archive.{' '}
+        {followsKnown
+          ? 'Following is read from the follow records in your own repo at each sync; Follow writes one there, and pressing Following again deletes it.'
+          : 'Who you follow arrives with the next sync; until then there are no Follow buttons, so none can follow someone twice.'}
       </p>
     </section>
   );
 }
 
-function ActorList({ rows, cardFor, empty }) {
+function MoreButton({ shown, total, onMore }) {
+  if (total <= shown) return null;
+  const next = Math.min(PEOPLE_PAGE, total - shown);
+  return (
+    <div className="an-more">
+      <Button size="sm" variant="text" onClick={onMore}>
+        Show {next} more
+      </Button>
+      <span className="an-more-count">
+        {shown.toLocaleString('en-US')} of {total.toLocaleString('en-US')}
+      </span>
+    </div>
+  );
+}
+
+function ActorList({ rows, cardFor, relationFor = null, onToggleFollow = null, empty }) {
   if (!rows.length) return <p className="an-empty">{empty}</p>;
   const max = rows[0]?.total || 1;
   return (
@@ -1420,8 +1842,9 @@ function ActorList({ rows, cardFor, empty }) {
           .sort((a, b) => b[1] - a[1])
           .map(([k, n]) => `${n} ${k}${n === 1 ? '' : 's'}`)
           .join(', ');
+        const rel = relationFor ? relationFor(row.did) : null;
         return (
-          <li key={row.did} className="an-actor">
+          <li key={row.did} className={`an-actor${rel ? ' an-actor--follow' : ''}`}>
             {card?.avatar ? (
               <img className="an-actor-avatar" src={card.avatar} alt="" loading="lazy" />
             ) : (
@@ -1431,7 +1854,18 @@ function ActorList({ rows, cardFor, empty }) {
               <a className="an-actor-name" href={href} target="_blank" rel="noopener noreferrer">
                 {name}
               </a>
-              {card?.handle && <span className="an-actor-handle">@{card.handle}</span>}
+              {(card?.handle || rel?.followsYou) && (
+                <span className="an-actor-handle">
+                  {card?.handle && `@${card.handle}`}
+                  {card?.handle && rel?.followsYou && ' · '}
+                  {rel?.followsYou && <span className="an-actor-rel">follows you</span>}
+                </span>
+              )}
+              {rel?.error && (
+                <span className="an-actor-error" role="alert">
+                  {rel.error}
+                </span>
+              )}
             </span>
             <span className="an-actor-track" aria-hidden="true">
               <span className="an-actor-fill" style={{ width: `${(row.total / max) * 100}%` }} />
@@ -1439,6 +1873,23 @@ function ActorList({ rows, cardFor, empty }) {
             <span className="an-actor-count" title={detail}>
               {row.total.toLocaleString('en-US')}
             </span>
+            {rel && (
+              <span className="an-actor-action">
+                {rel.following == null ? null : (
+                  <Button
+                    size="sm"
+                    on={rel.following}
+                    disabled={rel.busy}
+                    aria-busy={rel.busy || undefined}
+                    title={rel.following ? `Unfollow ${name}` : `Follow ${name}`}
+                    onClick={() => onToggleFollow?.(row.did)}
+                  >
+                    {rel.following ? 'Following' : 'Follow'}
+                    <span className="visually-hidden"> {name}</span>
+                  </Button>
+                )}
+              </span>
+            )}
           </li>
         );
       })}

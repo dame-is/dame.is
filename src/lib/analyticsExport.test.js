@@ -77,7 +77,7 @@ describe('archiveJson', () => {
     expect(doc.version).toBe(EXPORT_VERSION);
     expect(doc.exportedAt).toBe('2026-10-29T12:00:00.000Z');
     expect(doc.did).toBe(DID);
-    expect(doc.counts).toEqual({ posts: 1, followers: 1, blocks: 0, inbound: 1, outbound: 0, atmosphere: 1, actors: 1 });
+    expect(doc.counts).toEqual({ posts: 1, followers: 1, following: 0, blocks: 0, inbound: 1, outbound: 0, atmosphere: 1, actors: 1 });
     expect(doc.posts).toEqual(archive.posts);
     expect(doc.atmosphere).toEqual(archive.atmosphere);
     expect(doc.actors).toEqual([{ did: OTHER, handle: 'x.test' }]);

@@ -5,7 +5,15 @@
 // stopping logic with fake agents and a fake AppView.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { sweepBlocks, sweepFollowers, sweepInbound, sweepOutbound, sweepPosts } from './analyticsSync.js';
+import {
+  followFromRecord,
+  sweepBlocks,
+  sweepFollowers,
+  sweepFollowing,
+  sweepInbound,
+  sweepOutbound,
+  sweepPosts,
+} from './analyticsSync.js';
 import { tidToTimestamp } from './atproto.js';
 
 /** Mint a real TID for a timestamp — the same encoding tidToTimestamp reads. */
@@ -174,6 +182,61 @@ describe('sweepFollowers', () => {
     expect(Date.parse(res.followers[0].followedAt)).toBe(Date.parse(tidToTimestamp(tidFor(followedMs))));
     // No follow record visible → no invented date, but still a counted follower.
     expect(res.followers[1].followedAt).toBeNull();
+  });
+});
+
+describe('sweepFollowing', () => {
+  const followRecord = (subject, ms) => ({
+    uri: `at://did:plc:me/app.bsky.graph.follow/${tidFor(ms)}`,
+    value: { $type: 'app.bsky.graph.follow', subject, createdAt: new Date(ms).toISOString() },
+  });
+
+  it('reads every follow record to the end, keyed by record so duplicates survive', async () => {
+    const pages = [
+      [followRecord('did:plc:ana', NOW - 9 * DAY), followRecord('did:plc:bo', NOW - 5 * DAY)],
+      [followRecord('did:plc:ana', NOW - 2 * DAY), { uri: 'at://did:plc:me/app.bsky.graph.follow/x', value: {} }],
+    ];
+    const listRecords = vi.fn(async ({ collection, cursor }) => {
+      expect(collection).toBe('app.bsky.graph.follow');
+      const i = cursor ? Number(cursor) : 0;
+      return { data: { records: pages[i], cursor: i + 1 < pages.length ? String(i + 1) : undefined } };
+    });
+    const seen = [];
+    const res = await sweepFollowing({ com: { atproto: { repo: { listRecords } } } }, 'did:plc:me', {
+      onProgress: (p) => seen.push(p.fetched),
+    });
+    expect(res).toMatchObject({ complete: true, error: null });
+    expect(res.following.map((f) => f.did)).toEqual(['did:plc:ana', 'did:plc:bo', 'did:plc:ana']);
+    expect(Date.parse(res.following[1].followedAt)).toBe(Date.parse(tidToTimestamp(tidFor(NOW - 5 * DAY))));
+    expect(seen).toEqual([2, 3]);
+  });
+
+  it('reads a repo with no follow collection as following no one', async () => {
+    const listRecords = vi.fn(async () => {
+      throw new Error('Could not locate collection');
+    });
+    const res = await sweepFollowing({ com: { atproto: { repo: { listRecords } } } }, 'did:plc:me');
+    expect(res).toMatchObject({ complete: true, following: [], error: null });
+  });
+
+  it('reports a failure as incomplete, so a partial set never replaces a whole one', async () => {
+    const listRecords = vi.fn(async () => {
+      throw new Error('HTTP 502');
+    });
+    const res = await sweepFollowing({ com: { atproto: { repo: { listRecords } } } }, 'did:plc:me');
+    expect(res.complete).toBe(false);
+    expect(res.error).toMatch(/502/);
+  });
+
+  it('shapes only records that name a DID', () => {
+    expect(followFromRecord({ uri: 'at://me/app.bsky.graph.follow/x', value: { subject: 'not-a-did' } })).toBeNull();
+    expect(followFromRecord({ value: { subject: 'did:plc:a' } })).toBeNull();
+    expect(
+      followFromRecord({
+        uri: 'at://me/app.bsky.graph.follow/x',
+        value: { subject: 'did:plc:a', createdAt: '2026-01-02T00:00:00.000Z' },
+      }),
+    ).toEqual({ uri: 'at://me/app.bsky.graph.follow/x', did: 'did:plc:a', followedAt: '2026-01-02T00:00:00.000Z' });
   });
 });
 
@@ -424,5 +487,56 @@ describe('sweepOutbound', () => {
     // Banked the in-window like; the past-cutoff page ended the walk before page 3.
     expect(res.events.map((e) => e.did)).toEqual(['did:plc:a']);
     expect(calls['app.bsky.feed.like']).toBe(2);
+  });
+});
+
+describe('sweepBlocks progress', () => {
+  it('names each stage and counts list paths as each list lands', async () => {
+    const listUri = 'at://did:plc:curator/app.bsky.graph.list/mods';
+    const memberTid = tidFor(NOW - 4 * DAY);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const parsed = new URL(url);
+        const source = parsed.searchParams.get('source');
+        if (parsed.pathname.endsWith('getRecord')) {
+          return { ok: true, status: 200, json: async () => ({ value: { purpose: 'app.bsky.graph.defs#modlist' } }) };
+        }
+        if (source === 'app.bsky.graph.listitem:subject') {
+          return {
+            ok: true,
+            json: async () => ({
+              items: [{ linkRecord: { did: 'did:plc:curator', rkey: memberTid }, otherSubject: listUri }],
+              cursor: null,
+            }),
+          };
+        }
+        if (source === 'app.bsky.graph.listblock:subject') {
+          return {
+            ok: true,
+            json: async () => ({
+              records: [
+                { did: 'did:plc:sub1', collection: 'app.bsky.graph.listblock', rkey: tidFor(NOW - DAY) },
+                { did: 'did:plc:sub2', collection: 'app.bsky.graph.listblock', rkey: tidFor(NOW - DAY) },
+              ],
+              cursor: null,
+            }),
+          };
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            records: [{ did: 'did:plc:blocker', collection: 'app.bsky.graph.block', rkey: tidFor(NOW - DAY) }],
+            cursor: null,
+          }),
+        };
+      }),
+    );
+    const reports = [];
+    const res = await sweepBlocks('did:plc:me', { onProgress: (p) => reports.push(p) });
+    expect(res.complete).toBe(true);
+    expect([...new Set(reports.map((p) => p.stage))]).toEqual(['direct', 'lists', 'check', 'subscribers']);
+    expect(reports.find((p) => p.stage === 'check' && p.done === 1)).toMatchObject({ total: 1 });
+    expect(reports.at(-1)).toEqual({ stage: 'subscribers', fetched: 3, done: 1, total: 1 });
   });
 });

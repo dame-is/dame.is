@@ -113,7 +113,19 @@ function buildAnalyticsFixtures() {
     };
   }).sort((a, b) => (a.indexedAt < b.indexedAt ? 1 : -1));
 
-  return { followers, notifications };
+  // The owner follows half the cast and a handful of fans, so the People
+  // tab has both kinds of row: a Follow key and a pressed Following one.
+  const followed = [CAST[0][0], CAST[2][0], CAST[4][0], ...followers.slice(0, 6).map((f) => f.did)];
+  const follows = followed.map((subject, i) => {
+    const at = now - (i + 1) * 9 * 86_400_000;
+    return {
+      uri: `at://${ME_DID}/app.bsky.graph.follow/${tidAt(at)}`,
+      cid: `bafyharnessfollow${i}`,
+      value: { $type: 'app.bsky.graph.follow', subject, createdAt: new Date(at).toISOString() },
+    };
+  });
+
+  return { followers, notifications, follows };
 }
 
 /**
@@ -128,6 +140,9 @@ function makeAgent(repo, bump) {
   const latency = configuredLatency();
   const listOf = (c) => (repo[c] ||= []);
   const analytics = buildAnalyticsFixtures();
+  // The owner's follows live in the repo like any record, so the People
+  // tab's Follow and Unfollow write and delete through the same methods.
+  if (!repo['app.bsky.graph.follow']) repo['app.bsky.graph.follow'] = analytics.follows;
   const page = (all, limit, cursor) => {
     const start = cursor ? Number(cursor) || 0 : 0;
     const slice = all.slice(start, start + limit);
