@@ -17,7 +17,7 @@
   min-width: 0;
 }
 
-/* The five readings, grouped because one record backs them all (x-ray
+/* The four readings, grouped because one record backs them all (x-ray
    draws one underline under the group). Laid out as if they were still the
    strip's own items. */
 .vitals-record,

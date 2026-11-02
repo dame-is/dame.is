@@ -23,7 +23,7 @@ const ACTIVITY_ICON = {
  * a status with no ref — or an unresolvable one — shows exactly as before.
  *
  * `variant="facts"` sets the same readings as plain words for a record page's
- * facts line ("65 bpm · stationary · 189 cal"), with no glyphs or second
+ * facts line ("65 bpm · still · 189 cal"), with no glyphs or second
  * typeface, so they read as one block with the date above them.
  */
 export default function VitalsChip({ stateRef, vitals: provided, variant = 'chip' }) {

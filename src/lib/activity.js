@@ -44,6 +44,10 @@ export function normalizeActivity(raw) {
 }
 
 const LABELS = {
+  // "Still" is the word Android's activity recognition uses for the same
+  // state, and it's half the width: the chrome's vitals row has to fit beside
+  // the day of life on one line at a laptop's width.
+  stationary: 'still',
   automotive: 'in vehicle',
 };
 

@@ -1,5 +1,5 @@
 import {
-  Heart, Flame, Footprints, Bike, Car, Armchair, PersonStanding, Volume2,
+  Heart, Flame, Footprints, Bike, Car, Armchair, PersonStanding,
   BatteryLow, BatteryMedium, BatteryFull, BatteryCharging,
 } from 'lucide-react';
 import { memo } from 'react';
@@ -46,22 +46,17 @@ export default memo(function VitalsPanel() {
   // an empty-but-present row so the atmosphere bar doesn't pop a whole extra
   // line a beat after it opens. Day of life still rides at its right edge: on
   // a desktop this is the only copy of it on screen.
-  // The ambient-sound reading is dropped when it's the heart rate again. Since
-  // October 8 the phone's automation has written the heart rate into
-  // `soundLevel` on every record (65 bpm, 65 dB), so the "dB" figure was a
-  // second copy of the pulse. A real reading that happens to match is rare
-  // enough to lose; once the automation is fixed the two differ and it comes
-  // back by itself.
-  const soundLevel =
-    vitals?.soundLevel != null && vitals.soundLevel !== vitals.heartRate ? vitals.soundLevel : null;
+  // The record's ambient-sound level isn't shown here: the row has to fit
+  // beside the day of life on one line at a laptop's width, and a dB figure
+  // was the reading least worth its room. It still feeds the state charts on
+  // /logging.
   const hasAny =
     vitals &&
     !expired &&
     (vitals.heartRate != null ||
       vitals.activity ||
       vitals.batteryLevel != null ||
-      vitals.caloriesBurned != null ||
-      soundLevel != null);
+      vitals.caloriesBurned != null);
 
   if (!hasAny) {
     return (
@@ -100,7 +95,7 @@ export default memo(function VitalsPanel() {
         experiencing{age ? <span className="vitals-age vitals-age-lead"> · {age}</span> : null}
       </span>
 
-      {/* One is.dame.state record sits behind all five readings, so x-ray's
+      {/* One is.dame.state record sits behind all four readings, so x-ray's
           underline spans them (the inner span) and its tag follows (the
           outer span's ::after); the day of life beside them isn't part of it. */}
       <span className="vitals-record" {...xrayRecordAttrs(uri)}>
@@ -118,14 +113,6 @@ export default memo(function VitalsPanel() {
               <Flame className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
               <span className="vital-value">{vitals.caloriesBurned}</span>
               <span className="vital-unit">cal</span>
-            </span>
-          )}
-
-          {soundLevel != null && (
-            <span className="vital vital-sound" aria-label={`Ambient sound ${soundLevel} decibels`}>
-              <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-              <span className="vital-value">{soundLevel}</span>
-              <span className="vital-unit">dB</span>
             </span>
           )}
 
