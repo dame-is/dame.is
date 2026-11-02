@@ -2847,6 +2847,14 @@ a.ledger-time:focus-visible {
     padding: var(--space-3) 0 var(--space-2);
   }
 
+  /* In owner edit mode the row's check box sits in its left edge
+     (`.feed-item-select-mark`), so the column steps over to make room for
+     it. The padding above outranks the general edit-mode inset, and without
+     this the box lay on top of the post's first words. */
+  :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger.feed-item-selectable {
+    padding-left: calc(var(--space-5) + 4px);
+  }
+
   :root:not([data-xray='on']) .feed-ledger-column .feed-item-ledger > .ledger-body {
     grid-area: body;
     max-width: none;
