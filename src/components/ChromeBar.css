@@ -684,13 +684,21 @@
   font-weight: 600;
 }
 
-/* "on day N" — lay the two pieces out with the same 0.45em gap that
-   .chrome-signal puts between a label and its value on every other row,
-   instead of a tight word-space. */
+/* "on day N of their life" — lay the pieces out with the same 0.45em gap
+   that .chrome-signal puts between a label and its value on every other row,
+   so the number gets equal breathing room on both sides instead of a tight
+   word-space. */
 .chrome-signal-day-phrase {
   display: inline-flex;
   align-items: baseline;
   gap: 0.45em;
+}
+
+/* "Of their life" waits for the phone's stack, below, where the day has a
+   line to itself. On a desk the day shares the vitals row, and the tail is
+   what pushed it onto a line of its own at a laptop's width. */
+.chrome-signal-day-tail {
+  display: none;
 }
 
 .chrome-signal-status .chrome-signal-value {
@@ -1293,6 +1301,10 @@
      from the vitals bar); reveal the secondary-row copy here. */
   .chrome-signals-secondary .chrome-signal-day {
     display: inline-flex;
+  }
+  /* A line of its own has room for whose life it is. */
+  .chrome-signals-secondary .chrome-signal-day-tail {
+    display: inline;
   }
   /* Faint dashed divider between the three stacked lines (LISTENING TO /
      FOLLOWED BY / DAY OF LIFE), echoing the feed's thread dividers — same

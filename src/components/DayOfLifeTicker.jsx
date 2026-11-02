@@ -8,13 +8,15 @@ export default function DayOfLifeTicker() {
   const tooltip = `Day ${day.toLocaleString()} of their life · ${dayOfYear} of ${yearLength} · Year ${year}`;
   return (
     <span className="chrome-signal chrome-signal-day" {...xrayNotARecord('computed')}>
-      {/* Reads as one small-caps phrase — "on day 12,124" — with only the
-          number carrying the bold value ink. The inline-flex gap gives the
-          number the same breathing room as the label↔value gap on every other
-          chrome row (.chrome-signal's 0.45em), rather than a tighter plain
-          word-space. It was "on day 12,124 of their life", but at a laptop's
-          width that tail pushed the phrase onto a line of its own under the
-          vitals; whose life it is, the tooltip and the link still say. */}
+      {/* Reads as one small-caps phrase — "on day 12,124 of their life" —
+          with only the number carrying the bold value ink. The inline-flex gap
+          gives the number the same breathing room on both sides as the
+          label↔value gap on every other chrome row (.chrome-signal's 0.45em),
+          rather than a tighter plain word-space. "Of their life" shows only
+          on a phone, where the day has a line of its own in the stacked
+          atmosphere (ChromeBar.css); on a desk it shares the vitals row, and
+          at a laptop's width the tail pushed it onto a line of its own there.
+          The tooltip and the link's name say it either way. */}
       <TickerText className="chrome-signal-value" title={tooltip}>
         {/* Whose life: the day leads to /themself, the page about Dame. */}
         <Link
@@ -24,6 +26,7 @@ export default function DayOfLifeTicker() {
         >
           <span className="chrome-signal-label">on day</span>
           <strong>{day.toLocaleString()}</strong>
+          <span className="chrome-signal-label chrome-signal-day-tail">of their life</span>
         </Link>
       </TickerText>
     </span>
