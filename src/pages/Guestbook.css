@@ -220,7 +220,7 @@
   align-self: center;
 }
 
-.guestbook-pen-name {
+.guestbook-pen-handle {
   font-size: var(--text-base);
 }
 
@@ -404,17 +404,28 @@
   color: var(--accent);
 }
 
-/* The signature line: a small avatar, the name in small caps, the handle,
-   the place in the signer's words, and the date at the far end, which is
-   the permalink. */
+/* The signature: the avatar, two lines tall, and beside it the handle over
+   the place, one line each, so the two together are always the avatar's
+   height.
+
+     [  ] @handle
+     [  ] the place, in the signer's own words, cut at the end of the li…
+          remove · hide
+
+   Every avatar is the same size, so the portraits keep one column down the
+   book; a signature with no place sets its handle level with the avatar's
+   middle. A handle or place too long for its line ends in "…": the handle's
+   link and the place (a button then, SignedFrom) give it whole. It used to
+   be one wrapping row, display name and all, which on a phone threw the date
+   onto a line of its own and could start a line with a stray "·"; then two
+   lines that a long place ran past the avatar's foot. */
 .guestbook-entry-sig {
-  /* The full row, not the prose measure: the date closes it at the far end. */
-  max-width: none;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
   align-items: center;
-  gap: 0.15rem 0.5rem;
-  margin: 0;
+  margin: var(--space-1) 0 0;
   font-size: var(--text-sm);
   line-height: 1.4;
   color: var(--ink-muted);
@@ -424,6 +435,14 @@
   flex: none;
   width: 20px;
   height: 20px;
+}
+
+/* In a signature it's two lines of the signature tall. */
+.guestbook-entry-sig .guestbook-entry-avatar {
+  grid-column: 1;
+  grid-row: 1;
+  width: 2.5rem;
+  height: 2.5rem;
 }
 
 .guestbook-entry-avatar img {
@@ -447,40 +466,79 @@
   border: 1px dashed var(--rule);
 }
 
-.guestbook-entry-name {
-  font-variant: all-small-caps;
-  letter-spacing: 0.06em;
+.guestbook-entry-sig .guestbook-entry-avatar-fallback {
+  font-size: var(--text-base);
+}
+
+/* The handle and the place, as a column beside the avatar. */
+.guestbook-entry-id {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.guestbook-entry-handle {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--ink-soft);
 }
 
-.guestbook-entry-name a {
+/* In a signature, one line. */
+.guestbook-entry-sig .guestbook-entry-handle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.guestbook-entry-handle a {
   color: inherit;
   text-decoration: none;
 }
 
-.guestbook-entry-name a:hover {
+.guestbook-entry-handle a:hover {
   color: var(--accent);
 }
 
-.guestbook-entry-handle {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  overflow-wrap: anywhere;
-}
-
+/* The place, in the signer's words and in italic, on one line. When it's
+   cut short it's a button (SignedFrom) that opens it to its whole length,
+   wrapping under itself, and folds it back. Drawn the same either way. */
 .guestbook-entry-location {
-  font-style: italic;
-}
-
-.guestbook-entry-location::before {
-  content: '·';
-  margin-right: 0.5rem;
-  font-style: normal;
-}
-
-.guestbook-entry-time {
-  margin-left: auto;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
+  font: inherit;
+  font-style: italic;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+button.guestbook-entry-location {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.guestbook-entry-location.is-open {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* The date heads the line, beside its number (the li sets them on one
+   baseline), above the note: the permalink, in the register's small caps. */
+.guestbook-entry-time {
+  font-size: var(--text-meta);
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--ink-muted);
   font-variant: all-small-caps;
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: 0.07em;
@@ -495,8 +553,32 @@
   color: var(--accent);
 }
 
+/* On the register at a desk the date steps out into the margin, under the
+   line number: the note column holds the line's facts, its number and its
+   day, as the home ledger's holds its verb and time, and the text column
+   keeps what was written and who wrote it. Set to the margin's right edge
+   like the number, one line of the note down from it. (The admin's
+   moderation list has no margin, so the date heads the line there as on a
+   phone.) */
+@media (min-width: 701px) {
+  .guestbook-entries .guestbook-entry-body {
+    position: relative;
+  }
+
+  .guestbook-entries .guestbook-entry-time {
+    position: absolute;
+    top: calc(var(--text-lg) * 1.5);
+    right: calc(100% + var(--gb-num-gap));
+    width: var(--gb-num-col);
+    text-align: right;
+  }
+}
+
+/* Remove (the signer's own line) and the host's hide / unhide, on a line of
+   their own under the handle and place. */
 .guestbook-entry-controls {
-  display: inline-flex;
+  grid-column: 2;
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);

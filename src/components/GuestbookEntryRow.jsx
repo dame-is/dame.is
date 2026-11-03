@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
@@ -11,10 +11,11 @@ import '../pages/Guestbook.css';
 /**
  * One guestbook signature as a line in the register — shared between
  * /welcoming and the admin moderation panel. Its
- * number hangs in the margin; the note comes first, in the reading size; one
- * small signature line follows (avatar, name, handle, the place in the
- * signer's own words) and closes on the date, which is the permalink. The
- * record's CID stays in x-ray, one click away, rather than on every line.
+ * number hangs in the margin with the date, the permalink, beside it (or,
+ * at a desk on the register, under it); the note follows in the reading
+ * size; then a small signature: the avatar, two lines tall, beside the
+ * handle over the place in the signer's own words. The record's CID stays in
+ * x-ray, one click away, rather than on every line.
  *
  *   - `number`                     → the register number (none while it's
  *                                    hidden, or in the admin list).
@@ -46,13 +47,16 @@ export default function GuestbookEntryRow({
   const inspectable = xray.active && !!entry.uri;
   const focused = inspectable && xray.focusUri === entry.uri;
   const handle = profile?.handle && profile.handle !== 'handle.invalid' ? profile.handle : null;
-  const name =
-    value.signature?.trim() ||
-    profile?.displayName?.trim() ||
-    (handle ? `@${handle}` : null) ||
-    shortDid(entry.did);
-  // Show the handle beside the name unless the name already IS the handle.
-  const showHandle = handle && name !== `@${handle}`;
+  // A signature is signed with the handle alone: it's the name an atproto
+  // account goes by everywhere, and a display name beside it cost a second
+  // run of small caps that wrapped on a phone. The display name stays one
+  // hover away, on the handle's link. Without a resolvable handle, the name
+  // the signer gave (an old entry's `signature`), their display name, or a
+  // shortened DID stands in.
+  const displayName = profile?.displayName?.trim() || '';
+  const signedAs = handle
+    ? `@${handle}`
+    : value.signature?.trim() || displayName || shortDid(entry.did);
   const explorerPath = explorerPathFromAtUri(entry.uri);
   // Legacy signatures often lack a createdAt (recovered from the TID rkey where
   // possible); when even that isn't available, skip the date rather than
@@ -62,6 +66,8 @@ export default function GuestbookEntryRow({
   const when = registerDate(value.createdAt) ? (
     <Time value={value.createdAt} variant="dateShort" />
   ) : null;
+  // The place, in the signer's own words.
+  const place = typeof value.location === 'string' ? value.location.trim() : '';
   const hasControls = mine || moderating;
   // Flagged by the language filter (or on the host's hidden list): benched from
   // the public view. Both only ever render here in moderation, dimmed.
@@ -105,6 +111,15 @@ export default function GuestbookEntryRow({
     >
       <span className="guestbook-entry-number">{number ?? ''}</span>
       <div className="guestbook-entry-body">
+        {/* The date heads the line, beside its number: the line's facts
+            first, then what was written and who wrote it. On the /welcoming
+            register at a desk it sits in the margin, under the number
+            (Guestbook.css). It's the permalink. */}
+        {when && (
+          <span className="guestbook-entry-time">
+            {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
+          </span>
+        )}
         {value.text ? (
           <p className="guestbook-entry-text">
             {value.text}
@@ -116,10 +131,14 @@ export default function GuestbookEntryRow({
           </p>
         ) : null}
 
-        <p className="guestbook-entry-sig">
+        {/* The signature: the avatar, two lines tall, and beside it the
+            handle over the place, one line each, so the two together are
+            always the avatar's height. A place too long for its line ends
+            in "…", and a tap shows it whole. */}
+        <div className="guestbook-entry-sig">
           <span className="guestbook-entry-avatar" aria-hidden="true">
             {profile?.avatar ? (
-              <img src={avatarThumb(profile.avatar)} alt="" loading="lazy" width={20} height={20} />
+              <img src={avatarThumb(profile.avatar)} alt="" loading="lazy" width={40} height={40} />
             ) : (
               // Borrow the signer's mark as a stand-in portrait — unless the
               // mark is already the whole message, where doubling it reads odd.
@@ -128,24 +147,27 @@ export default function GuestbookEntryRow({
               </span>
             )}
           </span>
-          {name && (
-            <span className="guestbook-entry-name">
+          <span className="guestbook-entry-id">
+            <span className="guestbook-entry-handle">
               {handle ? (
-                <a href={`https://bsky.app/profile/${handle}`} target="_blank" rel="noreferrer noopener">
-                  {name}
+                <a
+                  href={`https://bsky.app/profile/${handle}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  title={
+                    displayName && displayName !== handle
+                      ? `${displayName} · @${handle}`
+                      : `@${handle}`
+                  }
+                >
+                  {signedAs}
                 </a>
               ) : (
-                name
+                signedAs
               )}
             </span>
-          )}
-          {showHandle && <span className="guestbook-entry-handle">@{handle}</span>}
-          {value.location && <span className="guestbook-entry-location">{value.location}</span>}
-          {when && (
-            <span className="guestbook-entry-time">
-              {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
-            </span>
-          )}
+            {place && <SignedFrom place={place} />}
+          </span>
           {hasControls && (
             <span className="guestbook-entry-controls">
               {entry.hidden && moderating && (
@@ -187,7 +209,7 @@ export default function GuestbookEntryRow({
               )}
             </span>
           )}
-        </p>
+        </div>
         {modError && <p className="signin-error">{modError}</p>}
         {removeError && <p className="signin-error">{removeError}</p>}
 
@@ -195,6 +217,54 @@ export default function GuestbookEntryRow({
         {focused && <XraySubstratePanel atUri={entry.uri} cid={entry.cid} />}
       </div>
     </li>
+  );
+}
+
+/**
+ * The place a signature was written from, on one line beside the avatar. A
+ * place too long for the line ends in "…"; then, and only then, the line is
+ * a button that shows the place whole (and folds it back), with the full
+ * text as its tooltip under a mouse. Measured, so a place that fits stays
+ * plain text rather than a button that does nothing.
+ */
+function SignedFrom({ place }) {
+  const ref = useRef(null);
+  const [clipped, setClipped] = useState(false);
+  const [open, setOpen] = useState(false);
+  const toggles = clipped || open;
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || open) return undefined;
+    const measure = () => setClipped(el.scrollWidth > el.clientWidth + 1);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // `toggles` swaps the element between a span and a button; measure the
+    // one that's there.
+  }, [place, open, toggles]);
+
+  const className = `guestbook-entry-location${open ? ' is-open' : ''}`;
+  if (!toggles) {
+    return (
+      <span ref={ref} className={className}>
+        {place}
+      </span>
+    );
+  }
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={className}
+      onClick={() => setOpen((o) => !o)}
+      aria-expanded={open}
+      title={open ? undefined : place}
+    >
+      {place}
+    </button>
   );
 }
 

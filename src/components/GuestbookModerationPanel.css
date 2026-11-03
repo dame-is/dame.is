@@ -77,7 +77,7 @@
 }
 
 /* Under a finger the hide control is a 44px target, painted rather than
-   haloed, since it sits a few pixels from the entry's time link. */
+   haloed, since it sits a few pixels under the signer's place. */
 @media (pointer: coarse) {
   .gbm-list .guestbook-entry-moderate {
     min-height: var(--control-h-touch);
