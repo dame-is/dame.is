@@ -332,6 +332,58 @@
   .rs-focus-toggle { display: none; }
 }
 
+/* --- the site's bars, borrowed ----------------------------------------- */
+
+/* On a phone the studio borrows the site's top bar while a piece is up
+   (RatioedStudio.jsx, `lend`): its status and a strip under its row. Both are
+   portalled out of this section, so they carry the hour's ratioed hues on
+   their own inline style, and these rules are written against their own
+   classes rather than against `.rs-live`. */
+
+/* "getting ratioed 4m20s", in the status's own voice (ChromeBar.css
+   `.chrome-signal-status`), the time in the meta's tabular figures. Liked, the
+   same line in the like's colour, with the reaction time running in it. */
+.rs-head-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rs-head-status.is-liked,
+.rs-head-status.is-liked > strong,
+.rs-head-status.is-liked > .chrome-signal-meta {
+  color: var(--ratioed-seal, #8c3a2e);
+}
+.rs-head-status.is-liked > strong,
+.rs-head-status.is-liked > .chrome-signal-meta { font-weight: 700; }
+
+/* The record bar as the bar's lower edge: 4px, the ground of the chase in the
+   track, the takes as ticks along it. The track's own rule (RatioedRecord.css)
+   is a 3px bar under a sentence, set off by a margin; here it is the whole of
+   the strip. */
+.rs-strip {
+  position: relative;
+  height: 4px;
+  background: color-mix(in srgb, var(--ink) 10%, var(--surface-raised));
+}
+.rs-strip > .rr-track {
+  height: 100%;
+  margin: 0;
+  background: none;
+  box-shadow: none;
+}
+.rs-strip-rule {
+  display: block;
+  height: 100%;
+  background: var(--ratioed-seal, #8c3a2e);
+}
+
+/* What the borrowed bars leave the page. The record bar is in the strip, so
+   the statement drops its own; the seal is in the bottom bar, so the statement
+   drops the floor it kept so a resting thumb wouldn't move when a like landed. */
+.rs-live[data-chrome] .rstand { min-height: 0; padding-top: var(--space-2); }
+.rs-live[data-chrome] .rstand .rr-track,
+.rs-live[data-chrome] .rstand-rule { display: none; }
+
 /* --- the dock ----------------------------------------------------------- */
 
 /* The narrow pane's seal, held at the pane's floor. On the page's ground,

@@ -217,6 +217,11 @@ export default function AdminChromePanels() {
       disabled: primary.disabled === true || busy,
       busy,
       danger: primary.tone === 'danger',
+      // How the chip is painted: `seal` is the Ratioed studio's Seal, which
+      // turns `alarm` once a like has landed, in the hour's `color` for one.
+      tone: primary.tone || null,
+      alarm: primary.alarm === true,
+      color: typeof primary.color === 'string' ? primary.color : null,
     };
   }, [primary]);
 

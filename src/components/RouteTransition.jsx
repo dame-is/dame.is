@@ -294,7 +294,11 @@ function RouteScroll({ location, navType }) {
     let cancel;
     if (pathname === '/admin') {
       // A fixed, overflow-hidden frame that scrolls its own panes: there is
-      // no page offset to reset or restore.
+      // no page offset of its own to restore. But the one the last page was
+      // left at is still on the window, and on a phone the document is tall
+      // enough to keep some of it (iOS sizes 100vh with the toolbars
+      // retracted), so it is put back to the top rather than carried in.
+      if (window.scrollY) window.scrollTo(0, 0);
     } else if (initial) {
       // No navigation happened, so the page starts where the browser put it
       // — except that 'manual' also turned off the browser's restore on a

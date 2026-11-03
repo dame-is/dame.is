@@ -156,6 +156,29 @@
   bottom: var(--wb-kb, 0px);
 }
 
+/* The running head is FIXED here, not sticky. On a public page it sticks to
+   the viewport; here it could not, because the rule at the top of this file
+   puts `overflow: hidden` on both <html> and <body>, and with <html> no longer
+   `visible` the body's own overflow stays on the body and makes IT a scroll
+   container. A sticky box sticks to its nearest scroll container, so the
+   running head was sticking to a body that never scrolls, and any offset the
+   WINDOW picked up carried it straight off the top.
+
+   And the window does pick one up. iOS sizes `.app-shell`'s `100vh` to the
+   viewport with its toolbars retracted, so the document is taller than the
+   screen by the toolbars' height; focusing the reply composer scrolls it to
+   bring the field above the keyboard, and arriving from a page that was
+   scrolled carries that offset in. Either way the head went, and the band it
+   left showed the page's own ground and grid lines over the top of the
+   frame, which stays put at `--wb-ceiling`. Fixed, the head stays with the
+   frame and the bottom bar whatever the window is doing. */
+:root[data-admin-frame='site'] .chrome-bar-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
 /* The site's footer strip reveals itself on a page too short to scroll, and the
    admin's document is exactly that: the frame is fixed, so `.main` holds
    nothing. Revealed, the strip would paint the site's colophon over the bottom

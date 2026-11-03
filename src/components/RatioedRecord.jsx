@@ -35,10 +35,6 @@ import './RatioedRecord.css';
  */
 export default function RatioedRecord({ elapsedMs = 0, record, pieces = null, marks = null }) {
   if (!record?.lifespanMs) return null;
-  const target = record.lifespanMs;
-  const beaten = elapsedMs >= target;
-  const frac = Math.max(0, Math.min(1, elapsedMs / target));
-  const take = String(record.take ?? '').padStart(2, '0');
   const ticks = chaseTicks(pieces, record, elapsedMs);
   const passed = ticks.filter((t) => t.passed).length;
   // The count says what the ticks show, for anyone reading this on a screen
@@ -51,37 +47,66 @@ export default function RatioedRecord({ elapsedMs = 0, record, pieces = null, ma
   });
 
   return (
-    <div className={`rr-chase${beaten ? ' is-beaten' : ''}`}>
+    <div className={`rr-chase${elapsedMs >= record.lifespanMs ? ' is-beaten' : ''}`}>
       <p className="rr-say">{say}</p>
-      <div
-        className="rr-track"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={Math.round(target / 1000)}
-        aria-valuenow={Math.round(Math.min(elapsedMs, target) / 1000)}
-        aria-label={`Toward the longest piece, take ${take}`}
-      >
-        <span className="rr-fill" style={{ width: `${frac * 100}%` }} />
-        {/* Drawn over the fill rather than under it: a tick the piece has
-            passed is the interesting one, and it should read as a mark on the
-            bar rather than as something the bar has painted out. */}
-        {ticks.map((t) => (
-          <span
-            key={t.rkey}
-            className={`rr-tick${t.passed ? ' is-passed' : ''}`}
-            style={{ left: `${t.at * 100}%` }}
-            title={`take ${String(t.take).padStart(2, '0')} · ${fmtDuration(t.lifespanMs)}`}
-          />
-        ))}
-        {(marks || []).map((m) => (
-          <span
-            key={`${m.offMs}-${m.title}`}
-            className="rr-mark"
-            style={{ left: `${Math.max(0, Math.min(1, m.offMs / target)) * 100}%` }}
-            title={m.title}
-          />
-        ))}
-      </div>
+      <RecordTrack elapsedMs={elapsedMs} record={record} ticks={ticks} marks={marks} />
+    </div>
+  );
+}
+
+/**
+ * The bar alone: the fill toward the record, a tick for every other take, a
+ * mark for every like taken back. Its own export so it can be drawn where the
+ * sentence can't go — the studio lends it to the site's top bar on a phone,
+ * as a strip under the running head (RatioedStudio.jsx).
+ *
+ * `ticks` may be passed in when the caller has already worked them out;
+ * otherwise they are worked out here from `pieces`. `className` is added to
+ * the track's own, and `is-beaten` is set on it once the record has fallen,
+ * for a track drawn outside `.rr-chase`.
+ */
+export function RecordTrack({
+  elapsedMs = 0,
+  record,
+  pieces = null,
+  ticks = null,
+  marks = null,
+  className = '',
+}) {
+  if (!record?.lifespanMs) return null;
+  const target = record.lifespanMs;
+  const frac = Math.max(0, Math.min(1, elapsedMs / target));
+  const take = String(record.take ?? '').padStart(2, '0');
+  const list = ticks || chaseTicks(pieces, record, elapsedMs);
+  return (
+    <div
+      className={`rr-track${elapsedMs >= target ? ' is-beaten' : ''}${className ? ` ${className}` : ''}`}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={Math.round(target / 1000)}
+      aria-valuenow={Math.round(Math.min(elapsedMs, target) / 1000)}
+      aria-label={`Toward the longest piece, take ${take}`}
+    >
+      <span className="rr-fill" style={{ width: `${frac * 100}%` }} />
+      {/* Drawn over the fill rather than under it: a tick the piece has
+          passed is the interesting one, and it should read as a mark on the
+          bar rather than as something the bar has painted out. */}
+      {list.map((t) => (
+        <span
+          key={t.rkey}
+          className={`rr-tick${t.passed ? ' is-passed' : ''}`}
+          style={{ left: `${t.at * 100}%` }}
+          title={`take ${String(t.take).padStart(2, '0')} · ${fmtDuration(t.lifespanMs)}`}
+        />
+      ))}
+      {(marks || []).map((m) => (
+        <span
+          key={`${m.offMs}-${m.title}`}
+          className="rr-mark"
+          style={{ left: `${Math.max(0, Math.min(1, m.offMs / target)) * 100}%` }}
+          title={m.title}
+        />
+      ))}
     </div>
   );
 }

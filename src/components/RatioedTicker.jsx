@@ -39,7 +39,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, Link2, Play, Quote } from 'lucide-react';
 import { fmtDuration } from '../lib/ratioed.js';
-import { embedMarks } from '../lib/ratioedEmbed.js';
+import { embedMarks, withoutQuoted } from '../lib/ratioedEmbed.js';
 import { ME_DID } from '../config.js';
 import { breakingWitness } from '../lib/ratioedLive.js';
 import { rowVerb } from '../lib/ratioedLedger.js';
@@ -140,7 +140,8 @@ function EmbedMarks({ marks }) {
  *                                 reads as a fault rather than as an offer
  * @param {(row) => JSX} [props.actions]  the row's controls, drawn under what
  *                                 the person said once the row is open
- * @param {(row) => JSX} [props.below]    drawn under a row's body
+ * @param {(row, open) => JSX} [props.below]  drawn under a row's body; told
+ *                                 whether that row is the open one
  * @param {boolean} [props.bounded] scroll inside a window of its own. The page
  *                                 and the replay keep one so the list does not
  *                                 push everything after it a screen down; the
@@ -162,16 +163,14 @@ export default function RatioedTicker({
   label = 'What has touched this piece',
 }) {
   const { openWaypoints } = useWaypointsModal();
-  // Which rows are open. A set rather than one at a time: closing somebody
-  // else's row because you opened this one is a thing a feed should not do
-  // while it is still arriving.
-  const [open, setOpen] = useState(() => new Set());
-  const toggle = (rkey) =>
-    setOpen((s) => {
-      const next = new Set(s);
-      if (!next.delete(rkey)) next.add(rkey);
-      return next;
-    });
+  // Which row is open: one at a time. It was a set, on the argument that a feed
+  // still arriving should not close one row because you opened another — but
+  // in use that left a column of opened rows, each a panel of controls and
+  // embeds tall, that had to be shut one by one to read the thread again.
+  // Opening a row is reaching for its controls, and you only answer one person
+  // at a time.
+  const [open, setOpen] = useState(null);
+  const toggle = (id) => setOpen((current) => (current === id ? null : id));
 
   // Memoised on what the list SAYS rather than on the array it arrived in, so
   // the hydrator sees a new list only when the rows actually change: it
@@ -197,7 +196,10 @@ export default function RatioedTicker({
         const extra = actions?.(r);
         const uri = rowUri(r);
         const post = uri ? posts[uri] : null;
-        const marks = post ? embedMarks(post.embed) : NO_MARKS;
+        // A quote row quotes the piece, which is the page this list is on: its
+        // own embed is whatever it attached beside that (see withoutQuoted).
+        const embed = post ? (r.k === 'quote' ? withoutQuoted(post.embed) : post.embed) : null;
+        const marks = embed ? embedMarks(embed) : NO_MARKS;
         const standing = r.goneMs == null;
         // The reader's one control, where the surface offers it and nothing
         // else has claimed the slot.
@@ -207,14 +209,14 @@ export default function RatioedTicker({
         // target that isn't the whole row, and a row whose panel would come
         // up empty is a disclosure that discloses nothing.
         const pressable = Boolean(r.t) || marks.length > 0;
-        const behind = Boolean(post?.embed) || Boolean(extra) || offerOpen;
+        const behind = Boolean(embed) || Boolean(extra) || offerOpen;
         const canOpen = standing && Boolean(uri) && pressable && behind;
         // A row's identity. The live feeds' rows are records and their key
         // is the record's; the replay's include measured rows nothing ever
         // gave a key, and it names those itself in `id` rather than
         // inventing an rkey a post could be asked for by.
         const id = r.id ?? r.rkey;
-        const isOpen = canOpen && open.has(id);
+        const isOpen = canOpen && open === id;
         const controls =
           extra ||
           (offerOpen && (
@@ -275,11 +277,11 @@ export default function RatioedTicker({
               )}
               {isOpen && (
                 <div className="ratioed-live-panel">
-                  {post?.embed && <PostEmbed embed={post.embed} did={post.did || r.did} nest={1} />}
+                  {embed && <PostEmbed embed={embed} did={post.did || r.did} nest={1} />}
                   {controls && <div className="ratioed-live-panel-acts">{controls}</div>}
                 </div>
               )}
-              {below?.(r)}
+              {below?.(r, isOpen)}
             </div>
             <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
           </li>

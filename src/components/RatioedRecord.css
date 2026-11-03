@@ -42,7 +42,7 @@
 .rr-tick.is-passed {
   background: color-mix(in srgb, var(--page) 75%, transparent);
 }
-.rr-chase.is-beaten .rr-tick.is-passed {
+.rr-track.is-beaten .rr-tick.is-passed {
   background: color-mix(in srgb, var(--page) 60%, transparent);
 }
 
@@ -66,9 +66,11 @@
   background: var(--ratioed-quote, #8a6f24);
 }
 
-/* The record has fallen. Nothing here is a comparison any more. */
-.rr-chase.is-beaten .rr-fill { background: var(--ratioed-seal, #8c3a2e); }
-.rr-chase.is-beaten .rr-track {
+/* The record has fallen. Nothing here is a comparison any more. On the track
+   itself rather than the chase, so a track drawn on its own (the studio's
+   strip under the site's top bar) says so too. */
+.rr-track.is-beaten .rr-fill { background: var(--ratioed-seal, #8c3a2e); }
+.rr-track.is-beaten {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 45%, transparent);
 }
 
