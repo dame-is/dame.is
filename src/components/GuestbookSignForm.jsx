@@ -27,7 +27,7 @@ const HOP_HINT =
  *   37 | the note, on ruled lines, filling the sheet
  *      |                                        92 / 300
  *   - - - - - - - - - - - - - - - - - - - - - - - - - - -
- *   as | @ handle field, or your avatar, name and handle
+ *   as | @ handle field, or your avatar and handle
  * from | a place in your own words              [pin]
  *      | the one line of help, or what went wrong
  *      | [ Sign ]
@@ -43,7 +43,8 @@ const HOP_HINT =
  *     with atproto". The note is kept in sessionStorage across the hop to the
  *     signer's PDS, and /welcoming writes it on the way back, so there's no
  *     second tap and no retyping.
- *   - Signed in  → the "as" line is the signer, with "not you?" to sign out.
+ *   - Signed in  → the "as" line is the signer's handle, with "not you?" to
+ *     sign out.
  *
  * The button is the view's one filled control once there's something to
  * sign, and the quiet tier until then: a tap on it before that takes the
@@ -223,14 +224,10 @@ export default function GuestbookSignForm({
           ) : signedIn ? (
             <>
               <PenAvatar src={signer?.avatar} />
-              <span className="guestbook-entry-name guestbook-pen-name">
-                {signer?.name || 'you'}
+              {/* Signed with the handle alone, as the book shows it. */}
+              <span className="guestbook-entry-handle guestbook-pen-handle">
+                {signer?.handle ? `@${signer.handle}` : signer?.name || 'you'}
               </span>
-              {signer?.handle && signer.name !== `@${signer.handle}` && (
-                <span className="guestbook-entry-handle guestbook-pen-handle">
-                  @{signer.handle}
-                </span>
-              )}
               <button
                 type="button"
                 className="btn btn--text btn--sm guestbook-pen-switch"

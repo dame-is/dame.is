@@ -12,10 +12,11 @@ import '../pages/Guestbook.css';
  * One guestbook signature as a line in the register — shared between
  * /welcoming and the admin moderation panel. Its
  * number hangs in the margin; the note comes first, in the reading size; a
- * small signature follows: avatar, name and handle on one line closed by the
- * date (the permalink), the place in the signer's own words under the name.
- * At a desk the register sets the date in the margin, under the number. The
- * record's CID stays in x-ray, one click away, rather than on every line.
+ * small signature follows: the avatar, two lines tall, beside the handle
+ * (closed by the date, the permalink) over the place in the signer's own
+ * words. At a desk the register sets the date in the margin, under the
+ * number. The record's CID stays in x-ray, one click away, rather than on
+ * every line.
  *
  *   - `number`                     → the register number (none while it's
  *                                    hidden, or in the admin list).
@@ -47,13 +48,16 @@ export default function GuestbookEntryRow({
   const inspectable = xray.active && !!entry.uri;
   const focused = inspectable && xray.focusUri === entry.uri;
   const handle = profile?.handle && profile.handle !== 'handle.invalid' ? profile.handle : null;
-  const name =
-    value.signature?.trim() ||
-    profile?.displayName?.trim() ||
-    (handle ? `@${handle}` : null) ||
-    shortDid(entry.did);
-  // Show the handle beside the name unless the name already IS the handle.
-  const showHandle = handle && name !== `@${handle}`;
+  // A signature is signed with the handle alone: it's the name an atproto
+  // account goes by everywhere, and a display name beside it cost a second
+  // run of small caps that wrapped on a phone. The display name stays one
+  // hover away, on the handle's link. Without a resolvable handle, the name
+  // the signer gave (an old entry's `signature`), their display name, or a
+  // shortened DID stands in.
+  const displayName = profile?.displayName?.trim() || '';
+  const signedAs = handle
+    ? `@${handle}`
+    : value.signature?.trim() || displayName || shortDid(entry.did);
   const explorerPath = explorerPathFromAtUri(entry.uri);
   // Legacy signatures often lack a createdAt (recovered from the TID rkey where
   // possible); when even that isn't available, skip the date rather than
@@ -63,10 +67,8 @@ export default function GuestbookEntryRow({
   const when = registerDate(value.createdAt) ? (
     <Time value={value.createdAt} variant="dateShort" />
   ) : null;
-  // The place, in the signer's words. The pen labels it "from", and the line
-  // says so too, unless the signer already wrote "from …".
+  // The place, in the signer's own words.
   const place = typeof value.location === 'string' ? value.location.trim() : '';
-  const placeSaysFrom = /^from\s/i.test(place);
   const hasControls = mine || moderating;
   // Flagged by the language filter (or on the host's hidden list): benched from
   // the public view. Both only ever render here in moderation, dimmed.
@@ -121,17 +123,16 @@ export default function GuestbookEntryRow({
           </p>
         ) : null}
 
-        {/* The signature: a small grid with a fixed place for each part, so
-            a long name, handle or place wraps inside its own slot instead of
-            pushing the rest about. The avatar and who signed on the first
-            line, the date closing it; the place on a line of its own under
-            the name; the controls under that. On the /welcoming register at
-            a desk the date steps out into the margin under the line number
-            (Guestbook.css). */}
+        {/* The signature: the avatar, two lines tall, and beside it the
+            handle over the place, so the two lines together are the
+            avatar's height. The date closes the handle's line (on the
+            /welcoming register at a desk it steps into the margin, under
+            the line number: Guestbook.css). Each part wraps in its own
+            place, so a long handle or place never pushes the rest about. */}
         <div className="guestbook-entry-sig">
           <span className="guestbook-entry-avatar" aria-hidden="true">
             {profile?.avatar ? (
-              <img src={avatarThumb(profile.avatar)} alt="" loading="lazy" width={20} height={20} />
+              <img src={avatarThumb(profile.avatar)} alt="" loading="lazy" width={40} height={40} />
             ) : (
               // Borrow the signer's mark as a stand-in portrait — unless the
               // mark is already the whole message, where doubling it reads odd.
@@ -140,31 +141,30 @@ export default function GuestbookEntryRow({
               </span>
             )}
           </span>
-          <span className="guestbook-entry-who">
-            {name && (
-              <span className="guestbook-entry-name">
+          <span className="guestbook-entry-id">
+            <span className="guestbook-entry-line">
+              <span className="guestbook-entry-handle">
                 {handle ? (
-                  <a href={`https://bsky.app/profile/${handle}`} target="_blank" rel="noreferrer noopener">
-                    {name}
+                  <a
+                    href={`https://bsky.app/profile/${handle}`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    title={displayName && displayName !== handle ? displayName : undefined}
+                  >
+                    {signedAs}
                   </a>
                 ) : (
-                  name
+                  signedAs
                 )}
               </span>
-            )}
-            {showHandle && <span className="guestbook-entry-handle">@{handle}</span>}
+              {when && (
+                <span className="guestbook-entry-time">
+                  {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
+                </span>
+              )}
+            </span>
+            {place && <span className="guestbook-entry-location">{place}</span>}
           </span>
-          {when && (
-            <span className="guestbook-entry-time">
-              {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
-            </span>
-          )}
-          {place && (
-            <span className="guestbook-entry-location">
-              {!placeSaysFrom && <span className="guestbook-entry-from">from </span>}
-              {place}
-            </span>
-          )}
           {hasControls && (
             <span className="guestbook-entry-controls">
               {entry.hidden && moderating && (
