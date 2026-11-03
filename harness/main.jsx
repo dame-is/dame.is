@@ -20,6 +20,7 @@ import '../src/styles/typography.css';
 import '../src/styles/controls.css';
 import '../src/styles/app.css';
 import '../src/styles/paper.css';
+import '../src/styles/grid.css';
 
 const params = new URLSearchParams(window.location.search);
 const pinnedHour = params.has('hour') ? Number(params.get('hour')) : null;

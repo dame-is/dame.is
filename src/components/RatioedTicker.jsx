@@ -145,7 +145,7 @@ function EmbedMarks({ marks }) {
  *                                 and the replay keep one so the list does not
  *                                 push everything after it a screen down; the
  *                                 studio lets the thread run in the pane, where
- *                                 the pinned seal bar follows it down.
+ *                                 the seal row or the dock keeps the seal in reach.
  * @param {string} [props.label]   what the scroller is, for a reader who
  *                                 reaches it from the keyboard
  */
