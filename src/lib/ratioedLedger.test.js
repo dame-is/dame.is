@@ -38,7 +38,7 @@ describe('countsSentence', () => {
     expect(said(countsSentence([row('reply', ME)], { selfDid: ME }))).toBe('Nothing has touched it yet');
   });
 
-  it('reads the ordinary state as one line, the likes first and in their own tone', () => {
+  it('reads the ordinary state as one line of counts', () => {
     const rows = [
       row('reply', 'did:plc:a'),
       row('reply', 'did:plc:b'),
@@ -46,36 +46,29 @@ describe('countsSentence', () => {
       row('quote', 'did:plc:c'),
       row('reply', ME),
     ];
-    const out = countsSentence(rows, { selfDid: ME });
-    expect(said(out)).toBe('No likes · 2 replies · 1 repost · 1 quote · 3 people');
-    expect(out[0]).toEqual({ text: 'No likes', tone: 'none' });
+    expect(said(countsSentence(rows, { selfDid: ME }))).toBe('2 replies · 1 repost · 1 quote · 3 people');
   });
 
   it('leaves out the kinds nobody has done', () => {
-    expect(said(countsSentence([row('reply', 'did:plc:a')]))).toBe('No likes · 1 reply · 1 person');
+    expect(said(countsSentence([row('reply', 'did:plc:a')]))).toBe('1 reply · 1 person');
   });
 
-  it('says a like plainly and in its own tone', () => {
+  it('never counts the likes: a like is what ends the piece, and is said elsewhere', () => {
     const out = countsSentence([row('reply', 'did:plc:a'), row('like', 'did:plc:b')]);
-    expect(said(out)).toBe('1 like · 1 reply · 2 people');
-    expect(out[0].tone).toBe('like');
-    const two = countsSentence([row('like', 'did:plc:b'), row('like', 'did:plc:c')]);
-    expect(said(two)).toBe('2 likes · 2 people');
+    expect(said(out)).toBe('1 reply · 2 people');
+    expect(out.some((s) => /like/.test(s.text))).toBe(false);
+    // A like alone, or one taken back, is not "nothing": the statement says it.
+    expect(countsSentence([row('like', 'did:plc:b')])).toEqual([]);
+    expect(countsSentence([row('like', 'did:plc:b', { goneMs: 5000 })])).toEqual([]);
   });
 
-  it('keeps a like that was taken back, and says so beside the likes', () => {
-    const out = countsSentence([row('reply', 'did:plc:a'), row('like', 'did:plc:b', { goneMs: 5000 })]);
-    expect(said(out)).toBe('No likes · 1 taken back · 1 reply · 1 person');
-    expect(out[1].tone).toBe('gone');
-  });
-
-  it('counts other deletions apart from the likes', () => {
+  it('counts deletions after what is standing', () => {
     const out = countsSentence([
       row('reply', 'did:plc:a'),
       row('reply', 'did:plc:b', { goneMs: 9000 }),
       row('repost', 'did:plc:c', { goneMs: 9000 }),
     ]);
-    expect(said(out)).toBe('No likes · 1 reply · 1 person · 2 deleted');
+    expect(said(out)).toBe('1 reply · 1 person · 2 deleted');
   });
 });
 

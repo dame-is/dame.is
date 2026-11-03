@@ -62,13 +62,17 @@ export const rowUri = (r) =>
 // between renders rather than a fresh one each time.
 const NO_MARKS = [];
 
-/** The counts, with the like given the weight the project gives it. */
-export function RatioedCounters({ tally }) {
+/**
+ * The counts, with the like given the weight the project gives it. `likes`
+ * false leaves that cell out: the studio's tally, where a like is not a count
+ * to keep but the end of the piece, and is said everywhere else on the screen.
+ */
+export function RatioedCounters({ tally, likes = true }) {
   const cells = [
     ['replies', tally.replies],
     ['reposts', tally.reposts],
     ['quotes', tally.quotes],
-    ['likes', tally.likes],
+    ...(likes ? [['likes', tally.likes]] : []),
     ['people', tally.people],
   ];
   return (

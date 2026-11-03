@@ -53,49 +53,44 @@ export function countOf(n, noun) {
 /**
  * What the piece has drawn, as one line of counts.
  *
- * Returned as segments, drawn with a separator between them, because the likes
- * are the count that matters and are drawn differently: `none` while there are
- * none (the piece succeeding), `like` once there is one (the piece over), and
- * `gone` for one that was cast and taken back. Everything else has no tone.
+ *   21 replies · 5 reposts · 3 quotes · 25 people
+ *   21 replies · 5 reposts · 3 quotes · 25 people · 2 deleted
  *
- *   No likes · 21 replies · 5 reposts · 3 quotes · 25 people
- *   1 like · 21 replies · 5 reposts · 3 quotes · 26 people
- *   No likes · 1 taken back · 21 replies · 5 reposts · 3 quotes · 25 people
+ * Returned as segments, drawn with a separator between them. The likes are not
+ * among them. "No likes" was the line's last word on every reading but one,
+ * and on that one the like is the whole screen already: the statement names
+ * who and runs the reaction time, the strip under the running head goes to
+ * the like's colour, the seal turns, and the row is lit in the thread. The
+ * line is what the piece has drawn while it stands; a like is what ends it.
+ * A like cast and taken back is said by the statement in its own words.
  *
- * The likes lead. This was a pair of sentences, "21 replies, 5 reposts and 3
- * quotes, from 25 people. No likes.", which took two lines of a phone's width
- * at its size, and the line it is now is held to one: anything that runs past
- * the edge is cut from the end, and the count that is never to be cut is the
- * one the piece is about.
+ * Held to one line where it is drawn, and cut from the end if a big piece runs
+ * it past the edge. This was a pair of sentences, "21 replies, 5 reposts and 3
+ * quotes, from 25 people. No likes.", which took two lines of a phone's width.
  *
  * The artist's own records are left out, the rule every figure on the project
- * follows. `people` counts everyone standing, the likers included.
+ * follows. `people` counts everyone standing, a liker included.
  */
 export function countsSentence(rows, { selfDid = null } = {}) {
   const list = rows || [];
   const tally = tallyWitness(list, { selfDid });
   const theirs = list.filter((r) => !(selfDid && r.did === selfDid));
-  const gone = { like: 0, reply: 0, repost: 0, quote: 0 };
+  const gone = { reply: 0, repost: 0, quote: 0 };
   for (const r of theirs) if (r.goneMs != null && r.k in gone) gone[r.k] += 1;
 
-  if (tally.total === 0 && tally.withdrawn === 0) {
-    return [{ text: 'Nothing has touched it yet' }];
-  }
-
   const out = [];
-  if (tally.likes === 0) out.push({ text: 'No likes', tone: 'none' });
-  else out.push({ text: countOf(tally.likes, 'like'), tone: 'like' });
-  if (gone.like > 0) out.push({ text: `${gone.like} taken back`, tone: 'gone' });
-
   if (tally.replies) out.push({ text: countOf(tally.replies, 'reply') });
   if (tally.reposts) out.push({ text: countOf(tally.reposts, 'repost') });
   if (tally.quotes) out.push({ text: countOf(tally.quotes, 'quote') });
-  if (tally.people) out.push({ text: countOf(tally.people, 'person') });
+  if (out.length && tally.people) out.push({ text: countOf(tally.people, 'person') });
 
   const deleted = gone.reply + gone.repost + gone.quote;
   if (deleted) out.push({ text: `${deleted} deleted` });
 
-  return out;
+  if (out.length) return out;
+  // Nothing has touched it — or only a like has, or one taken back, which the
+  // statement above says in its own words, so the line has nothing to add.
+  return tally.total === 0 && tally.withdrawn === 0 ? [{ text: 'Nothing has touched it yet' }] : [];
 }
 
 /**

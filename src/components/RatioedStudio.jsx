@@ -2048,7 +2048,7 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
                 artist's own records are in the log and in none of the counts. */}
             <aside className="rs-tally" aria-label="What it has drawn">
               <p className="rs-side-head">Drawn</p>
-              <RatioedCounters tally={tally} />
+              <RatioedCounters tally={tally} likes={false} />
             </aside>
 
             <div className="rs-feed">

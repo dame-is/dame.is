@@ -70,7 +70,7 @@
 /* --- what it has drawn ------------------------------------------------- */
 
 /* One line at most, like the record line above it: cut at the end if a big
-   piece runs it past the edge, which is why the likes come first. */
+   piece runs it past the edge. */
 .rstand-counts {
   margin: var(--space-2) 0 0;
   overflow: hidden;
@@ -81,9 +81,3 @@
   white-space: nowrap;
 }
 .rstand-sep { color: var(--ink-faint); }
-.rstand-counts .is-none { font-weight: 600; }
-.rstand-counts .is-like {
-  font-weight: 700;
-  color: var(--ratioed-seal, #8c3a2e);
-}
-.rstand-counts .is-gone { color: var(--ratioed-quote, #8a6f24); }
