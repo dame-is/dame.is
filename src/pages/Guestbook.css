@@ -405,21 +405,20 @@
 }
 
 /* The signature: the avatar, two lines tall, and beside it the handle over
-   the place, so the two lines together are the avatar's height. The date
-   closes the handle's line; it's the permalink.
+   the place, one line each, so the two together are always the avatar's
+   height.
 
-     [  ] @handle                     SEP 1, 2026
-     [  ] the place, in the signer's own words,
-          wrapping under itself
+     [  ] @handle
+     [  ] the place, in the signer's own words, cut at the end of the li…
           remove · hide
 
    Every avatar is the same size, so the portraits keep one column down the
    book; a signature with no place sets its handle level with the avatar's
-   middle. Each part wraps in its own place: a long handle under itself
-   (the date stays at the end of its first line), a long place under the
-   handle. It used to be one wrapping row with the display name beside the
-   handle, which on a phone threw the date onto a line of its own and could
-   start a line with a stray "·". */
+   middle. A handle or place too long for its line ends in "…": the handle's
+   link and the place (a button then, SignedFrom) give it whole. It used to
+   be one wrapping row, display name and all, which on a phone threw the date
+   onto a line of its own and could start a line with a stray "·"; then two
+   lines that a long place ran past the avatar's foot. */
 .guestbook-entry-sig {
   display: grid;
   grid-template-columns: 2.5rem minmax(0, 1fr);
@@ -480,17 +479,17 @@
   flex-direction: column;
 }
 
-/* The handle's line, which the date closes. */
-.guestbook-entry-line {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-}
-
 .guestbook-entry-handle {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--ink-soft);
+}
+
+/* In a signature, one line. */
+.guestbook-entry-sig .guestbook-entry-handle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .guestbook-entry-handle a {
@@ -502,17 +501,44 @@
   color: var(--accent);
 }
 
-/* The place, in the signer's words and in italic. */
+/* The place, in the signer's words and in italic, on one line. When it's
+   cut short it's a button (SignedFrom) that opens it to its whole length,
+   wrapping under itself, and folds it back. Drawn the same either way. */
 .guestbook-entry-location {
+  display: block;
   min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: inherit;
   font-style: italic;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+button.guestbook-entry-location {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.guestbook-entry-location.is-open {
+  white-space: normal;
   overflow-wrap: break-word;
 }
 
+/* The date heads the line, beside its number (the li sets them on one
+   baseline), above the note: the permalink, in the register's small caps. */
 .guestbook-entry-time {
-  flex: none;
-  margin-left: auto;
+  font-size: var(--text-meta);
+  line-height: 1.4;
   white-space: nowrap;
+  color: var(--ink-muted);
   font-variant: all-small-caps;
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: 0.07em;
@@ -528,23 +554,22 @@
 }
 
 /* On the register at a desk the date steps out into the margin, under the
-   line number and level with the handle: the note column holds the line's
-   facts, its number and its day, as the home ledger's holds its verb and
-   time, and the text column keeps what was written and who wrote it. Set to
-   the margin's right edge, like the number above it, measured back from the
-   handle's line past the avatar and the gutter. (The admin's moderation list
-   has no margin, so it keeps the date at the line's end.) */
+   line number: the note column holds the line's facts, its number and its
+   day, as the home ledger's holds its verb and time, and the text column
+   keeps what was written and who wrote it. Set to the margin's right edge
+   like the number, one line of the note down from it. (The admin's
+   moderation list has no margin, so the date heads the line there as on a
+   phone.) */
 @media (min-width: 701px) {
-  .guestbook-entries .guestbook-entry-line {
+  .guestbook-entries .guestbook-entry-body {
     position: relative;
   }
 
   .guestbook-entries .guestbook-entry-time {
     position: absolute;
-    top: 0;
-    right: calc(100% + 2.5rem + var(--space-3) + var(--gb-num-gap));
+    top: calc(var(--text-lg) * 1.5);
+    right: calc(100% + var(--gb-num-gap));
     width: var(--gb-num-col);
-    margin-left: 0;
     text-align: right;
   }
 }

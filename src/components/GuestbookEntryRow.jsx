@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
@@ -11,12 +11,11 @@ import '../pages/Guestbook.css';
 /**
  * One guestbook signature as a line in the register — shared between
  * /welcoming and the admin moderation panel. Its
- * number hangs in the margin; the note comes first, in the reading size; a
- * small signature follows: the avatar, two lines tall, beside the handle
- * (closed by the date, the permalink) over the place in the signer's own
- * words. At a desk the register sets the date in the margin, under the
- * number. The record's CID stays in x-ray, one click away, rather than on
- * every line.
+ * number hangs in the margin with the date, the permalink, beside it (or,
+ * at a desk on the register, under it); the note follows in the reading
+ * size; then a small signature: the avatar, two lines tall, beside the
+ * handle over the place in the signer's own words. The record's CID stays in
+ * x-ray, one click away, rather than on every line.
  *
  *   - `number`                     → the register number (none while it's
  *                                    hidden, or in the admin list).
@@ -112,6 +111,15 @@ export default function GuestbookEntryRow({
     >
       <span className="guestbook-entry-number">{number ?? ''}</span>
       <div className="guestbook-entry-body">
+        {/* The date heads the line, beside its number: the line's facts
+            first, then what was written and who wrote it. On the /welcoming
+            register at a desk it sits in the margin, under the number
+            (Guestbook.css). It's the permalink. */}
+        {when && (
+          <span className="guestbook-entry-time">
+            {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
+          </span>
+        )}
         {value.text ? (
           <p className="guestbook-entry-text">
             {value.text}
@@ -124,11 +132,9 @@ export default function GuestbookEntryRow({
         ) : null}
 
         {/* The signature: the avatar, two lines tall, and beside it the
-            handle over the place, so the two lines together are the
-            avatar's height. The date closes the handle's line (on the
-            /welcoming register at a desk it steps into the margin, under
-            the line number: Guestbook.css). Each part wraps in its own
-            place, so a long handle or place never pushes the rest about. */}
+            handle over the place, one line each, so the two together are
+            always the avatar's height. A place too long for its line ends
+            in "…", and a tap shows it whole. */}
         <div className="guestbook-entry-sig">
           <span className="guestbook-entry-avatar" aria-hidden="true">
             {profile?.avatar ? (
@@ -142,28 +148,25 @@ export default function GuestbookEntryRow({
             )}
           </span>
           <span className="guestbook-entry-id">
-            <span className="guestbook-entry-line">
-              <span className="guestbook-entry-handle">
-                {handle ? (
-                  <a
-                    href={`https://bsky.app/profile/${handle}`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    title={displayName && displayName !== handle ? displayName : undefined}
-                  >
-                    {signedAs}
-                  </a>
-                ) : (
-                  signedAs
-                )}
-              </span>
-              {when && (
-                <span className="guestbook-entry-time">
-                  {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
-                </span>
+            <span className="guestbook-entry-handle">
+              {handle ? (
+                <a
+                  href={`https://bsky.app/profile/${handle}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  title={
+                    displayName && displayName !== handle
+                      ? `${displayName} · @${handle}`
+                      : `@${handle}`
+                  }
+                >
+                  {signedAs}
+                </a>
+              ) : (
+                signedAs
               )}
             </span>
-            {place && <span className="guestbook-entry-location">{place}</span>}
+            {place && <SignedFrom place={place} />}
           </span>
           {hasControls && (
             <span className="guestbook-entry-controls">
@@ -214,6 +217,54 @@ export default function GuestbookEntryRow({
         {focused && <XraySubstratePanel atUri={entry.uri} cid={entry.cid} />}
       </div>
     </li>
+  );
+}
+
+/**
+ * The place a signature was written from, on one line beside the avatar. A
+ * place too long for the line ends in "…"; then, and only then, the line is
+ * a button that shows the place whole (and folds it back), with the full
+ * text as its tooltip under a mouse. Measured, so a place that fits stays
+ * plain text rather than a button that does nothing.
+ */
+function SignedFrom({ place }) {
+  const ref = useRef(null);
+  const [clipped, setClipped] = useState(false);
+  const [open, setOpen] = useState(false);
+  const toggles = clipped || open;
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || open) return undefined;
+    const measure = () => setClipped(el.scrollWidth > el.clientWidth + 1);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // `toggles` swaps the element between a span and a button; measure the
+    // one that's there.
+  }, [place, open, toggles]);
+
+  const className = `guestbook-entry-location${open ? ' is-open' : ''}`;
+  if (!toggles) {
+    return (
+      <span ref={ref} className={className}>
+        {place}
+      </span>
+    );
+  }
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={className}
+      onClick={() => setOpen((o) => !o)}
+      aria-expanded={open}
+      title={open ? undefined : place}
+    >
+      {place}
+    </button>
   );
 }
 
