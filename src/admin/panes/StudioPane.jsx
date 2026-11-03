@@ -12,7 +12,7 @@
 // Prop signatures are preserved verbatim from what each component already takes,
 // so the studios themselves change as little as possible:
 //
-//   { agent, did }            SkyThemeStudio, RatioedPanel, RatioedStudio,
+//   { agent, did }            SkyThemeStudio, RatioedPanel,
 //                             NavMenuPanel, ResumeStudio, PagesOverview,
 //                             LegacyBlogMigration, AltCaptionMigration,
 //                             ListeningManager, AnalyticsStudio
@@ -21,6 +21,8 @@
 //   { agent, did, rkey, isNew, onPaneMeta }
 //                             PublicationsManager — selection moved into the URL,
 //                             and it renames this pane's head while a record is open
+//   { agent, did, onFocus }   RatioedStudio — takes the whole frame while a piece
+//                             is up (see NEEDS_FOCUS)
 //   { agent, did, rkey, bundle } ResumeWorkbench
 //   { agent, did, bundle }    ResumeStudio
 //
@@ -93,6 +95,19 @@ const NO_DID = new Set(['guestbook']);
 const NEEDS_PANE_META = new Set(['publications']);
 
 /**
+ * Studios that may ask for the whole frame, and so get `onFocus(boolean)`.
+ *
+ * While a Ratioed piece is up, the studio is the one screen in the admin where
+ * a second costs something: the seal is the control the reaction time is
+ * measured to, and the piece is drawn across the page grid. Asking for focus
+ * marks the studio `data-focus`, and the shell answers in CSS (adminShell.css,
+ * "Focus"): the rail and this pane's head give way and the pane takes the
+ * frame. The studio carries its own way back, and gives focus up the moment
+ * there is nothing live — or when it unmounts, which a change of surface does.
+ */
+const NEEDS_FOCUS = new Set(['ratioed-studio']);
+
+/**
  * @param {object} props
  * @param {import('../surfaces.js').AdminSurface} props.surface
  * @param {object} props.agent
@@ -137,6 +152,13 @@ export default function StudioPane({
   );
   const active = meta && meta.subject === subject ? meta : null;
 
+  // Focus, stamped with its subject for the same reason as the head: the
+  // studio reports from an effect, and a request left over from the surface
+  // before must not hold the frame for the one after.
+  const [focusFor, setFocusFor] = useState(null);
+  const onFocus = useCallback((on) => setFocusFor(on ? subjectRef.current : null), []);
+  const focused = focusFor === subject;
+
   const props = { agent };
   if (!NO_DID.has(surface.key)) props.did = did;
   if (NEEDS_RKEY.has(surface.key)) {
@@ -144,13 +166,14 @@ export default function StudioPane({
     props.isNew = isNew;
   }
   if (NEEDS_PANE_META.has(surface.key)) props.onPaneMeta = onPaneMeta;
+  if (NEEDS_FOCUS.has(surface.key)) props.onFocus = onFocus;
   if (isResume) props.bundle = bundle;
 
   const title = active?.title || surface.label;
   const blurb = active ? active.blurb : surface.blurb;
 
   return (
-    <div className="wb-studio">
+    <div className="wb-studio" data-focus={focused ? '' : undefined}>
       {/* The surface's NSID is in the running head (AdminTopBar), where a
           public record page prints its own, so the head is the title alone. */}
       <div className="wb-pane-head">

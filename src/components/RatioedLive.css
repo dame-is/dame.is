@@ -4,15 +4,23 @@
    the same four the charts fall back to, so the deck is legible even if it is
    ever mounted somewhere that doesn't set them.
 
-   A ledger, as the studio reads it, and not a box: a head with a rule, the
-   statement (RatioedStanding.css), the artist's sentence for the state it is
-   in, what it has drawn, and the thread under a head of its own. It was a
-   bordered panel with a clock in its corner, an alarm box, five figures in a
-   grid and a feed of icons; on a phone, the likeliest place it is read, that
-   was most of a screen before the first reply. */
+   Laid on the page grid (theme.css). The deck hangs into the wings, up to two
+   columns a side, so its figures can take a column each and the timeline can
+   run across every column there is: on a window wide enough for ten, ten
+   figures and an hour of clock. Under them the thread keeps to the type area,
+   where the ledger's verb sits in the note column and the record starts on the
+   text column's line, and the series stands in the right-hand wing beside it.
+   With no wings to hang into the deck is the type area's width, and on a phone
+   it is one column. */
 
 .ratioed-live {
+  /* How far it hangs into each wing: whole columns, two at most. A wider
+     window adds columns to the grid, but a seal-coloured timeline five
+     columns past the text is a drawing nobody reads to the end of. */
+  --rl-wing: min(var(--wing), 2 * var(--pitch));
+  container: rlive / inline-size;
   margin-top: var(--space-6);
+  margin-inline: calc(-1 * var(--rl-wing));
   font-variant-numeric: tabular-nums;
 }
 
@@ -60,19 +68,104 @@
 
 .ratioed-live-head .ratioed-live-act { font-size: var(--text-sm); }
 
-/* --- what is going on, in the artist's words ------------------------- */
+/* --- the figures, one to a column ------------------------------------- */
 
-.ratioed-live-say {
+/* As many columns as the deck is wide, which is a whole number of them: on
+   ten, all ten figures in one row, how long it has stood taking two. Fewer
+   columns wrap the rest onto a second row on the same lines. Each is its
+   figure over its label, so the figures share a baseline whichever labels run
+   to two lines. */
+.rl-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--col));
+  column-gap: var(--gutter);
+  row-gap: var(--space-4);
   margin: var(--space-4) 0 0;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 70%, transparent);
+}
+.rl-fig {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.rl-fig dd {
+  order: 1;
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.rl-fig dt {
+  order: 2;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  line-height: 1.3;
+  color: var(--ink-faint);
+}
+.rl-fig.is-lead { grid-column: span 2; }
+.rl-fig.is-lead dd {
+  font-size: var(--text-4xl);
+  font-weight: 600;
+  line-height: 1;
+}
+/* No likes is the piece succeeding, and the one figure here that is a verdict. */
+.rl-fig.is-zero dd { font-weight: 700; }
+.rl-fig.is-like dd,
+.rl-fig.is-like dt { color: var(--ratioed-seal, #8c3a2e); }
+.rl-fig.is-like dd { font-weight: 700; }
+.rl-fig.is-gone dd,
+.rl-fig.is-gone dt { color: var(--ratioed-quote, #8a6f24); }
+
+/* --- the timeline ----------------------------------------------------- */
+
+/* The caption is prose, so it starts where the text column does, however far
+   the drawing hangs into the wing. */
+.ratioed-live-scope {
+  --rscope-cap-inset: calc(var(--rl-wing) + var(--text-inset));
+  margin-top: var(--space-4);
+}
+
+/* --- the thread, and the series beside it ----------------------------- */
+
+.ratioed-live-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+.ratioed-live-main { min-width: 0; }
+
+/* With a wing to stand in, the series takes the right-hand one beside the
+   thread and stays in view as the thread scrolls past. Without one it follows
+   the thread. The deck is a container because the wings depend on the window
+   in a way the rows inside can't see: with a wing the deck is the type area
+   and two columns or more, without one it is the type area at most. */
+@container rlive (min-width: 50rem) {
+  .ratioed-live-lower {
+    grid-template-columns: var(--rl-wing) minmax(0, 1fr) var(--rl-wing);
+  }
+  .ratioed-live-main { grid-column: 2; }
+  .ratioed-live-series {
+    grid-column: 3;
+    align-self: start;
+    position: sticky;
+    top: calc(var(--chrome-top-h, var(--chrome-h)) + var(--space-4));
+    padding-left: var(--gutter);
+  }
+}
+
+/* What is going on, in the artist's words, on the text column's line. */
+.ratioed-live-say {
+  max-width: calc(var(--text-inset) + var(--text));
+  margin: 0;
+  padding-inline-start: var(--text-inset);
   font-size: var(--text-lg);
   line-height: 1.5;
-  max-width: 62ch;
   text-indent: 0;
-}
-.rstand-counts.ratioed-live-counts {
-  margin-top: var(--space-2);
-  font-size: var(--text-base);
-  color: var(--ink-muted);
 }
 
 /* --- the thread's head ------------------------------------------------ */
@@ -527,6 +620,22 @@
   }
   .ratioed-live-counters dt { margin-bottom: 0; }
   .ratioed-live-counters dd { font-size: var(--text-base, 1rem); }
+
+  /* The figures, as a phone has room for them: how long it has stood across
+     the whole width, then what it has drawn in one row of five. The record,
+     the pace and the silence are the texture of a piece and
+     cost a screen at this width; the timeline under them carries the record. */
+  .rl-figures {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    column-gap: var(--space-2);
+    row-gap: var(--space-3);
+  }
+  .rl-fig.is-lead { grid-column: 1 / -1; }
+  .rl-fig.is-texture { display: none; }
+  .rl-fig dt {
+    font-size: var(--text-2xs);
+    letter-spacing: 0.08em;
+  }
 
 }
 

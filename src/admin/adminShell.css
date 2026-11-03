@@ -333,6 +333,31 @@
   --wb-measure: 100%;
 }
 
+/* Focus. A studio may ask for the whole frame (StudioPane's `onFocus`, which
+   marks it `data-focus`), and the Ratioed studio does while a piece is up: the
+   seal is then the one control in the admin worth milliseconds, and the piece
+   is drawn across the page grid, wing to wing. The rail and the pane's own
+   head and blurb give way, and the pane takes the frame. The top bar stays,
+   and the studio carries its own way back to the rail.
+
+   Below the breakpoint there is no rail column to hide, so what focus does
+   there is the last rule: a focused studio pins its seal to the pane's floor,
+   and a sticky box stops short of its scrollport's padding (see the note on
+   `.wb-pane-detail` below), so the floor's padding goes. */
+.wb-shell:has(.wb-studio[data-focus]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.wb-shell:has(.wb-studio[data-focus]) > .wb-rail,
+.wb-studio[data-focus] > .wb-pane-head,
+.wb-studio[data-focus] > .wb-pane-blurb {
+  display: none;
+}
+
+.wb-pane-detail:has(> .wb-studio[data-focus]) {
+  padding-bottom: 0;
+}
+
 .wb-pane {
   min-width: 0;
 }

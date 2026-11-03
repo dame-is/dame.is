@@ -40,9 +40,13 @@ import {
   withdrawnOnly,
 } from '../lib/ratioedLive.js';
 import { fmtDuration } from '../lib/ratioed.js';
+import { tallyWitness } from '../lib/ratioedLive.js';
+import { liveTexture, fmtPace } from '../lib/ratioedScope.js';
 import { DEFAULT_COPY } from '../lib/ratioedCopy.js';
 import { ME_DID } from '../config.js';
-import RatioedStanding, { RatioedCounts } from './RatioedStanding.jsx';
+import RatioedClock from './RatioedClock.jsx';
+import RatioedSeismograph from './RatioedSeismograph.jsx';
+import RatioedSeries from './RatioedSeries.jsx';
 import RatioedTicker from './RatioedTicker.jsx';
 import './RatioedLive.css';
 
@@ -158,17 +162,6 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
   const breaking = useMemo(() => breakingWitness(rows), [rows]);
   const takenBack = useMemo(() => withdrawnOnly(rows), [rows]);
   const aliveMs = Number.isFinite(postedMs) ? Math.max(0, now - postedMs) : 0;
-  // Likes cast and taken back, where on the piece's clock they landed.
-  const marks = useMemo(
-    () =>
-      rows
-        .filter((r) => r.k === 'like' && r.goneMs != null && r.did !== ME_DID)
-        .map((r) => ({
-          offMs: r.offMs,
-          title: `liked at +${fmtDuration(r.offMs)}, taken back at +${fmtDuration(r.goneMs)}`,
-        })),
-    [rows],
-  );
   const reading = streamReading({
     on: streamOn,
     spent,
@@ -176,12 +169,14 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
     stream,
   });
 
-  // The ledger, as the studio reads it: a head, a statement, the artist's own
-  // sentence for the state it is in, what it has drawn, and the thread. The
-  // artist's own records are in the log and in none of the counts — the same
-  // rule every measured figure on this project follows, and it matters more
-  // here than anywhere: the studio can reply from the dashboard, and those
-  // replies would otherwise read as the piece drawing a crowd.
+  // The deck, on the page grid: a head with the switch for the firehose; the
+  // figures, one to a column; the piece on the grid's clock, every record a
+  // mark where it landed; and under that the thread in the type area, with the
+  // series ranked by length in the wing beside it. The artist's own records
+  // are in the log and the drawing and in none of the figures, the same rule
+  // every measured figure on this project follows. It matters more here than
+  // anywhere: the studio can reply from the dashboard, and those replies would
+  // otherwise read as the piece drawing a crowd.
   return (
     <div className={`ratioed-live${breaking ? ' is-broken' : takenBack ? ' is-withdrawn' : ''}`}>
       <header className="ratioed-live-head">
@@ -215,43 +210,105 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
         )}
       </header>
 
-      {/* How long it has stood and how that compares, or — once somebody has
-          liked it — who, and the reaction time being taken: it stops when the
-          artist closes replies, and where it stops is what the record says. */}
-      <RatioedStanding
-        aliveMs={aliveMs}
-        record={record}
+      <LiveFigures rows={rows} aliveMs={aliveMs} record={record} breaking={breaking} postedMs={postedMs} />
+
+      <RatioedSeismograph
+        className="ratioed-live-scope"
+        rows={rows}
+        elapsedMs={aliveMs}
         pieces={series}
-        marks={marks}
-        like={
-          breaking
-            ? {
-                handle: profiles[breaking.did]?.handle || breaking.h || 'somebody',
-                offMs: breaking.offMs,
-                atMs: postedMs + breaking.offMs,
-              }
-            : null
-        }
-        clockLabel="unsealed, and being timed"
-        clockFirst
+        record={record}
+        take={piece?.take}
+        selfDid={ME_DID}
+        profiles={profiles}
       />
 
-      {/* Three sentences, one per state, and all three are the artist's rather
-          than the build's — see lib/ratioedCopy.js. */}
-      <p className="ratioed-live-say" aria-live="polite">
-        {breaking ? copy.deckLiked : takenBack ? copy.deckWithdrawn : copy.deckAlive}
-      </p>
-      <RatioedCounts rows={rows} selfDid={ME_DID} className="ratioed-live-counts" />
-
-      <div className="ratioed-live-thread-head">
-        <h2 className="ratioed-live-thread-label">What has touched it</h2>
-        <span className={`ratioed-live-state is-${reading.state}`} title={reading.explain}>
-          {reading.state !== 'off' && <Radio size={12} aria-hidden="true" />}
-          {reading.label}
-        </span>
+      <div className="ratioed-live-lower">
+        <div className="ratioed-live-main">
+          {/* Three sentences, one per state, and all three are the artist's
+              rather than the build's — see lib/ratioedCopy.js. */}
+          <p className="ratioed-live-say" aria-live="polite">
+            {breaking ? copy.deckLiked : takenBack ? copy.deckWithdrawn : copy.deckAlive}
+          </p>
+          <div className="ratioed-live-thread-head">
+            <h2 className="ratioed-live-thread-label">What has touched it</h2>
+            <span className={`ratioed-live-state is-${reading.state}`} title={reading.explain}>
+              {reading.state !== 'off' && <Radio size={12} aria-hidden="true" />}
+              {reading.label}
+            </span>
+          </div>
+          <RatioedTicker rows={rows} profiles={profiles} />
+        </div>
+        {/* Where it stands among every take, climbing while it stands. Settled
+            at the like, which is where its length stops. */}
+        {series?.length > 0 && (
+          <RatioedSeries
+            className="ratioed-live-series"
+            pieces={series}
+            take={piece?.take}
+            standingMs={breaking ? breaking.offMs : aliveMs}
+            ended={Boolean(breaking)}
+          />
+        )}
       </div>
-      <RatioedTicker rows={rows} profiles={profiles} />
     </div>
+  );
+}
+
+/**
+ * The figures across the top of the deck, one to a column of the page grid,
+ * ten columns' worth so a desk wide enough for ten has them in one row. How
+ * long it has stood takes two, because it is the one being watched, and
+ * becomes the reaction time running once somebody likes it; then how far that
+ * is from the record, what it has drawn, and two that say what it has been
+ * like: the pace and the longest silence. The artist's own records are in none
+ * of them.
+ */
+function LiveFigures({ rows, aliveMs, record, breaking, postedMs }) {
+  const tally = tallyWitness(rows, { selfDid: ME_DID });
+  const texture = liveTexture(rows, { selfDid: ME_DID, endMs: breaking ? breaking.offMs : aliveMs });
+  const takenBack = rows.filter((r) => r.k === 'like' && r.goneMs != null && r.did !== ME_DID).length;
+  const recordMs = record?.lifespanMs || 0;
+  const cell = (key, label, value, cls = '') => (
+    <div key={key} className={`rl-fig${cls ? ` ${cls}` : ''}`}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+  const likeLabel = takenBack ? `likes · ${takenBack} taken back` : tally.likes === 1 ? 'like' : 'likes';
+  const likeTone = tally.likes ? 'is-like' : takenBack ? 'is-gone' : 'is-zero';
+  return (
+    <dl className="rl-figures">
+      {breaking
+        ? cell(
+            'lead',
+            'unsealed, and being timed',
+            Number.isFinite(postedMs) ? <RatioedClock fromMs={postedMs + breaking.offMs} /> : '—',
+            'is-lead is-like',
+          )
+        : cell('lead', 'standing for', fmtDuration(aliveMs), 'is-lead')}
+      {breaking
+        ? cell('gap', 'stood for', fmtDuration(breaking.offMs), 'is-texture')
+        : recordMs > 0 &&
+          cell(
+            'gap',
+            aliveMs >= recordMs ? 'past the record' : 'to the record',
+            fmtDuration(Math.abs(recordMs - aliveMs)),
+            'is-texture',
+          )}
+      {cell('replies', 'replies', tally.replies)}
+      {cell('reposts', 'reposts', tally.reposts)}
+      {cell('quotes', 'quotes', tally.quotes)}
+      {cell('people', 'people', tally.people)}
+      {cell('likes', likeLabel, tally.likes, likeTone)}
+      {cell('pace', 'pace', fmtPace(texture.pace), 'is-texture')}
+      {cell(
+        'silence',
+        'longest silence',
+        texture.silence ? fmtDuration(texture.silence.ms) : '—',
+        'is-texture',
+      )}
+    </dl>
   );
 }
 
