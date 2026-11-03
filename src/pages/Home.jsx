@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Shuffle, Signature, X } from 'lucide-react';
@@ -60,7 +60,6 @@ import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
-import { useChromePanelActions } from '../hooks/useChromePanel.jsx';
 import { useFirstSightings } from '../hooks/useFirstSightings.js';
 import { useNow } from '../hooks/useNow.js';
 import { ME_DID } from '../config.js';
@@ -268,27 +267,6 @@ function LedgerColophon({ known, since, oldest, verbs }) {
     </footer>
   );
 }
-
-/**
- * The hero's guestbook button, split out so the chrome-panel actions it reads
- * stay off the page and its whole feed. They never change, so a sheet opening
- * or closing re-renders nothing here either.
- */
-const GuestbookButton = memo(function GuestbookButton() {
-  const { openPanel } = useChromePanelActions();
-  return (
-    <button
-      type="button"
-      className="home-hero-cta-btn home-hero-guestbook-btn"
-      onClick={() => openPanel('guestbook')}
-      aria-label="Sign the guestbook"
-      title="Sign the guestbook"
-    >
-      <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
-    </button>
-  );
-});
-
 
 /**
  * The home ledger. With `verb`, it's that verb's generated index instead
@@ -1222,7 +1200,16 @@ export default function Home({ verb: presetVerb = null } = {}) {
         <Link className="home-hero-cta-btn" to="/blogging">
           Blog
         </Link>
-        <GuestbookButton />
+        {/* The pen goes to the book, where the next blank line opens the
+            sign sheet. It used to open the sheet over the hero. */}
+        <Link
+          className="home-hero-cta-btn home-hero-guestbook-btn"
+          to="/welcoming"
+          aria-label="Guestbook"
+          title="Guestbook"
+        >
+          <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
+        </Link>
         <button
           type="button"
           className="home-hero-cta-btn home-hero-shuffle"

@@ -21,9 +21,10 @@ import '../pages/Guestbook.css';
  *   - `mine` + `onRemove`          → the signer's own delete button.
  *   - `moderating` + `onSetHidden` → the host's hide/unhide control; hidden
  *                                    rows render dimmed with a badge.
- *   - `entering`                   → this signature arrived on the live read
- *                                    after the page had already painted, so it
- *                                    slides in rather than appearing outright.
+ *   - `entering`                   → this signature arrived after the page had
+ *                                    already painted (on the live read, or
+ *                                    just signed), so it slides in rather
+ *                                    than appearing outright.
  */
 export default function GuestbookEntryRow({
   entry,

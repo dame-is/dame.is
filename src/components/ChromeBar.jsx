@@ -47,7 +47,6 @@ import AdminDirectorySheet, {
   ADMIN_DIRECTORY_PANEL_ID,
 } from './AdminDirectorySheet.jsx';
 import InfoSheet from './InfoSheet.jsx';
-import GuestbookSheet from './GuestbookSheet.jsx';
 import DebugSheet from './DebugSheet.jsx';
 import SkyHourSheet from './SkyHourSheet.jsx';
 import Footer from './Footer.jsx';
@@ -1480,7 +1479,6 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
 
       <SearchSheet />
       <InfoSheet />
-      <GuestbookSheet />
       <DebugSheet />
       <SkyHourSheet />
       {/* Owner-gated on the same test as its trigger, so a visitor's page

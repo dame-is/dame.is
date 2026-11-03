@@ -72,6 +72,21 @@
   background-repeat: no-repeat;
 }
 
+/* The guestbook's sign sheet is a page of the book, not chrome: its line
+   number and labels sit in the note column and the note in the text column
+   (Guestbook.css, .guestbook-pen), so it draws the columns over its own fill
+   as the bars do, its header included, which stays put while a short sheet
+   scrolls. It spans the window and centres its content as the page does, so
+   the same drawing lands on the same lines. The other sheets are chrome and
+   stay plain. */
+:root[data-grid='on']:not([data-admin-shell])
+  :is(.guestbook-sheet-panel, .guestbook-sheet-panel .sheet-head) {
+  background-image: var(--grid-columns);
+  background-size: var(--grid-w) 100%;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
 /* The two bars are a row of the grid too. Every button in them, and the
    brand mark, is a 28px face (--chrome-face, ChromeBar.css) centred in the
    bar's 56px, so a hairline along the faces' tops and another along their

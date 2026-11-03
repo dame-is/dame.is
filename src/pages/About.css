@@ -337,18 +337,6 @@
   color: var(--ink-muted);
 }
 
-.about-ledger-action {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: var(--ink);
-  text-decoration: underline;
-  text-decoration-color: var(--accent-soft);
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
 .about-also-rows {
   list-style: none;
   margin: 0;
