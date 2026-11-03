@@ -54,23 +54,90 @@
   margin-left: auto;
 }
 
-.an-strip-track {
-  flex: 1 1 8rem;
-  min-width: 6rem;
+/* ---- sync progress ------------------------------------------------ */
+
+/* A sync under way: the status line with Cancel at its right, then one
+   segment per step. Finished segments are full, a failed one is drawn in the
+   danger ink, the one under way fills by its own measured share, and the rest
+   wait as bare track. */
+.an-sync {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.an-sync-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.an-sync-head .an-strip-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.an-sync-head .btn {
+  flex: none;
+}
+
+.an-sync-count {
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+
+.an-sync-doing {
+  color: var(--ink);
+}
+
+.an-sync-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 3px;
+}
+
+.an-sync-step {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.an-sync-track {
+  position: relative;
+  display: block;
   height: 0.45rem;
   background: var(--rule-soft);
   overflow: hidden;
 }
 
-.an-strip-fill {
+.an-sync-fill {
   display: block;
+  width: 0;
   height: 100%;
   background: var(--accent);
   transition: width 300ms ease;
 }
 
-/* No total to measure against — show motion, not a made-up percentage. */
-.an-strip-fill[data-indeterminate] {
+/* A finished step reads quieter than the one under way, so the eye lands on
+   what is moving. */
+.an-sync-step[data-state='done'] .an-sync-fill {
+  background: var(--accent-soft);
+}
+
+.an-sync-step[data-state='failed'] .an-sync-fill {
+  background: var(--danger);
+}
+
+/* Under way with nothing to measure it against: motion inside this one
+   segment, never a made-up share of it. */
+.an-sync-fill[data-indeterminate] {
+  width: 30%;
   animation: an-indeterminate 1.4s ease-in-out infinite alternate;
 }
 
@@ -81,6 +148,60 @@
   to {
     margin-left: 70%;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .an-sync-fill {
+    transition: none;
+  }
+
+  .an-sync-fill[data-indeterminate] {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+  }
+}
+
+/* Each step's name in the label voice under its segment, its state at the
+   right: a tick when done, its share while under way. */
+.an-sync-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
+  font-family: var(--sans);
+  font-size: var(--text-2xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.an-sync-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.an-sync-state {
+  flex: none;
+  display: inline-flex;
+  font-variant: normal;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.an-sync-step[data-state='done'] .an-sync-state {
+  color: var(--accent);
+}
+
+.an-sync-step[data-state='active'] .an-sync-name {
+  color: var(--ink);
+}
+
+.an-sync-step[data-state='failed'] .an-sync-name {
+  color: var(--danger);
 }
 
 /* ---- first run / atmosphere --------------------------------------- */
@@ -109,6 +230,76 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-5);
+}
+
+/* On a phone every row of keys is the full width, and none of them wraps
+   into a ragged second line under doubled hairlines. The six sections are a
+   three-by-two grid, so all of them stay in sight; each filter is one row
+   whose keys share the width — and that a row too long for the screen
+   swipes, rather than wrapping. */
+@media (max-width: 700px) {
+  .an-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .an-tabs .segmented-key {
+    padding-inline: var(--space-1);
+  }
+
+  /* Shared edges on both axes: the first column starts flush, the second row
+     tucks up under the first. */
+  .an-tabs .segmented-key:nth-child(3n + 1) {
+    margin-left: 0;
+  }
+
+  .an-tabs .segmented-key:nth-child(n + 4) {
+    margin-top: -1px;
+  }
+
+  .an-filters {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: var(--space-3);
+  }
+
+  /* A chart's own switch (Cumulative, Together, Daily…) drops under its
+     title as a full row of its own, the same as the filters above. */
+  .an-card .section-head-meta:has(> .segmented) {
+    flex: 1 1 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .an-filters .segmented,
+  .an-card .section-head-meta > .segmented {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .an-filters .segmented::-webkit-scrollbar,
+  .an-card .section-head-meta > .segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .an-filters .segmented-key,
+  .an-card .section-head-meta > .segmented .segmented-key {
+    flex: 1 0 auto;
+    padding-inline: var(--space-2);
+    white-space: nowrap;
+  }
+
+  /* Six named stages won't share a phone's width, so they sit three across:
+     every one still named, still showing its state. */
+  .an-sync-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2) 3px;
+  }
 }
 
 /* ---- panels, figures, charts --------------------------------------- */
@@ -581,6 +772,22 @@
   grid-template-columns: minmax(10rem, 18rem) 1fr 4rem;
 }
 
+/* A person with a Follow key: the key takes a fixed column at the row's end,
+   wide enough for "Following", so the counts stay in one column whichever
+   state each row is in. */
+.an-actor--follow {
+  grid-template-columns: auto minmax(8rem, 14rem) 1fr 3rem 6.5rem;
+}
+
+.an-actor-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.an-actor-action .btn {
+  width: 100%;
+}
+
 .an-actor-avatar {
   width: 1.6rem;
   height: 1.6rem;
@@ -622,6 +829,19 @@
   text-overflow: ellipsis;
 }
 
+/* "follows you": the relationship, in the handle's line and voice. */
+.an-actor-rel {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+}
+
+.an-actor-error {
+  font-size: var(--text-xs);
+  color: var(--danger);
+}
+
 .an-actor-track {
   height: 0.5rem;
   background: var(--rule-soft);
@@ -653,11 +873,30 @@
   display: block;
 }
 
+/* "Show 12 more" under a People list, with how many of how many it shows. */
+.an-more {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.an-more-count {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- responsive --------------------------------------------------- */
 
 @media (max-width: 700px) {
   .an-actor {
     grid-template-columns: auto minmax(6rem, 1fr) 2.6rem;
+  }
+
+  .an-actor--follow {
+    grid-template-columns: auto minmax(0, 1fr) 2.6rem 6rem;
   }
 
   .an-collections .an-actor {

@@ -92,30 +92,52 @@ export async function fetchRepoCar(pds, did, { since = null, signal, onProgress 
  * `collection/rkey` paths, and decode every record block that is present.
  *
  * Yields to the event loop as it goes — a full parse touches ~150k blocks
- * and must not freeze the tab it runs in.
+ * and must not freeze the tab it runs in. At each yield it reports where it
+ * is, by stage, through `onProgress`:
+ *
+ *   { stage: 'index',  done: bytes indexed (≈), total: CAR bytes }
+ *   { stage: 'walk',   done: record paths found }
+ *   { stage: 'decode', done: records decoded, total: paths }
  *
  * @param {Uint8Array} bytes
- * @returns {Promise<{did:string, rev:string,
+ * @param {{onProgress?: (p:{stage:string, done:number, total?:number}) => void}} [opts]
+ * @returns {Promise<{did:string|null, rev:string|null, empty?:boolean,
  *          entries:Array<{uri:string, collection:string, rkey:string, record:object}>}>}
+ *          `empty` (with null did and rev) is a diff with nothing in it.
  */
-export async function readRepoCar(bytes) {
+export async function readRepoCar(bytes, { onProgress } = {}) {
   const { car, cbor, cid } = await atcute();
 
   let ops = 0;
+  let where = null; // () => progress fact for the stage under way
   const breathe = async () => {
-    if (++ops % YIELD_EVERY === 0) await new Promise((r) => setTimeout(r, 0));
+    if (++ops % YIELD_EVERY === 0) {
+      if (where) onProgress?.(where());
+      await new Promise((r) => setTimeout(r, 0));
+    }
   };
   const linkKey = (link) => (link && typeof link.$link === 'string' ? link.$link : String(link));
 
   const reader = car.fromUint8Array(bytes);
   const blocks = new Map();
+  // Each block costs its bytes plus its CID and length prefix in the file —
+  // ~40 bytes on a repo of sha-256 CIDs — so the sum tracks the file closely.
+  let indexed = 0;
+  where = () => ({ stage: 'index', done: Math.min(indexed, bytes.byteLength), total: bytes.byteLength });
   for (const entry of reader) {
     blocks.set(cid.toString(entry.cid), entry.bytes);
+    indexed += entry.bytes.byteLength + 40;
     await breathe();
   }
 
   const root = reader.roots[0];
   if (!root) throw new Error('CAR has no root');
+  // A diff asked for since the repo's current rev — nothing written in
+  // between — comes back as a header and no blocks at all (59 bytes from
+  // this account's PDS). That is "no changes", not a broken CAR: read it as
+  // an empty diff, so the caller keeps its rev instead of falling back to a
+  // full re-pull of the whole repo.
+  if (blocks.size === 0) return { did: null, rev: null, entries: [], empty: true };
   const commitBytes = blocks.get(linkKey(root));
   if (!commitBytes) throw new Error('CAR root block missing');
   const commit = cbor.decode(commitBytes);
@@ -126,6 +148,7 @@ export async function readRepoCar(bytes) {
   const td = new TextDecoder();
 
   const paths = []; // { key, link }
+  where = () => ({ stage: 'walk', done: paths.length });
   async function walk(link) {
     if (!link) return;
     const nodeBytes = blocks.get(linkKey(link));
@@ -144,7 +167,10 @@ export async function readRepoCar(bytes) {
   await walk(commit.data);
 
   const entries = [];
+  let decoded = 0;
+  where = () => ({ stage: 'decode', done: decoded, total: paths.length });
   for (const { key, link } of paths) {
+    decoded += 1;
     const recordBytes = blocks.get(linkKey(link));
     if (!recordBytes) continue; // diff CAR: unchanged record, already held
     await breathe();

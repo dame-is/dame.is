@@ -266,6 +266,99 @@ export function comparePeriods(items, { days, now = Date.now(), pickTime, pickVa
 }
 
 /* ------------------------------------------------------------------ */
+/* Rates                                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A post in the owner's own voice: top-level, or a reply to one of their own
+ * posts (a thread). Replies to other people are left out of the engagement
+ * rate — they are answers inside someone else's conversation, and earn on a
+ * different scale entirely.
+ */
+export function isOwnVoicePost(post, ownerDid) {
+  return Boolean(post) && (!post.replyTo || post.replyTo === ownerDid);
+}
+
+/**
+ * Engagement per post, bucket by bucket: what the bucket's posts have earned
+ * over how many posts there were. A bucket with no posts has no rate — `v` is
+ * null there, never zero, because "nothing posted" and "posted to silence"
+ * are different weeks.
+ *
+ * @returns {Array<{t:number, v:number|null, total:number, posts:number}>}
+ */
+export function rateSeries(posts, { unit = 'day', t0, t1, kind = 'all' } = {}) {
+  const pickTime = (p) => (typeof p?.atMs === 'number' ? p.atMs : p?.at);
+  const totals = bucketSeries(posts, { unit, t0, t1, pickTime, pickValue: (p) => engagementOf(p, kind) });
+  const counts = bucketSeries(posts, { unit, t0, t1, pickTime });
+  return totals.map((b, i) => {
+    const n = counts[i]?.v || 0;
+    return { t: b.t, v: n ? b.v / n : null, total: b.v, posts: n };
+  });
+}
+
+/**
+ * The trend under a rate series: total engagement over total posts across a
+ * centred window — a ratio of sums, never an average of averages, so a week
+ * of one post weighs one post and a week of forty weighs forty. Null where the
+ * window holds no posts at all.
+ */
+export function rollingRate(series, window = 7) {
+  const n = (series || []).length;
+  const half = Math.floor(Math.max(1, window) / 2);
+  return (series || []).map((p, i) => {
+    let total = 0;
+    let posts = 0;
+    for (let j = Math.max(0, i - half); j <= Math.min(n - 1, i + half); j++) {
+      total += series[j].total || 0;
+      posts += series[j].posts || 0;
+    }
+    return { t: p.t, v: posts ? total / posts : null };
+  });
+}
+
+/**
+ * This period's engagement rate against the previous one of the same length.
+ * `pct` is null when the previous period had no posts to have a rate.
+ *
+ * @returns {{current:number|null, previous:number|null, pct:number|null}}
+ */
+export function compareRates(posts, { days, now = Date.now(), kind = 'all' } = {}) {
+  const span = (days || 0) * DAY_MS;
+  const sums = { cur: [0, 0], prev: [0, 0] };
+  if (span > 0) {
+    for (const p of posts || []) {
+      const at = typeof p?.atMs === 'number' ? p.atMs : Date.parse(p?.at);
+      if (!Number.isFinite(at) || at > now) continue;
+      const slot = at > now - span ? sums.cur : at > now - 2 * span ? sums.prev : null;
+      if (!slot) continue;
+      slot[0] += engagementOf(p, kind);
+      slot[1] += 1;
+    }
+  }
+  const current = sums.cur[1] ? sums.cur[0] / sums.cur[1] : null;
+  const previous = sums.prev[1] ? sums.prev[0] / sums.prev[1] : null;
+  const pct = current != null && previous ? ((current - previous) / previous) * 100 : null;
+  return { current, previous, pct };
+}
+
+/* ------------------------------------------------------------------ */
+/* Engagement given                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Every act of engagement the owner has GIVEN: their likes and reposts (the
+ * outbound archive) plus the replies and quotes already in the post archive.
+ * Anything aimed at the owner's own posts is threading, not engagement, and
+ * is left out — a long thread is not a hundred replies given.
+ *
+ * @returns {Array<{uri:string, did:string, kind:string, at:string}>}
+ */
+export function givenEvents(outbound, posts, ownerDid) {
+  return [...(outbound || []), ...outboundFromPosts(posts)].filter((ev) => ev?.did && ev.did !== ownerDid);
+}
+
+/* ------------------------------------------------------------------ */
 /* Ranked lists                                                         */
 /* ------------------------------------------------------------------ */
 

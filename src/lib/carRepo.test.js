@@ -112,6 +112,40 @@ describe('readRepoCar', () => {
     expect(entries.map((e) => `${e.collection}/${e.rkey}`)).toEqual([postKey, 'is.dame.page/about']);
   });
 
+  it('reads a diff with no blocks at all as no changes, not a broken CAR', async () => {
+    // What a PDS sends for since=<current rev>: the header naming a root,
+    // and nothing else.
+    const { cid } = await block({ did: DID, rev: '3mttfixture22' });
+    const chunks = [];
+    for await (const chunk of writeCarStream([toCidLink(cid)], [])) chunks.push(chunk);
+    const car = new Uint8Array(chunks.reduce((n, c) => n + c.byteLength, 0));
+    let offset = 0;
+    for (const c of chunks) {
+      car.set(c, offset);
+      offset += c.byteLength;
+    }
+    await expect(readRepoCar(car)).resolves.toEqual({ did: null, rev: null, entries: [], empty: true });
+  });
+
+  it('still refuses a CAR whose blocks are there but whose root is not', async () => {
+    // A real repo's blocks, re-wrapped under a root that isn't among them.
+    const { fromUint8Array } = await import('@atcute/car');
+    const blocks = [...fromUint8Array(await buildRepoCar(FIXTURE))].map((e) => ({
+      cid: e.cid.bytes,
+      data: e.bytes,
+    }));
+    const { cid } = await block({ not: 'the root' });
+    const chunks = [];
+    for await (const chunk of writeCarStream([toCidLink(cid)], blocks)) chunks.push(chunk);
+    const bad = new Uint8Array(chunks.reduce((n, c) => n + c.byteLength, 0));
+    let offset = 0;
+    for (const c of chunks) {
+      bad.set(c, offset);
+      offset += c.byteLength;
+    }
+    await expect(readRepoCar(bad)).rejects.toThrow(/root block missing/);
+  });
+
   it('refuses bytes that are not a repo CAR', async () => {
     await expect(readRepoCar(new Uint8Array([1, 2, 3, 4]))).rejects.toThrow();
   });

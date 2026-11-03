@@ -18,7 +18,7 @@ export const EXPORT_FORMAT = 'dame-analytics-export';
 export const EXPORT_VERSION = 1;
 
 /** The archive stores, in the order the JSON lists them. */
-const STORE_KEYS = ['posts', 'followers', 'blocks', 'inbound', 'outbound', 'atmosphere'];
+const STORE_KEYS = ['posts', 'followers', 'following', 'blocks', 'inbound', 'outbound', 'atmosphere'];
 
 /**
  * What each store is, and where it stops being the whole truth. Written into
@@ -31,6 +31,8 @@ const NOTES = Object.freeze({
     'Posts deleted since the last Rebuild may still be listed.',
   followers:
     'Current followers, each dated by their follow record. Anyone who has since unfollowed, or whose account is gone, is not listed.',
+  following:
+    'Your own follow records, one row per record (a repo can hold two for one account), each dated by its record key. Read in full at every sync.',
   blocks: 'Block records in other repos that currently point at you, directly or through a moderation list, each dated by its record key.',
   inbound:
     'Likes, reposts, replies, quotes and mentions from your notifications. Coverage reaches back only as far as the notification history did when the studio first synced (meta.inbound.coverageMs).',

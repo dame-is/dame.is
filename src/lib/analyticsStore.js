@@ -16,14 +16,16 @@
 const DB_NAME = 'dame-analytics';
 // v2 added `atmosphere` — the whole-repo activity rows the CAR sync writes.
 // v3 added `blocks` — current block backlinks dated from their TID rkeys.
+// v4 added `following` — the owner's own follow records, for the People tab.
 // The upgrade path is the STORES loop in onupgradeneeded: any store missing
 // from an older database is created, nothing existing is touched.
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 /** store name → keyPath. One object store per archive, plus sync metadata. */
 const STORES = {
   posts: 'uri', // compact post rows (analytics.js compactPostFromFeedItem)
   followers: 'did', // { did, handle, displayName, avatar, followedAt }
+  following: 'uri', // { uri, did, followedAt } — the owner's follow records, by record
   blocks: 'uri', // { uri, did, blockedAt, source } — direct and moderation-list block paths
   inbound: 'uri', // engagement events aimed at the owner
   outbound: 'uri', // the owner's like/repost events (replies/quotes derive from posts)
@@ -47,6 +49,7 @@ const BLOCKED_WAIT_MS = 5_000;
  *
  *   all(store)            → Promise<row[]>
  *   putAll(store, rows)   → Promise<void>   (one transaction, ignores [] )
+ *   remove(store, keys)   → Promise<void>   (one transaction, ignores [] )
  *   clear(store)          → Promise<void>
  *   getMeta(key)          → Promise<object|null>
  *   setMeta(key, facts)   → Promise<void>
@@ -178,6 +181,20 @@ function idbHandle(db) {
         /* dropped — the next sync rebuilds what this write lost */
       }
     },
+    async remove(store, keys) {
+      if (!keys || keys.length === 0) return;
+      try {
+        const os = await tx(store, 'readwrite');
+        for (const key of keys) if (key != null) os.delete(key);
+        await new Promise((resolve, reject) => {
+          os.transaction.oncomplete = resolve;
+          os.transaction.onerror = () => reject(os.transaction.error);
+          os.transaction.onabort = () => reject(os.transaction.error || new Error('aborted'));
+        });
+      } catch {
+        /* dropped — the next full sweep of that store settles it */
+      }
+    },
     async clear(store) {
       try {
         const os = await tx(store, 'readwrite');
@@ -214,6 +231,10 @@ function memoryHandle({ blocked = false } = {}) {
         const key = row?.[STORES[store]];
         if (key != null) m.set(key, row);
       }
+    },
+    async remove(store, keys) {
+      const m = mem.get(store);
+      for (const key of keys || []) m?.delete(key);
     },
     async clear(store) {
       mem.get(store)?.clear();

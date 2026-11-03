@@ -13,6 +13,12 @@
 //               honest substitute, and its known blind spot (people who
 //               unfollowed or deleted are invisible) is stated in the UI.
 //
+//   following   the owner's own app.bsky.graph.follow records via listRecords
+//               on the PDS — the authoritative "who do I follow", with each
+//               record's URI kept so the People tab can unfollow by rkey.
+//               Always a full sweep, like followers: only a full set sees an
+//               unfollow made somewhere else.
+//
 //   posts       app.bsky.feed.getAuthorFeed on the PUBLIC AppView. Public
 //               data through the public host, exactly like the rest of
 //               src/lib — and the sweep is ~250 pages for this account, a
@@ -31,6 +37,11 @@
 //               live PDS — descending rkey, cursor pages backward). Replies
 //               and quotes need no sweep at all: the post archive already
 //               knows their targets.
+//
+// Progress is reported as facts, not percentages: how many rows so far, how
+// far back in time a newest-first walk has reached, which stage a multi-stage
+// sweep is in and how many of that stage's units are done. Turning those into
+// a bar is syncProgress.js's job, where the weighting can be tested.
 //
 // Every sweep is resumable and abort-aware. Pages are handed to `onPage` as
 // they land so the caller can persist incrementally — a sweep that dies at
@@ -52,7 +63,7 @@ const PAGE = 100;
  * this account's measured size; hitting one sets `truncated` rather than
  * lying by omission.
  */
-const CAPS = { followers: 200, blocks: 200, posts: 500, inbound: 80, outboundPerKind: 120 };
+const CAPS = { followers: 200, following: 100, blocks: 200, posts: 500, inbound: 80, outboundPerKind: 120 };
 
 /** One polite second ask, then the truth. Mirrors resolveProfiles' retry. */
 async function withRetry(fn, signal) {
@@ -119,6 +130,66 @@ export async function sweepFollowers(agent, did, { onProgress, signal } = {}) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Following                                                            */
+/* ------------------------------------------------------------------ */
+
+const FOLLOW = 'app.bsky.graph.follow';
+
+/**
+ * One of the owner's follow records → `{ uri, did, followedAt }`, keyed by the
+ * record's own URI: a repo can hold two follow records for one subject (an
+ * old client's double tap), and unfollowing has to delete both. Dated by the
+ * rkey TID first, as everywhere else in the studio, then by createdAt.
+ */
+export function followFromRecord(record) {
+  const did = record?.value?.subject;
+  if (!record?.uri || typeof did !== 'string' || !did.startsWith('did:')) return null;
+  const followedAt = tidToTimestamp(rkeyFromAtUri(record.uri)) || record.value?.createdAt || null;
+  return { uri: record.uri, did, followedAt };
+}
+
+/**
+ * Sweep every account the owner follows, from their own PDS. Always the full
+ * set — an incremental sweep could never notice an unfollow made in another
+ * client, and a stale "Following" beside someone is worse than none.
+ *
+ * @returns {Promise<{following:Array, complete:boolean, aborted:boolean, error:string|null}>}
+ */
+export async function sweepFollowing(agent, did, { onProgress, signal } = {}) {
+  const following = [];
+  let cursor;
+  for (let page = 0; page < CAPS.following; page++) {
+    if (aborted(signal)) return { following, complete: false, aborted: true, error: null };
+    let res;
+    try {
+      res = await withRetry(
+        () => agent.com.atproto.repo.listRecords({ repo: did, collection: FOLLOW, limit: PAGE, cursor }),
+        signal,
+      );
+    } catch (err) {
+      if (aborted(signal)) return { following, complete: false, aborted: true, error: null };
+      // A repo that has never followed anyone has no such collection, which
+      // some PDS implementations answer with a 400. That is an empty set.
+      if (/could not locate|not found/i.test(err?.message || '')) {
+        return { following, complete: true, aborted: false, error: null };
+      }
+      return { following, complete: false, aborted: false, error: err?.message || String(err) };
+    }
+    const batch = res?.data?.records || [];
+    for (const record of batch) {
+      const row = followFromRecord(record);
+      if (row) following.push(row);
+    }
+    onProgress?.({ fetched: following.length });
+    cursor = res?.data?.cursor;
+    if (!cursor || batch.length === 0) return { following, complete: true, aborted: false, error: null };
+  }
+  // Past the cap: what was read is real, but it isn't everyone, and a partial
+  // set would mark real follows as "not following".
+  return { following, complete: false, aborted: false, error: 'more follows than the sweep reads' };
+}
+
+/* ------------------------------------------------------------------ */
 /* Blocks                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -137,13 +208,26 @@ const LIST_BLOCK_SOURCE = 'app.bsky.graph.listblock:subject';
  * indexes current backlinks, not deleted records, so removed blocks,
  * subscriptions and memberships disappear on the next complete sweep.
  *
+ * Progress names its stage, because the four take wildly different times —
+ * measured on this account: direct blocks ~3s, finding the lists ~1s,
+ * checking ~600 lists ~7s, then ~280 moderation lists' subscribers ~70s:
+ *
+ *   { stage: 'direct',      fetched, done: rows read }
+ *   { stage: 'lists',       fetched, done: memberships read }
+ *   { stage: 'check',       fetched, done, total }  lists checked of all lists
+ *   { stage: 'subscribers', fetched, done, total }  modlists walked of all
+ *
+ * `fetched` is always the block paths found so far.
+ *
  * @returns {Promise<{blocks:Array, complete:boolean, truncated:boolean,
  *                    aborted:boolean, error:string|null}>}
  */
 export async function sweepBlocks(did, { onProgress, signal } = {}) {
   const blocks = [];
   const seen = new Set();
-  const direct = await backlinkSweep(did, BLOCK_SOURCE);
+  const direct = await backlinkSweep(did, BLOCK_SOURCE, (rows) =>
+    onProgress?.({ stage: 'direct', fetched: rows, done: rows }),
+  );
   if (direct.aborted) return result({ aborted: true });
   if (direct.error) return result({ error: direct.error });
   if (direct.truncated) return result({ truncated: true });
@@ -160,9 +244,12 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
       blockedAt: tidToTimestamp(row.rkey),
     });
   }
-  onProgress?.({ fetched: blocks.length });
+  const directPaths = blocks.length;
+  onProgress?.({ stage: 'lists', fetched: directPaths, done: 0 });
 
-  const memberships = await manyToManySweep(did, LIST_MEMBER_SOURCE, 'list');
+  const memberships = await manyToManySweep(did, LIST_MEMBER_SOURCE, 'list', (items) =>
+    onProgress?.({ stage: 'lists', fetched: directPaths, done: items }),
+  );
   if (memberships.aborted) return result({ aborted: true });
   if (memberships.error) return result({ error: memberships.error });
   if (memberships.truncated) return result({ truncated: true });
@@ -183,12 +270,19 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
   // through the public AppView first, keeping ordinary curation lists away
   // from the rate-limited Constellation list-block endpoint.
   let hydratedLists;
+  let checked = 0;
+  onProgress?.({ stage: 'check', fetched: directPaths, done: 0, total: lists.size });
   try {
     hydratedLists = await mapConcurrent(Array.from(lists.values()), 8, async (list) => {
       const parts = atUriParts(list.listUri);
-      if (!parts) return null;
-      const record = await getPublicRecord(parts.did, parts.collection, parts.rkey, signal);
-      return record?.purpose === 'app.bsky.graph.defs#modlist' ? list : null;
+      let keep = null;
+      if (parts) {
+        const record = await getPublicRecord(parts.did, parts.collection, parts.rkey, signal);
+        keep = record?.purpose === 'app.bsky.graph.defs#modlist' ? list : null;
+      }
+      checked += 1;
+      onProgress?.({ stage: 'check', fetched: directPaths, done: checked, total: lists.size });
+      return keep;
     });
   } catch (err) {
     if (aborted(signal)) return result({ aborted: true });
@@ -196,6 +290,11 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
   }
   const moderationLists = hydratedLists.filter(Boolean);
 
+  // The long stage. Paths are counted as each list lands (not after the
+  // whole walk), so the count keeps moving through the minute this takes.
+  let walked = 0;
+  let listPaths = 0;
+  onProgress?.({ stage: 'subscribers', fetched: directPaths, done: 0, total: moderationLists.length });
   const listSubscriptions = await mapConcurrent(
     moderationLists,
     1,
@@ -203,7 +302,16 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
       // Keep the remaining moderation-list fan-out below the public
       // Constellation instance's rate limit.
       await pause(250, signal);
-      return { ...list, subscriptions: await backlinkSweep(list.listUri, LIST_BLOCK_SOURCE) };
+      const subscriptions = await backlinkSweep(list.listUri, LIST_BLOCK_SOURCE);
+      walked += 1;
+      listPaths += subscriptions.rows?.length || 0;
+      onProgress?.({
+        stage: 'subscribers',
+        fetched: directPaths + listPaths,
+        done: walked,
+        total: moderationLists.length,
+      });
+      return { ...list, subscriptions };
     },
   );
 
@@ -226,7 +334,6 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
         blockedAt: effectiveBlockDate(memberAt, tidToTimestamp(row.rkey)),
       });
     }
-    onProgress?.({ fetched: blocks.length });
   }
 
   return result({ complete: true });
@@ -242,7 +349,7 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
     };
   }
 
-  async function backlinkSweep(target, source) {
+  async function backlinkSweep(target, source, onRows) {
     const rows = [];
     let cursor;
     for (let pageNumber = 0; pageNumber < CAPS.blocks; pageNumber++) {
@@ -252,6 +359,7 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
       if (!page) return { rows, error: 'Constellation backlinks unavailable' };
       const batch = backlinkRows(page);
       rows.push(...batch);
+      onRows?.(rows.length);
       const next = page.cursor || null;
       if (!next || batch.length === 0) return { rows, complete: true };
       if (next === cursor) return { rows, error: 'Constellation returned a repeated cursor' };
@@ -260,7 +368,7 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
     return { rows, truncated: true };
   }
 
-  async function manyToManySweep(subject, source, pathToOther) {
+  async function manyToManySweep(subject, source, pathToOther, onItems) {
     const items = [];
     let cursor;
     for (let pageNumber = 0; pageNumber < CAPS.blocks; pageNumber++) {
@@ -274,6 +382,7 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
       if (!page) return { items, error: 'Constellation list membership join unavailable' };
       const batch = page.items || [];
       items.push(...batch);
+      onItems?.(items.length);
       const next = page.cursor || null;
       if (!next || batch.length === 0) return { items, complete: true };
       if (next === cursor) return { items, error: 'Constellation returned a repeated cursor' };
@@ -384,6 +493,10 @@ export async function sweepPosts({
 } = {}) {
   let cursor = resumeCursor || null;
   let fetched = 0;
+  // How far back the walk has reached — the oldest own post seen. With the
+  // archive's own post dates, that is how the studio measures a newest-first
+  // walk honestly: "posts newer than here" over "posts it has to reach".
+  let reachedMs = null;
   for (let page = 0; page < CAPS.posts; page++) {
     if (aborted(signal)) return { fetched, complete: false, aborted: true, cursor, error: null };
     const params = new URLSearchParams({
@@ -420,12 +533,13 @@ export async function sweepPosts({
       if (!knownUris?.has(row.uri)) sawNew = true;
     }
     fetched += rows.length;
+    if (Number.isFinite(oldestOwnMs) && (reachedMs == null || oldestOwnMs < reachedMs)) reachedMs = oldestOwnMs;
     // The cursor handed to onPage resumes AFTER this page — the page itself
     // is in `rows`, so a caller that persists both can survive being killed
     // at any moment (a tab close, the deploy auto-reload) and continue from
     // here instead of page one. Null on the final page.
     if (rows.length) await onPage?.(rows, { cursor: res?.cursor || null });
-    onProgress?.({ fetched });
+    onProgress?.({ fetched, reachedMs });
 
     const done =
       !res?.cursor ||
@@ -463,6 +577,9 @@ export async function sweepInbound(
   const events = [];
   let cursor;
   let reachedMs = null;
+  // The feed's own position (indexedAt of the oldest notification read, of
+  // any reason) — what progress is measured by, since the walk ends by time.
+  let positionMs = null;
   const covered = coveredToMs != null && coveredToMs <= cutoffMs;
   for (let page = 0; page < CAPS.inbound; page++) {
     if (aborted(signal)) return result({ aborted: true });
@@ -494,8 +611,9 @@ export async function sweepInbound(
       rows.push(ev);
     }
     events.push(...rows);
+    if (Number.isFinite(pageOldest) && (positionMs == null || pageOldest < positionMs)) positionMs = pageOldest;
     if (rows.length) await onPage?.(rows);
-    onProgress?.({ fetched: events.length });
+    onProgress?.({ fetched: events.length, reachedMs: positionMs });
 
     if (!res?.data?.cursor || batch.length === 0) return result({ complete: true });
     if (pageOldest < cutoffMs) return result({ complete: true });
@@ -546,9 +664,10 @@ export async function sweepOutbound(
   let complete = true;
   const covered = coveredToMs != null && coveredToMs <= cutoffMs;
 
-  for (const { collection, kind } of OUTBOUND_COLLECTIONS) {
+  for (const [part, { collection, kind }] of OUTBOUND_COLLECTIONS.entries()) {
     let cursor;
     let finished = false;
+    let positionMs = null; // the rkey-TID position of this collection's walk
     for (let page = 0; page < CAPS.outboundPerKind; page++) {
       if (aborted(signal)) {
         return { events, fetched: events.length, reachedMs, complete: false, truncated, aborted: true, error };
@@ -585,8 +704,11 @@ export async function sweepOutbound(
         rows.push(ev);
       }
       events.push(...rows);
+      if (Number.isFinite(pageOldestTid) && (positionMs == null || pageOldestTid < positionMs)) {
+        positionMs = pageOldestTid;
+      }
       if (rows.length) await onPage?.(rows);
-      onProgress?.({ fetched: events.length });
+      onProgress?.({ fetched: events.length, reachedMs: positionMs, part, parts: OUTBOUND_COLLECTIONS.length });
 
       if (!res?.data?.cursor || batch.length === 0) {
         finished = true;

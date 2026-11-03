@@ -83,3 +83,18 @@ describe('openAnalyticsStore', () => {
     expect(idb.requests).toHaveLength(2);
   });
 });
+
+describe('the session-only fallback', () => {
+  it('removes single rows by key, as an unfollow does', async () => {
+    vi.stubGlobal('indexedDB', undefined);
+    resetAnalyticsStore();
+    const store = await openAnalyticsStore();
+    expect(store.persistent).toBe(false);
+    await store.putAll('following', [
+      { uri: 'at://me/app.bsky.graph.follow/a', did: 'did:plc:a' },
+      { uri: 'at://me/app.bsky.graph.follow/b', did: 'did:plc:b' },
+    ]);
+    await store.remove('following', ['at://me/app.bsky.graph.follow/a']);
+    expect((await store.all('following')).map((r) => r.did)).toEqual(['did:plc:b']);
+  });
+});

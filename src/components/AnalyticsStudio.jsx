@@ -24,6 +24,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
+  Check,
   Heart,
   MessageCircle,
   MessagesSquare,
@@ -35,7 +36,7 @@ import Figures from './Figures.jsx';
 import SectionHead from './SectionHead.jsx';
 import Segmented from './Segmented.jsx';
 import { ME_HANDLE } from '../config.js';
-import { getProfile, resolvePds } from '../lib/atproto.js';
+import { getProfile, resolvePds, rkeyFromAtUri } from '../lib/atproto.js';
 import {
   ANALYTICS_PERIODS,
   ENGAGEMENT_KINDS,
@@ -45,15 +46,20 @@ import {
   bucketSeries,
   comparePeriods,
   compactPostFromRecord,
+  compareRates,
   cumulativeSeries,
   defaultUnitFor,
   engagementOf,
   fmtCompact,
   fmtDelta,
+  givenEvents,
+  isOwnVoicePost,
   movingAverage,
   oldestEventMs,
   outboundFromPosts,
   outboundFromRecord,
+  rateSeries,
+  rollingRate,
   topActors,
   topPosts,
   unitChoicesFor,
@@ -66,10 +72,23 @@ import {
   hydrateActors,
   sweepBlocks,
   sweepFollowers,
+  sweepFollowing,
   sweepInbound,
   sweepOutbound,
   sweepPosts,
 } from '../lib/analyticsSync.js';
+import {
+  SYNC_PLAN,
+  SYNC_STEPS,
+  blocksFraction,
+  partsFraction,
+  repoDownloadFraction,
+  repoReadFraction,
+  repoSaveFraction,
+  share,
+  timeFraction,
+  walkFraction,
+} from '../lib/syncProgress.js';
 import { formatDateShort, relativeTime } from '../lib/time.js';
 import './AnalyticsStudio.css';
 
@@ -83,6 +102,24 @@ const REHYDRATE_DAYS = 30;
 
 /** How far back the event sweeps ever dig. Matches the longest dated period. */
 const EVENT_DEPTH_DAYS = 365;
+
+const FOLLOW = 'app.bsky.graph.follow';
+
+/** The People tab's relationship filter, against the owner's own follows. */
+const RELATIONS = [
+  { key: 'all', label: 'Everyone' },
+  { key: 'not', label: 'Not following' },
+  { key: 'following', label: 'Following' },
+];
+
+/** The Engagement tab's two directions: what your posts earn, what you give. */
+const DIRECTIONS = [
+  { key: 'received', label: 'Received' },
+  { key: 'given', label: 'Given' },
+];
+
+/** How many people a People list shows at first, and adds per "Show more". */
+const PEOPLE_PAGE = 12;
 
 const TABS = [
   { key: 'followers', label: 'Followers' },
@@ -98,6 +135,8 @@ export default function AnalyticsStudio({ agent, did }) {
   const [tab, setTab] = useState('followers');
   const [periodKey, setPeriodKey] = useState('30d');
   const [kind, setKind] = useState('all');
+  const [relation, setRelation] = useState('all');
+  const [direction, setDirection] = useState('received');
 
   const period = ANALYTICS_PERIODS.find((p) => p.key === periodKey) || ANALYTICS_PERIODS[1];
   // One "now" per data/filter change, so every memo below agrees about it —
@@ -142,6 +181,14 @@ export default function AnalyticsStudio({ agent, did }) {
               onChange={setPeriodKey}
               options={ANALYTICS_PERIODS.map((p) => ({ value: p.key, label: p.label }))}
             />
+            {tab === 'engagement' && (
+              <Segmented
+                label="Engagement direction"
+                value={direction}
+                onChange={setDirection}
+                options={DIRECTIONS.map((d) => ({ value: d.key, label: d.label }))}
+              />
+            )}
             {showKind && (
               <Segmented
                 label="Engagement type"
@@ -150,16 +197,42 @@ export default function AnalyticsStudio({ agent, did }) {
                 options={kinds.map((k) => ({ value: k.key, label: k.label }))}
               />
             )}
+            {/* Only once the follows are known: filtering against an empty
+                set would call everyone "not following". */}
+            {tab === 'people' && archive.meta.following && (
+              <Segmented
+                label="Show people"
+                value={relation}
+                onChange={setRelation}
+                options={RELATIONS.map((r) => ({ value: r.key, label: r.label }))}
+              />
+            )}
           </div>
 
           {tab === 'followers' && <FollowersTab archive={archive} period={period} nowMs={nowMs} />}
           {tab === 'blocks' && <BlocksTab archive={archive} period={period} nowMs={nowMs} />}
           {tab === 'posts' && <PostsTab archive={archive} period={period} nowMs={nowMs} />}
-          {tab === 'engagement' && (
-            <EngagementTab archive={archive} period={period} kind={kind === 'mention' ? 'all' : kind} nowMs={nowMs} />
+          {tab === 'engagement' && direction === 'received' && (
+            <EngagementTab
+              archive={archive}
+              did={did}
+              period={period}
+              kind={kind === 'mention' ? 'all' : kind}
+              nowMs={nowMs}
+            />
+          )}
+          {tab === 'engagement' && direction === 'given' && (
+            <GivenTab archive={archive} did={did} period={period} kind={kind === 'mention' ? 'all' : kind} nowMs={nowMs} />
           )}
           {tab === 'people' && (
-            <PeopleTab archive={archive} did={did} period={period} kind={kind} nowMs={nowMs} />
+            <PeopleTab
+              archive={archive}
+              did={did}
+              period={period}
+              kind={kind}
+              relation={archive.meta.following ? relation : 'all'}
+              nowMs={nowMs}
+            />
           )}
           {tab === 'atmosphere' && <AtmosphereTab archive={archive} period={period} nowMs={nowMs} />}
         </>
@@ -179,6 +252,7 @@ function useAnalyticsArchive(agent, did) {
     blocked: false,
     posts: [],
     followers: [],
+    following: [],
     blocks: [],
     inbound: [],
     outbound: [],
@@ -187,7 +261,10 @@ function useAnalyticsArchive(agent, did) {
     rev: 0,
   });
   const [actors, setActors] = useState(() => new Map());
-  const [sync, setSync] = useState(null); // { phase, fetched, est } while running
+  // While running: { plan, done, failed, step, fraction, detail, doing } —
+  // the steps this sync will take, which have finished or failed, and the
+  // one under way with its own measured share (null: nothing to measure by).
+  const [sync, setSync] = useState(null);
   const [syncError, setSyncError] = useState(null);
   const storeRef = useRef(null);
   const abortRef = useRef(null);
@@ -195,10 +272,11 @@ function useAnalyticsArchive(agent, did) {
   const attemptedActorsRef = useRef(new Set());
 
   async function reload(store) {
-    const [posts, followers, blocks, inbound, outbound, atmosphere, actorRows, pm, fm, bm, im, om, rm] =
+    const [posts, followers, following, blocks, inbound, outbound, atmosphere, actorRows, pm, fm, gm, bm, im, om, rm] =
       await Promise.all([
         store.all('posts'),
         store.all('followers'),
+        store.all('following'),
         store.all('blocks'),
         store.all('inbound'),
         store.all('outbound'),
@@ -206,6 +284,7 @@ function useAnalyticsArchive(agent, did) {
         store.all('actors'),
         store.getMeta('posts'),
         store.getMeta('followers'),
+        store.getMeta('following'),
         store.getMeta('blocks'),
         store.getMeta('inbound'),
         store.getMeta('outbound'),
@@ -221,11 +300,12 @@ function useAnalyticsArchive(agent, did) {
       blocked: store.blocked === true,
       posts,
       followers,
+      following,
       blocks,
       inbound,
       outbound,
       atmosphere,
-      meta: { posts: pm, followers: fm, blocks: bm, inbound: im, outbound: om, repo: rm },
+      meta: { posts: pm, followers: fm, following: gm, blocks: bm, inbound: im, outbound: om, repo: rm },
       rev: prev.rev + 1,
     }));
     return { posts, meta: { posts: pm, blocks: bm, inbound: im, outbound: om } };
@@ -258,8 +338,39 @@ function useAnalyticsArchive(agent, did) {
     setSyncError(null);
     const startedAt = Date.now();
     const errors = [];
-    const progress = (phase, est = null, unit = null) => setSync({ phase, fetched: 0, est, unit });
-    const tick = (p) => setSync((s) => (s ? { ...s, fetched: p.fetched } : s));
+
+    /* The bar: one segment per step, each filled by its own measurement.
+       `begin` closes the step before it and returns a reporter bound to the
+       new one, so a late report from a finished step can never move the
+       next step's segment. A share only ever moves forward. */
+    const plan = [...SYNC_PLAN];
+    const done = [];
+    const failed = [];
+    let current = null;
+    const begin = (step, { fraction = 0, detail = '', doing = null } = {}) => {
+      // Starting the same step again (a repo diff falling back to a full
+      // pull) restarts its segment; it never marks it finished.
+      if (current && current !== step && !failed.includes(current) && !done.includes(current)) done.push(current);
+      current = step;
+      setSync({ plan: [...plan], done: [...done], failed: [...failed], step, fraction, detail, doing });
+      return (nextFraction, nextDetail, nextDoing) =>
+        setSync((s) => {
+          if (!s || s.step !== step) return s;
+          const fraction =
+            nextFraction == null ? s.fraction : s.fraction == null ? nextFraction : Math.max(s.fraction, nextFraction);
+          return {
+            ...s,
+            plan: [...plan],
+            fraction,
+            detail: nextDetail ?? s.detail,
+            doing: nextDoing ?? s.doing,
+          };
+        });
+    };
+    const fail = (step, message) => {
+      errors.push(`${step}: ${message}`);
+      if (!failed.includes(step)) failed.push(step);
+    };
     // A deploy landing mid-sweep must not reload the tab out from under a
     // 250-page build; the auto-updater applies it on a poll after release.
     const releaseHold = holdReload('analytics-sync');
@@ -274,9 +385,15 @@ function useAnalyticsArchive(agent, did) {
          wonder why two parts of their own site disagree. */
       const prof = await getProfile(did).catch(() => null);
 
-      /* Followers — always the full set; only a full set can see unfollows. */
-      progress('followers', prof?.followersCount ?? data.meta.followers?.count ?? null);
-      const fw = await sweepFollowers(agent, did, { signal: ac.signal, onProgress: tick });
+      /* Followers — always the full set; only a full set can see unfollows.
+         Measured against the last sweep's listable count rather than the
+         profile counter, which runs ahead of what can be listed. */
+      const followerEst = data.meta.followers?.count || prof?.followersCount || null;
+      let report = begin('followers', { fraction: followerEst ? 0 : null });
+      const fw = await sweepFollowers(agent, did, {
+        signal: ac.signal,
+        onProgress: (p) => report(share(p.fetched, followerEst), ofAbout(p.fetched, followerEst, 'followers')),
+      });
       if (fw.complete) {
         await store.clear('followers');
         await store.putAll('followers', fw.followers);
@@ -287,7 +404,25 @@ function useAnalyticsArchive(agent, did) {
           profileCount: typeof prof?.followersCount === 'number' ? prof.followersCount : null,
         });
       } else if (fw.error) {
-        errors.push(`followers: ${fw.error}`);
+        fail('followers', fw.error);
+      }
+      if (ac.signal.aborted) return;
+
+      /* Who the owner follows — the People tab's Follow buttons. A few pages
+         of the owner's own repo; replaced only by a complete set, so a
+         failed read never turns a real follow into a "Follow" button. */
+      const followingEst = data.meta.following?.count || prof?.followsCount || null;
+      report = begin('following', { fraction: followingEst ? 0 : null });
+      const fl = await sweepFollowing(agent, did, {
+        signal: ac.signal,
+        onProgress: (p) => report(share(p.fetched, followingEst), ofAbout(p.fetched, followingEst, 'follows')),
+      });
+      if (fl.complete) {
+        await store.clear('following');
+        await store.putAll('following', fl.following);
+        await store.setMeta('following', { syncedAt: startedAt, count: fl.following.length, complete: true });
+      } else if (fl.error) {
+        fail('following', fl.error);
       }
       if (ac.signal.aborted) return;
 
@@ -295,8 +430,12 @@ function useAnalyticsArchive(agent, did) {
          repos that point at this DID. Their rkeys are TIDs, giving the same
          reconstructed timeline the follower graph uses. Replace only after
          a complete sweep so a failed request cannot erase good data. */
-      progress('blocks');
-      const bw = await sweepBlocks(did, { signal: ac.signal, onProgress: tick });
+      const directEstimate = data.blocks.filter((b) => b.source === 'direct').length || null;
+      report = begin('blocks');
+      const bw = await sweepBlocks(did, {
+        signal: ac.signal,
+        onProgress: (p) => report(blocksFraction(p, { directEstimate }), blocksDetail(p, directEstimate)),
+      });
       if (bw.complete) {
         const reach = blockReach(bw.blocks);
         await store.clear('blocks');
@@ -309,7 +448,7 @@ function useAnalyticsArchive(agent, did) {
           complete: true,
         });
       } else if (bw.error) {
-        errors.push(`blocks: ${bw.error}`);
+        fail('blocks', bw.error);
       }
       if (ac.signal.aborted) return;
 
@@ -321,34 +460,42 @@ function useAnalyticsArchive(agent, did) {
       let carEntries = null;
       const repoMeta = data.meta.repo;
       try {
-        progress('repo', null, 'MB');
         const pds = await resolvePds(did);
-        const mb = (p) =>
-          setSync((s) =>
-            s
-              ? {
-                  ...s,
-                  fetched: Math.round(p.bytes / 1048576),
-                  est: p.total ? Math.round(p.total / 1048576) : s.est,
-                }
-              : s,
-          );
+        // The PDS streams the CAR without a Content-Length, so a full pull
+        // is measured against the size of the last one. A diff has no such
+        // yardstick — it is small, and shows motion rather than a guess.
         const pull = async (since) => {
-          const bytes = await fetchRepoCar(pds, did, { since, signal: ac.signal, onProgress: mb });
-          progress('repo-read');
-          return readRepoCar(bytes);
+          const full = since == null;
+          const totalGuess = full ? repoMeta?.bytes || null : null;
+          report = begin('repo', {
+            fraction: totalGuess ? 0 : null,
+            doing: full ? 'Downloading the repo' : 'Downloading what changed in the repo',
+          });
+          const bytes = await fetchRepoCar(pds, did, {
+            since,
+            signal: ac.signal,
+            onProgress: (p) =>
+              report(repoDownloadFraction(p.bytes, p.total || totalGuess), megabytes(p.bytes, p.total || totalGuess)),
+          });
+          const expectedRecords = full ? data.atmosphere.length || null : null;
+          report(null, '', 'Reading the repo archive');
+          const parsed = await readRepoCar(bytes, {
+            onProgress: (p) => report(repoReadFraction(p, { expectedRecords }), carDetail(p)),
+          });
+          return { parsed, size: bytes.byteLength };
         };
         let since = mode !== 'full' && repoMeta?.rev ? repoMeta.rev : null;
-        let parsed;
+        let pulled;
         try {
-          parsed = await pull(since);
+          pulled = await pull(since);
         } catch (err) {
           // A diff 400s when the PDS no longer holds that rev; the honest
           // recovery is a full pull, not a failed phase.
           if (!since || ac.signal.aborted) throw err;
           since = null;
-          parsed = await pull(null);
+          pulled = await pull(null);
         }
+        const { parsed } = pulled;
         if (ac.signal.aborted) return;
 
         const atmoRows = [];
@@ -367,26 +514,47 @@ function useAnalyticsArchive(agent, did) {
             if (ev) outRows.push(ev);
           }
         }
+        // The size of the last FULL pull is the next one's yardstick.
+        const bytesMeta = since == null ? pulled.size : (repoMeta?.bytes ?? null);
+        // Writing ~190,000 rows into IndexedDB is the longest part of a full
+        // pull, so it is measured too: in chunks, row by row.
+        const toWrite = atmoRows.length + outRows.length;
+        let written = 0;
+        const saved = (rows) => {
+          written += rows;
+          report(repoSaveFraction(written, toWrite), `${num(written)} of ${num(toWrite)} rows`);
+        };
+        report(repoSaveFraction(0, toWrite), `${num(0)} of ${num(toWrite)} rows`, 'Saving the repo to this browser');
         if (since == null) {
           // Full pull: replace, so deleted records actually leave. The rev
           // is nulled first — a death mid-write must make the NEXT sync
           // pull full again, never diff across a half-written store.
           await store.clear('atmosphere');
           await store.clear('outbound');
-          await store.setMeta('repo', { syncedAt: startedAt, rev: null });
+          await store.setMeta('repo', { syncedAt: startedAt, rev: null, bytes: bytesMeta });
         }
         for (let i = 0; i < atmoRows.length; i += 5000) {
-          await store.putAll('atmosphere', atmoRows.slice(i, i + 5000));
+          const chunk = atmoRows.slice(i, i + 5000);
+          await store.putAll('atmosphere', chunk);
+          saved(chunk.length);
         }
-        await store.putAll('outbound', outRows);
-        await store.setMeta('repo', { syncedAt: startedAt, rev: parsed.rev });
+        for (let i = 0; i < outRows.length; i += 5000) {
+          const chunk = outRows.slice(i, i + 5000);
+          await store.putAll('outbound', chunk);
+          saved(chunk.length);
+        }
+        // An empty diff names no rev — nothing was written since the one held.
+        await store.setMeta('repo', { syncedAt: startedAt, rev: parsed.rev || since, bytes: bytesMeta });
         // The CAR is now the complete outbound record: mark coverage as
         // total so the fallback sweep, if it ever runs again, knows it.
         await store.setMeta('outbound', { syncedAt: startedAt, coverageMs: 0, truncated: false });
         carEntries = parsed.entries;
       } catch (err) {
         if (ac.signal.aborted) return;
-        errors.push(`repo: ${err?.message || String(err)}`);
+        if (current !== 'repo') begin('repo');
+        fail('repo', err?.message || String(err));
+        // Without the CAR, likes and reposts need their own walk at the end.
+        plan.push('outbound');
       }
       if (ac.signal.aborted) return;
 
@@ -400,12 +568,21 @@ function useAnalyticsArchive(agent, did) {
       const resume = !full && mode === 'resume' && !postsMeta.complete;
       let est = data.posts.length || null;
       if ((full || resume) && prof?.postsCount) est = prof.postsCount;
+      // The dates the walk is measured against: the repo's own post records
+      // on a fresh build, the archive otherwise.
+      let heldPosts = data.posts;
+      const building = full || resume;
+      report = begin('posts', {
+        fraction: null,
+        doing: building ? 'Archiving posts' : 'Refreshing recent posts',
+      });
       if (full) {
         await store.clear('posts');
         // Mark the build as underway BEFORE page one. From here on, however
         // the tab dies — cancel, crash, the deploy auto-reload — the archive
         // reads as incomplete and resumable, never as "never started".
         await store.setMeta('posts', { syncedAt: startedAt, complete: false, cursor: null });
+        heldPosts = [];
         if (carEntries) {
           // Seed the freshly-cleared archive with the repo's own post
           // records — counts all zero, because only the AppView knows them —
@@ -419,13 +596,23 @@ function useAnalyticsArchive(agent, did) {
             if (row) seed.push(row);
           }
           if (seed.length) {
+            report(null, `copying ${num(seed.length)} posts from the repo so the charts can draw`);
             await store.putAll('posts', seed);
             await reload(store);
           }
+          heldPosts = seed;
         }
       }
-      progress('posts', est);
-      const building = full || resume;
+      const postTimes = heldPosts
+        .map((p) => Date.parse(p.at))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+      // A build walks to the oldest post; a top-up walks back through the
+      // recent window whose counts it refreshes.
+      const postTarget = building ? (postTimes[0] ?? null) : startedAt - REHYDRATE_DAYS * DAY_MS;
+      const measurable = postTarget != null && walkFraction(postTimes, null, postTarget) != null;
+      const postsEst = building ? est : null;
+      if (measurable || postsEst) report(0, '');
       const known = building ? null : new Set(data.posts.map((p) => p.uri));
       const ps = await sweepPosts({
         did,
@@ -442,9 +629,13 @@ function useAnalyticsArchive(agent, did) {
             await store.setMeta('posts', { syncedAt: startedAt, complete: false, cursor });
           }
         },
-        onProgress: tick,
+        onProgress: (p) =>
+          report(
+            (measurable ? walkFraction(postTimes, p.reachedMs, postTarget) : null) ?? share(p.fetched, postsEst),
+            reachedDetail(ofAbout(p.fetched, postsEst, 'posts'), p.reachedMs),
+          ),
       });
-      if (ps.error) errors.push(`posts: ${ps.error}`);
+      if (ps.error) fail('posts', ps.error);
       if (building) {
         await store.setMeta('posts', {
           syncedAt: startedAt,
@@ -459,17 +650,26 @@ function useAnalyticsArchive(agent, did) {
       /* Inbound + outbound engagement events */
       const cutoffMs = startedAt - EVENT_DEPTH_DAYS * DAY_MS;
 
-      progress('inbound');
       const im = data.meta.inbound;
+      // A top-up stops about where the last sync started; a sweep still
+      // digging toward the cutoff has the cutoff to reach. Measured by time:
+      // nothing held can say how many notifications lie in between.
+      const inCovered = im?.coverageMs != null && im.coverageMs <= cutoffMs;
+      const inTarget = inCovered && im?.syncedAt ? im.syncedAt : cutoffMs;
+      report = begin('inbound');
       const inb = await sweepInbound(agent, {
         cutoffMs,
         knownUris: new Set(data.inbound.map((e) => e.uri)),
         coveredToMs: im?.coverageMs ?? null,
         signal: ac.signal,
         onPage: (rows) => store.putAll('inbound', rows),
-        onProgress: tick,
+        onProgress: (p) =>
+          report(
+            timeFraction(startedAt, p.reachedMs, inTarget),
+            reachedDetail(`${num(p.fetched)} engagement ${p.fetched === 1 ? 'event' : 'events'} read`, p.reachedMs),
+          ),
       });
-      if (inb.error) errors.push(`inbound: ${inb.error}`);
+      if (inb.error) fail('inbound', inb.error);
       else if (!inb.aborted) {
         const coverage = Math.min(im?.coverageMs ?? Infinity, inb.complete ? cutoffMs : (inb.reachedMs ?? Infinity));
         await store.setMeta('inbound', {
@@ -484,17 +684,23 @@ function useAnalyticsArchive(agent, did) {
          successful CAR already wrote the complete like/repost history, and
          a 240-page sweep after it would re-fetch a strict subset. */
       if (!carEntries) {
-        progress('outbound');
         const om = data.meta.outbound;
+        const outCovered = om?.coverageMs != null && om.coverageMs <= cutoffMs;
+        const outTarget = outCovered && om?.syncedAt ? om.syncedAt : cutoffMs;
+        report = begin('outbound');
         const outb = await sweepOutbound(agent, did, {
           cutoffMs,
           knownUris: new Set(data.outbound.map((e) => e.uri)),
           coveredToMs: om?.coverageMs ?? null,
           signal: ac.signal,
           onPage: (rows) => store.putAll('outbound', rows),
-          onProgress: tick,
+          onProgress: (p) =>
+            report(
+              partsFraction(p.part, p.parts, timeFraction(startedAt, p.reachedMs, outTarget)),
+              reachedDetail(`${p.part === 0 ? 'likes' : 'reposts'} · ${p.fetched.toLocaleString('en-US')} read`, p.reachedMs),
+            ),
         });
-        if (outb.error) errors.push(`outbound: ${outb.error}`);
+        if (outb.error) fail('outbound', outb.error);
         else if (!outb.aborted) {
           const coverage = Math.min(om?.coverageMs ?? Infinity, outb.complete ? cutoffMs : (outb.reachedMs ?? Infinity));
           await store.setMeta('outbound', {
@@ -507,6 +713,15 @@ function useAnalyticsArchive(agent, did) {
     } finally {
       releaseHold();
       abortRef.current = null;
+      // Every step has had its turn; what is left is reading the archive back
+      // for the charts. Said as such, so the last step's segment doesn't sit
+      // short of full while it happens.
+      if (current && !failed.includes(current) && !done.includes(current) && !ac.signal.aborted) {
+        done.push(current);
+      }
+      setSync((s) =>
+        s ? { ...s, done: [...done], failed: [...failed], step: null, fraction: null, detail: '', doing: null } : s,
+      );
       // One reload, one render of new charts — the sweeps persisted as they
       // went, so even an aborted sync surfaces everything it banked.
       const store2 = storeRef.current;
@@ -514,6 +729,39 @@ function useAnalyticsArchive(agent, did) {
       setSync(null);
       if (errors.length) setSyncError(errors.join(' · '));
     }
+  }
+
+  /**
+   * Follow or unfollow one account from the People tab: a follow record
+   * written to (or every one deleted from) the owner's own repo, then the
+   * archive's copy updated to match, so the button holds across a reload
+   * without waiting for the next sync. Throws on failure — the row says so.
+   */
+  async function setFollow(subject, on) {
+    const store = storeRef.current;
+    if (!agent || !store || !subject) return;
+    if (on) {
+      const createdAt = new Date().toISOString();
+      const res = await agent.com.atproto.repo.createRecord({
+        repo: did,
+        collection: FOLLOW,
+        record: { $type: FOLLOW, subject, createdAt },
+      });
+      const row = { uri: res?.data?.uri, did: subject, followedAt: createdAt };
+      if (!row.uri) throw new Error('the PDS did not return the follow record');
+      await store.putAll('following', [row]);
+      setData((prev) => ({ ...prev, following: [...prev.following, row] }));
+      return;
+    }
+    // Every record for this subject: a repo can hold more than one, and
+    // deleting only the first would leave the account still followed.
+    const rows = data.following.filter((f) => f.did === subject);
+    for (const row of rows) {
+      const rkey = rkeyFromAtUri(row.uri);
+      if (rkey) await agent.com.atproto.repo.deleteRecord({ repo: did, collection: FOLLOW, rkey });
+    }
+    await store.remove('following', rows.map((r) => r.uri));
+    setData((prev) => ({ ...prev, following: prev.following.filter((f) => f.did !== subject) }));
   }
 
   /* Pick incomplete builds back up, and top up a stale archive, quietly. */
@@ -529,9 +777,10 @@ function useAnalyticsArchive(agent, did) {
       runSync('resume');
       return;
     }
-    // Existing archives may predate either the blocks store or moderation-list
-    // reach. Populate the current shape even when posts are still fresh.
-    if (data.meta.blocks?.version !== 2) {
+    // Existing archives may predate the blocks store, moderation-list reach
+    // or the follows the People tab marks. Populate the current shape even
+    // when posts are still fresh.
+    if (data.meta.blocks?.version !== 2 || !data.meta.following) {
       runSync('incremental');
       return;
     }
@@ -563,6 +812,7 @@ function useAnalyticsArchive(agent, did) {
     sync,
     syncError,
     runSync,
+    setFollow,
     wantActors,
     cancelSync: () => abortRef.current?.abort(),
     agent,
@@ -574,15 +824,46 @@ function useAnalyticsArchive(agent, did) {
 /* Sync strip + first run                                               */
 /* ================================================================== */
 
-const PHASE_LABEL = {
-  followers: 'Sweeping followers',
-  blocks: 'Reading direct and list blocks',
-  repo: 'Downloading the repo',
-  'repo-read': 'Reading the repo archive',
-  posts: 'Archiving posts',
-  inbound: 'Reading notifications',
-  outbound: 'Reading likes & reposts',
-};
+/* The words beside the bar. Each says what was measured, in its own unit. */
+
+const num = (v) => Math.round(v).toLocaleString('en-US');
+
+/** "2,300 of ~5,592 followers", or "2,300 followers" with nothing to go by. */
+function ofAbout(fetched, est, noun) {
+  return est ? `${num(fetched)} of ~${num(est)} ${noun}` : `${num(fetched)} ${noun}`;
+}
+
+/** A walk's count, then how far back in time it has reached. */
+function reachedDetail(head, reachedMs) {
+  return reachedMs != null ? `${head} · back to ${formatDateShort(reachedMs)}` : head;
+}
+
+function blocksDetail(p, directEstimate) {
+  switch (p?.stage) {
+    case 'direct':
+      return ofAbout(p.done, directEstimate, 'direct blocks');
+    case 'lists':
+      return `finding the lists you’re on · ${num(p.done)} ${p.done === 1 ? 'membership' : 'memberships'}`;
+    case 'check':
+      return `checking ${num(p.done)} of ${num(p.total)} lists for moderation lists`;
+    case 'subscribers':
+      return `moderation lists ${num(p.done)} of ${num(p.total)} · ${num(p.fetched)} block paths`;
+    default:
+      return '';
+  }
+}
+
+function megabytes(bytes, total) {
+  const mb = (v) => (v / 1048576).toFixed(v < 10 * 1048576 ? 1 : 0);
+  return total ? `${mb(bytes)} of ~${mb(total)} MB` : `${mb(bytes)} MB`;
+}
+
+function carDetail(p) {
+  if (p?.stage === 'index') return 'indexing blocks';
+  if (p?.stage === 'walk') return `${num(p.done)} records found`;
+  if (p?.stage === 'decode') return `${num(p.done)} of ${num(p.total)} records`;
+  return '';
+}
 
 function SyncStrip({ archive }) {
   const {
@@ -599,25 +880,7 @@ function SyncStrip({ archive }) {
   } = archive;
   const currentBlockReach = blockReach(blocks).people.length;
 
-  if (sync) {
-    const pct = sync.est ? Math.min(100, Math.round((sync.fetched / sync.est) * 100)) : null;
-    const u = sync.unit ? ` ${sync.unit}` : '';
-    return (
-      <div className="an-strip" role="status">
-        <span className="an-strip-label">
-          {PHASE_LABEL[sync.phase] || 'Syncing'}…
-          {(sync.fetched > 0 || sync.est) &&
-            ` ${sync.fetched.toLocaleString('en-US')}${u}${sync.est ? ` of ~${sync.est.toLocaleString('en-US')}${u}` : ''}`}
-        </span>
-        <span className="an-strip-track" aria-hidden="true">
-          <span className="an-strip-fill" style={{ width: pct != null ? `${pct}%` : '30%' }} data-indeterminate={pct == null ? '' : undefined} />
-        </span>
-        <Button size="sm" onClick={cancelSync}>
-          Cancel
-        </Button>
-      </div>
-    );
-  }
+  if (sync) return <SyncProgress sync={sync} onCancel={cancelSync} />;
 
   const pm = meta.posts;
   if (!pm) return null;
@@ -675,6 +938,84 @@ function SyncStrip({ archive }) {
   );
 }
 
+/**
+ * A sync under way: which step of how many, what it is doing and how far,
+ * then every step, named, with its own segment and state — finished ones
+ * full and ticked, failed ones marked, the one under way filled by its own
+ * measured share (or moving, when there is nothing honest to measure it by),
+ * the rest waiting. The segments are equal on purpose: they say where in the
+ * sync it is, and each one's fill is the only number on the bar, so no part
+ * of it is a guess about the whole. A row of six on a wide screen, a grid of
+ * three across on a phone — every stage stays named either way.
+ */
+function SyncProgress({ sync, onCancel }) {
+  const { plan, done, failed, step, fraction, detail, doing } = sync;
+  const index = plan.indexOf(step);
+  const finishing = step == null;
+  const pct = fraction == null || finishing ? null : Math.round(fraction * 100);
+  const stateOf = (key) =>
+    failed.includes(key) ? 'failed' : done.includes(key) ? 'done' : key === step ? 'active' : 'pending';
+  return (
+    <div className="an-strip an-sync">
+      <div className="an-sync-head">
+        <span className="an-strip-label" role="status">
+          <span className="an-sync-count">
+            {finishing ? 'Finishing' : `Step ${index + 1} of ${plan.length}`}
+          </span>{' '}
+          <span className="an-sync-doing">
+            {finishing ? 'Loading the archive into the charts' : doing || SYNC_STEPS[step]?.doing || 'Syncing'}
+          </span>
+          {detail && <span className="an-sync-detail"> · {detail}</span>}
+          {pct != null && <span className="an-sync-pct"> · {pct}%</span>}
+        </span>
+        <Button size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+      <ol className="an-sync-steps" aria-label="Sync steps">
+        {plan.map((key) => {
+          const state = stateOf(key);
+          const width = state === 'done' || state === 'failed' ? 100 : state === 'active' ? (pct ?? 0) : 0;
+          return (
+            <li key={key} className="an-sync-step" data-state={state}>
+              <span className="an-sync-track" aria-hidden="true">
+                <span
+                  className="an-sync-fill"
+                  style={state === 'active' && pct == null ? undefined : { width: `${width}%` }}
+                  data-indeterminate={state === 'active' && pct == null ? '' : undefined}
+                />
+              </span>
+              <span className="an-sync-name">
+                <span className="an-sync-label">{SYNC_STEPS[key]?.label || key}</span>
+                <span className="an-sync-state" aria-hidden="true">
+                  {state === 'done' ? (
+                    <Check size={12} />
+                  ) : state === 'failed' ? (
+                    'failed'
+                  ) : state === 'active' ? (
+                    pct != null ? `${pct}%` : '…'
+                  ) : null}
+                </span>
+                <span className="visually-hidden">
+                  {state === 'done'
+                    ? ', done'
+                    : state === 'failed'
+                      ? ', failed'
+                      : state === 'active'
+                        ? pct != null
+                          ? `, ${pct}% done`
+                          : ', under way'
+                        : ', waiting'}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 /* The export reads the archive already in memory, the same rows the charts
    draw, so a file always matches what the studio is showing. */
 
@@ -710,8 +1051,8 @@ function FirstRun({ archive }) {
       <p className="an-hero-body">
         Analytics are derived client-side from your own data: the repo’s own archive (one download
         that yields every record in every collection, all-time), every current follower with the
-        date their follow record was minted, every current direct or moderation-list block path, your
-        recent notifications — and every post’s engagement counts via the public AppView, which is
+        date their follow record was minted, everyone you follow, every current direct or
+        moderation-list block path, your recent notifications — and every post’s engagement counts via the public AppView, which is
         the long part: a couple of hundred requests, a minute or two, with the charts painting from
         the repo archive while it runs.
         Everything lands in this browser’s IndexedDB; after the first build, syncs only top up
@@ -829,9 +1170,9 @@ function FollowersTab({ archive, period, nowMs }) {
               value={mode}
               onChange={setMode}
               options={[
-                { key: 'cumulative', label: 'Cumulative' },
-                { key: 'together', label: 'Together' },
-                ...model.units.map((u) => ({ key: u, label: unitLabel(u) })),
+                MODE_TOTAL,
+                { ...MODE_BOTH, title: 'Followers and blocks on one chart' },
+                ...model.units.map((u) => ({ key: u, label: unitLabel(u), title: unitTitle(u, 'new followers') })),
               ]}
             />
           }
@@ -1020,10 +1361,10 @@ function BlocksTab({ archive, period, nowMs }) {
               value={mode}
               onChange={setMode}
               options={[
-                { key: 'cumulative', label: 'Cumulative' },
-                { key: 'stacked', label: 'Stacked' },
-                { key: 'together', label: 'Together' },
-                ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit) })),
+                MODE_TOTAL,
+                MODE_STACK,
+                { ...MODE_BOTH, title: 'Block reach and followers on one chart' },
+                ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit), title: unitTitle(unit, 'new blocks') })),
               ]}
             />
           }
@@ -1187,9 +1528,10 @@ function PostsTab({ archive, period, nowMs }) {
 /* Engagement                                                           */
 /* ================================================================== */
 
-function EngagementTab({ archive, period, kind, nowMs }) {
+function EngagementTab({ archive, did, period, kind, nowMs }) {
   const { posts } = archive;
   const [unitPick, setUnitPick] = useState(null);
+  const [rateUnitPick, setRateUnitPick] = useState(null);
 
   const model = useMemo(() => {
     const dated = posts.map((p) => ({ ...p, atMs: Date.parse(p.at) })).filter((p) => Number.isFinite(p.atMs));
@@ -1202,17 +1544,31 @@ function EngagementTab({ archive, period, kind, nowMs }) {
     const value = (p) => engagementOf(p, kind);
     const total = inWindow.reduce((sum, p) => sum + value(p), 0);
     const series = bucketSeries(inWindow, { unit, t0, t1: nowMs, pickTime: (p) => p.atMs, pickValue: value });
+
+    // The rate: engagement per post, over the owner's own voice only — top-
+    // level posts and threads, never replies to other people.
+    const own = dated.filter((p) => isOwnVoicePost(p, did));
+    const ownInWindow = own.filter((p) => p.atMs >= t0 && p.atMs <= nowMs);
+    const ownTotal = ownInWindow.reduce((sum, p) => sum + value(p), 0);
+    const rateUnit =
+      rateUnitPick && units.includes(rateUnitPick) ? rateUnitPick : units.includes('week') ? 'week' : unit;
+    const rate = rateSeries(ownInWindow, { unit: rateUnit, t0, t1: nowMs, kind });
     return {
       unit,
       units,
       series,
       trend: movingAverage(series, 7),
       total,
-      perPost: inWindow.length ? total / inWindow.length : 0,
       top: topPosts(inWindow, { kind, t0, t1: nowMs, limit: 10 }),
       compare: comparePeriods(dated, { days: period.days || spanDays, now: nowMs, pickTime: (p) => p.atMs, pickValue: value }),
+      rateUnit,
+      rate,
+      rateTrend: rollingRate(rate, 5),
+      ownPosts: ownInWindow.length,
+      ownRate: ownInWindow.length ? ownTotal / ownInWindow.length : null,
+      rateCompare: period.days ? compareRates(own, { days: period.days, now: nowMs, kind }) : null,
     };
-  }, [posts, period, kind, unitPick, nowMs]);
+  }, [posts, did, period, kind, unitPick, rateUnitPick, nowMs]);
 
   if (!posts.length) {
     return <p className="an-empty">The post archive is empty — build it from the strip above.</p>;
@@ -1235,7 +1591,17 @@ function EngagementTab({ archive, period, kind, nowMs }) {
               ? `on posts from the previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
               : null,
           }),
-          stat({ label: 'Per post', value: Math.round(model.perPost * 10) / 10, exact: true }),
+          // Per post is the engagement rate charted below: posts and threads only.
+          stat({
+            label: 'Per post',
+            value: model.ownRate == null ? 0 : Math.round(model.ownRate * 10) / 10,
+            exact: true,
+            sub: 'posts & threads',
+            delta: model.rateCompare ? model.rateCompare.pct : undefined,
+            deltaTitle: model.rateCompare
+              ? `vs previous ${period.label.toLowerCase()}: ${fmtRate(model.rateCompare.previous)} per post`
+              : null,
+          }),
           stat({ label: 'Best post', value: model.top.length ? engagementOf(model.top[0], kind) : 0 }),
         ]}
       />
@@ -1268,6 +1634,48 @@ function EngagementTab({ archive, period, kind, nowMs }) {
       </div>
 
       <div className="an-card">
+        <SectionHead
+          as="h3"
+          title={kind === 'all' ? 'Engagement rate' : `${head} per post`}
+          meta={
+            <ModeToggle
+              value={model.rateUnit}
+              onChange={setRateUnitPick}
+              options={model.units.map((u) => ({ key: u, label: unitLabel(u), title: `Per post, by ${unitNoun(u)}` }))}
+            />
+          }
+        />
+        <SeriesChart
+          series={model.rate}
+          trend={model.rateTrend}
+          mode="bars"
+          unit={model.rateUnit}
+          zeroBase
+          format={fmtRate}
+          ariaLabel={`${head} per post, by the ${model.rateUnit} each post was made, over ${period.label}`}
+        />
+        <ChartTable
+          series={model.rate}
+          secondary={model.rate.map((b) => ({ t: b.t, v: b.posts }))}
+          trend={model.rateTrend}
+          unit={model.rateUnit}
+          valueHead="Per post"
+          secondaryHead="Posts"
+          format={fmtRate}
+        />
+        <p className="an-card-caption">
+          {kindLabel === 'all' ? 'Engagement' : head} per post, averaged over the posts made each{' '}
+          {unitNoun(model.rateUnit)}: your top-level posts and the replies in your own threads, so
+          replies to other people don’t pull it down. A gap is a {unitNoun(model.rateUnit)} with
+          nothing posted. The trend weighs every post equally, so a busy {unitNoun(model.rateUnit)}{' '}
+          counts for more than a quiet one. The newest posts are still collecting engagement, so the
+          last bar can run low.
+          {model.ownPosts > 0 &&
+            ` ${model.ownPosts.toLocaleString('en-US')} ${model.ownPosts === 1 ? 'post' : 'posts'} in this window.`}
+        </p>
+      </div>
+
+      <div className="an-card">
         <SectionHead as="h3" title="Top posts" />
         {model.top.length === 0 ? (
           <p className="an-empty">No posts in this window.</p>
@@ -1279,6 +1687,139 @@ function EngagementTab({ archive, period, kind, nowMs }) {
           </ol>
         )}
       </div>
+    </section>
+  );
+}
+
+/* ================================================================== */
+/* Engagement given                                                     */
+/* ================================================================== */
+
+const GIVEN_NOUN = { like: 'likes', repost: 'reposts', reply: 'replies', quote: 'quotes' };
+
+function GivenTab({ archive, did, period, kind, nowMs }) {
+  const { posts, outbound, meta } = archive;
+  const [unitPick, setUnitPick] = useState(null);
+
+  const model = useMemo(() => {
+    const all = [];
+    let oldest = Infinity;
+    for (const ev of givenEvents(outbound, posts, did)) {
+      const atMs = Date.parse(ev.at);
+      if (!Number.isFinite(atMs)) continue;
+      all.push({ ...ev, atMs });
+      if (atMs < oldest) oldest = atMs;
+    }
+    const t0 = period.days ? nowMs - period.days * DAY_MS : Number.isFinite(oldest) ? oldest : nowMs;
+    const spanDays = Math.max(1, Math.round((nowMs - t0) / DAY_MS));
+    const units = unitChoicesFor(period.days ?? spanDays);
+    const unit = unitPick && units.includes(unitPick) ? unitPick : defaultUnitFor(period.days ?? spanDays);
+    const inWindowAll = all.filter((e) => e.atMs >= t0 && e.atMs <= nowMs);
+    const byKind = Object.keys(GIVEN_NOUN)
+      .map((k) => ({ kind: k, count: inWindowAll.filter((e) => e.kind === k).length }))
+      .sort((a, b) => b.count - a.count);
+    const events = kind === 'all' ? all : all.filter((e) => e.kind === kind);
+    const inWindow = kind === 'all' ? inWindowAll : inWindowAll.filter((e) => e.kind === kind);
+    const series = bucketSeries(inWindow, { unit, t0, t1: nowMs, pickTime: (e) => e.atMs });
+    return {
+      unit,
+      units,
+      series,
+      trend: movingAverage(series, 7),
+      total: inWindow.length,
+      perDay: inWindow.length / spanDays,
+      accounts: new Set(inWindow.map((e) => e.did)).size,
+      byKind,
+      compare: comparePeriods(events, { days: period.days || spanDays, now: nowMs, pickTime: (e) => e.atMs }),
+    };
+  }, [posts, outbound, did, period, kind, unitPick, nowMs]);
+
+  if (!posts.length && !outbound.length) {
+    return <p className="an-empty">Nothing given on record yet — build the archive from the strip above.</p>;
+  }
+
+  const head = kind === 'all' ? 'Engagement' : ENGAGEMENT_KINDS.find((k) => k.key === kind)?.label || 'Engagement';
+  // The CAR carries every like and repost ever; only the fallback sweep (when
+  // the repo pull failed) stops short, and says how far it reached.
+  const coverageMs = meta.outbound?.coverageMs || 0;
+  const maxKind = model.byKind[0]?.count || 1;
+
+  return (
+    <section className="an-panel" aria-label="Engagement given">
+      <Figures
+        className="an-figures"
+        label="Engagement given in figures"
+        items={[
+          stat({
+            label: `${head} given`,
+            value: model.total,
+            delta: period.days ? model.compare.pct : null,
+            deltaTitle: period.days
+              ? `vs previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
+              : null,
+          }),
+          stat({
+            label: 'Per day',
+            value: model.perDay < 10 ? Math.round(model.perDay * 10) / 10 : Math.round(model.perDay),
+            exact: true,
+          }),
+          stat({ label: 'Accounts', value: model.accounts, sub: 'engaged with' }),
+        ]}
+      />
+
+      <div className="an-card">
+        <SectionHead
+          as="h3"
+          title={`${head} given per ${unitNoun(model.unit)}`}
+          meta={
+            <ModeToggle
+              value={model.unit}
+              onChange={setUnitPick}
+              options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
+            />
+          }
+        />
+        <SeriesChart
+          series={model.series}
+          trend={model.trend}
+          mode="bars"
+          unit={model.unit}
+          zeroBase
+          ariaLabel={`${head} given per ${model.unit} over ${period.label}`}
+        />
+        <ChartTable series={model.series} trend={model.trend} unit={model.unit} valueHead={`${head} given`} />
+        <p className="an-card-caption">
+          Counted on the day you gave it. Replies and quotes aimed at your own posts are threading,
+          not engagement, and are left out.
+        </p>
+      </div>
+
+      {kind === 'all' && (
+        <div className="an-card">
+          <SectionHead as="h3" title="By kind" />
+          <ol className="an-actors an-collections">
+            {model.byKind.map((k) => (
+              <li key={k.kind} className="an-actor">
+                <span className="an-actor-main">
+                  <span className="an-actor-name">{GIVEN_NOUN[k.kind].charAt(0).toUpperCase() + GIVEN_NOUN[k.kind].slice(1)}</span>
+                </span>
+                <span className="an-actor-track" aria-hidden="true">
+                  <span className="an-actor-fill" style={{ width: `${(k.count / maxKind) * 100}%` }} />
+                </span>
+                <span className="an-actor-count">{k.count.toLocaleString('en-US')}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      <p className="an-note">
+        Likes and reposts come from your repo archive
+        {coverageMs > 0
+          ? `, which reaches back to ${formatDateShort(coverageMs)} so far`
+          : ' — every one you have ever made'}
+        ; replies and quotes from the post archive. Who you engage with most is on the People tab.
+      </p>
     </section>
   );
 }
@@ -1324,8 +1865,21 @@ function KindCount({ glyph: Glyph, label, value, dim }) {
 /* People                                                               */
 /* ================================================================== */
 
-function PeopleTab({ archive, did, period, kind, nowMs }) {
-  const { posts, inbound, outbound, followers, actors, wantActors } = archive;
+function PeopleTab({ archive, did, period, kind, relation, nowMs }) {
+  const { posts, inbound, outbound, followers, following, actors, wantActors, setFollow, sync } = archive;
+  const followsKnown = Boolean(archive.meta.following);
+  const [limits, setLimits] = useState({ in: PEOPLE_PAGE, out: PEOPLE_PAGE });
+  // did → { busy, error } for the Follow buttons pressed this visit.
+  const [pending, setPending] = useState(() => new Map());
+  // People followed or unfollowed under the current relationship filter stay
+  // in its list until the filter changes: following someone from "Not
+  // following" leaves their row in place, now reading Following, rather than
+  // snatching it away with the undo under it.
+  const [kept, setKept] = useState(() => ({ relation, dids: new Set() }));
+  const keptDids = kept.relation === relation ? kept.dids : null;
+
+  const followingSet = useMemo(() => new Set(following.map((f) => f.did)), [following]);
+  const followerSet = useMemo(() => new Set(followers.map((f) => f.did)), [followers]);
 
   const model = useMemo(() => {
     const t1 = nowMs;
@@ -1334,23 +1888,40 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
       const oldest = oldestEventMs(events);
       return oldest ?? nowMs;
     };
+    // The relationship filter runs BEFORE the cut to a page, so "Not
+    // following" shows the top people you don't follow — not whichever of
+    // the overall top twelve happen not to be followed.
+    const keep = (row) =>
+      keptDids?.has(row.did) ||
+      (relation === 'not' ? !followingSet.has(row.did) : relation === 'following' ? followingSet.has(row.did) : true);
     const outboundAll = [...outbound, ...outboundFromPosts(posts)];
     const inT0 = windowFor(inbound);
     const outT0 = windowFor(outboundAll);
+    const inAll = topActors(inbound, { kind, t0: inT0, t1, limit: Infinity, excludeDid: did });
+    const outAll = topActors(outboundAll, { kind, t0: outT0, t1, limit: Infinity, excludeDid: did });
     return {
-      inTop: topActors(inbound, { kind, t0: inT0, t1, limit: 12, excludeDid: did }),
-      outTop: topActors(outboundAll, { kind, t0: outT0, t1, limit: 12, excludeDid: did }),
+      inRanked: inAll.filter(keep),
+      outRanked: outAll.filter(keep),
+      inAny: inAll.length > 0,
+      outAny: outAll.length > 0,
+      // Of everyone in the window, how many the owner doesn't follow yet.
+      inNotFollowing: inAll.filter((r) => !followingSet.has(r.did)).length,
       inOldest: oldestEventMs(inbound),
-      outOldest: oldestEventMs(outboundAll),
       inT0,
     };
-  }, [posts, inbound, outbound, period, kind, did, nowMs]);
+  }, [posts, inbound, outbound, period, kind, relation, followingSet, keptDids, did, nowMs]);
+
+  const inTop = useMemo(() => model.inRanked.slice(0, limits.in), [model, limits.in]);
+  const outTop = useMemo(
+    () => (kind === 'mention' ? [] : model.outRanked.slice(0, limits.out)),
+    [model, kind, limits.out],
+  );
 
   // Resolve the faces this render actually shows — two getProfiles calls at
   // most, cached in the actors store afterwards.
   const wanted = useMemo(
-    () => [...model.inTop, ...model.outTop].map((r) => r.did).filter((d) => !actors.get(d)?.handle),
-    [model, actors],
+    () => [...inTop, ...outTop].map((r) => r.did).filter((d) => !actors.get(d)?.handle),
+    [inTop, outTop, actors],
   );
   useEffect(() => {
     if (wanted.length) wantActors(wanted);
@@ -1360,10 +1931,55 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
   const followerCards = useMemo(() => new Map(followers.map((f) => [f.did, f])), [followers]);
   const cardFor = (actorDid) => actors.get(actorDid) || followerCards.get(actorDid) || null;
 
+  // While the sync is re-reading the follows, a button pressed now could be
+  // overwritten by the read already in flight; hold them for that second.
+  const followsLocked = sync?.step === 'following';
+
+  async function toggleFollow(actorDid) {
+    const on = !followingSet.has(actorDid);
+    setPending((m) => new Map(m).set(actorDid, { busy: true, error: null }));
+    try {
+      await setFollow(actorDid, on);
+      setKept((k) => ({ relation, dids: new Set(k.relation === relation ? k.dids : []).add(actorDid) }));
+      setPending((m) => {
+        const next = new Map(m);
+        next.delete(actorDid);
+        return next;
+      });
+    } catch (err) {
+      setPending((m) =>
+        new Map(m).set(actorDid, {
+          busy: false,
+          error: `Couldn’t ${on ? 'follow' : 'unfollow'}: ${err?.message || String(err)}`,
+        }),
+      );
+    }
+  }
+
+  const relationFor = (actorDid) => ({
+    following: followsKnown ? followingSet.has(actorDid) : null,
+    followsYou: followerSet.has(actorDid),
+    busy: followsLocked || Boolean(pending.get(actorDid)?.busy),
+    error: pending.get(actorDid)?.error || null,
+  });
+
   const inCoverage =
     model.inOldest != null && period.days && model.inOldest > model.inT0
       ? `Notification history reaches back to ${formatDateShort(model.inOldest)} so far — earlier ${period.label.toLowerCase()} events are outside it.`
       : null;
+
+  // A filtered list is only "everyone's followed" when there was someone in
+  // it to begin with; an empty window says so in its own words.
+  const emptyFor = (side) =>
+    relation === 'not' && (side === 'in' ? model.inAny : model.outAny)
+      ? side === 'in'
+        ? 'You already follow everyone who engaged with you in this window.'
+        : 'You already follow everyone you engaged with in this window.'
+      : relation === 'following' && (side === 'in' ? model.inAny : model.outAny)
+        ? 'Nobody you follow in this window.'
+        : side === 'in'
+          ? 'No inbound engagement recorded in this window yet — sync to gather notifications.'
+          : 'No outbound engagement in this window — likes, reposts, replies and quotes land here after a sync.';
 
   return (
     <section className="an-panel" aria-label="People">
@@ -1377,8 +1993,24 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
                 They engage with you
               </>
             }
+            meta={
+              followsKnown && relation !== 'not' && model.inNotFollowing > 0
+                ? `${model.inNotFollowing.toLocaleString('en-US')} you don’t follow`
+                : null
+            }
           />
-          <ActorList rows={model.inTop} cardFor={cardFor} empty="No inbound engagement recorded in this window yet — sync to gather notifications." />
+          <ActorList
+            rows={inTop}
+            cardFor={cardFor}
+            relationFor={relationFor}
+            onToggleFollow={toggleFollow}
+            empty={emptyFor('in')}
+          />
+          <MoreButton
+            shown={inTop.length}
+            total={model.inRanked.length}
+            onMore={() => setLimits((l) => ({ ...l, in: l.in + PEOPLE_PAGE }))}
+          />
           {inCoverage && <p className="an-card-caption">{inCoverage}</p>}
         </div>
         <div className="an-card">
@@ -1394,20 +2026,51 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
           {kind === 'mention' ? (
             <p className="an-empty">Mentions are tracked inbound only.</p>
           ) : (
-            <ActorList rows={model.outTop} cardFor={cardFor} empty="No outbound engagement in this window — likes, reposts, replies and quotes land here after a sync." />
+            <>
+              <ActorList
+                rows={outTop}
+                cardFor={cardFor}
+                relationFor={relationFor}
+                onToggleFollow={toggleFollow}
+                empty={emptyFor('out')}
+              />
+              <MoreButton
+                shown={outTop.length}
+                total={model.outRanked.length}
+                onMore={() => setLimits((l) => ({ ...l, out: l.out + PEOPLE_PAGE }))}
+              />
+            </>
           )}
         </div>
       </div>
       <p className="an-note">
         Inbound counts come from notifications (likes, reposts, replies, quotes, mentions aimed at
         you); outbound counts from the repo archive&rsquo;s complete like and repost history plus
-        the replies and quotes in the post archive.
+        the replies and quotes in the post archive.{' '}
+        {followsKnown
+          ? 'Following is read from the follow records in your own repo at each sync; Follow writes one there, and pressing Following again deletes it.'
+          : 'Who you follow arrives with the next sync; until then there are no Follow buttons, so none can follow someone twice.'}
       </p>
     </section>
   );
 }
 
-function ActorList({ rows, cardFor, empty }) {
+function MoreButton({ shown, total, onMore }) {
+  if (total <= shown) return null;
+  const next = Math.min(PEOPLE_PAGE, total - shown);
+  return (
+    <div className="an-more">
+      <Button size="sm" variant="text" onClick={onMore}>
+        Show {next} more
+      </Button>
+      <span className="an-more-count">
+        {shown.toLocaleString('en-US')} of {total.toLocaleString('en-US')}
+      </span>
+    </div>
+  );
+}
+
+function ActorList({ rows, cardFor, relationFor = null, onToggleFollow = null, empty }) {
   if (!rows.length) return <p className="an-empty">{empty}</p>;
   const max = rows[0]?.total || 1;
   return (
@@ -1420,8 +2083,9 @@ function ActorList({ rows, cardFor, empty }) {
           .sort((a, b) => b[1] - a[1])
           .map(([k, n]) => `${n} ${k}${n === 1 ? '' : 's'}`)
           .join(', ');
+        const rel = relationFor ? relationFor(row.did) : null;
         return (
-          <li key={row.did} className="an-actor">
+          <li key={row.did} className={`an-actor${rel ? ' an-actor--follow' : ''}`}>
             {card?.avatar ? (
               <img className="an-actor-avatar" src={card.avatar} alt="" loading="lazy" />
             ) : (
@@ -1431,7 +2095,18 @@ function ActorList({ rows, cardFor, empty }) {
               <a className="an-actor-name" href={href} target="_blank" rel="noopener noreferrer">
                 {name}
               </a>
-              {card?.handle && <span className="an-actor-handle">@{card.handle}</span>}
+              {(card?.handle || rel?.followsYou) && (
+                <span className="an-actor-handle">
+                  {card?.handle && `@${card.handle}`}
+                  {card?.handle && rel?.followsYou && ' · '}
+                  {rel?.followsYou && <span className="an-actor-rel">follows you</span>}
+                </span>
+              )}
+              {rel?.error && (
+                <span className="an-actor-error" role="alert">
+                  {rel.error}
+                </span>
+              )}
             </span>
             <span className="an-actor-track" aria-hidden="true">
               <span className="an-actor-fill" style={{ width: `${(row.total / max) * 100}%` }} />
@@ -1439,6 +2114,23 @@ function ActorList({ rows, cardFor, empty }) {
             <span className="an-actor-count" title={detail}>
               {row.total.toLocaleString('en-US')}
             </span>
+            {rel && (
+              <span className="an-actor-action">
+                {rel.following == null ? null : (
+                  <Button
+                    size="sm"
+                    on={rel.following}
+                    disabled={rel.busy}
+                    aria-busy={rel.busy || undefined}
+                    title={rel.following ? `Unfollow ${name}` : `Follow ${name}`}
+                    onClick={() => onToggleFollow?.(row.did)}
+                  >
+                    {rel.following ? 'Following' : 'Follow'}
+                    <span className="visually-hidden"> {name}</span>
+                  </Button>
+                )}
+              </span>
+            )}
           </li>
         );
       })}
@@ -1623,16 +2315,29 @@ function stat({ label, value, unit = null, delta = undefined, deltaTitle = null,
   };
 }
 
-/** A chart's own switch (cumulative, weekly, …): the kit's Segmented. */
+/**
+ * A chart's own switch: the kit's Segmented. The keys are one short word each
+ * — Total, Stack, Both, Daily — so a chart's whole switch fits one row on a
+ * phone; each key's tooltip says it in full.
+ */
 function ModeToggle({ value, onChange, options, label = 'Chart' }) {
   return (
     <Segmented
       label={label}
       value={value}
       onChange={onChange}
-      options={options.map((o) => ({ value: o.key, label: o.label }))}
+      options={options.map((o) => ({ value: o.key, label: o.label, title: o.title }))}
     />
   );
+}
+
+const MODE_TOTAL = { key: 'cumulative', label: 'Total', title: 'Running total over the window' };
+const MODE_STACK = { key: 'stacked', label: 'Stack', title: 'Running total, stacked by direct blocks and moderation lists' };
+const MODE_BOTH = { key: 'together', label: 'Both' };
+
+/** "New followers per week", for a unit key's tooltip. */
+function unitTitle(unit, noun) {
+  return `${noun.charAt(0).toUpperCase()}${noun.slice(1)} per ${unitNoun(unit)}`;
 }
 
 function unitLabel(unit) {
@@ -1672,6 +2377,10 @@ const GHOST_GUTTER = 28;
  * and suspended accounts the swept curve cannot see. Dashed and in faint
  * ink on purpose: it is a simulation, not a measurement, and it must never
  * dress like the data. `{ v, label }`.
+ *
+ * `format` writes a value for the readout and the table — a rate wants a
+ * decimal, and a bucket with no value (null: nothing posted that week) wants
+ * words, not a zero. Null points draw no bar and break the trend line.
  */
 function SeriesChart({
   series,
@@ -1683,8 +2392,10 @@ function SeriesChart({
   unit = 'day',
   zeroBase = true,
   ghost = null,
+  format = null,
   ariaLabel,
 }) {
+  const fmt = format || fmtCount;
   const plotRef = useRef(null);
   const [w, setW] = useState(0);
   const [hover, setHover] = useState(null);
@@ -1722,7 +2433,7 @@ function SeriesChart({
   const dataMax = Math.max(
     ...values,
     ...secondaryValues,
-    trend ? Math.max(...trend.map((p) => p.v)) : 0,
+    trend ? Math.max(...trend.map((p) => p.v ?? 0)) : 0,
     showGhost ? ghost.v : 0,
   );
   const dataMin = Math.min(...values, ...secondaryValues);
@@ -1768,9 +2479,19 @@ function SeriesChart({
           .map(({ p, i }) => `L${x(i).toFixed(1)},${y(p.v).toFixed(1)}`)
           .join(' ')} Z`
       : null;
+  // A trend point with no value (a window with nothing in it) breaks the
+  // line; the next real point starts a new run rather than diving to zero.
   const trendPath = trend
-    ? trend.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
+    ? trend
+        .map((p, i) => {
+          if (p.v == null) return '';
+          const move = i === 0 || trend[i - 1].v == null ? 'M' : 'L';
+          return `${move}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`;
+        })
+        .filter(Boolean)
+        .join(' ')
     : null;
+  const trendEnd = trend ? trend.findLastIndex((p) => p.v != null) : -1;
 
   return (
     <div className="an-chart">
@@ -1788,7 +2509,7 @@ function SeriesChart({
             height={H}
             viewBox={`0 0 ${w} ${H}`}
             role="img"
-            aria-label={`${ariaLabel || 'Series'}: ${n} ${unit} buckets, peak ${Math.round(dataMax).toLocaleString('en-US')}${showGhost ? `; dashed reference reaching ${Math.round(ghost.v).toLocaleString('en-US')}` : ''}`}
+            aria-label={`${ariaLabel || 'Series'}: ${n} ${unit} buckets, peak ${fmt(dataMax)}${showGhost ? `; dashed reference reaching ${Math.round(ghost.v).toLocaleString('en-US')}` : ''}`}
             onPointerMove={onMove}
             onPointerLeave={() => setHover(null)}
           >
@@ -1805,7 +2526,7 @@ function SeriesChart({
                 and a chart is not the place the system softens. */}
             {mode === 'bars' &&
               series.map((p, i) =>
-                p.v > 0 ? (
+                p.v != null && p.v > 0 ? (
                   <rect
                     key={p.t}
                     className={`an-chart-bar${hover === i ? ' is-hover' : ''}`}
@@ -1863,10 +2584,15 @@ function SeriesChart({
                 );
               })()}
 
-            {trendPath && (
+            {trendPath && trendEnd >= 0 && (
               <>
                 <path className="an-chart-trend" d={trendPath} />
-                <text className="an-chart-trendlabel" x={Math.min(x(n - 1) + 4, w - PAD.r)} y={y(trend[n - 1].v) - 4} textAnchor="end">
+                <text
+                  className="an-chart-trendlabel"
+                  x={Math.min(x(trendEnd) + 4, w - PAD.r)}
+                  y={y(trend[trendEnd].v) - 4}
+                  textAnchor="end"
+                >
                   trend
                 </text>
               </>
@@ -1887,7 +2613,7 @@ function SeriesChart({
             className="an-chart-tip"
             style={{ left: clamp(x(hp.i), 40, w - 40), top: Math.max(PAD.t, y(hp.v)) }}
           >
-            <strong>{seriesLabel && `${seriesLabel} `}{Math.round(hp.v).toLocaleString('en-US')}</strong>
+            <strong>{seriesLabel && `${seriesLabel} `}{fmt(hp.v)}</strong>
             {secondaryHp && (
               <strong className="an-chart-tip-secondary">
                 {secondary.label} {Math.round(secondaryHp.v).toLocaleString('en-US')}
@@ -1899,8 +2625,8 @@ function SeriesChart({
               </strong>
             )}
             <span className="an-chart-tip-when">{bucketLabel(hp.t, unit)}</span>
-            {trend && trend[hp.i] && (
-              <span className="an-chart-tip-trend">trend {Math.round(trend[hp.i].v).toLocaleString('en-US')}</span>
+            {trend && trend[hp.i]?.v != null && (
+              <span className="an-chart-tip-trend">trend {fmt(trend[hp.i].v)}</span>
             )}
           </div>
         )}
@@ -1953,8 +2679,19 @@ function clamp(v, lo, hi) {
   return Math.min(hi, Math.max(lo, v));
 }
 
+/** A count as the charts write it: whole, with thousands separators. */
+function fmtCount(v) {
+  return v == null ? '—' : Math.round(v).toLocaleString('en-US');
+}
+
+/** A rate (engagement per post): one decimal while small; words for none. */
+function fmtRate(v) {
+  if (v == null) return 'no posts';
+  return v < 10 ? (Math.round(v * 10) / 10).toLocaleString('en-US') : Math.round(v).toLocaleString('en-US');
+}
+
 /** Every chart's plain twin — the same buckets as a real table. */
-function ChartTable({ series, secondary = null, trend = null, unit, valueHead, secondaryHead = null }) {
+function ChartTable({ series, secondary = null, trend = null, unit, valueHead, secondaryHead = null, format = fmtCount }) {
   if (!series || series.length === 0) return null;
   return (
     <details className="an-tableview">
@@ -1973,9 +2710,9 @@ function ChartTable({ series, secondary = null, trend = null, unit, valueHead, s
             {series.map((p, i) => (
               <tr key={p.t}>
                 <th scope="row">{bucketLabel(p.t, unit)}</th>
-                <td>{Math.round(p.v).toLocaleString('en-US')}</td>
-                {secondary && <td>{Math.round(secondary[i]?.v ?? 0).toLocaleString('en-US')}</td>}
-                {trend && <td>{Math.round(trend[i]?.v ?? 0).toLocaleString('en-US')}</td>}
+                <td>{format(p.v)}</td>
+                {secondary && <td>{fmtCount(secondary[i]?.v ?? 0)}</td>}
+                {trend && <td>{trend[i]?.v == null ? '—' : format(trend[i].v)}</td>}
               </tr>
             ))}
           </tbody>
