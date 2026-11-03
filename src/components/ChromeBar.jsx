@@ -696,7 +696,7 @@ const TOOL_META = {
   sky: { word: 'sky', title: 'Sky: pick an hour of Dame’s sky to see the site in, and set the display' },
   filter: { word: 'filter', glyph: ListFilterPlus, title: 'Filter: choose what this feed shows' },
   search: { word: 'search', glyph: Search, title: 'Search this feed' },
-  info: { word: 'about', glyph: Info, title: 'About this site, and a key to these buttons' },
+  info: { word: 'about', glyph: Info, title: 'About this site' },
   inspect: { word: 'inspect', glyph: Microscope, title: 'Inspect: show the AT Protocol records under the page' },
   print: { word: 'print', glyph: Printer, title: 'Print or save this resume as a PDF' },
   edit: { word: 'edit', glyph: Pencil, title: 'Edit mode' },
