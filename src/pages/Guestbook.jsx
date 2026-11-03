@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Signature } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
@@ -15,8 +15,9 @@ import {
   setEntryHidden,
   signGuestbook,
 } from '../lib/guestbook.js';
-import { clearDraft, readDraft, registerNumbers } from '../lib/guestbookRegister.js';
+import { clearDraft, readDraft, registerDate, registerNumbers } from '../lib/guestbookRegister.js';
 import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
 import { ME_DID, GUESTBOOK_SUBJECT, GUESTBOOK_ENTRY_NSID } from '../config.js';
 import SectionHead from '../components/SectionHead.jsx';
@@ -40,7 +41,7 @@ const NO_ARRIVALS = new Set();
  */
 export default function Guestbook() {
   const { title, intro } = usePageContent('guestbook');
-  const { agent, did, restore } = useAtprotoSession();
+  const { session, agent, did, loading, restore } = useAtprotoSession();
   // Only ever opens the sheet, so the actions alone: the register doesn't
   // re-render as the sheet opens and closes (the sheet reads which is open).
   const { openPanel } = useChromePanelActions();
@@ -50,6 +51,44 @@ export default function Guestbook() {
   useEffect(() => {
     restore();
   }, [restore]);
+
+  // The signer's profile, for the blank line (which shows a signed-in
+  // visitor's portrait and handle where their signature will go), the sign
+  // sheet's "as" line, and a fresh signature's portrait before Constellation
+  // indexes the backlink.
+  const [profile, setProfile] = useState(null);
+  useEffect(() => {
+    setProfile(null);
+    if (!did) return undefined;
+    let cancelled = false;
+    getProfile(did)
+      .then((p) => {
+        if (!cancelled && p) setProfile(p);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [did]);
+
+  // Who a signature from this visitor names: the profile's handle and display
+  // name, or a shortened DID while the profile is on its way (or has none).
+  const signer = useMemo(() => {
+    if (!did) return null;
+    const handle =
+      profile?.handle && profile.handle !== 'handle.invalid' ? profile.handle : null;
+    const shortDid = did.length > 24 ? `${did.slice(0, 12)}…${did.slice(-6)}` : did;
+    return {
+      handle,
+      name: profile?.displayName?.trim() || (handle ? `@${handle}` : shortDid),
+      avatar: profile?.avatar || null,
+    };
+  }, [did, profile]);
+
+  // A handle a signed-out visitor writes on the blank line's signature line.
+  // The pen carries it into the sign sheet's "as" line, so they write their
+  // note and approve on their PDS once, at the end, as before.
+  const [blankHandle, setBlankHandle] = useState('');
 
   // Owner + the chrome bar's pencil = moderation: hidden entries surface
   // (dimmed) and every signature grows a hide/unhide control.
@@ -390,13 +429,32 @@ export default function Guestbook() {
               <p className="guestbook-empty-line">No signatures yet. The first page is blank.</p>
             </div>
             <ul className="guestbook-list">
-              <BlankLine number={1} first status={blankStatus} onSign={sign} />
+              <BlankLine
+                number={1}
+                first
+                status={blankStatus}
+                onSign={sign}
+                signedIn={Boolean(session)}
+                restoring={loading}
+                signer={signer}
+                handle={blankHandle}
+                onHandle={setBlankHandle}
+              />
             </ul>
           </>
         ) : (
           <>
             <ul className="guestbook-list reveal-stagger">
-              <BlankLine number={nextNumber} status={blankStatus} onSign={sign} />
+              <BlankLine
+                number={nextNumber}
+                status={blankStatus}
+                onSign={sign}
+                signedIn={Boolean(session)}
+                restoring={loading}
+                signer={signer}
+                handle={blankHandle}
+                onHandle={setBlankHandle}
+              />
               {visible.map((entry) => (
                 <GuestbookEntryRow
                   key={entry.uri}
@@ -444,7 +502,13 @@ export default function Guestbook() {
         )}
       </section>
 
-      <GuestbookSheet lineNumber={nextNumber} onSigned={handleSigned} />
+      <GuestbookSheet
+        lineNumber={nextNumber}
+        onSigned={handleSigned}
+        profile={profile}
+        signer={signer}
+        initialHandle={blankHandle.trim()}
+      />
 
       <p className="guestbook-source gutter">
         Signatures are gathered from backlinks by{' '}
@@ -458,28 +522,115 @@ export default function Guestbook() {
 }
 
 /**
- * The book's next blank line: the call to action, numbered where the next
- * signature will go, with the page's one filled button at its end. It opens
- * the sign sheet on a page numbered for this line, with the cursor in the
- * note under a mouse. While a note written before a sign-in hop is being
- * saved, it says so.
+ * The book's next blank line: the call to action, set out as a line not yet
+ * written, in the same shape as the signatures under it. Its number and
+ * today's date head it (the date the line would carry, on Dame's calendar);
+ * "The next line is yours." stands where the note goes; and the signature
+ * line is the visitor's own:
+ *
+ *   - Signed in → their portrait and handle, as their signature will read,
+ *     and the pen, which opens the sign sheet.
+ *   - Signed out → an empty dashed portrait beside a field for their handle,
+ *     on the line where it will go. The pen opens the sheet with it already
+ *     in the "as" line (GuestbookSheet's `initialHandle`); the visitor
+ *     writes their note there and approves on their PDS once, at the end.
+ *   - Restoring a returning signer's session → says so, pen beside it.
+ *
+ * The pen is the page's one filled button: "Sign the guestbook" with its
+ * icon at a desk, the icon alone, square, on a phone (the words stay as its
+ * name). While a note written before a sign-in hop is being saved, the
+ * note's line says so.
  */
-function BlankLine({ number, first = false, status = null, onSign }) {
+function BlankLine({
+  number,
+  first = false,
+  status = null,
+  onSign,
+  signedIn = false,
+  restoring = false,
+  signer = null,
+  handle = '',
+  onHandle,
+}) {
+  const ids = useId();
+  const today = useMemo(() => registerDate(new Date().toISOString()), []);
+  const asField = !signedIn && !restoring;
+
+  const pen = (
+    <button
+      type={asField ? 'submit' : 'button'}
+      className="btn btn--primary guestbook-blank-sign"
+      onClick={asField ? undefined : onSign}
+      title="Sign the guestbook"
+    >
+      <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
+      <span className="guestbook-blank-sign-label">Sign the guestbook</span>
+    </button>
+  );
+
   return (
     <li className="guestbook-entry guestbook-entry-blank">
       <span className="guestbook-entry-number">{number ?? ''}</span>
-      <div className="guestbook-entry-body guestbook-blank-body">
+      <div className="guestbook-entry-body">
+        {today && <span className="guestbook-entry-time">{today}</span>}
         <p className="guestbook-blank-text" role={status ? 'status' : undefined}>
           {status || (first ? 'The first line is yours.' : 'The next line is yours.')}
         </p>
-        <button
-          type="button"
-          className="btn btn--primary guestbook-blank-sign"
-          onClick={onSign}
-        >
-          <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
-          Sign the guestbook
-        </button>
+        <div className="guestbook-entry-sig">
+          <span className="guestbook-entry-avatar" aria-hidden="true">
+            {signedIn && signer?.avatar ? (
+              <img src={avatarThumb(signer.avatar)} alt="" width={40} height={40} />
+            ) : (
+              <span className="guestbook-entry-avatar-fallback">@</span>
+            )}
+          </span>
+          <span className="guestbook-entry-id">
+            {asField ? (
+              <form
+                className="guestbook-blank-row"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onSign();
+                }}
+              >
+                <label className="visually-hidden" htmlFor={`${ids}-handle`}>
+                  Your atproto handle
+                </label>
+                {/* The same guards as the sheet's field: iOS otherwise
+                    capitalizes and autocorrects a handle as if it were
+                    prose. */}
+                <span className="guestbook-pen-line guestbook-blank-field">
+                  <input
+                    id={`${ids}-handle`}
+                    className="guestbook-pen-input"
+                    type="text"
+                    autoComplete="username"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    inputMode="url"
+                    enterKeyHint="go"
+                    spellCheck={false}
+                    placeholder="your atproto handle"
+                    value={handle}
+                    onChange={(e) => onHandle?.(e.target.value)}
+                  />
+                </span>
+                {pen}
+              </form>
+            ) : (
+              <span className="guestbook-blank-row">
+                {restoring ? (
+                  <span className="guestbook-blank-pending">restoring your session…</span>
+                ) : (
+                  <span className="guestbook-entry-handle">
+                    {signer?.handle ? `@${signer.handle}` : signer?.name || 'you'}
+                  </span>
+                )}
+                {pen}
+              </span>
+            )}
+          </span>
+        </div>
       </div>
     </li>
   );

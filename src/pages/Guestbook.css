@@ -607,23 +607,73 @@ button.guestbook-entry-location {
   border-top: 0;
 }
 
-.guestbook-blank-body {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-}
-
+/* Where the note goes, at the note's size, in italic. */
 .guestbook-blank-text {
   margin: 0;
   font-size: var(--text-lg);
+  line-height: 1.5;
   font-style: italic;
   color: var(--ink-muted);
 }
 
-.guestbook-blank-sign {
+/* Where the handle and place go: the visitor's own signature line (their
+   handle, or a field for it on a signature line like the sheet's), with the
+   pen at its end. */
+.guestbook-blank-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+}
+
+.guestbook-blank-row .guestbook-entry-handle {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.guestbook-blank-field {
+  flex: 1 1 auto;
+}
+
+.guestbook-blank-pending {
+  font-style: italic;
+}
+
+/* The pen: the page's one filled button, as tall as the portrait (or the
+   kit's 44px under a finger), closing the signature line. */
+.guestbook-entry-blank .guestbook-blank-sign {
+  flex: none;
+  margin-left: auto;
+  min-height: 2.5rem;
   cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .guestbook-entry-blank .guestbook-blank-sign {
+    min-height: var(--control-h-touch);
+  }
+}
+
+/* On a phone it's the pen alone, square, beside the field; "Sign the
+   guestbook" stays as its name for a screen reader. */
+@media (max-width: 700px) {
+  .guestbook-entry-blank .guestbook-blank-sign {
+    width: var(--control-h-touch);
+    min-height: var(--control-h-touch);
+    padding: 0;
+  }
+
+  .guestbook-blank-sign-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 /* An empty book: today's own line, under the collection it's waiting on. */
