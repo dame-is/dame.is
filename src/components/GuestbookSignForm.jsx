@@ -59,6 +59,7 @@ export default function GuestbookSignForm({
   signedIn,
   restoring = false,
   signer = null,
+  initialHandle = '',
   lineNumber = null,
   signIn,
   signOut,
@@ -72,7 +73,8 @@ export default function GuestbookSignForm({
   // Whether the place on the line came from the pin and hasn't been typed
   // over since; the pin wears the "on" look while it has.
   const [fromRegion, setFromRegion] = useState(false);
-  const [handleInput, setHandleInput] = useState('');
+  // A handle written on the register's blank line comes across with the pen.
+  const [handleInput, setHandleInput] = useState(initialHandle);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [locating, setLocating] = useState(false);

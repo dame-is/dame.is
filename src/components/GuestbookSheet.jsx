@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import BottomSheet from './BottomSheet.jsx';
 import GuestbookSignForm from './GuestbookSignForm.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
-import { getProfile } from '../lib/atproto.js';
 import { registerDate } from '../lib/guestbookRegister.js';
 
 /**
@@ -30,45 +29,22 @@ import { registerDate } from '../lib/guestbookRegister.js';
  * `lineNumber` is the number the signature will take (the page's count plus
  * one), or null while the count isn't known. `onSigned` gets the fresh entry,
  * with the signer's profile, to put on the register at once, ahead of the
- * backlink index.
+ * backlink index. `profile` and `signer` (who the "as" line names) come from
+ * the page, which shows them on its blank line too; `initialHandle` is a
+ * handle a signed-out visitor wrote on that line, carried into the "as" line.
  */
-export default function GuestbookSheet({ lineNumber = null, onSigned }) {
+export default function GuestbookSheet({
+  lineNumber = null,
+  onSigned,
+  profile = null,
+  signer = null,
+  initialHandle = '',
+}) {
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'guestbook';
   // The page restores a returning signer's session as it mounts, long before
   // the blank line can be tapped; `loading` covers the rest of that wait.
   const { session, agent, did, loading, signIn, signOut } = useAtprotoSession();
-
-  // The signer's profile: the name and avatar on the signature line, and the
-  // fresh signature's portrait before Constellation indexes the backlink.
-  const [profile, setProfile] = useState(null);
-  useEffect(() => {
-    setProfile(null);
-    if (!did) return undefined;
-    let cancelled = false;
-    getProfile(did)
-      .then((p) => {
-        if (!cancelled && p) setProfile(p);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [did]);
-
-  // Who the signature line names: the profile's handle and display name, or a
-  // shortened DID while the profile is on its way (or has none).
-  const signer = useMemo(() => {
-    if (!did) return null;
-    const handle =
-      profile?.handle && profile.handle !== 'handle.invalid' ? profile.handle : null;
-    const shortDid = did.length > 24 ? `${did.slice(0, 12)}…${did.slice(-6)}` : did;
-    return {
-      handle,
-      name: profile?.displayName?.trim() || (handle ? `@${handle}` : shortDid),
-      avatar: profile?.avatar || null,
-    };
-  }, [did, profile]);
 
   // The date the line will carry, on Dame's calendar like every date in the
   // book. Read as the sheet opens, so a sheet left open past midnight still
@@ -100,6 +76,7 @@ export default function GuestbookSheet({ lineNumber = null, onSigned }) {
         signedIn={Boolean(session)}
         restoring={loading}
         signer={signer}
+        initialHandle={initialHandle}
         lineNumber={lineNumber}
         signIn={signIn}
         signOut={signOut}
