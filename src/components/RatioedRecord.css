@@ -46,12 +46,17 @@
   background: color-mix(in srgb, var(--page) 60%, transparent);
 }
 
+/* One line at most: cut at the end rather than wrapped, with the whole line on
+   its title (RatioedRecord.jsx). */
 .rr-say {
   margin: 0;
+  overflow: hidden;
   font-size: var(--text-base);
   color: var(--ink-muted);
   line-height: 1.4;
   text-indent: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* A like cast and taken back, where on the piece's clock it happened: taller

@@ -48,7 +48,9 @@ export default function RatioedRecord({ elapsedMs = 0, record, pieces = null, ma
 
   return (
     <div className={`rr-chase${elapsedMs >= record.lifespanMs ? ' is-beaten' : ''}`}>
-      <p className="rr-say">{say}</p>
+      <p className="rr-say" title={say}>
+        {say}
+      </p>
       <RecordTrack elapsedMs={elapsedMs} record={record} ticks={ticks} marks={marks} />
     </div>
   );

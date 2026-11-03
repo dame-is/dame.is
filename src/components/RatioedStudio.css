@@ -341,20 +341,12 @@
    classes rather than against `.rs-live`. */
 
 /* "getting ratioed 4m20s", in the status's own voice (ChromeBar.css
-   `.chrome-signal-status`), the time in the meta's tabular figures. Liked, the
-   same line in the like's colour, with the reaction time running in it. */
+   `.chrome-signal-status`), the time in the meta's tabular figures. */
 .rs-head-status {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rs-head-status.is-liked,
-.rs-head-status.is-liked > strong,
-.rs-head-status.is-liked > .chrome-signal-meta {
-  color: var(--ratioed-seal, #8c3a2e);
-}
-.rs-head-status.is-liked > strong,
-.rs-head-status.is-liked > .chrome-signal-meta { font-weight: 700; }
 
 /* The record bar as the bar's lower edge: 4px, the ground of the chase in the
    track, the takes as ticks along it. The track's own rule (RatioedRecord.css)

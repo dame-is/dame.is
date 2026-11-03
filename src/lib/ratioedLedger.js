@@ -50,19 +50,23 @@ export function countOf(n, noun) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-const capitalise = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
-
 /**
- * What the piece has drawn, as a run of short sentences.
+ * What the piece has drawn, as one line of counts.
  *
- * Returned as segments rather than one string because the likes sentence is
- * the one that matters and is drawn differently: `none` while there are none
- * (the piece succeeding), `like` once there is one (the piece over), and `gone`
- * for one that was cast and taken back. Everything else has no tone.
+ * Returned as segments, drawn with a separator between them, because the likes
+ * are the count that matters and are drawn differently: `none` while there are
+ * none (the piece succeeding), `like` once there is one (the piece over), and
+ * `gone` for one that was cast and taken back. Everything else has no tone.
  *
- *   21 replies, 5 reposts and 3 quotes, from 25 people. No likes.
- *   21 replies, 5 reposts and 3 quotes, from 26 people. One like.
- *   21 replies, 5 reposts and 3 quotes, from 25 people. One like, taken back.
+ *   No likes · 21 replies · 5 reposts · 3 quotes · 25 people
+ *   1 like · 21 replies · 5 reposts · 3 quotes · 26 people
+ *   No likes · 1 taken back · 21 replies · 5 reposts · 3 quotes · 25 people
+ *
+ * The likes lead. This was a pair of sentences, "21 replies, 5 reposts and 3
+ * quotes, from 25 people. No likes.", which took two lines of a phone's width
+ * at its size, and the line it is now is held to one: anything that runs past
+ * the edge is cut from the end, and the count that is never to be cut is the
+ * one the piece is about.
  *
  * The artist's own records are left out, the rule every figure on the project
  * follows. `people` counts everyone standing, the likers included.
@@ -75,41 +79,35 @@ export function countsSentence(rows, { selfDid = null } = {}) {
   for (const r of theirs) if (r.goneMs != null && r.k in gone) gone[r.k] += 1;
 
   if (tally.total === 0 && tally.withdrawn === 0) {
-    return [{ text: 'Nothing has touched it yet.' }];
+    return [{ text: 'Nothing has touched it yet' }];
   }
 
   const out = [];
-  const drawn = [
-    tally.replies && countOf(tally.replies, 'reply'),
-    tally.reposts && countOf(tally.reposts, 'repost'),
-    tally.quotes && countOf(tally.quotes, 'quote'),
-  ];
-  if (drawn.some(Boolean)) {
-    out.push({ text: `${listJoin(drawn)}, from ${countOf(tally.people, 'person')}.` });
-  }
+  if (tally.likes === 0) out.push({ text: 'No likes', tone: 'none' });
+  else out.push({ text: countOf(tally.likes, 'like'), tone: 'like' });
+  if (gone.like > 0) out.push({ text: `${gone.like} taken back`, tone: 'gone' });
 
-  if (tally.likes === 0) out.push({ text: 'No likes.', tone: 'none' });
-  else if (tally.likes === 1) out.push({ text: 'One like.', tone: 'like' });
-  else out.push({ text: `${tally.likes} likes.`, tone: 'like' });
+  if (tally.replies) out.push({ text: countOf(tally.replies, 'reply') });
+  if (tally.reposts) out.push({ text: countOf(tally.reposts, 'repost') });
+  if (tally.quotes) out.push({ text: countOf(tally.quotes, 'quote') });
+  if (tally.people) out.push({ text: countOf(tally.people, 'person') });
 
-  if (gone.like === 1) out.push({ text: 'One like, taken back.', tone: 'gone' });
-  else if (gone.like > 1) out.push({ text: `${gone.like} likes, taken back.`, tone: 'gone' });
-
-  const goneElse = listJoin([
-    gone.reply && countOf(gone.reply, 'reply'),
-    gone.repost && countOf(gone.repost, 'repost'),
-    gone.quote && countOf(gone.quote, 'quote'),
-  ]);
-  if (goneElse) out.push({ text: `${capitalise(goneElse)} deleted.` });
+  const deleted = gone.reply + gone.repost + gone.quote;
+  if (deleted) out.push({ text: `${deleted} deleted` });
 
   return out;
 }
 
 /**
- * How the piece is doing against the longest one so far.
+ * How the piece is doing against the longest one so far, in one line.
  *
- *   20m31s short of take 27’s record of 54m01s, and longer than 38 of the 41 before it.
- *   4m10s past take 27’s record of 54m01s: the longest piece in the series.
+ *   20m31s short of take 27’s record · longer than 38 of 41
+ *   4m10s past take 27’s record · the longest yet
+ *
+ * It was a sentence that named the record's length too ("…take 27’s record of
+ * 54m01s, and longer than 38 of the 41 before it."), which ran to two lines on
+ * a phone. The length is the sum of the two figures already on screen, and on
+ * a phone the record is the far end of the strip under the running head.
  *
  * `passed` is how many of the other finished pieces it has outlived and `total`
  * how many finished pieces there are, the record among them. Null without a
@@ -119,10 +117,10 @@ export function recordSentence({ elapsedMs = 0, record = null, passed = 0, total
   const target = record?.lifespanMs || 0;
   if (!target) return null;
   const take = String(record.take ?? '').padStart(2, '0');
-  const mark = `take ${take}’s record of ${fmtDuration(target)}`;
+  const mark = `take ${take}’s record`;
   if (elapsedMs >= target) {
-    return `${fmtDuration(elapsedMs - target)} past ${mark}: the longest piece in the series.`;
+    return `${fmtDuration(elapsedMs - target)} past ${mark} · the longest yet`;
   }
-  const outlived = passed > 0 && total > 0 ? `, and longer than ${passed} of the ${total} before it` : '';
-  return `${fmtDuration(target - elapsedMs)} short of ${mark}${outlived}.`;
+  const outlived = passed > 0 && total > 0 ? ` · longer than ${passed} of ${total}` : '';
+  return `${fmtDuration(target - elapsedMs)} short of ${mark}${outlived}`;
 }

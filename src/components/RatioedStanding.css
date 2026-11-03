@@ -69,12 +69,18 @@
 
 /* --- what it has drawn ------------------------------------------------- */
 
+/* One line at most, like the record line above it: cut at the end if a big
+   piece runs it past the edge, which is why the likes come first. */
 .rstand-counts {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-lg);
+  margin: var(--space-2) 0 0;
+  overflow: hidden;
+  font-size: var(--text-base);
   line-height: 1.4;
   text-indent: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.rstand-sep { color: var(--ink-faint); }
 .rstand-counts .is-none { font-weight: 600; }
 .rstand-counts .is-like {
   font-weight: 700;

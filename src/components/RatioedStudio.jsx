@@ -1802,20 +1802,12 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
         live &&
         head.slots.status &&
         createPortal(
-          <span
-            className={`chrome-signal-value rs-head-status${alarming ? ' is-liked' : ''}`}
-            style={scale}
-          >
-            <strong>{alarming ? 'got liked' : justSealed ? 'sealed' : 'getting ratioed'}</strong>
-            <span className="chrome-signal-meta">
-              {alarming && likeAtMs != null ? (
-                <RatioedClock fromMs={likeAtMs} running={!busy && !justSealed} />
-              ) : alarming ? (
-                `@${breakerName}`
-              ) : (
-                fmtDuration(aliveMs)
-              )}
-            </span>
+          // One status for the whole of the piece: what the site is doing, and
+          // for how long. The like is said by the strip, the seal and the
+          // statement in the page; the status is not where it is announced.
+          <span className="chrome-signal-value rs-head-status">
+            <strong>getting ratioed</strong>
+            <span className="chrome-signal-meta">{fmtDuration(aliveMs)}</span>
           </span>,
           head.slots.status,
         )}
