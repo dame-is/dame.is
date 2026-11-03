@@ -1250,6 +1250,80 @@ function letterCard(t, { letter, avatarUri, nsid, folio }) {
   });
 }
 
+// ── THE GUESTBOOK: /welcoming, as its signers and where they signed from ────
+// The sign sheet asks where a note is written from and takes any answer: a
+// city, "LAX terminal 3", "the space in between the monitor glow and the
+// darkness". Those answers are what makes the book this book, so the card
+// lists its newest signers, each with the place they gave, set to the right
+// the way the home index sets each surface's lexicon. The rows cascade toward
+// the paper like that index does, so the list reads as continuing below.
+const BOOK_ROWS = 8; // og/records.js lists as many (GUESTBOOK_CARD_ROWS)
+const BOOK_ROW_SIZE = 30;
+const BOOK_PLACE_SIZE = 24;
+// Clearance between a name and the place beside it.
+const BOOK_ROW_GAP = 32;
+
+/** One line, cut on measured widths with an ellipsis rather than wrapped. A
+ *  place is free text, so a single word too long for the room (a URL, say) is
+ *  cut by the letter. */
+function fitMeasured(text, size, maxWidth) {
+  const s = String(text || '');
+  if (textWidth(s, size) <= maxWidth) return s;
+  const words = s.split(/\s+/);
+  let line = '';
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w;
+    if (textWidth(`${next}…`, size) > maxWidth) break;
+    line = next;
+  }
+  if (!line) {
+    for (const ch of s) {
+      if (textWidth(`${line}${ch}…`, size) > maxWidth) break;
+      line += ch;
+    }
+  }
+  return line ? `${line.replace(/[\s,.;:–—-]+$/, '')}…` : '';
+}
+
+function signedFromCard(t, { guestbook, avatarUri, nsid }) {
+  const CX = 320, bcBy = P - LE;
+  const colW = W - PAD - CX;
+  const signers = (guestbook.signers || []).slice(0, BOOK_ROWS);
+  const top0 = 3 * P + HP - 8;
+  const rows = signers.flatMap((s, i) => {
+    const by = top0 + i * HP;
+    const tt = signers.length > 1 ? 0.04 + (i / (signers.length - 1)) * 0.7 : 0.04;
+    // The name leads and is never cut short of the column: a handle is how a
+    // reader finds somebody. The place takes whatever room is left.
+    const name = fitMeasured(plainLetters(s.name), BOOK_ROW_SIZE, colW);
+    const room = colW - textWidth(name, BOOK_ROW_SIZE) - BOOK_ROW_GAP;
+    const place = s.place && room > 60 ? fitMeasured(plainLetters(s.place), BOOK_PLACE_SIZE, room) : '';
+    return [
+      at(name, { size: BOOK_ROW_SIZE, by, left: CX, weight: 400, color: mix(t.ink, t.page, tt) }),
+      place
+        ? at(place, { size: BOOK_PLACE_SIZE, by, right: PAD, italic: true, weight: 400, color: mix(t.inkMuted, t.page, tt) })
+        : null,
+    ];
+  });
+  return shell(t, [
+    at('signatures', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at((guestbook.count || 0).toLocaleString('en-US'), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, 'welcoming'), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
+    at('Guestbook', { size: 60, by: 2 * P + HP - 6, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
+    // An empty book says so the way the page does, on the line a first
+    // signature would take.
+    ...(rows.length
+      ? rows
+      : [at('The first line is yours.', { size: BOOK_ROW_SIZE, by: top0, left: CX, italic: true, weight: 400, color: t.inkMuted })]),
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    // Fine rules down to the one under the last row, so every row sits on one.
+    halfBands: [{ from: 3 * P, to: top0 + 8 + (Math.max(1, signers.length) - 1) * HP }],
+  });
+}
+
 // ── LISTENING: a play, an album, the shelf they sit on ──────────────────────
 // A song is its cover before it is any of its text. The generic record card
 // set a track title in serif and an artist under it and threw the one image
@@ -1530,6 +1604,8 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {object}  [o.participant] render one Ratioed participant's card
  * @param {object}  [o.board]    render the Ratioed participants leaderboard
  * @param {object}  [o.letter]   render the newsletter page's card: {title, subject}
+ * @param {object}  [o.guestbook] render the guestbook's card:
+ *                               {count, signers:[{name, place}]}
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
  * @param {Array}   [o.hero]      [{text,color}] for the home hero card
  */
@@ -1577,6 +1653,10 @@ export function ogElement(o = {}) {
   // The newsletter's page draws the email it sends, under its own title.
   if (o.letter) {
     return letterCard(t, { letter: o.letter, avatarUri, nsid: o.nsid || '', folio });
+  }
+  // The guestbook draws its signers and where they signed from.
+  if (o.guestbook) {
+    return signedFromCard(t, { guestbook: o.guestbook, avatarUri, nsid: o.nsid || '' });
   }
   // A quoted passage names its essay in its credit, not in a gerund label.
   if (o.quote) {

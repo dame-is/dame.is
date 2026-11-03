@@ -178,3 +178,75 @@ describe('the newsletter card', () => {
     expect(line.endsWith('…')).toBe(true);
   });
 });
+
+describe('the guestbook card', () => {
+  const bookCard = (guestbook) =>
+    ogElement({
+      guestbook,
+      pathname: '/welcoming',
+      nsid: 'is.dame.guestbook.entry',
+      folio: '12,234',
+      theme: THEMES.light,
+    });
+  /** Every positioned line of text, as { text, style }. */
+  const lines = (el) =>
+    nodes(el)
+      .filter((n) => n.type === 'div' && typeof n.props.children?.[0] === 'string' && n.props.style.position === 'absolute')
+      .map((n) => ({ text: n.props.children[0], style: n.props.style }));
+
+  it('heads the list Guestbook, counts the book in the gutter, and leads each row with the name', () => {
+    const el = bookCard({
+      count: 36,
+      signers: [
+        { name: '@byjp.me', place: 'London, UK' },
+        { name: '@ticketmasterceo.com', place: 'LAX terminal 3' },
+      ],
+    });
+    const all = lines(el);
+    const find = (text) => all.find((l) => l.text === text);
+    expect(find('Guestbook')).toBeTruthy();
+    expect(find('36').style.left).toBe(90);
+    // The name sits on the column's left edge; its place on the page guide.
+    expect(find('@byjp.me').style.left).toBe(320);
+    expect(find('London, UK').style.right).toBe(90);
+    expect(find('London, UK').style.fontStyle).toBe('italic');
+    // Each place shares its name's baseline.
+    expect(find('LAX terminal 3').style.top).toBeCloseTo(find('@ticketmasterceo.com').style.top + (30 - 24) * 0.752, 6);
+    expect(texts(el)).toContain('is.dame.guestbook.entry');
+  });
+
+  it('cuts a long place to the room its name leaves, and lets a placeless row stand alone', () => {
+    const place = 'the space in between the monitor glow and the darkness, and then some more of it besides';
+    const words = texts(
+      bookCard({
+        count: 2,
+        signers: [
+          { name: '@fancy11111.eurosky.social', place },
+          { name: 'Kuba', place: '' },
+        ],
+      }),
+    );
+    const cut = words.find((w) => w.startsWith('the space'));
+    expect(cut).not.toBe(place);
+    expect(cut.endsWith('…')).toBe(true);
+    expect(textWidth('@fancy11111.eurosky.social', 30) + 32 + textWidth(cut, 24)).toBeLessThanOrEqual(790);
+    expect(words).toContain('Kuba');
+  });
+
+  it('cuts a place with no spaces in it by the letter', () => {
+    const url = 'https://example.com/an/extraordinarily/long/address/with/no/spaces/at/all/anywhere/in/it';
+    const cut = texts(bookCard({ count: 1, signers: [{ name: '@x.com', place: url }] })).find((w) => w.startsWith('https://'));
+    expect(cut.endsWith('…')).toBe(true);
+    expect(cut.length).toBeLessThan(url.length);
+  });
+
+  it('sets a name written in fancy letters in the card’s own face', () => {
+    expect(texts(bookCard({ count: 1, signers: [{ name: '𝕮𝖍𝖆𝖗𝖑𝖎𝖊', place: '' }] }))).toContain('Charlie');
+  });
+
+  it('offers an empty book’s first line', () => {
+    const words = texts(bookCard({ count: 0, signers: [] }));
+    expect(words).toContain('The first line is yours.');
+    expect(words).toContain('0');
+  });
+});

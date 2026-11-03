@@ -17,6 +17,8 @@ import {
   subjectCardCopy,
   quotedDocument,
   subscribeCard,
+  guestbookCard,
+  GUESTBOOK_CARD_ROWS,
 } from './records.js';
 import {
   ME_DID,
@@ -142,7 +144,7 @@ describe('recordMeta — /curating/:slug', () => {
  * `posts` (keyed by at:// URI). Anything else is a 404 — never a throw, since
  * these resolvers ask several places before they give up.
  */
-function worldFetch({ records = {}, snapshots = {}, posts = {} } = {}) {
+function worldFetch({ records = {}, snapshots = {}, posts = {}, slingshot = {} } = {}) {
   const calls = [];
   vi.stubGlobal(
     'fetch',
@@ -168,6 +170,11 @@ function worldFetch({ records = {}, snapshots = {}, posts = {} } = {}) {
               value: records[key],
             })
           : notFound();
+      }
+      if (url.startsWith('https://slingshot.microcosm.blue/xrpc/com.atproto.repo.getRecord')) {
+        const q = new URL(url).searchParams;
+        const key = `${q.get('collection')}/${q.get('rkey')}`;
+        return slingshot[key] ? json(slingshot[key]) : notFound();
       }
       const snap = url.match(/\/data\/([^/?]+)\.json$/);
       if (snap && snap[1] in snapshots) return json(snapshots[snap[1]]);
@@ -799,5 +806,128 @@ describe('subscribeCard — the newsletter page as its email', () => {
     expect(await subscribeCard(ORIGIN)).toBeNull();
     worldFetch();
     expect(await subscribeCard(ORIGIN)).toBeNull();
+  });
+});
+
+describe('guestbookCard — the guestbook as its signers', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  let n = 0;
+  const signature = (handle, location, extra = {}) => {
+    n += 1;
+    const did = extra.did || `did:plc:signer${n}`;
+    return {
+      uri: `at://${did}/is.dame.guestbook.entry/3m${n}`,
+      did,
+      value: { text: 'hello', createdAt: '2026-09-01T00:00:00Z', ...(location ? { location } : {}) },
+      profile: handle ? { did, handle } : null,
+      hidden: false,
+      flagged: false,
+      ...extra,
+    };
+  };
+  const book = (entries, extra = {}) => ({
+    total: entries.length,
+    hiddenCount: entries.filter((e) => e.hidden).length,
+    flaggedCount: entries.filter((e) => e.flagged && !e.hidden).length,
+    entries,
+    ...extra,
+  });
+
+  it('lists the newest signers, each with the place they signed from', async () => {
+    worldFetch({
+      snapshots: {
+        guestbook: book([
+          signature('byjp.me', 'London, UK'),
+          signature('itisamystery.com', '  the space in between\nthe monitor glow  '),
+        ]),
+      },
+    });
+    expect(await guestbookCard(ORIGIN)).toEqual({
+      count: 2,
+      signers: [
+        { name: '@byjp.me', place: 'London, UK' },
+        { name: '@itisamystery.com', place: 'the space in between the monitor glow' },
+      ],
+    });
+  });
+
+  it('curates the book as the page does: hidden and flagged signatures are neither listed nor counted', async () => {
+    worldFetch({
+      snapshots: {
+        guestbook: book([
+          signature('kept.example', 'Here'),
+          signature('hidden.example', 'There', { hidden: true }),
+          signature('rude.example', 'Somewhere', { flagged: true }),
+        ]),
+      },
+    });
+    const card = await guestbookCard(ORIGIN);
+    expect(card.signers.map((s) => s.name)).toEqual(['@kept.example']);
+    expect(card.count).toBe(1);
+  });
+
+  it('reads the book’s hidden list again, so a signature hidden since the build stays off', async () => {
+    const late = signature('late.example', 'Elsewhere');
+    const released = signature('released.example', 'Back again', { hidden: true });
+    worldFetch({
+      snapshots: { guestbook: book([late, released, signature('kept.example', 'Here')]) },
+      slingshot: {
+        'is.dame.guestbook/self': {
+          uri: `at://${ME_DID}/is.dame.guestbook/self`,
+          value: { hidden: [late.uri] },
+        },
+      },
+    });
+    const card = await guestbookCard(ORIGIN);
+    expect(card.signers.map((s) => s.name)).toEqual(['@released.example', '@kept.example']);
+    expect(card.count).toBe(2);
+  });
+
+  it('gives each signer one row, and puts the signers who named a place first', async () => {
+    worldFetch({
+      snapshots: {
+        guestbook: book([
+          signature('quiet.example', ''),
+          signature('twice.example', 'Second time', { did: 'did:plc:twice' }),
+          signature('twice.example', 'First time', { did: 'did:plc:twice' }),
+          signature('placed.example', 'Somewhere'),
+        ]),
+      },
+    });
+    const card = await guestbookCard(ORIGIN);
+    expect(card.signers).toEqual([
+      { name: '@twice.example', place: 'Second time' },
+      { name: '@placed.example', place: 'Somewhere' },
+      { name: '@quiet.example', place: '' },
+    ]);
+  });
+
+  it('signs a row with the name given when there is no handle, and never with a bare DID', async () => {
+    worldFetch({
+      snapshots: {
+        guestbook: book([
+          signature(null, 'A', { value: { signature: 'Kuba', location: 'A', createdAt: '2026-01-01T00:00:00Z' } }),
+          signature('handle.invalid', 'B', { profile: { handle: 'handle.invalid', displayName: 'Named' } }),
+          signature(null, 'C'),
+        ]),
+      },
+    });
+    const card = await guestbookCard(ORIGIN);
+    expect(card.signers.map((s) => s.name)).toEqual(['Kuba', 'Named']);
+  });
+
+  it(`stops at ${GUESTBOOK_CARD_ROWS} rows but counts the whole book`, async () => {
+    const many = Array.from({ length: 12 }, (_, i) => signature(`s${i}.example`, `Place ${i}`));
+    worldFetch({ snapshots: { guestbook: book(many, { total: 40 }) } });
+    const card = await guestbookCard(ORIGIN);
+    expect(card.signers).toHaveLength(GUESTBOOK_CARD_ROWS);
+    expect(card.count).toBe(40);
+  });
+
+  it('draws nothing without a snapshot, so the page’s plain card stands in', async () => {
+    worldFetch();
+    expect(await guestbookCard(ORIGIN)).toBeNull();
+    expect(await guestbookCard(null)).toBeNull();
   });
 });

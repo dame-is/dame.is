@@ -544,6 +544,9 @@ export default async function middleware(request) {
       // The newsletter's page draws the email it sends, the same way, with the
       // page's ordinary card behind it.
       if (onSubscribe) ogParams.set('subscribe', '1');
+      // The guestbook draws its signers and the places they signed from, with
+      // the page's ordinary card behind it in the same way.
+      if (metaPath === '/welcoming') ogParams.set('guestbook', '1');
       ogImage = `${ORIGIN}/api/og?${ogParams.toString()}`;
       atUri = topLevelAtUri(path, pageContent?.atUri);
       // The explorer's sub-pages are anybody's repository, collection or
