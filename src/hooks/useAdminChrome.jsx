@@ -64,6 +64,17 @@ const EMPTY = Object.freeze({
   state: null,
 });
 
+const NO_SLOTS = Object.freeze({ status: null, strip: null });
+
+/** The running head, unlent — what every public route sees. */
+const NO_HEAD = Object.freeze({
+  claimed: false,
+  claim: () => {},
+  slots: NO_SLOTS,
+  setStatusSlot: () => {},
+  setStripSlot: () => {},
+});
+
 export function AdminChromeProvider({ children }) {
   // One object rather than three states: the admin publishes them together on
   // every change, and splitting them would let the chrome paint a Save button
@@ -76,7 +87,33 @@ export function AdminChromeProvider({ children }) {
     setPublished(next || EMPTY);
   }, []);
 
-  const value = useMemo(() => ({ ...published, publish }), [published, publish]);
+  // THE RUNNING HEAD, LENT. A studio with something live to say — the Ratioed
+  // studio while a piece is up — may claim the top bar's status and a strip
+  // under its row. It cannot draw into ChromeBar any more than the bottom bar's
+  // panels can be drawn from there, and for the same reason (the admin's
+  // modules stay out of the eager bundle), so the exchange runs the other way
+  // round: the studio claims, ChromeBar answers by rendering two empty
+  // elements and handing them back here, and the studio portals its own
+  // content into them. A clock that ticks twenty times a second then re-renders
+  // inside the chrome without re-rendering the chrome.
+  const [claimed, setClaimed] = useState(false);
+  const claim = useCallback((on) => setClaimed(Boolean(on)), []);
+  const [slots, setSlots] = useState(NO_SLOTS);
+  // Callback refs: called with the element on mount and null on unmount.
+  const setStatusSlot = useCallback(
+    (el) => setSlots((s) => (s.status === el ? s : { ...s, status: el })),
+    [],
+  );
+  const setStripSlot = useCallback(
+    (el) => setSlots((s) => (s.strip === el ? s : { ...s, strip: el })),
+    [],
+  );
+  const head = useMemo(
+    () => ({ claimed, claim, slots, setStatusSlot, setStripSlot }),
+    [claimed, claim, slots, setStatusSlot, setStripSlot],
+  );
+
+  const value = useMemo(() => ({ ...published, publish, head }), [published, publish, head]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -103,11 +140,15 @@ export function AdminChromeProvider({ children }) {
  *              drawn by the admin, inside the panel, from its own component.
  *   publish  — the admin only. It publishes the whole object at once (see
  *              above) and publishes `null` on unmount.
+ *   head     — the running head, lent (see the provider). `claim(true)` asks for
+ *              it; `claimed` is the answer ChromeBar reads; `slots` are the two
+ *              elements ChromeBar hands back through `setStatusSlot` and
+ *              `setStripSlot`, null until it has drawn them.
  *
  * PANELS ARE NOT PUBLISHED. `admin-nav` and `admin-actions` are rendered by the
  * admin, which is the only tree that can draw a surface directory; the chrome
  * only owns the two buttons that toggle them through `useChromePanel`.
  */
 export function useAdminChrome() {
-  return useContext(Ctx) || { ...EMPTY, publish: () => {} };
+  return useContext(Ctx) || { ...EMPTY, publish: () => {}, head: NO_HEAD };
 }

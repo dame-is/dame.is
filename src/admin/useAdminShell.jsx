@@ -121,8 +121,12 @@ export const CLEAN = Object.freeze({
  * @property {boolean} [disabled]
  * @property {boolean} [busy]                 Renders `busyLabel`, sets aria-busy, and disables.
  * @property {string}  [busyLabel]            Defaults to `label`.
- * @property {'primary'|'quiet'|'danger'} [tone]  Defaults: last action in slot 3 is `primary`,
- *                                            every other control is `quiet`.
+ * @property {'primary'|'quiet'|'danger'|'seal'} [tone]  Defaults: last action in slot 3 is
+ *                                            `primary`, every other control is `quiet`. `seal` is
+ *                                            the Ratioed studio's Seal: filled, with its lock.
+ * @property {boolean} [alarm]                A `seal` that has become urgent: a like has landed.
+ * @property {string}  [color]                The colour an `alarm` is painted in, as a CSS colour
+ *                                            string (the hour's like colour, from the studio).
  * @property {string}  [ariaLabel]            When the visible label is not the whole name.
  * @property {string}  [confirm]              A sentence. When set, the action only runs if the
  *                                            owner confirms it — this is how Delete stays

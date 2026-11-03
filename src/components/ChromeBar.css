@@ -159,6 +159,20 @@
   }
 }
 
+/* The running head, lent (useAdminChrome.jsx): the strip a studio draws under
+   the row while something is live. Full-bleed like the bar, in place of the
+   bar's own bottom rule — the strip IS the bar's lower edge while it is up,
+   rather than a second line under it. What goes in it is the studio's to
+   style; this only gives it the edge. */
+.chrome-bar-top:has(> .chrome-bar-strip) {
+  border-bottom: 0;
+}
+
+.chrome-bar-strip {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
 /* The status and the trail share one grid cell and cross-fade, so swapping
    one for the other never changes the row's size or moves the wordmark.
    Opacity only: it runs on the compositor, and a reader scrolling past the
@@ -1029,6 +1043,56 @@
   border-color: color-mix(in srgb, var(--danger) 55%, var(--rule));
   background: var(--page);
   color: var(--danger);
+}
+
+/* Seal: a live Ratioed piece's one control, published by the studio as its
+   primary. Filled like the compass, the bar's other filled control, with the
+   lock beside the word; and it never gives up its room to the other chips,
+   since it is the one in the bar worth milliseconds. Once a like has landed it
+   goes to the colour the studio gives a like at this hour (`--chip-alarm`,
+   set inline from what it published) and a step heavier — the same button in
+   the same place, louder, as the studio's own seal was drawn. */
+.chrome-nav.chrome-admin-action[data-tone='seal'] {
+  flex: 0 0 auto;
+}
+
+.chrome-nav.chrome-admin-action[data-tone='seal'] .chrome-nav-face,
+.chrome-nav.chrome-admin-action[data-tone='seal']:focus-visible .chrome-nav-face {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border-color: var(--rule);
+  background: var(--accent-fill);
+  color: var(--page);
+  font-weight: 600;
+}
+
+.chrome-nav.chrome-admin-action[data-tone='seal'] .chrome-nav-glyph {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chrome-nav.chrome-admin-action[data-tone='seal']:hover .chrome-nav-face {
+    background: var(--accent-fill-hover);
+    color: var(--page);
+  }
+}
+
+.chrome-nav.chrome-admin-action[data-tone='seal'][data-alarm] .chrome-nav-face,
+.chrome-nav.chrome-admin-action[data-tone='seal'][data-alarm]:hover .chrome-nav-face {
+  background: var(--chip-alarm, var(--danger));
+  border-color: var(--chip-alarm, var(--danger));
+  color: var(--page);
+  font-weight: 700;
+}
+
+/* Pressed and writing: held where it is, dimmed rather than dashed, so the
+   word "Sealing…" stays legible on the fill. */
+.chrome-nav.chrome-admin-action[data-tone='seal']:disabled .chrome-nav-face {
+  border-style: solid;
+  color: var(--page);
+  opacity: 0.7;
 }
 
 /* Disabled is a line not yet drawn, as the kit draws it. */

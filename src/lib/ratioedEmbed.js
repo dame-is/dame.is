@@ -122,6 +122,28 @@ function quoteMark(record) {
 }
 
 /**
+ * A quote of the piece, less the piece.
+ *
+ * Every quote row in a piece's feed quotes the same post: that is what makes it
+ * a row of the feed at all. So the quoted half of its embed is the piece itself,
+ * drawn again in full under every quote somebody writes about it, and the mark
+ * on the row ("@dame.is") names the one author it could ever name. What the
+ * row has to show is whatever the person attached beside the quote, which on
+ * the wire is the `media` half of a `recordWithMedia` — and for a bare quote,
+ * nothing.
+ *
+ * Only the two record types are touched. Anything else is returned as it came,
+ * which keeps this safe to call on a row that turned out not to be a quote.
+ */
+export function withoutQuoted(embed) {
+  if (!embed || typeof embed !== 'object') return null;
+  const type = String(embed.$type || '');
+  if (type.startsWith('app.bsky.embed.recordWithMedia')) return embed.media || null;
+  if (type.startsWith('app.bsky.embed.record')) return null;
+  return embed;
+}
+
+/**
  * Every mark a post's embed earns, in the order they should be read.
  *
  * An array rather than one mark because `recordWithMedia` is genuinely two

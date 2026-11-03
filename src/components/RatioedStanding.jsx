@@ -88,19 +88,28 @@ export default function RatioedStanding({
 }
 
 /**
- * What the piece has drawn, as the sentences `countsSentence` writes, each in
- * its tone: the likes sentence is the one that matters and reads differently
- * while there are none, once there is one, and for one taken back.
+ * What the piece has drawn, as the one line `countsSentence` writes: replies,
+ * reposts, quotes and people, never the likes (see there). One line at most
+ * (RatioedStanding.css); the whole of it is on the title for a line cut short.
+ * Nothing at all when the line has nothing to say.
  */
 export function RatioedCounts({ rows, selfDid, className = '' }) {
   const segments = countsSentence(rows, { selfDid });
+  if (!segments.length) return null;
   return (
     // Not a live region: it changes with every arrival, and the thread under
     // it is where those are read.
-    <p className={`rstand-counts${className ? ` ${className}` : ''}`}>
+    <p
+      className={`rstand-counts${className ? ` ${className}` : ''}`}
+      title={segments.map((s) => s.text).join(' · ')}
+    >
       {segments.map((s, i) => (
-        <span key={s.text} className={s.tone ? `is-${s.tone}` : undefined}>
-          {i > 0 ? ' ' : ''}
+        <span key={s.text}>
+          {i > 0 && (
+            <span className="rstand-sep" aria-hidden="true">
+              {' · '}
+            </span>
+          )}
           {s.text}
         </span>
       ))}

@@ -19,12 +19,12 @@
 // PageShell and no back link of its own. Two things follow from living in a
 // shell that never remounts:
 //
-//  1. **Seal is not routed through the shell's status strip.** Every
-//     millisecond between the like and the threadgate write is in the recorded
-//     reaction time, so the button stays here, next to the alarm, with no
-//     confirm and no debounce in front of it. Nothing in this studio is a
-//     staged edit waiting on a generic Save, so it reports no dirty state
-//     either.
+//  1. **Seal is not a staged Save.** Every millisecond between the like and
+//     the threadgate write is in the recorded reaction time, so nothing stands
+//     in front of it: no confirm, no debounce, no dirty state. On a desk it is
+//     drawn here, next to the alarm. On a phone it is published as the site's
+//     bottom-bar primary (`lend`, below), which runs the action the moment it
+//     is pressed — the same `seal`, under the thumb, with the alarm's colour.
 //  2. **Unmounting is what stops the watch.** The pane keys the studio on the
 //     surface, so selecting another surface really does unmount this component
 //     — and the effect teardowns below are the only thing that close a ~166
@@ -32,6 +32,7 @@
 //     something here returns the thing that stops it.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { RichText } from '@atproto/api';
 import { Send, Lock, RefreshCw, Radio, Wrench, UserPen } from 'lucide-react';
@@ -41,11 +42,14 @@ import SectionHead from './SectionHead.jsx';
 import Time from './Time.jsx';
 import RatioedClock from './RatioedClock.jsx';
 import RatioedStanding, { RatioedCounts } from './RatioedStanding.jsx';
+import { RecordTrack } from './RatioedRecord.jsx';
 import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
 import RatioedSeismograph from './RatioedSeismograph.jsx';
 import RatioedSeries from './RatioedSeries.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
+import { useAdminChrome } from '../hooks/useAdminChrome.jsx';
+import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
   loadPieces,
@@ -570,6 +574,68 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
     return undefined;
   }, [onFocus, liveKey, focusOn]);
   useEffect(() => () => onFocus?.(false), [onFocus]);
+
+  // On a phone the admin wears the site's own two bars, and while a piece is up
+  // the studio borrows both. The running head's status says what is happening
+  // ("getting ratioed", and for how long) and carries the record bar as a strip
+  // under its row (useAdminChrome.jsx, "the running head, lent"); the seal is
+  // the bottom bar's primary action, under the thumb. That is what lets the
+  // page drop its own dock and the statement's floor, which between them held
+  // a fifth of a phone's screen. A desk keeps the seal row; a desk window too
+  // narrow for the grid keeps the dock, since it has no site bars to borrow.
+  const { stacked, registerBar } = useAdminShell();
+  const { head } = useAdminChrome();
+  const lend = stacked && Boolean(liveKey);
+  const claimHead = head.claim;
+  useEffect(() => {
+    claimHead(lend);
+    return () => claimHead(false);
+  }, [claimHead, lend]);
+
+  // The seal, published. Through refs, because the bar's payload sits above
+  // the admin and is compared by identity: a fresh function every render would
+  // republish on every tick of the clock. The ref always holds this render's
+  // `seal`, so the press is never a stale closure over an old `live`.
+  const sealRef = useRef(null);
+  sealRef.current = seal;
+  const remeasureRef = useRef(null);
+  remeasureRef.current = remeasure;
+  const sealAlarm = seenLike && !sealedNow;
+  const sealColor = scale['--ratioed-seal'];
+  const sealFailed = Boolean(error);
+  useEffect(() => {
+    if (!lend) return undefined;
+    // What the seal's place holds, as the studio's own seal control has it:
+    // the seal until it is pressed, then the one thing left to do if the
+    // measurement after it failed, then nothing.
+    const action = !sealedNow
+      ? {
+          id: 'seal',
+          label: 'Seal',
+          tone: 'seal',
+          alarm: sealAlarm,
+          color: sealAlarm ? sealColor : undefined,
+          busy: busy === 'seal',
+          busyLabel: 'Sealing…',
+          disabled: Boolean(busy),
+          onPress: () => sealRef.current?.(),
+        }
+      : sealFailed
+        ? {
+            id: 'measure',
+            label: 'Measure again',
+            busy: busy === 'measure',
+            busyLabel: 'Measuring…',
+            disabled: Boolean(busy),
+            onPress: () => {
+              setError(null);
+              remeasureRef.current?.();
+            },
+          }
+        : null;
+    registerBar({ status: null, actions: action ? [action] : [], overflow: null });
+    return () => registerBar(null);
+  }, [lend, sealedNow, sealAlarm, sealColor, sealFailed, busy, registerBar]);
 
   // The seal row's height, for the two wings under it: they stay in view
   // beside the thread, and have to stop where the row pinned above them ends,
@@ -1727,6 +1793,49 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
     // margins, which only happens inside a block container — the pane itself is
     // a flex column with a gap.
     <div className="rs-root">
+      {/* The running head, borrowed on a phone while a piece is up (see
+          `lend`). Drawn from here and portalled into the two elements the
+          site's top bar hands back, so the clock re-renders in the chrome
+          without the chrome re-rendering. The hour's ratioed hues are set on
+          each, since neither is inside the section that defines them. */}
+      {lend &&
+        live &&
+        head.slots.status &&
+        createPortal(
+          // One status for the whole of the piece: what the site is doing, and
+          // for how long. The like is said by the strip, the seal and the
+          // statement in the page; the status is not where it is announced.
+          <span className="chrome-signal-value rs-head-status">
+            <strong>getting ratioed</strong>
+            <span className="chrome-signal-meta">{fmtDuration(aliveMs)}</span>
+          </span>,
+          head.slots.status,
+        )}
+      {lend &&
+        live &&
+        head.slots.strip &&
+        createPortal(
+          <div
+            className={`rs-strip${alarming ? ' is-liked' : ''}${justSealed ? ' is-sealed' : ''}`}
+            style={scale}
+          >
+            {/* Somebody liked it: nothing left to measure toward, and the strip
+                says so in the like's colour, end to end, as the statement's own
+                rule does. */}
+            {alarming ? (
+              <span className="rs-strip-rule" aria-hidden="true" />
+            ) : (
+              <RecordTrack
+                elapsedMs={aliveMs}
+                record={longest}
+                pieces={done}
+                marks={takenBackMarks}
+                className="rs-strip-track"
+              />
+            )}
+          </div>,
+          head.slots.strip,
+        )}
       {error && (
         <p className="rs-error" role="alert">
           {error}
@@ -1763,6 +1872,8 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
           className={`rs-live${alarming ? ' liked' : !justSealed && withdrawn ? ' withdrawn' : ''}${
             justSealed ? ' sealed' : ''
           }`}
+          // The site's bars are carrying the record bar and the seal.
+          data-chrome={lend ? '' : undefined}
           aria-label={`Take ${pieceSlug(live)}, live`}
         >
           {/* THE SEAL ROW. On a wide pane it is laid on the page grid and held
@@ -1937,7 +2048,7 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
                 artist's own records are in the log and in none of the counts. */}
             <aside className="rs-tally" aria-label="What it has drawn">
               <p className="rs-side-head">Drawn</p>
-              <RatioedCounters tally={tally} />
+              <RatioedCounters tally={tally} likes={false} />
             </aside>
 
             <div className="rs-feed">
@@ -2041,8 +2152,12 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
                         ],
                   );
                 }}
-                below={(e) =>
-                  replyTo?.rkey === e.rkey ? (
+                // Under its row while that row is open. Opening another row
+                // closes this one, and the composer goes with it rather than
+                // being left under a row that no longer shows its controls;
+                // what was typed is kept and comes back with the row.
+                below={(e, isOpen) =>
+                  isOpen && replyTo?.rkey === e.rkey ? (
                     <div className="rs-reply-box">
                       <label className="rs-reply-label">
                         <span className="rs-reply-where">
@@ -2096,22 +2211,25 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
           {/* THE DOCK. The narrow pane's seal, held at the pane's floor where a
               thumb rests, with the one number that matters beside it: how long
               it has stood, or, once somebody has liked it, the reaction time
-              running. Not drawn on a wide pane, where the seal row has it. */}
-          <div className="rs-dock">
-            <p className="rs-dock-say">
-              <span className="rs-dock-top">
-                {alarming ? `@${breakerName}` : justSealed ? 'sealed' : `take ${pieceSlug(live)}, standing`}
-              </span>
-              <span className="rs-dock-big">
-                {alarming && likeAtMs != null ? (
-                  <RatioedClock fromMs={likeAtMs} running={!busy && !justSealed} />
-                ) : (
-                  fmtDuration(aliveMs)
-                )}
-              </span>
-            </p>
-            {sealControl}
-          </div>
+              running. Not drawn on a wide pane, where the seal row has it, nor
+              on a phone, where the site's own bars carry both (`lend`). */}
+          {!lend && (
+            <div className="rs-dock">
+              <p className="rs-dock-say">
+                <span className="rs-dock-top">
+                  {alarming ? `@${breakerName}` : justSealed ? 'sealed' : `take ${pieceSlug(live)}, standing`}
+                </span>
+                <span className="rs-dock-big">
+                  {alarming && likeAtMs != null ? (
+                    <RatioedClock fromMs={likeAtMs} running={!busy && !justSealed} />
+                  ) : (
+                    fmtDuration(aliveMs)
+                  )}
+                </span>
+              </p>
+              {sealControl}
+            </div>
+          )}
         </section>
       ) : announce ? null : (
         <section className="rs-compose">

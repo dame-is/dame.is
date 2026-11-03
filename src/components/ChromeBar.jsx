@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Lock, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyMarkUrl } from '../lib/skyAvatars.js';
@@ -194,6 +194,13 @@ export default function ChromeBar() {
   // index pages show theirs only in the running head, once scrolled.
   const isDetailPage = crumbs.length >= 2;
   const inAdmin = location.pathname === '/admin';
+  // A studio with something live to say has asked for the running head (the
+  // Ratioed studio while a piece is up; useAdminChrome.jsx, "the running head,
+  // lent"). The status cell and a strip under the row become two empty
+  // elements it draws into, and the status stays up rather than giving way to
+  // the trail: it is the one line on the screen that says what is happening.
+  const { head: adminHead } = useAdminChrome();
+  const headLent = inAdmin && adminHead.claimed;
   // On /admin the masthead isn't drawn (below), so its atmosphere is never in view.
   const head = useRunningHead({
     mountedPath,
@@ -211,7 +218,7 @@ export default function ChromeBar() {
   // takes the status's place in the pinned row, and the record NSID joins it
   // on a desktop.
   const pastTop = head.hasTitle ? head.pastTitle : !!dayLabel || scrolledDown;
-  const reading = crumbs.length > 0 && pastTop;
+  const reading = !headLent && crumbs.length > 0 && pastTop;
 
   // Right edge of the strip: the AT Protocol collection you're looking
   // at. On feed pages it tracks the record at the top of the scroll
@@ -395,7 +402,14 @@ export default function ChromeBar() {
                 inert={reading ? '' : undefined}
                 aria-hidden={reading ? true : undefined}
               >
-                <NowStatus />
+                {headLent ? (
+                  <span
+                    ref={adminHead.setStatusSlot}
+                    className="chrome-signal chrome-signal-status chrome-head-lent"
+                  />
+                ) : (
+                  <NowStatus />
+                )}
               </div>
               {crumbs.length > 0 && (
                 <nav
@@ -454,6 +468,12 @@ export default function ChromeBar() {
             </span>
           </button>
         </div>
+
+        {/* The strip a lent running head carries under its row: a measure of
+            whatever is live, drawn by the studio that borrowed it. In the bar
+            rather than over the page, so the bar's measured height
+            (`--chrome-top-h`) includes it and the admin's frame starts below. */}
+        {headLent && <div ref={adminHead.setStripSlot} className="chrome-bar-strip" />}
 
         {/* The atmosphere brought back over the page once the masthead has
             scrolled away: an overlay pinned under the running head, slid open
@@ -1204,17 +1224,34 @@ const ChromeBarBottom = memo(function ChromeBarBottom({
                   // One tap, no sheet in the way: Save, Create, New, Refresh.
                   // Any confirm question the action carries is already inside
                   // `run`, so this button never has to know an action can refuse.
+                  //
+                  // And Seal, the one primary that is not an edit: it closes a
+                  // live Ratioed piece, and every moment between a like and the
+                  // press is in the reaction time the record keeps. So it is
+                  // filled, carries the lock it is drawn with in the studio,
+                  // and once somebody has liked the piece (`alarm`) it takes
+                  // the colour the studio gives a like at this hour (`color`, a
+                  // plain string like everything else published here).
                   <button
                     type="button"
                     className="chrome-nav chrome-admin-action"
-                    data-tone={adminPrimary.danger ? 'danger' : 'primary'}
+                    data-tone={
+                      adminPrimary.danger ? 'danger' : adminPrimary.tone === 'seal' ? 'seal' : 'primary'
+                    }
+                    data-alarm={adminPrimary.alarm ? '' : undefined}
                     data-dirty={adminState?.dirty ? '' : undefined}
+                    style={adminPrimary.color ? { '--chip-alarm': adminPrimary.color } : undefined}
                     disabled={adminPrimary.disabled}
                     aria-busy={adminPrimary.busy ? 'true' : undefined}
                     onClick={adminPrimary.run}
                     title={adminPrimary.label}
                   >
-                    <ChipBody>{adminPrimary.label}</ChipBody>
+                    <ChipBody>
+                      {adminPrimary.tone === 'seal' && (
+                        <Lock className="chrome-nav-glyph" aria-hidden="true" strokeWidth={2} />
+                      )}
+                      <span className="chrome-admin-action-label">{adminPrimary.label}</span>
+                    </ChipBody>
                   </button>
                 )}
                 {/* Atmosphere inspect — the marquee "turn the page inside out"

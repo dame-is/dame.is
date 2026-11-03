@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { embedMarks, linkHost, THUMB_MAX } from './ratioedEmbed.js';
+import { embedMarks, linkHost, THUMB_MAX, withoutQuoted } from './ratioedEmbed.js';
 
 const images = (n) => ({
   $type: 'app.bsky.embed.images#view',
@@ -184,5 +184,35 @@ describe('embedMarks', () => {
       external: { uri: 'https://example.com/x' },
     });
     expect(marks).toEqual([{ kind: 'link', count: 1, label: 'example.com', thumbs: [] }]);
+  });
+});
+
+describe('withoutQuoted', () => {
+  const quoted = {
+    $type: 'app.bsky.embed.record#view',
+    record: { $type: 'app.bsky.embed.record#viewRecord', uri: 'at://did:plc:me/app.bsky.feed.post/1', author: { handle: 'dame.is' } },
+  };
+
+  it('leaves a bare quote of the piece with nothing to show', () => {
+    expect(withoutQuoted(quoted)).toBeNull();
+    expect(withoutQuoted({ $type: 'app.bsky.embed.record', record: { uri: 'at://x' } })).toBeNull();
+  });
+
+  it('keeps the picture beside the quote and drops the quote', () => {
+    const media = images(2);
+    const embed = { $type: 'app.bsky.embed.recordWithMedia#view', media, record: { record: quoted.record } };
+    expect(withoutQuoted(embed)).toBe(media);
+    expect(embedMarks(withoutQuoted(embed)).map((m) => m.kind)).toEqual(['images']);
+  });
+
+  it('is nothing for a recordWithMedia that carries no media', () => {
+    expect(withoutQuoted({ $type: 'app.bsky.embed.recordWithMedia#view', record: {} })).toBeNull();
+  });
+
+  it('passes every other embed through untouched', () => {
+    const pics = images(1);
+    expect(withoutQuoted(pics)).toBe(pics);
+    expect(withoutQuoted(null)).toBeNull();
+    expect(withoutQuoted(undefined)).toBeNull();
   });
 });
