@@ -607,23 +607,27 @@ button.guestbook-entry-location {
   border-top: 0;
 }
 
-.guestbook-blank-body {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-}
-
+/* Where the note goes, at the note's size, in italic. */
 .guestbook-blank-text {
   margin: 0;
   font-size: var(--text-lg);
+  line-height: 1.5;
   font-style: italic;
   color: var(--ink-muted);
 }
 
-.guestbook-blank-sign {
+/* Where the handle and place go: the sign button, as tall as the empty
+   portrait beside it (or the kit's 44px under a finger), at its own width. */
+.guestbook-entry-blank .guestbook-blank-sign {
+  align-self: flex-start;
+  min-height: 2.5rem;
   cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .guestbook-entry-blank .guestbook-blank-sign {
+    min-height: var(--control-h-touch);
+  }
 }
 
 /* An empty book: today's own line, under the collection it's waiting on. */

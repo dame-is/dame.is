@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Signature } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
@@ -15,7 +15,7 @@ import {
   setEntryHidden,
   signGuestbook,
 } from '../lib/guestbook.js';
-import { clearDraft, readDraft, registerNumbers } from '../lib/guestbookRegister.js';
+import { clearDraft, readDraft, registerDate, registerNumbers } from '../lib/guestbookRegister.js';
 import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
 import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
 import { ME_DID, GUESTBOOK_SUBJECT, GUESTBOOK_ENTRY_NSID } from '../config.js';
@@ -458,28 +458,41 @@ export default function Guestbook() {
 }
 
 /**
- * The book's next blank line: the call to action, numbered where the next
- * signature will go, with the page's one filled button at its end. It opens
- * the sign sheet on a page numbered for this line, with the cursor in the
- * note under a mouse. While a note written before a sign-in hop is being
- * saved, it says so.
+ * The book's next blank line: the call to action, set out as a line not yet
+ * written, in the same shape as the signatures under it. Its number and
+ * today's date head it (the date the line would carry, on Dame's calendar);
+ * "The next line is yours." stands where the note goes; and where a
+ * signature's portrait, handle and place go, an empty dashed portrait sits
+ * beside the page's one filled button. The button opens the sign sheet on a
+ * page numbered for this line, with the cursor in the note under a mouse.
+ * While a note written before a sign-in hop is being saved, the note's line
+ * says so.
  */
 function BlankLine({ number, first = false, status = null, onSign }) {
+  const today = useMemo(() => registerDate(new Date().toISOString()), []);
   return (
     <li className="guestbook-entry guestbook-entry-blank">
       <span className="guestbook-entry-number">{number ?? ''}</span>
-      <div className="guestbook-entry-body guestbook-blank-body">
+      <div className="guestbook-entry-body">
+        {today && <span className="guestbook-entry-time">{today}</span>}
         <p className="guestbook-blank-text" role={status ? 'status' : undefined}>
           {status || (first ? 'The first line is yours.' : 'The next line is yours.')}
         </p>
-        <button
-          type="button"
-          className="btn btn--primary guestbook-blank-sign"
-          onClick={onSign}
-        >
-          <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
-          Sign the guestbook
-        </button>
+        <div className="guestbook-entry-sig">
+          <span className="guestbook-entry-avatar" aria-hidden="true">
+            <span className="guestbook-entry-avatar-fallback">@</span>
+          </span>
+          <span className="guestbook-entry-id">
+            <button
+              type="button"
+              className="btn btn--primary guestbook-blank-sign"
+              onClick={onSign}
+            >
+              <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
+              Sign the guestbook
+            </button>
+          </span>
+        </div>
       </div>
     </li>
   );
