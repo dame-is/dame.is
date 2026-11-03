@@ -11,9 +11,10 @@ import '../pages/Guestbook.css';
 /**
  * One guestbook signature as a line in the register — shared between
  * /welcoming and the admin moderation panel. Its
- * number hangs in the margin; the note comes first, in the reading size; one
- * small signature line follows (avatar, name, handle, the place in the
- * signer's own words) and closes on the date, which is the permalink. The
+ * number hangs in the margin; the note comes first, in the reading size; a
+ * small signature follows: avatar, name and handle on one line closed by the
+ * date (the permalink), the place in the signer's own words under the name.
+ * At a desk the register sets the date in the margin, under the number. The
  * record's CID stays in x-ray, one click away, rather than on every line.
  *
  *   - `number`                     → the register number (none while it's
@@ -62,6 +63,10 @@ export default function GuestbookEntryRow({
   const when = registerDate(value.createdAt) ? (
     <Time value={value.createdAt} variant="dateShort" />
   ) : null;
+  // The place, in the signer's words. The pen labels it "from", and the line
+  // says so too, unless the signer already wrote "from …".
+  const place = typeof value.location === 'string' ? value.location.trim() : '';
+  const placeSaysFrom = /^from\s/i.test(place);
   const hasControls = mine || moderating;
   // Flagged by the language filter (or on the host's hidden list): benched from
   // the public view. Both only ever render here in moderation, dimmed.
@@ -116,7 +121,14 @@ export default function GuestbookEntryRow({
           </p>
         ) : null}
 
-        <p className="guestbook-entry-sig">
+        {/* The signature: a small grid with a fixed place for each part, so
+            a long name, handle or place wraps inside its own slot instead of
+            pushing the rest about. The avatar and who signed on the first
+            line, the date closing it; the place on a line of its own under
+            the name; the controls under that. On the /welcoming register at
+            a desk the date steps out into the margin under the line number
+            (Guestbook.css). */}
+        <div className="guestbook-entry-sig">
           <span className="guestbook-entry-avatar" aria-hidden="true">
             {profile?.avatar ? (
               <img src={avatarThumb(profile.avatar)} alt="" loading="lazy" width={20} height={20} />
@@ -128,22 +140,29 @@ export default function GuestbookEntryRow({
               </span>
             )}
           </span>
-          {name && (
-            <span className="guestbook-entry-name">
-              {handle ? (
-                <a href={`https://bsky.app/profile/${handle}`} target="_blank" rel="noreferrer noopener">
-                  {name}
-                </a>
-              ) : (
-                name
-              )}
-            </span>
-          )}
-          {showHandle && <span className="guestbook-entry-handle">@{handle}</span>}
-          {value.location && <span className="guestbook-entry-location">{value.location}</span>}
+          <span className="guestbook-entry-who">
+            {name && (
+              <span className="guestbook-entry-name">
+                {handle ? (
+                  <a href={`https://bsky.app/profile/${handle}`} target="_blank" rel="noreferrer noopener">
+                    {name}
+                  </a>
+                ) : (
+                  name
+                )}
+              </span>
+            )}
+            {showHandle && <span className="guestbook-entry-handle">@{handle}</span>}
+          </span>
           {when && (
             <span className="guestbook-entry-time">
               {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
+            </span>
+          )}
+          {place && (
+            <span className="guestbook-entry-location">
+              {!placeSaysFrom && <span className="guestbook-entry-from">from </span>}
+              {place}
             </span>
           )}
           {hasControls && (
@@ -187,7 +206,7 @@ export default function GuestbookEntryRow({
               )}
             </span>
           )}
-        </p>
+        </div>
         {modError && <p className="signin-error">{modError}</p>}
         {removeError && <p className="signin-error">{removeError}</p>}
 

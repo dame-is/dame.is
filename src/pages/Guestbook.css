@@ -404,16 +404,25 @@
   color: var(--accent);
 }
 
-/* The signature line: a small avatar, the name in small caps, the handle,
-   the place in the signer's words, and the date at the far end, which is
-   the permalink. */
+/* The signature: a small grid with one slot per part, so a long name,
+   handle or place wraps inside its own slot. As one wrapping row it threw
+   the date onto a line of its own and could start a line with a stray "·".
+
+     [av] NAME  @handle               SEP 1, 2026
+          from the place, in the signer's own words,
+          wrapping under itself
+          remove · hide
+
+   The avatar's column is the avatar's width and the date takes what it
+   needs at the far end of the first line, the permalink. The place and the
+   controls start under the name and run to the end of the line. A name too
+   long for its slot wraps there, handle under name. */
 .guestbook-entry-sig {
-  /* The full row, not the prose measure: the date closes it at the far end. */
-  max-width: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.15rem 0.5rem;
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  row-gap: 0.125rem;
+  align-items: start;
   margin: 0;
   font-size: var(--text-sm);
   line-height: 1.4;
@@ -421,6 +430,8 @@
 }
 
 .guestbook-entry-avatar {
+  grid-column: 1;
+  grid-row: 1;
   flex: none;
   width: 20px;
   height: 20px;
@@ -447,7 +458,19 @@
   border: 1px dashed var(--rule);
 }
 
+.guestbook-entry-who {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+}
+
 .guestbook-entry-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-variant: all-small-caps;
   letter-spacing: 0.06em;
   color: var(--ink-soft);
@@ -463,23 +486,30 @@
 }
 
 .guestbook-entry-handle {
+  min-width: 0;
   font-family: var(--sans);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 
+/* The place on a line of its own, in the signer's words and in italic, after
+   the "from" the pen labels it with. */
 .guestbook-entry-location {
+  grid-column: 2 / -1;
+  min-width: 0;
   font-style: italic;
+  overflow-wrap: break-word;
 }
 
-.guestbook-entry-location::before {
-  content: '·';
-  margin-right: 0.5rem;
+.guestbook-entry-from {
   font-style: normal;
 }
 
 .guestbook-entry-time {
-  margin-left: auto;
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  padding-left: var(--space-2);
   white-space: nowrap;
   font-variant: all-small-caps;
   font-variant-numeric: lining-nums tabular-nums;
@@ -495,8 +525,38 @@
   color: var(--accent);
 }
 
+/* On the register at a desk the date steps out into the margin, under the
+   line number and level with the name: the note column holds the line's
+   facts, its number and its day, as the home ledger's holds its verb and
+   time, and the text column keeps what was written and who wrote it. Set to
+   the margin's right edge, like the number above it. (The admin's
+   moderation list has no margin, so it keeps the date at the line's end.) */
+@media (min-width: 701px) {
+  .guestbook-entries .guestbook-entry-sig {
+    position: relative;
+    grid-template-columns: 1.25rem minmax(0, 1fr);
+  }
+
+  /* Placement back to auto: an absolutely positioned grid item with a
+     placement takes that cell as its containing block, and column 3 isn't
+     there at this width. Auto measures from the signature itself. */
+  .guestbook-entries .guestbook-entry-time {
+    grid-column: auto;
+    grid-row: auto;
+    position: absolute;
+    top: 0;
+    right: calc(100% + var(--gb-num-gap));
+    width: var(--gb-num-col);
+    padding-left: 0;
+    text-align: right;
+  }
+}
+
+/* Remove (the signer's own line) and the host's hide / unhide, on a line of
+   their own under the place. */
 .guestbook-entry-controls {
-  display: inline-flex;
+  grid-column: 2 / -1;
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
