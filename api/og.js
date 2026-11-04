@@ -16,6 +16,8 @@
 //   /api/og?doc=3mz4…&quote=a+passage → a passage of an essay, set as a
 //                                       quotation (found in the record first)
 //   /api/og?subscribe=1             → the newsletter's page, drawn as its email
+//   /api/og?guestbook=1             → the guestbook, as its newest signers and
+//                                     where they signed from
 //   /api/og?title=Foo&subtitle=Bar  → ad-hoc copy
 //   /api/og?theme=dark              → dark (green-black) variant
 //   /api/og                         → the home "index" card
@@ -47,6 +49,7 @@ import {
   SUBJECT_CARD_KEYS,
   quotedDocument,
   subscribeCard,
+  guestbookCard,
 } from '../og/records.js';
 import { lookupArtwork } from './_lib/itunes.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
@@ -483,6 +486,15 @@ export default async function handler(req, res) {
     if (!quoteTaken && (q.subscribe === '1' || q.subscribe === 'true')) {
       letter = await subscribeCard(origin);
     }
+    // The guestbook, drawn as its signers. Nothing comes in on the query but
+    // the flag: the names and places are read from the build's snapshot,
+    // curated against the book's hidden list. The middleware sends
+    // `page=/welcoming` with it, so a snapshot that can't be read draws that
+    // page's ordinary card.
+    let book = null;
+    if (!quoteTaken && !letter && (q.guestbook === '1' || q.guestbook === 'true')) {
+      book = await guestbookCard(origin);
+    }
     // A post the PDS didn't answer for, or a repost whose post the AppView
     // couldn't name: that section's own card, as a missed play gets
     // /listening's.
@@ -547,7 +559,8 @@ export default async function handler(req, res) {
       q.post ||
       subjectKey ||
       (q.doc && q.quote) ||
-      flag(q.subscribe);
+      flag(q.subscribe) ||
+      flag(q.guestbook);
     const drawn =
       piece ||
       participant ||
@@ -558,7 +571,8 @@ export default async function handler(req, res) {
       shelf ||
       post ||
       quoted?.quote ||
-      letter;
+      letter ||
+      book;
     // A post card that lost every one of its photos on the way counts as a
     // miss too: it's a fair card, but not the one to keep for an hour.
     const missed = (Boolean(asked) && !drawn) || Boolean(post?.short);
@@ -588,6 +602,9 @@ export default async function handler(req, res) {
       // The essay's own card, or the blog's, set up above.
     } else if (letter) {
       pathname = '/blogging/subscribe';
+      nsid = pageMeta(pathname).nsid;
+    } else if (book) {
+      pathname = '/welcoming';
       nsid = pageMeta(pathname).nsid;
     } else if (q.page) {
       pathname = cleanPath(clampText(q.page));
@@ -636,6 +653,7 @@ export default async function handler(req, res) {
       verb: postVerb,
       quote: quoted?.quote ? { text: quoted.quote, title: quoted.title, section: quoted.section } : null,
       letter,
+      guestbook: book,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.

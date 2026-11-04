@@ -25,12 +25,14 @@ import {
   ME_DID,
   APPVIEW,
   COLLECTIONS,
+  GUESTBOOK_NSID,
   MOTHING_OBSERVATION_NSID,
   OBSERVING_OBSERVATION_NSID,
   RATIOED_PATH,
   RATIOED_DOC_RKEY,
 } from '../src/config.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/atproto.js';
+import { getRecordCached } from '../src/lib/slingshot.js';
 import { fetchMothObservations } from '../src/lib/inaturalist.js';
 import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
 import { arenaText } from '../src/lib/arena.js';
@@ -1054,6 +1056,77 @@ export async function subscribeCard(origin) {
     title: firstText(pages?.subscribe?.value?.title, pageDefault('subscribe')?.title),
     subject: smartenText(posts[0].title),
   };
+}
+
+/* ── /welcoming — the guestbook ──────────────────────────────────────────── */
+
+// How many signers the card lists. Eight half-pitch rows run from under the
+// headline to a row above the margin's lexicon.
+export const GUESTBOOK_CARD_ROWS = 8;
+
+/**
+ * What the guestbook's card draws: how many signatures the book holds and the
+ * newest signers, each with the place they signed from, in their own words.
+ * Null when the snapshot can't be read, which sends the card back to the
+ * page's ordinary layout.
+ *
+ * Curated exactly as the page curates it (src/pages/Guestbook.jsx): a
+ * signature on the book's hidden list or caught by the language filter is
+ * neither listed nor counted. The snapshot froze the hidden list at build
+ * time, so the book record is read again here, the one read the page makes
+ * too, and a signature hidden since the build stays off the card. If that read
+ * doesn't answer, the snapshot's own marks stand.
+ *
+ * One row per signer, newest first, and signers who named a place ahead of
+ * those who didn't: the places are what the card is for, and a book with few
+ * of them still fills its rows with names.
+ */
+export async function guestbookCard(origin) {
+  const [snap, book] = await Promise.all([
+    origin ? fetchJson(`${origin}/data/guestbook.json`, SNAPSHOT_TIMEOUT_MS) : null,
+    withTimeout(
+      getRecordCached({ repo: ME_DID, collection: GUESTBOOK_NSID, rkey: 'self' }),
+      SNAPSHOT_TIMEOUT_MS,
+    ),
+  ]);
+  if (!snap || !Array.isArray(snap.entries)) return null;
+  const hiddenList = Array.isArray(book?.value?.hidden) ? new Set(book.value.hidden) : null;
+  const entries = snap.entries
+    .filter((e) => e && e.value)
+    .map((e) => ({ ...e, hidden: hiddenList ? hiddenList.has(e.uri) : Boolean(e.hidden) }));
+  const hiddenCount = hiddenList ? hiddenList.size : Number(snap.hiddenCount) || 0;
+  const flaggedCount = entries.reduce((n, e) => n + (e.flagged && !e.hidden ? 1 : 0), 0);
+  const visible = entries.filter((e) => !e.hidden && !e.flagged);
+  const count =
+    typeof snap.total === 'number'
+      ? Math.max(0, snap.total - hiddenCount - flaggedCount)
+      : visible.length;
+
+  const placed = [];
+  const unplaced = [];
+  const seen = new Set();
+  for (const e of visible) {
+    const key = e.did || e.uri;
+    if (seen.has(key)) continue;
+    const name = signerName(e);
+    if (!name) continue;
+    seen.add(key);
+    const place = typeof e.value.location === 'string' ? e.value.location.replace(/\s+/g, ' ').trim() : '';
+    (place ? placed : unplaced).push({ name, place });
+  }
+  return { count, signers: [...placed, ...unplaced].slice(0, GUESTBOOK_CARD_ROWS) };
+}
+
+/** A signature's name as the register signs it: the handle, else the name
+ *  the signer gave, else their display name. Never a bare DID on a card. */
+function signerName(entry) {
+  const handle = entry.profile?.handle;
+  if (handle && handle !== 'handle.invalid') return `@${handle}`;
+  return (
+    String(entry.value?.signature || '').trim() ||
+    String(entry.profile?.displayName || '').trim() ||
+    ''
+  );
 }
 
 /* ── /creating/:slug/:piece — one Ratioed piece ───────────────────────────── */

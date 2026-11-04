@@ -740,6 +740,16 @@ describe('pages with no record behind them', () => {
     expect(params.get('page')).toBe('/blogging/subscribe');
   });
 
+  it('draws the guestbook as its signers, with the page’s plain card behind it', async () => {
+    worldFetch();
+    const page = await html('/welcoming');
+    expect(page.res.status).toBe(200);
+    const image = page.body.match(/<meta property="og:image" content="([^"]+)"/)?.[1] || '';
+    const params = new URL(image.replace(/&amp;/g, '&')).searchParams;
+    expect(params.get('guestbook')).toBe('1');
+    expect(params.get('page')).toBe('/welcoming');
+  });
+
   it('describes the newsletter’s page with its page record’s intro once there is one', async () => {
     worldFetch({
       snapshots: {
