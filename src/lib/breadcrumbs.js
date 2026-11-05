@@ -58,6 +58,7 @@ export const DECLARED_ROUTES = [
   '/exploring/:repo/:collection',
   '/exploring/:repo/:collection/:rkey',
   '/oauth/callback',
+  '/overlay/:id',
 ];
 
 // App.jsx generates a record route for every verb and every one of its

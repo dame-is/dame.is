@@ -1,0 +1,65 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.overlay",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "One stream overlay for OBS (or anything that takes a browser source), shown at dame.is/overlay/{rkey} on a 1920x1080 canvas. The record key is the overlay's id in that address: lowercase letters, digits and dashes. Widgets are placed on the site's own page grid carried onto the canvas: 16 columns and 9 rows of square 92px cells with 24px gutters, the same column and gutter as the site's grid at a desktop width. The page reads the record from the PDS without signing in and follows changes live, so a save shows on stream within seconds. Edited in the admin's Overlays studio. The structure follows atpota.to's to.atpota.poe.overlay, with its full-screen scenes folded in: a scene here is an overlay with an opaque backdrop.",
+      "record": {
+        "type": "object",
+        "required": ["widgets", "createdAt"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 400, "maxGraphemes": 40, "description": "What the overlay is called in the studio (\"starting soon\")." },
+          "backdrop": { "type": "string", "knownValues": ["transparent", "page"], "description": "transparent: nothing behind the widgets, to sit over a capture. page: the hour's page colour fills the canvas, for a full-screen scene. Absent is transparent." },
+          "hour": { "type": "integer", "minimum": 0, "maximum": 23, "description": "Paint the overlay in this hour's sky palette (Eastern hours, as the site). Absent follows the clock, so the overlay drifts through the day with the site." },
+          "grid": { "type": "boolean", "description": "Draw the page grid's column and row lines faintly on the canvas, as the site draws its columns." },
+          "widgets": {
+            "type": "array",
+            "maxLength": 24,
+            "description": "What is on the canvas, painted in order (a later widget sits over an earlier one where they overlap).",
+            "items": { "type": "ref", "ref": "#widget" }
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "widget": {
+      "type": "object",
+      "required": ["kind", "col", "row", "cols", "rows"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "knownValues": ["title", "countdown", "clock", "day", "status", "music", "vitals", "chat", "frame", "mark", "links"],
+          "description": "title: words the overlay sets (a heading and a line under it). countdown: to a time, or a timer from when the overlay is shown. clock: the time now. day: the day of life, as the site's chrome counts it. status: the latest is.dame.now. music: what teal.fm says is playing. vitals: the latest is.dame.state. chat: the stream.place chat (place.stream.chat.message records naming this repo as the streamer). frame: an empty, ruled window to line a screen or camera capture up with. mark: the hour's sky avatar and the wordmark. links: where to find dame, a line each."
+        },
+        "col": { "type": "integer", "minimum": 1, "maximum": 16, "description": "The grid column its left edge is on." },
+        "row": { "type": "integer", "minimum": 1, "maximum": 9, "description": "The grid row its top edge is on." },
+        "cols": { "type": "integer", "minimum": 1, "maximum": 16, "description": "How many columns wide." },
+        "rows": { "type": "integer", "minimum": 1, "maximum": 9, "description": "How many rows tall." },
+        "surface": { "type": "string", "knownValues": ["none", "page", "raised"], "description": "What it is drawn on: nothing, a plate of the page colour, or the chrome's raised surface. Both plates are ruled with a hairline. Absent is page." },
+        "scale": { "type": "integer", "minimum": 50, "maximum": 200, "description": "Its type size, in percent of the usual." },
+        "align": { "type": "string", "knownValues": ["start", "center", "end"], "description": "Where its words sit across its box." },
+        "size": { "type": "string", "knownValues": ["display", "heading", "body"], "description": "title: how big the heading is set." },
+        "text": { "type": "string", "maxLength": 1000, "maxGraphemes": 120, "description": "title: the heading. frame: the label in its corner." },
+        "subtitle": { "type": "string", "maxLength": 2000, "maxGraphemes": 240, "description": "title: the line under the heading." },
+        "label": { "type": "string", "maxLength": 400, "maxGraphemes": 60, "description": "The small-caps line over a widget's reading (\"starting in\", \"dame is listening\"). Absent is the widget's own; an empty string drops it." },
+        "mode": { "type": "string", "knownValues": ["timer", "until"], "description": "countdown: a timer of `minutes` from when the overlay is shown, or to the time `at`." },
+        "minutes": { "type": "integer", "minimum": 1, "maximum": 240, "description": "countdown: the timer's length." },
+        "at": { "type": "string", "format": "datetime", "description": "countdown: the time it counts to." },
+        "done": { "type": "string", "maxLength": 400, "maxGraphemes": 60, "description": "countdown: what it says at zero." },
+        "seconds": { "type": "boolean", "description": "clock: show the seconds." },
+        "zone": { "type": "string", "knownValues": ["eastern", "local"], "description": "clock: New York time (the site's clock) or the streaming machine's own." },
+        "max": { "type": "integer", "minimum": 1, "maximum": 12, "description": "chat: how many messages at most." },
+        "art": { "type": "boolean", "description": "music: show the album cover. mark: show the sky avatar." },
+        "lines": {
+          "type": "array",
+          "maxLength": 6,
+          "description": "links: one line each (\"bsky.app/profile/dame.is\").",
+          "items": { "type": "string", "maxLength": 400, "maxGraphemes": 80 }
+        }
+      }
+    }
+  }
+}

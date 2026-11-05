@@ -107,6 +107,10 @@ export const NAV_NSID = 'is.dame.nav';
 // live in the admin "Sky theme studio" panel; snapshotted to public/data/sky.json.
 export const SKY_NSID = 'is.dame.sky';
 
+// Stream overlays for OBS: one record per overlay, its key the overlay's id in
+// /overlay/:id. See src/lib/overlay.js and lexicons/is.dame.overlay.json.
+export const OVERLAY_NSID = 'is.dame.overlay';
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';
@@ -176,6 +180,7 @@ export const COLLECTIONS = {
   state: STATE_NSID,
   nav: NAV_NSID,
   sky: SKY_NSID,
+  overlay: OVERLAY_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */

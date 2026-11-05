@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { Route, Routes, Navigate, useParams, useLocation } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Home from './pages/Home.jsx';
 // Where the first lazy page used to be imported: their CSS stays here.
@@ -98,6 +98,9 @@ const OauthCallback = lazy(
 const Colophon = lazy(recoverable(() => import('./pages/Colophon.jsx')));
 // Lazy: the explorer transitively imports RecordEditor + @atproto/api.
 const Exploring = lazy(recoverable(() => import('./pages/Exploring.jsx')));
+// Lazy and never warmed: a stream overlay is a page for OBS, not for visitors,
+// and it renders outside the site's frame (see App below).
+const Overlay = lazy(recoverable(() => import('./pages/Overlay.jsx')));
 // Lazy: the quick-edit sheet and the edit-mode bar are the owner's alone. See
 // OwnerTools.
 const EditSheet = lazy(() => import('./components/EditSheet.jsx'));
@@ -208,8 +211,9 @@ const WARM_AFTER_LOAD_MS = 2500;
  * between a visitor and the first page. Skipped under Data Saver, where
  * each page's chunk loads when it is visited instead.
  */
-function useWarmPageChunks() {
+function useWarmPageChunks(enabled = true) {
   useEffect(() => {
+    if (!enabled) return undefined;
     if (typeof window === 'undefined') return undefined;
     if (navigator.connection?.saveData) return undefined;
     const idle = window.requestIdleCallback
@@ -245,7 +249,7 @@ function useWarmPageChunks() {
       window.clearTimeout(timer);
       cancelIdle(handle);
     };
-  }, []);
+  }, [enabled]);
 }
 
 /**
@@ -340,7 +344,20 @@ export default function App() {
   const inAdmin = location.pathname === '/admin';
   const stacked = useStackedViewport();
   const adminOwnsChrome = inAdmin && !stacked;
-  useWarmPageChunks();
+  // A stream overlay (/overlay/:id) is a browser source in OBS: a transparent
+  // canvas and nothing else. No chrome, no dock, no providers, and none of the
+  // other pages' chunks fetched behind it on a machine that is busy streaming.
+  const inOverlay = location.pathname.startsWith('/overlay/');
+  useWarmPageChunks(!inOverlay);
+  if (inOverlay) {
+    return (
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/overlay/:id" element={<Overlay />} />
+        </Routes>
+      </Suspense>
+    );
+  }
   return (
     <ThemeProvider>
       <FontProvider>

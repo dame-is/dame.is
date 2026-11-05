@@ -19,8 +19,9 @@
 //   { agent }                 GuestbookModerationPanel — it derives the repo from
 //                             agent.assertDid inside setEntryHidden
 //   { agent, did, rkey, isNew, onPaneMeta }
-//                             PublicationsManager — selection moved into the URL,
-//                             and it renames this pane's head while a record is open
+//                             PublicationsManager, OverlayStudio — selection moved
+//                             into the URL, and they rename this pane's head while
+//                             a record is open
 //   { agent, did, onFocus }   RatioedStudio — takes the whole frame while a piece
 //                             is up (see NEEDS_FOCUS)
 //   { agent, did, rkey, bundle } ResumeWorkbench
@@ -48,6 +49,7 @@ import RatioedPanel from '../../components/RatioedPanel.jsx';
 import ModerationStudio from '../../components/ModerationStudio.jsx';
 import RatioedStudio from '../../components/RatioedStudio.jsx';
 import SkyThemeStudio from '../../components/SkyThemeStudio.jsx';
+import OverlayStudio from '../../components/OverlayStudio.jsx';
 import ResumeStudio from '../../components/resume/ResumeStudio.jsx';
 import ResumeWorkbench from '../../components/resume/ResumeWorkbench.jsx';
 import { useResumeBundle } from '../../components/resume/useResumeBundle.js';
@@ -66,6 +68,7 @@ const STUDIOS = {
   'ratioed-studio': RatioedStudio,
   ratioed: RatioedPanel,
   analytics: AnalyticsStudio,
+  overlays: OverlayStudio,
   moderation: ModerationStudio,
   'legacy-blogs': LegacyBlogMigration,
   'alt-captions': AltCaptionMigration,
@@ -76,7 +79,7 @@ const STUDIOS = {
  * the render body stays one expression and adding a studio is one line in two
  * tables rather than a new branch.
  */
-const NEEDS_RKEY = new Set(['publications', 'resume-tailor']);
+const NEEDS_RKEY = new Set(['publications', 'resume-tailor', 'overlays']);
 const NEEDS_BUNDLE = new Set(['resume', 'resume-tailor']);
 /** GuestbookModerationPanel takes `agent` alone and derives the repo itself. */
 const NO_DID = new Set(['guestbook']);
@@ -92,7 +95,7 @@ const NO_DID = new Set(['guestbook']);
  * 28px heading named the list you had left. A studio in this set may hand the
  * pane a `{ title, blurb }` and the head draws that instead.
  */
-const NEEDS_PANE_META = new Set(['publications']);
+const NEEDS_PANE_META = new Set(['publications', 'overlays']);
 
 /**
  * Studios that may ask for the whole frame, and so get `onFocus(boolean)`.

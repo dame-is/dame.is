@@ -78,6 +78,18 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   list. When its `enabled` flag is set, its `items` select / reorder / relabel /
   hide the entries; otherwise the site uses the hardcoded routes in
   `src/lib/navRoutes.js`. Edited in the admin "Nav menu" panel.
+- `is.dame.overlay` — stream overlays and scenes for OBS (or any tool that
+  takes a browser source; stream.place gets whatever OBS sends it). One record
+  per overlay, keyed by the id in its address, `/overlay/{id}`: a 1920×1080
+  canvas carrying the site's own grid (16 columns × 9 rows of 92px cells on
+  24px gutters), painted in the hour's sky or a fixed hour, with widgets placed
+  on whole cells — a title, a countdown, the clock, the day of life, the
+  latest status, now playing, vitals, the stream.place chat, capture frames,
+  the mark and links. Modelled on atpota.to's `to.atpota.poe.overlay`, with its
+  separate scenes folded in as overlays whose backdrop is the page. The page
+  reads the record without signing in and follows saves live over Jetstream.
+  Edited in the admin's "Stream overlays" studio; see
+  [`src/lib/overlay.js`](src/lib/overlay.js).
 
 Plus teal.fm for the now-playing signal: `fm.teal.feed.play` for plays and
 `fm.teal.actor.status` for what's on right now. teal.fm moved off its
