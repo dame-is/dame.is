@@ -68,26 +68,39 @@
   pointer-events: none;
 }
 
-/* The grid as a guide while placing: the cells' edges, dashed in the admin's
-   accent so they never read as part of the overlay. Not drawn on stream. */
+/* The grid as a guide while placing: both edges of every cell, with the
+   gutters between them shaded, so a widget is seen to end where its last
+   cell does (not at the next line, a gutter further on). Dashed-looking in
+   the admin's accent so it never reads as part of the overlay; it isn't
+   drawn on stream (the canvas's own grid is). */
 .os-guides {
+  --os-line: color-mix(in srgb, var(--accent) 50%, transparent);
+  --os-gutter: color-mix(in srgb, var(--accent) 10%, transparent);
+
   position: absolute;
   inset: var(--os-my) var(--os-mx);
   pointer-events: none;
-  opacity: 0.55;
+  opacity: 0.45;
+  transition: opacity 150ms ease;
   background-image:
     repeating-linear-gradient(
       to right,
-      color-mix(in srgb, var(--accent) 45%, transparent) 0 1px,
-      transparent 1px var(--os-cell),
-      transparent var(--os-cell) var(--os-pitch)
+      var(--os-line) 0 1px,
+      transparent 1px calc(var(--os-cell) - 1px),
+      var(--os-line) calc(var(--os-cell) - 1px) var(--os-cell),
+      var(--os-gutter) var(--os-cell) var(--os-pitch)
     ),
     repeating-linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--accent) 45%, transparent) 0 1px,
-      transparent 1px var(--os-cell),
-      transparent var(--os-cell) var(--os-pitch)
+      var(--os-line) 0 1px,
+      transparent 1px calc(var(--os-cell) - 1px),
+      var(--os-line) calc(var(--os-cell) - 1px) var(--os-cell),
+      var(--os-gutter) var(--os-cell) var(--os-pitch)
     );
+}
+
+.os-stage[data-dragging] .os-guides {
+  opacity: 0.9;
 }
 
 .os-layer {
@@ -455,4 +468,17 @@
 
 .os-transforms tbody th {
   font-weight: 400;
+}
+
+/* Undo, redo and the keys, over the preview. */
+.os-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.os-toolbar .ss-hint {
+  flex: 1;
+  min-width: 14rem;
 }

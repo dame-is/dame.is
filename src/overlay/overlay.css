@@ -105,6 +105,31 @@
   padding: 0;
 }
 
+/* Nothing in a box is squeezed to fit it. A flex column shrinks its children
+   by default, and a child that clips (a label, a reading) shrank to nothing:
+   a one-row clock lost its label without a trace. Instead the type below is
+   capped at the room its box has, so it fits. */
+.ov-w > * {
+  flex-shrink: 0;
+}
+
+/* The room the box has for its biggest line: its height, less a label's
+   line when it has one. Container units resolve against the box (its content
+   box), wherever these are used inside it. */
+.ov-w {
+  --ov-room: 100cqh;
+}
+
+.ov-w:has(> .ov-label, > .ov-col > .ov-label, > .ov-atm-pulse-head) {
+  --ov-room: calc(100cqh - 26px);
+}
+
+/* A one-row box is 92px: a label and a reading only fit inside the plate's
+   padding with less of it above and below. */
+.ov-w[data-rows='1']:not([data-surface='none']) {
+  padding-block: 8px;
+}
+
 /* The two plates: the page, and the chrome's raised surface, each ruled with
    the site's hairline and square at the corners. */
 .ov-w[data-surface='page'] {
@@ -164,6 +189,11 @@
   line-height: var(--leading-heading);
   max-width: 100%;
   overflow: hidden;
+  /* The clamp clips at the line box, and Crimson's descenders (an italic y,
+     a g) hang below it. Padding widens the clip and the negative margin gives
+     the space straight back, so the line sits where it did. */
+  padding-block: 0.14em;
+  margin-block: -0.14em;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
@@ -193,12 +223,12 @@
   font-weight: 400;
   line-height: var(--leading-display);
   letter-spacing: -0.01em;
-  font-size: calc(var(--ov-text-display) * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-display) * var(--ov-scale)), calc(var(--ov-room) / 1.1));
   text-wrap: balance;
 }
 
 .ov-title[data-size='heading'] {
-  font-size: calc(var(--ov-text-heading) * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-heading) * var(--ov-scale)), calc(var(--ov-room) / 1.1));
 }
 
 .ov-title[data-size='body'] {
@@ -216,14 +246,14 @@
 
 /* Figures that tick (clock, countdown, day) hold their width as they change. */
 .ov-figure {
-  font-size: calc(var(--ov-text-figure) * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-figure) * var(--ov-scale)), var(--ov-room));
   font-variant-numeric: lining-nums tabular-nums;
   line-height: var(--leading-solid);
   white-space: nowrap;
 }
 
 .ov-figure-big {
-  font-size: calc(var(--ov-text-figure-big) * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-figure-big) * var(--ov-scale)), var(--ov-room));
   font-weight: 300;
 }
 
@@ -264,9 +294,8 @@
 
 .ov-art {
   flex: none;
-  width: calc(76px * var(--ov-scale));
-  height: calc(76px * var(--ov-scale));
-  max-height: 100%;
+  width: min(calc(76px * var(--ov-scale)), 100cqh);
+  height: min(calc(76px * var(--ov-scale)), 100cqh);
   aspect-ratio: 1;
   background: color-mix(in oklab, var(--ink) 9%, var(--page));
   border: 1px solid var(--rule);
@@ -297,15 +326,15 @@
 
 .ov-mark-img {
   flex: none;
-  width: calc(64px * var(--ov-scale));
-  height: calc(64px * var(--ov-scale));
+  width: min(calc(64px * var(--ov-scale)), 100cqh);
+  height: min(calc(64px * var(--ov-scale)), 100cqh);
   border-radius: 50%;
   border: 1px solid var(--rule);
   object-fit: cover;
 }
 
 .ov-wordmark {
-  font-size: calc(var(--ov-text-figure) * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-figure) * var(--ov-scale)), var(--ov-room));
   line-height: var(--leading-solid);
   letter-spacing: -0.01em;
 }
@@ -482,14 +511,14 @@
 }
 
 .ov-voice-display {
-  font-size: calc(var(--ov-text-display) * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-display) * var(--ov-scale)), calc(var(--ov-room) / 1.1));
   line-height: var(--leading-display);
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
 
 .ov-voice-heading {
-  font-size: calc(var(--ov-text-heading) * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-heading) * var(--ov-scale)), calc(var(--ov-room) / 1.1));
   line-height: var(--leading-display);
   text-wrap: balance;
 }
@@ -499,7 +528,7 @@
 }
 
 .ov-voice-italic {
-  font-size: calc(var(--ov-text-heading) * 0.8 * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-heading) * 0.8 * var(--ov-scale)), calc(var(--ov-room) / 1.2));
   font-style: italic;
   font-weight: 300;
   line-height: var(--leading-heading);
@@ -559,7 +588,7 @@
 .ov-tid {
   display: flex;
   font-family: var(--code);
-  font-size: calc(var(--ov-text-figure) * 0.95 * var(--ov-scale));
+  font-size: min(calc(var(--ov-text-figure) * 0.95 * var(--ov-scale)), var(--ov-room));
   line-height: var(--leading-solid);
   letter-spacing: 0.02em;
   white-space: nowrap;

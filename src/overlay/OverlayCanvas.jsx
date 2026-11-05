@@ -102,6 +102,7 @@ function OverlayCanvas({ config, hour, demo = false, chat = null, bus = null, li
             className={`ov-w ov-w-${w.kind}`}
             data-surface={w.surface}
             data-align={w.align}
+            data-rows={w.rows}
             data-style={w.style}
             data-shape={w.shape}
             style={{
