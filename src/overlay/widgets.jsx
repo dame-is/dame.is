@@ -11,7 +11,7 @@
 // can be placed in the studio before there is anything to show. On stream it
 // is off, and a widget with nothing to say shows a quiet dash.
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useNowStatus } from '../hooks/useNowStatus.js';
 import { useNowPlaying } from '../hooks/useNowPlaying.js';
 import { useDameState } from '../hooks/useDameState.js';
@@ -21,32 +21,13 @@ import { activityLabel } from '../lib/activity.js';
 import { relativeTime } from '../lib/time.js';
 import { vitalsFreshness } from '../lib/vitals.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
-import { countdownLeft, labelOf } from '../lib/overlay.js';
+import { countdownLeft } from '../lib/overlay.js';
+import { DASH, Label, useTicker } from './parts.jsx';
+import PoeWidget from './PoeWidget.jsx';
+import { AtmosphereWidget } from './atmosphereWidgets.jsx';
+import { TextWidget, TidWidget } from './wordWidgets.jsx';
 import { DEMO_CHAT } from '../lib/overlayStream.js';
 import { ME_HANDLE } from '../config.js';
-
-const DASH = '—';
-
-function Label({ widget, fallback }) {
-  const text = labelOf(widget) || '';
-  const shown = text || fallback || '';
-  return shown ? <p className="ov-label">{shown}</p> : null;
-}
-
-/** A clock that ticks every `ms`, aligned to the second. */
-function useTicker(ms = 1000) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    let timer = 0;
-    const tick = () => {
-      setNow(Date.now());
-      timer = window.setTimeout(tick, ms - (Date.now() % ms) + 5);
-    };
-    timer = window.setTimeout(tick, ms - (Date.now() % ms) + 5);
-    return () => window.clearTimeout(timer);
-  }, [ms]);
-  return now;
-}
 
 /* --- the widgets ----------------------------------------------------------- */
 
@@ -233,8 +214,13 @@ function ChatWidget({ widget, chat, demo }) {
   );
 }
 
+/**
+ * A capture frame draws nothing inside: it is a window for a source in OBS.
+ * Its name only shows on stream as a nameplate at its foot, when asked for
+ * (a camera's "dame"); the studio shows every frame's name on its own layer.
+ */
 function FrameWidget({ widget }) {
-  return widget.text ? <p className="ov-label ov-frame-label">{widget.text}</p> : null;
+  return widget.plate && widget.text ? <p className="ov-frame-plate">{widget.text}</p> : null;
 }
 
 function MarkWidget({ widget, hour }) {
@@ -269,6 +255,10 @@ function LinksWidget({ widget }) {
 
 export const WIDGET_COMPONENTS = {
   title: TitleWidget,
+  text: TextWidget,
+  tid: TidWidget,
+  atmosphere: AtmosphereWidget,
+  poe: PoeWidget,
   countdown: CountdownWidget,
   clock: ClockWidget,
   day: DayWidget,

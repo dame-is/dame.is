@@ -8,56 +8,290 @@
       "description": "One stream overlay for OBS (or anything that takes a browser source), shown at dame.is/overlay/{rkey} on a 1920x1080 canvas. The record key is the overlay's id in that address: lowercase letters, digits and dashes. Widgets are placed on the site's own page grid carried onto the canvas: 16 columns and 9 rows of square 92px cells with 24px gutters, the same column and gutter as the site's grid at a desktop width. The page reads the record from the PDS without signing in and follows changes live, so a save shows on stream within seconds. Edited in the admin's Overlays studio. The structure follows atpota.to's to.atpota.poe.overlay, with its full-screen scenes folded in: a scene here is an overlay with an opaque backdrop.",
       "record": {
         "type": "object",
-        "required": ["widgets", "createdAt"],
+        "required": [
+          "widgets",
+          "createdAt"
+        ],
         "properties": {
-          "name": { "type": "string", "maxLength": 400, "maxGraphemes": 40, "description": "What the overlay is called in the studio (\"starting soon\")." },
-          "backdrop": { "type": "string", "knownValues": ["transparent", "page"], "description": "transparent: nothing behind the widgets, to sit over a capture. page: the hour's page colour fills the canvas, for a full-screen scene. Absent is transparent." },
-          "hour": { "type": "integer", "minimum": 0, "maximum": 23, "description": "Paint the overlay in this hour's sky palette (Eastern hours, as the site). Absent follows the clock, so the overlay drifts through the day with the site." },
-          "grid": { "type": "boolean", "description": "Draw the page grid's column and row lines faintly on the canvas, as the site draws its columns." },
+          "name": {
+            "type": "string",
+            "maxLength": 400,
+            "maxGraphemes": 40,
+            "description": "What the overlay is called in the studio (\"starting soon\")."
+          },
+          "backdrop": {
+            "type": "string",
+            "knownValues": [
+              "transparent",
+              "page"
+            ],
+            "description": "transparent: nothing behind the widgets, to sit over a capture. page: the hour's page colour fills the canvas, for a full-screen scene. Absent is transparent."
+          },
+          "hour": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23,
+            "description": "Paint the overlay in this hour's sky palette (Eastern hours, as the site). Absent follows the clock, so the overlay drifts through the day with the site."
+          },
+          "grid": {
+            "type": "boolean",
+            "description": "Draw the page grid's column and row lines faintly on the canvas, as the site draws its columns."
+          },
           "widgets": {
             "type": "array",
             "maxLength": 24,
             "description": "What is on the canvas, painted in order (a later widget sits over an earlier one where they overlap).",
-            "items": { "type": "ref", "ref": "#widget" }
+            "items": {
+              "type": "ref",
+              "ref": "#widget"
+            }
           },
-          "createdAt": { "type": "string", "format": "datetime" },
-          "updatedAt": { "type": "string", "format": "datetime" }
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime"
+          }
         }
       }
     },
     "widget": {
       "type": "object",
-      "required": ["kind", "col", "row", "cols", "rows"],
+      "required": [
+        "kind",
+        "col",
+        "row",
+        "cols",
+        "rows"
+      ],
       "properties": {
         "kind": {
           "type": "string",
-          "knownValues": ["title", "countdown", "clock", "day", "status", "music", "vitals", "chat", "frame", "mark", "links"],
-          "description": "title: words the overlay sets (a heading and a line under it). countdown: to a time, or a timer from when the overlay is shown. clock: the time now. day: the day of life, as the site's chrome counts it. status: the latest is.dame.now. music: what teal.fm says is playing. vitals: the latest is.dame.state. chat: the stream.place chat (place.stream.chat.message records naming this repo as the streamer). frame: an empty, ruled window to line a screen or camera capture up with. mark: the hour's sky avatar and the wordmark. links: where to find dame, a line each."
+          "knownValues": [
+            "title",
+            "text",
+            "countdown",
+            "clock",
+            "tid",
+            "day",
+            "status",
+            "music",
+            "vitals",
+            "atmosphere",
+            "chat",
+            "poe",
+            "frame",
+            "mark",
+            "links"
+          ],
+          "description": "title: words the overlay sets (a heading and a line under it). text: words set a line each, in one of the site's voices, optionally running as a ticker. countdown: to a time, or a timer from when the overlay is shown. clock: the time now. tid: the time now as an atproto TID, ticking, and optionally the repo's latest revision. day: the day of life, as the site's chrome counts it. status: the latest is.dame.now. music: what teal.fm says is playing. vitals: the latest is.dame.state. atmosphere: the network's weather from atpota.to's weather station, in one of its styles. chat: the stream.place chat (place.stream.chat.message records naming this repo as the streamer). poe: atpota.to's potato, which greets chatters, thanks followers, says weather alerts and answers chat commands. frame: an empty, ruled window to line a screen or camera capture up with. mark: the hour's sky avatar and the wordmark. links: where to find dame, a line each."
         },
-        "col": { "type": "integer", "minimum": 1, "maximum": 16, "description": "The grid column its left edge is on." },
-        "row": { "type": "integer", "minimum": 1, "maximum": 9, "description": "The grid row its top edge is on." },
-        "cols": { "type": "integer", "minimum": 1, "maximum": 16, "description": "How many columns wide." },
-        "rows": { "type": "integer", "minimum": 1, "maximum": 9, "description": "How many rows tall." },
-        "surface": { "type": "string", "knownValues": ["none", "page", "raised"], "description": "What it is drawn on: nothing, a plate of the page colour, or the chrome's raised surface. Both plates are ruled with a hairline. Absent is page." },
-        "scale": { "type": "integer", "minimum": 50, "maximum": 200, "description": "Its type size, in percent of the usual." },
-        "align": { "type": "string", "knownValues": ["start", "center", "end"], "description": "Where its words sit across its box." },
-        "size": { "type": "string", "knownValues": ["display", "heading", "body"], "description": "title: how big the heading is set." },
-        "text": { "type": "string", "maxLength": 1000, "maxGraphemes": 120, "description": "title: the heading. frame: the label in its corner." },
-        "subtitle": { "type": "string", "maxLength": 2000, "maxGraphemes": 240, "description": "title: the line under the heading." },
-        "label": { "type": "string", "maxLength": 400, "maxGraphemes": 60, "description": "The small-caps line over a widget's reading (\"starting in\", \"dame is listening\"). Absent is the widget's own; an empty string drops it." },
-        "mode": { "type": "string", "knownValues": ["timer", "until"], "description": "countdown: a timer of `minutes` from when the overlay is shown, or to the time `at`." },
-        "minutes": { "type": "integer", "minimum": 1, "maximum": 240, "description": "countdown: the timer's length." },
-        "at": { "type": "string", "format": "datetime", "description": "countdown: the time it counts to." },
-        "done": { "type": "string", "maxLength": 400, "maxGraphemes": 60, "description": "countdown: what it says at zero." },
-        "seconds": { "type": "boolean", "description": "clock: show the seconds." },
-        "zone": { "type": "string", "knownValues": ["eastern", "local"], "description": "clock: New York time (the site's clock) or the streaming machine's own." },
-        "max": { "type": "integer", "minimum": 1, "maximum": 12, "description": "chat: how many messages at most." },
-        "art": { "type": "boolean", "description": "music: show the album cover. mark: show the sky avatar." },
+        "col": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16,
+          "description": "The grid column its left edge is on."
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9,
+          "description": "The grid row its top edge is on."
+        },
+        "cols": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16,
+          "description": "How many columns wide."
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9,
+          "description": "How many rows tall."
+        },
+        "surface": {
+          "type": "string",
+          "knownValues": [
+            "none",
+            "page",
+            "raised",
+            "veil",
+            "accent",
+            "ink",
+            "sky"
+          ],
+          "description": "What it is drawn on: nothing, a plate of the page colour, the chrome's raised surface, the page at two thirds (veil), the accent filled, the page turned over (ink ground, page-coloured words), or the hour's sky (the avatar's top and bottom bands). The plates are ruled with a hairline. Absent is page."
+        },
+        "scale": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 200,
+          "description": "Its type size, in percent of the usual."
+        },
+        "align": {
+          "type": "string",
+          "knownValues": [
+            "start",
+            "center",
+            "end"
+          ],
+          "description": "Where its words sit across its box."
+        },
+        "size": {
+          "type": "string",
+          "knownValues": [
+            "display",
+            "heading",
+            "body"
+          ],
+          "description": "title: how big the heading is set."
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1000,
+          "maxGraphemes": 120,
+          "description": "title: the heading. frame: its name (the studio's, and its nameplate's)."
+        },
+        "subtitle": {
+          "type": "string",
+          "maxLength": 2000,
+          "maxGraphemes": 240,
+          "description": "title: the line under the heading."
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 400,
+          "maxGraphemes": 60,
+          "description": "The small-caps line over a widget's reading (\"starting in\", \"dame is listening\"). Absent is the widget's own; an empty string drops it."
+        },
+        "mode": {
+          "type": "string",
+          "knownValues": [
+            "timer",
+            "until"
+          ],
+          "description": "countdown: a timer of `minutes` from when the overlay is shown, or to the time `at`."
+        },
+        "minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 240,
+          "description": "countdown: the timer's length."
+        },
+        "at": {
+          "type": "string",
+          "format": "datetime",
+          "description": "countdown: the time it counts to."
+        },
+        "done": {
+          "type": "string",
+          "maxLength": 400,
+          "maxGraphemes": 60,
+          "description": "countdown: what it says at zero."
+        },
+        "seconds": {
+          "type": "boolean",
+          "description": "clock: show the seconds."
+        },
+        "zone": {
+          "type": "string",
+          "knownValues": [
+            "eastern",
+            "local"
+          ],
+          "description": "clock: New York time (the site's clock) or the streaming machine's own."
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "chat: how many messages at most."
+        },
+        "art": {
+          "type": "boolean",
+          "description": "music: show the album cover. mark: show the sky avatar."
+        },
         "lines": {
           "type": "array",
           "maxLength": 6,
-          "description": "links: one line each (\"bsky.app/profile/dame.is\").",
-          "items": { "type": "string", "maxLength": 400, "maxGraphemes": 80 }
+          "description": "links and text: one line each.",
+          "items": {
+            "type": "string",
+            "maxLength": 800,
+            "maxGraphemes": 160
+          }
+        },
+        "voice": {
+          "type": "string",
+          "knownValues": [
+            "display",
+            "heading",
+            "reading",
+            "italic",
+            "label",
+            "mono"
+          ],
+          "description": "text: which of the site's voices it is set in."
+        },
+        "ticker": {
+          "type": "boolean",
+          "description": "text: run its lines along one line, round and round, instead of stacking them."
+        },
+        "style": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "How it looks, for the kinds with more than one way. atmosphere: card, strip, badge, apps, forecast, pulse. tid: ticking (the TID with the time it means and the day), mini (the TID alone). Absent or unknown is the kind's first."
+        },
+        "repo": {
+          "type": "boolean",
+          "description": "tid: also show the repo's latest revision, itself a TID, and how long ago it moved."
+        },
+        "side": {
+          "type": "string",
+          "knownValues": [
+            "left",
+            "right"
+          ],
+          "description": "poe: which side of its box Poe sits on; it faces into the screen from there."
+        },
+        "greet": {
+          "type": "boolean",
+          "description": "poe: say hello to chatters and answer chat commands."
+        },
+        "follows": {
+          "type": "boolean",
+          "description": "poe: thank new followers."
+        },
+        "alerts": {
+          "type": "boolean",
+          "description": "poe: say weather alerts (storms, apps blowing in)."
+        },
+        "volume": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "poe: how loud its noises are; 0 is silent."
+        },
+        "nap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 240,
+          "description": "poe: minutes of quiet before it naps; 0 never."
+        },
+        "shape": {
+          "type": "string",
+          "knownValues": [
+            "rect",
+            "circle"
+          ],
+          "description": "frame: a rectangle, or a circle inside its box (for a round camera)."
+        },
+        "plate": {
+          "type": "boolean",
+          "description": "frame: show its name on stream, on a small plate at its foot."
         }
       }
     }

@@ -7,6 +7,13 @@
 //                               dame's repo whose `hiddenMessage` is its at-uri)
 //   is.dame.overlay             dame saving an overlay, so a save in the studio
 //                               reaches the stream within a second or two
+//   place.stream.livestream     dame's own stream records: a new one is the
+//                               stream going live, one updated with an
+//                               `endedAt` is it over (Poe cheers and waves)
+//   app.bsky.graph.follow       new follows of dame, for Poe to say thank you;
+//                               only asked for while a Poe on screen wants
+//                               them, since follows come for the whole network
+//                               (tens a second) and are picked out here
 //
 // All three are public records in people's own repos, so the overlay needs no
 // sign-in and no stream.place API. The same three collections, and the same
@@ -32,6 +39,14 @@ export const CHAT = 'place.stream.chat.message';
 export const GATE = 'place.stream.chat.gate';
 export const OVERLAY = 'is.dame.overlay';
 export const BLOCK = 'app.bsky.graph.block';
+export const LIVESTREAM = 'place.stream.livestream';
+export const FOLLOW = 'app.bsky.graph.follow';
+
+/** "!weather" … "!poe" at the start of a message (any case), for Poe; anything else is chat. */
+export function commandOf(text) {
+  const m = /^\s*!(weather|forecast|apps|pet|poe)\b/i.exec(String(text));
+  return m ? m[1].toLowerCase() : null;
+}
 
 export const ENDPOINTS = Object.freeze([
   { v: 2, url: 'wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents' },
@@ -80,6 +95,11 @@ export function chatText(text) {
  *   { type: 'hide', did, rkey }         the streamer hid a message
  *   { type: 'overlay', rkey, value }    the streamer saved an overlay
  *   { type: 'unoverlay', rkey }         the streamer deleted one
+ *   { type: 'live', rkey, title }       the streamer went live
+ *   { type: 'ended', rkey }             that stream ended
+ *   { type: 'follow', did }             someone followed the streamer
+ *
+ * A chat event also carries `command` (commandOf), null for plain chat.
  */
 export function eventFrom(message, streamer) {
   const c = commitOf(message);
@@ -97,22 +117,34 @@ export function eventFrom(message, streamer) {
       ? { type: 'overlay', rkey: c.rkey, value: r }
       : null;
   }
+  if (c.collection === LIVESTREAM) {
+    if (!own) return null;
+    if (c.operation === 'create' && r.endedAt === undefined) {
+      const title = typeof r.title === 'string' && r.title.trim() ? r.title.trim().slice(0, 140) : null;
+      return { type: 'live', rkey: c.rkey, title };
+    }
+    if (c.operation === 'update' && typeof r.endedAt === 'string') return { type: 'ended', rkey: c.rkey };
+    return null;
+  }
+  if (c.collection === FOLLOW) {
+    return c.operation === 'create' && r.subject === streamer && !own ? { type: 'follow', did: c.did } : null;
+  }
   if (c.collection === GATE) {
     const hit = own && c.operation === 'create' && typeof r.hiddenMessage === 'string' ? HIDDEN_RE.exec(r.hiddenMessage) : null;
     return hit ? { type: 'hide', did: hit[1], rkey: hit[2] } : null;
   }
   if (c.collection === CHAT && c.operation === 'create' && r.streamer === streamer && typeof r.text === 'string') {
     const text = chatText(r.text);
-    return text ? { type: 'chat', did: c.did, rkey: c.rkey, text } : null;
+    return text ? { type: 'chat', did: c.did, rkey: c.rkey, text, command: commandOf(text) } : null;
   }
   return null;
 }
 
-/** The socket address for an endpoint, asking for commits in our three collections. */
-export function streamUrl(endpoint) {
+/** The socket address for an endpoint: our collections, and the network's follows when `follows`. */
+export function streamUrl(endpoint, { follows = false } = {}) {
   const params = new URLSearchParams();
   const key = endpoint.v === 2 ? 'collections' : 'wantedCollections';
-  for (const c of [CHAT, GATE, OVERLAY]) params.append(key, c);
+  for (const c of [CHAT, GATE, OVERLAY, LIVESTREAM, ...(follows ? [FOLLOW] : [])]) params.append(key, c);
   if (endpoint.v === 2) params.append('kinds', 'commit');
   return `${endpoint.url}?${params}`;
 }
@@ -122,7 +154,7 @@ export function streamUrl(endpoint) {
  * endpoint after a failure). Returns the stop function. `onState` hears
  * 'connecting' | 'open' | 'closed'.
  */
-export function listenStream(streamer, { onEvent, onState, Socket = globalThis.WebSocket, endpoints = ENDPOINTS } = {}) {
+export function listenStream(streamer, { onEvent, onState, follows = false, Socket = globalThis.WebSocket, endpoints = ENDPOINTS } = {}) {
   let ws = null;
   let stopped = false;
   let attempt = 0;
@@ -136,7 +168,7 @@ export function listenStream(streamer, { onEvent, onState, Socket = globalThis.W
     onState?.('connecting');
     let sock;
     try {
-      sock = new Socket(streamUrl(endpoint));
+      sock = new Socket(streamUrl(endpoint, { follows }));
     } catch {
       retry();
       return;

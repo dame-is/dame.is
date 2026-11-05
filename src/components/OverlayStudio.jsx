@@ -20,7 +20,7 @@
 // its name when it is first saved, and is its address from then on.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Copy, ExternalLink, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, ExternalLink, Plus, RotateCw, Trash2 } from 'lucide-react';
 import Button from './Button.jsx';
 import Segmented from './Segmented.jsx';
 import SectionHead from './SectionHead.jsx';
@@ -46,8 +46,15 @@ import {
   PRESETS,
   ROWS,
   WIDGETS,
-  WIDGET_KINDS,
+  CATALOG,
   NO_SURFACE,
+  STYLES,
+  VOICES,
+  arrangeFrames,
+  arrangementsFor,
+  catalogEntry,
+  frameTransforms,
+  rotateFrames,
   boxOf,
   clampInt,
   fromRecord,
@@ -383,9 +390,10 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
   const setWidget = useCallback((i, next) => {
     setDraft((d) => ({ ...d, widgets: d.widgets.map((w, j) => (j === i ? next : w)) }));
   }, []);
-  const addWidget = (kind) => {
-    if (draft.widgets.length >= MAX_WIDGETS) return;
-    const w = newWidget(kind, draft.widgets);
+  const addWidget = (id) => {
+    const entry = catalogEntry(id);
+    if (!entry || draft.widgets.length >= MAX_WIDGETS) return;
+    const w = newWidget(entry.kind, draft.widgets, entry.extra || {});
     setDraft((d) => ({ ...d, widgets: [...d.widgets, w] }));
     setSelected(draft.widgets.length);
   };
@@ -505,6 +513,7 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
   );
 
   const sel = selected >= 0 && selected < draft.widgets.length ? draft.widgets[selected] : null;
+  const frameCount = draft.widgets.filter((w) => w.kind === 'frame').length;
   const address = typeof window !== 'undefined' ? `${window.location.origin}${overlayPath(newId)}` : overlayPath(newId);
 
   return (
@@ -617,10 +626,14 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
                   onChange={(e) => e.target.value && addWidget(e.target.value)}
                 >
                   <option value="">Add…</option>
-                  {WIDGET_KINDS.map((k) => (
-                    <option key={k} value={k}>
-                      {WIDGETS[k].name}
-                    </option>
+                  {CATALOG.map((g) => (
+                    <optgroup key={g.group} label={g.group}>
+                      {g.items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               }
@@ -637,7 +650,7 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
                       aria-pressed={i === selected}
                       onClick={() => setSelected(i === selected ? -1 : i)}
                     >
-                      <span>{WIDGETS[w.kind].name}</span>
+                      <span>{widgetName(w)}</span>
                       <span className="os-widget-where">
                         {w.cols}×{w.rows} at {w.col},{w.row}
                       </span>
@@ -647,6 +660,14 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
               </ol>
             )}
           </section>
+
+          {frameCount ? (
+            <FramesPanel
+              widgets={draft.widgets}
+              onArrange={(key) => setDraft((d) => ({ ...d, widgets: arrangeFrames(d.widgets, key) }))}
+              onRotate={() => setDraft((d) => ({ ...d, widgets: rotateFrames(d.widgets) }))}
+            />
+          ) : null}
 
           {sel ? (
             <WidgetEditor
@@ -788,7 +809,7 @@ function OverlayPreview({ config, hour, selected, onSelect, onChange }) {
                   tabIndex={0}
                   className={`os-box${i === selected ? ' is-on' : ''}`}
                   aria-pressed={i === selected}
-                  aria-label={`${WIDGETS[w.kind].name}, ${w.cols} by ${w.rows} at column ${w.col}, row ${w.row}. Arrow keys move it; Shift and arrows resize it.`}
+                  aria-label={`${widgetName(w)}, ${w.cols} by ${w.rows} at column ${w.col}, row ${w.row}. Arrow keys move it; Shift and arrows resize it.`}
                   style={{ left: b.left * scale, top: b.top * scale, width: b.width * scale, height: b.height * scale }}
                   onPointerDown={(e) => start(e, i, 'move')}
                   onPointerMove={moveTo}
@@ -797,7 +818,7 @@ function OverlayPreview({ config, hour, selected, onSelect, onChange }) {
                   onFocus={() => onSelect(i)}
                   onKeyDown={(e) => onKey(e, i)}
                 >
-                  <span className="os-box-tag">{WIDGETS[w.kind].name}</span>
+                  <span className="os-box-tag">{widgetName(w)}</span>
                   <span
                     className="os-box-handle"
                     onPointerDown={(e) => start(e, i, 'resize')}
@@ -816,6 +837,104 @@ function OverlayPreview({ config, hour, selected, onSelect, onChange }) {
 }
 
 /* --- one widget's settings ------------------------------------------------------- */
+
+const SURFACE_NAMES = {
+  none: 'Nothing',
+  page: 'Page',
+  raised: 'Raised',
+  veil: 'Veil',
+  accent: 'Accent',
+  ink: 'Ink',
+  sky: 'Sky',
+};
+
+const VOICE_NAMES = {
+  display: 'Display: the biggest',
+  heading: 'Heading',
+  reading: 'Reading: body text',
+  italic: 'Italic',
+  label: 'Label: small caps',
+  mono: 'Mono: the code face',
+};
+
+const ATMOSPHERE_HINTS = {
+  card: 'Records a second, the condition in words, and where the records came from.',
+  strip: 'All of it along one line, for the top or bottom edge.',
+  badge: 'The condition and the figure, small.',
+  apps: 'The five busiest apps outside Bluesky, each with a bar.',
+  forecast: 'The next six hours, an hour a column, and the forecast in words when there is room.',
+  pulse: 'The station’s last minute as a line, a second a point.',
+};
+
+/** A widget's name in the studio: a frame by its own name, a styled kind by its style. */
+function widgetName(w) {
+  if (w.kind === 'frame' && w.text) return `Frame: ${w.text}`;
+  if (w.kind === 'atmosphere') return `Atmosphere: ${STYLES.atmosphere[w.style]?.toLowerCase() || 'card'}`;
+  if (w.kind === 'text') return `Text: ${(w.lines?.[0] || '').slice(0, 24) || 'empty'}`;
+  return WIDGETS[w.kind].name;
+}
+
+/**
+ * The capture frames, together: arrange them in one go, pass the windows
+ * round (who is main), and where each sits on the canvas for OBS.
+ */
+function FramesPanel({ widgets, onArrange, onRotate }) {
+  const arrangements = arrangementsFor(widgets);
+  const frames = frameTransforms(widgets);
+  return (
+    <section className="ss-section">
+      <SectionHead
+        title="Frames"
+        meta={
+          frames.length > 1 ? (
+            <Button size="sm" onClick={onRotate} title="Each frame takes the next one’s window: rotate to put another source in the main one">
+              <RotateCw size={13} aria-hidden="true" /> Rotate sources
+            </Button>
+          ) : null
+        }
+      />
+      <div className="os-arrangements" role="group" aria-label="Arrange the frames">
+        {arrangements.map((a) => (
+          <button key={a.key} type="button" className="os-arrangement" onClick={() => onArrange(a.key)} title={a.name}>
+            <svg viewBox="0 0 16 9" aria-hidden="true">
+              {a.boxes.map((b, i) => (
+                <rect key={i} x={b.col - 1 + 0.15} y={b.row - 1 + 0.15} width={b.cols - 0.3} height={b.rows - 0.3} data-main={i === 0 ? '' : undefined} />
+              ))}
+            </svg>
+            <span>{a.name}</span>
+          </button>
+        ))}
+      </div>
+      {frames.length > 4 ? <p className="ss-hint">The arrangements place the first four frames; the rest stay where they are.</p> : null}
+      <table className="os-transforms">
+        <caption className="ss-hint">Where each source goes in OBS (Edit Transform, on a 1920 × 1080 canvas):</caption>
+        <thead>
+          <tr>
+            <th scope="col">Frame</th>
+            <th scope="col">x</th>
+            <th scope="col">y</th>
+            <th scope="col">width</th>
+            <th scope="col">height</th>
+          </tr>
+        </thead>
+        <tbody>
+          {frames.map((f, i) => (
+            <tr key={i}>
+              <th scope="row">
+                {f.name}
+                {f.shape === 'circle' ? ' (circle)' : ''}
+              </th>
+              <td>{f.x}</td>
+              <td>{f.y}</td>
+              <td>{f.width}</td>
+              <td>{f.height}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
 
 function NumberField({ label, value, min, max, onChange }) {
   return (
@@ -884,20 +1003,26 @@ function WidgetEditor({ widget: w, index, count, onChange, onRemove, onDuplicate
       {!NO_SURFACE.has(w.kind) ? (
         <div className="os-field">
           <span className="eyebrow">Drawn on</span>
-          <Segmented
-            label="Drawn on"
-            value={w.surface}
-            onChange={(v) => set({ surface: v })}
-            options={[
-              { value: 'none', label: 'Nothing' },
-              { value: 'page', label: 'Page' },
-              { value: 'raised', label: 'Raised' },
-            ]}
-          />
+          <div className="os-swatches" role="group" aria-label="Drawn on">
+            {Object.entries(SURFACE_NAMES).map(([value, name]) => (
+              <button
+                key={value}
+                type="button"
+                className={`os-swatch${w.surface === value ? ' is-on' : ''}`}
+                data-surface={value}
+                aria-pressed={w.surface === value}
+                title={name}
+                onClick={() => set({ surface: value })}
+              >
+                <span className="os-swatch-chip" aria-hidden="true" />
+                {name}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 
-      {w.kind !== 'frame' ? (
+      {w.kind !== 'frame' && w.kind !== 'poe' ? (
         <>
           <div className="os-field">
             <span className="eyebrow">Align</span>
@@ -950,6 +1075,120 @@ function WidgetEditor({ widget: w, index, count, onChange, onRemove, onDuplicate
               />
             ) : null}
           </div>
+        </>
+      ) : null}
+
+      {w.kind === 'text' ? (
+        <>
+          <label className="os-field">
+            <span className="eyebrow">Words, a line each</span>
+            <textarea
+              className="admin-input admin-textarea"
+              rows={3}
+              value={(w.lines || []).join('\n')}
+              onChange={(e) => set({ lines: e.target.value.split('\n').slice(0, 6) })}
+            />
+            <span className="ss-hint">
+              {w.ticker ? 'As a ticker, the lines run along one line, a fleuron between them.' : 'The first line is set in the voice; any after it sit under it, as a lower third reads.'}
+            </span>
+          </label>
+          <label className="os-field">
+            <span className="eyebrow">Voice</span>
+            <select className="admin-input" value={w.voice} onChange={(e) => set({ voice: e.target.value })}>
+              {VOICES.map((v) => (
+                <option key={v} value={v}>
+                  {VOICE_NAMES[v]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="os-check">
+            <input type="checkbox" checked={Boolean(w.ticker)} onChange={(e) => set({ ticker: e.target.checked })} />
+            <span>Run as a ticker</span>
+          </label>
+        </>
+      ) : null}
+
+      {w.kind === 'atmosphere' ? (
+        <div className="os-field">
+          <span className="eyebrow">Style</span>
+          <select className="admin-input" value={w.style} onChange={(e) => set({ style: e.target.value })}>
+            {Object.entries(STYLES.atmosphere).map(([value, name]) => (
+              <option key={value} value={value}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <span className="ss-hint">{ATMOSPHERE_HINTS[w.style]}</span>
+        </div>
+      ) : null}
+
+      {w.kind === 'tid' ? (
+        <>
+          <div className="os-field">
+            <span className="eyebrow">Shows</span>
+            <Segmented
+              label="Shows"
+              value={w.style}
+              onChange={(v) => set({ style: v })}
+              options={Object.entries(STYLES.tid).map(([value, name]) => ({ value, label: name }))}
+            />
+          </div>
+          <div className="os-field">
+            <span className="eyebrow">Time in</span>
+            <Segmented
+              label="Time in"
+              value={w.zone}
+              onChange={(v) => set({ zone: v })}
+              options={[
+                { value: 'eastern', label: 'New York' },
+                { value: 'local', label: 'This machine' },
+              ]}
+            />
+          </div>
+          <label className="os-check">
+            <input type="checkbox" checked={Boolean(w.repo)} onChange={(e) => set({ repo: e.target.checked })} />
+            <span>Your repo’s latest revision too</span>
+          </label>
+        </>
+      ) : null}
+
+      {w.kind === 'poe' ? (
+        <>
+          <div className="os-field">
+            <span className="eyebrow">Sits on the</span>
+            <Segmented
+              label="Sits on the"
+              value={w.side}
+              onChange={(v) => set({ side: v })}
+              options={[
+                { value: 'left', label: 'Left, facing right' },
+                { value: 'right', label: 'Right, facing left' },
+              ]}
+            />
+          </div>
+          <label className="os-check">
+            <input type="checkbox" checked={w.greet} onChange={(e) => set({ greet: e.target.checked })} />
+            <span>Greets chatters and answers commands</span>
+          </label>
+          <label className="os-check">
+            <input type="checkbox" checked={w.follows} onChange={(e) => set({ follows: e.target.checked })} />
+            <span>Thanks new followers</span>
+          </label>
+          <label className="os-check">
+            <input type="checkbox" checked={w.alerts} onChange={(e) => set({ alerts: e.target.checked })} />
+            <span>Says weather alerts</span>
+          </label>
+          <label className="os-field">
+            <span className="eyebrow">Noises · {w.volume ? `${w.volume}%` : 'silent'}</span>
+            <input type="range" min={0} max={100} step={5} value={w.volume} onChange={(e) => set({ volume: Number(e.target.value) })} />
+          </label>
+          <NumberField label="Naps after this many quiet minutes (0 never)" value={w.nap} min={0} max={240} onChange={(n) => set({ nap: clampInt(n, 0, 240) })} />
+          <p className="ss-hint">
+            Poe is as wide as its box and sits at its foot; on the bottom row it tucks under the edge of the screen. Its
+            noises play on stream only, when “Control audio via OBS” is on for the source. The preview here runs
+            through example lines, quietly.
+          </p>
         </>
       ) : null}
 
@@ -1055,13 +1294,37 @@ function WidgetEditor({ widget: w, index, count, onChange, onRemove, onDuplicate
       ) : null}
 
       {w.kind === 'frame' ? (
-        <label className="os-field">
-          <span className="eyebrow">Name in its corner</span>
-          <input className="admin-input" value={w.text} maxLength={120} placeholder="screen" onChange={(e) => set({ text: e.target.value })} />
-          <span className="ss-hint">
-            Line a capture up with it in OBS: a frame is {boxOf(w).width} × {boxOf(w).height} at {boxOf(w).left}, {boxOf(w).top}.
-          </span>
-        </label>
+        <>
+          <label className="os-field">
+            <span className="eyebrow">Name</span>
+            <input className="admin-input" value={w.text} maxLength={120} placeholder="screen" onChange={(e) => set({ text: e.target.value })} />
+            <span className="ss-hint">
+              Line a source up with it in OBS: {boxOf(w).width} × {boxOf(w).height} at {boxOf(w).left}, {boxOf(w).top}.
+            </span>
+          </label>
+          <div className="os-field">
+            <span className="eyebrow">Shape</span>
+            <Segmented
+              label="Shape"
+              value={w.shape}
+              onChange={(v) => set({ shape: v })}
+              options={[
+                { value: 'rect', label: 'Rectangle' },
+                { value: 'circle', label: 'Circle' },
+              ]}
+            />
+            {w.shape === 'circle' ? (
+              <span className="ss-hint">
+                The page is cut away in a circle (an oval in a box that isn’t square). Crop the camera to match in OBS
+                with an image mask filter, or let the page hide its corners.
+              </span>
+            ) : null}
+          </div>
+          <label className="os-check">
+            <input type="checkbox" checked={Boolean(w.plate)} onChange={(e) => set({ plate: e.target.checked })} />
+            <span>Show its name on stream, as a nameplate</span>
+          </label>
+        </>
       ) : null}
 
       {w.kind === 'links' ? (

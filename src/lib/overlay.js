@@ -68,21 +68,70 @@ export function cellAt(x, y) {
 
 export const WIDGET_KINDS = Object.freeze([
   'title',
+  'text',
   'countdown',
   'clock',
+  'tid',
   'day',
   'status',
   'music',
   'vitals',
+  'atmosphere',
   'chat',
+  'poe',
   'frame',
   'mark',
   'links',
 ]);
 
-export const SURFACES = Object.freeze(['none', 'page', 'raised']);
+/**
+ * What a widget is drawn on. `page` and `raised` are the site's two surfaces;
+ * `veil` is the page at two thirds, for words over a capture that should
+ * still let it through; `accent` is the filled control's accent and `ink` the
+ * page turned over (ink ground, page-coloured words), both for a banner that
+ * has to be seen; `sky` is the hour's own sky, the avatar's top and bottom
+ * bands (skyTheme.js SKY_BANDS), with whichever of the hour's two inks reads
+ * on it.
+ */
+export const SURFACES = Object.freeze(['none', 'page', 'raised', 'veil', 'accent', 'ink', 'sky']);
 export const ALIGNS = Object.freeze(['start', 'center', 'end']);
 export const TITLE_SIZES = Object.freeze(['display', 'heading', 'body']);
+/** The text widget's voices: the site's type roles, plus its italic and its mono. */
+export const VOICES = Object.freeze(['display', 'heading', 'reading', 'italic', 'label', 'mono']);
+export const FRAME_SHAPES = Object.freeze(['rect', 'circle']);
+
+/** The kinds that come in styles, each style's name, the first the default. */
+export const STYLES = Object.freeze({
+  atmosphere: Object.freeze({
+    card: 'Card',
+    strip: 'Strip',
+    badge: 'Badge',
+    apps: 'Busiest apps',
+    forecast: 'Forecast',
+    pulse: 'Pulse',
+  }),
+  tid: Object.freeze({ ticking: 'With the time', mini: 'Just the TID' }),
+});
+
+/** The box a new widget of a style gets, where it differs from its kind's. */
+export const STYLE_BOX = Object.freeze({
+  atmosphere: Object.freeze({
+    card: [5, 2],
+    strip: [16, 1],
+    badge: [3, 1],
+    apps: [4, 3],
+    forecast: [6, 2],
+    pulse: [5, 2],
+  }),
+  tid: Object.freeze({ ticking: [5, 2], mini: [4, 1] }),
+});
+
+/** A style of `kind`: `style` when it is one, else the kind's first. */
+export function styleOf(kind, style) {
+  const styles = STYLES[kind];
+  if (!styles) return undefined;
+  return typeof style === 'string' && Object.hasOwn(styles, style) ? style : Object.keys(styles)[0];
+}
 export const MIN_SCALE = 50;
 export const MAX_SCALE = 200;
 export const MAX_WIDGETS = 24;
@@ -96,14 +145,18 @@ export const NAME_MAX = 40;
  */
 export const WIDGETS = Object.freeze({
   title: { name: 'Title', hint: 'Words you set: a heading and a line under it.', cols: 8, rows: 2, label: '' },
+  text: { name: 'Text', hint: 'Words you set, a line each, in any of the site’s voices and on any of its grounds. Can run as a ticker.', cols: 6, rows: 1, label: '' },
   countdown: { name: 'Countdown', hint: 'To a time, or a timer from when the overlay is shown.', cols: 4, rows: 2, label: 'starting in' },
   clock: { name: 'Clock', hint: 'The time now, in New York or on this machine.', cols: 3, rows: 1, label: 'the time' },
+  tid: { name: 'TID clock', hint: 'The time as an atproto TID, ticking: the record key a record made right now would get. Can show your repo’s latest revision too.', cols: 5, rows: 2, label: 'now, as a TID' },
   day: { name: 'Day of life', hint: 'The day count from the chrome bar.', cols: 3, rows: 1, label: 'day of life' },
   status: { name: 'Status', hint: 'Your latest is.dame.now.', cols: 5, rows: 1, label: 'dame is' },
   music: { name: 'Now playing', hint: 'What teal.fm says is on.', cols: 5, rows: 1, label: 'dame is listening' },
   vitals: { name: 'Vitals', hint: 'Heart, activity, battery and sound from is.dame.state.', cols: 5, rows: 1, label: 'right now' },
+  atmosphere: { name: 'Atmosphere', hint: 'The atmosphere’s weather from atpota.to’s weather station: the network’s records a second, its condition, the apps outside Bluesky, the forecast.', cols: 5, rows: 2, label: 'the atmosphere' },
   chat: { name: 'Chat', hint: 'Your stream.place chat, as it comes in.', cols: 4, rows: 5, label: 'chat' },
-  frame: { name: 'Capture frame', hint: 'An empty, ruled window to line a screen or camera up with. Cuts through a page backdrop.', cols: 12, rows: 7, label: '' },
+  poe: { name: 'Poe', hint: 'atpota.to’s potato, on your stream: greets chatters, thanks followers, says weather alerts, answers !weather, !forecast, !apps, !pet and !poe, naps when it is quiet. Sits at the bottom of its box; its words rise above it.', cols: 3, rows: 4, label: '' },
+  frame: { name: 'Capture frame', hint: 'An empty, ruled window to line a screen or camera up with in OBS. Cuts through a page backdrop.', cols: 12, rows: 7, label: '' },
   mark: { name: 'Mark', hint: 'The hour’s sky avatar and the wordmark.', cols: 3, rows: 1, label: '' },
   links: { name: 'Links', hint: 'Where to find you, a line each.', cols: 5, rows: 2, label: 'find dame' },
 });
@@ -111,6 +164,10 @@ export const WIDGETS = Object.freeze({
 /** The options each kind reads, beyond the ones every widget has. */
 const KIND_FIELDS = Object.freeze({
   title: ['text', 'subtitle', 'size'],
+  text: ['lines', 'voice', 'ticker'],
+  tid: ['style', 'zone', 'repo'],
+  atmosphere: ['style'],
+  poe: ['side', 'greet', 'follows', 'alerts', 'volume', 'nap'],
   countdown: ['mode', 'minutes', 'at', 'done'],
   clock: ['seconds', 'zone'],
   day: [],
@@ -118,13 +175,13 @@ const KIND_FIELDS = Object.freeze({
   music: ['art'],
   vitals: [],
   chat: ['max'],
-  frame: ['text'],
+  frame: ['text', 'shape', 'plate'],
   mark: ['art'],
   links: ['lines'],
 });
 
-/** Kinds that take no surface: a frame is a hole, and a hole has no plate. */
-export const NO_SURFACE = new Set(['frame']);
+/** Kinds that take no surface: a frame is a hole, and Poe brings its own bubble. */
+export const NO_SURFACE = new Set(['frame', 'poe']);
 
 /* --- small checks --------------------------------------------------------- */
 
@@ -242,10 +299,44 @@ export function cleanWidget(w) {
       case 'art':
         out.art = w.art !== false;
         break;
-      case 'lines':
+      case 'lines': {
+        const max = kind === 'text' ? 160 : 80;
         out.lines = Array.isArray(w.lines)
-          ? w.lines.map((l) => cleanLine(l, 80)).filter(Boolean).slice(0, MAX_LINES)
+          ? w.lines.map((l) => cleanLine(l, max)).filter(Boolean).slice(0, MAX_LINES)
           : [];
+        break;
+      }
+      case 'voice':
+        out.voice = VOICES.includes(w.voice) ? w.voice : 'reading';
+        break;
+      case 'ticker':
+        out.ticker = w.ticker === true;
+        break;
+      case 'style':
+        out.style = styleOf(kind, w.style);
+        break;
+      case 'repo':
+        out.repo = w.repo === true;
+        break;
+      case 'side':
+        out.side = w.side === 'left' ? 'left' : 'right';
+        break;
+      case 'greet':
+      case 'follows':
+      case 'alerts':
+        out[field] = w[field] !== false;
+        break;
+      case 'volume':
+        out.volume = intIn(w.volume, 0, 100, 40);
+        break;
+      case 'nap':
+        out.nap = intIn(w.nap, 0, 240, 5);
+        break;
+      case 'shape':
+        out.shape = w.shape === 'circle' ? 'circle' : 'rect';
+        break;
+      case 'plate':
+        out.plate = w.plate === true;
         break;
       default:
         break;
@@ -254,19 +345,206 @@ export function cleanWidget(w) {
   return out;
 }
 
-/** A new widget of `kind`, at the first place on the grid its default box fits, or the top left. */
-export function newWidget(kind, existing = []) {
-  const def = WIDGETS[kind];
+/** The box a new widget of `kind` (and `style`) gets: [cols, rows]. */
+export function defaultBox(kind, style) {
+  const byStyle = STYLE_BOX[kind]?.[styleOf(kind, style)];
+  return byStyle ? [...byStyle] : [WIDGETS[kind].cols, WIDGETS[kind].rows];
+}
+
+/**
+ * A new widget of `kind` with `extra` options (a catalog entry's). Its box is
+ * `extra.cols` by `extra.rows` (or the kind's own), at `extra.col, extra.row`
+ * when it gives one, else the first place on the grid it fits without
+ * covering anything, else the top left.
+ */
+export function newWidget(kind, existing = [], extra = {}) {
+  const [dc, dr] = defaultBox(kind, extra.style);
+  const cols = extra.cols ?? dc;
+  const rows = extra.rows ?? dr;
+  if (extra.col && extra.row) return cleanWidget({ ...extra, kind, cols, rows });
   const taken = existing.map(boxCells);
-  for (let row = 1; row + def.rows - 1 <= ROWS; row += 1) {
-    for (let col = 1; col + def.cols - 1 <= COLS; col += 1) {
-      const cells = boxCells({ col, row, cols: def.cols, rows: def.rows });
+  for (let row = 1; row + rows - 1 <= ROWS; row += 1) {
+    for (let col = 1; col + cols - 1 <= COLS; col += 1) {
+      const cells = boxCells({ col, row, cols, rows });
       if (!taken.some((t) => overlaps(t, cells))) {
-        return cleanWidget({ kind, col, row, cols: def.cols, rows: def.rows });
+        return cleanWidget({ ...extra, kind, col, row, cols, rows });
       }
     }
   }
-  return cleanWidget({ kind, col: 1, row: 1, cols: def.cols, rows: def.rows });
+  return cleanWidget({ ...extra, kind, col: 1, row: 1, cols, rows });
+}
+
+/* --- the studio's add menu ------------------------------------------------- */
+
+/**
+ * Everything the studio can add, grouped. An entry is a kind plus the options
+ * it starts with, so a "lower third" is a text widget that starts as one and
+ * is then the owner's to change like any other.
+ */
+export const CATALOG = Object.freeze([
+  {
+    group: 'Words',
+    items: [
+      { id: 'title', name: 'Title', kind: 'title' },
+      { id: 'text', name: 'Text', kind: 'text', extra: { lines: ['words of your own'], voice: 'reading' } },
+      {
+        id: 'text:lower-third',
+        name: 'Text: lower third',
+        kind: 'text',
+        extra: { lines: ['dame', 'what this stream is'], voice: 'heading', surface: 'raised', label: 'on stream', col: 1, row: 8, cols: 7, rows: 2 },
+      },
+      {
+        id: 'text:banner',
+        name: 'Text: ticker banner',
+        kind: 'text',
+        extra: { lines: ['live from dame.is', 'say hello in the chat'], voice: 'reading', surface: 'accent', ticker: true, col: 1, row: 9, cols: 16, rows: 1 },
+      },
+      {
+        id: 'text:quote',
+        name: 'Text: quote on the sky',
+        kind: 'text',
+        extra: { lines: ['“a line worth setting large”'], voice: 'italic', surface: 'sky', align: 'center', cols: 8, rows: 3 },
+      },
+      {
+        id: 'text:caption',
+        name: 'Text: caption',
+        kind: 'text',
+        extra: { lines: ['a small note'], voice: 'label', surface: 'veil', cols: 4, rows: 1 },
+      },
+      {
+        id: 'text:inverse',
+        name: 'Text: ink plate',
+        kind: 'text',
+        extra: { lines: ['be right back'], voice: 'display', surface: 'ink', align: 'center', cols: 8, rows: 2 },
+      },
+      { id: 'links', name: 'Links', kind: 'links' },
+    ],
+  },
+  {
+    group: 'Time',
+    items: [
+      { id: 'clock', name: 'Clock', kind: 'clock' },
+      { id: 'tid', name: 'TID clock', kind: 'tid', extra: { style: 'ticking' } },
+      { id: 'tid:mini', name: 'TID clock: just the TID', kind: 'tid', extra: { style: 'mini' } },
+      { id: 'tid:repo', name: 'TID clock: with your repo', kind: 'tid', extra: { style: 'ticking', repo: true, rows: 3 } },
+      { id: 'countdown', name: 'Countdown', kind: 'countdown' },
+      { id: 'day', name: 'Day of life', kind: 'day' },
+    ],
+  },
+  {
+    group: 'From your repo',
+    items: [
+      { id: 'status', name: 'Status', kind: 'status' },
+      { id: 'music', name: 'Now playing', kind: 'music' },
+      { id: 'vitals', name: 'Vitals', kind: 'vitals' },
+      { id: 'mark', name: 'Mark', kind: 'mark' },
+    ],
+  },
+  {
+    group: 'The atmosphere',
+    items: Object.entries(STYLES.atmosphere).map(([style, name]) => ({
+      id: `atmosphere:${style}`,
+      name: `Atmosphere: ${name.toLowerCase()}`,
+      kind: 'atmosphere',
+      extra: { style },
+    })),
+  },
+  {
+    group: 'Stream',
+    items: [
+      { id: 'poe', name: 'Poe', kind: 'poe', extra: { col: 14, row: 6 } },
+      { id: 'chat', name: 'Chat', kind: 'chat' },
+      { id: 'frame', name: 'Capture frame: screen', kind: 'frame', extra: { text: 'screen' } },
+      { id: 'frame:camera', name: 'Capture frame: camera', kind: 'frame', extra: { text: 'camera', cols: 4, rows: 3 } },
+      { id: 'frame:circle', name: 'Capture frame: round camera', kind: 'frame', extra: { text: 'camera', shape: 'circle', cols: 3, rows: 3 } },
+    ],
+  },
+]);
+
+/** A catalog entry by id. */
+export function catalogEntry(id) {
+  for (const g of CATALOG) for (const item of g.items) if (item.id === id) return item;
+  return null;
+}
+
+/* --- arranging capture frames ----------------------------------------------- */
+
+const box = (col, row, cols, rows) => ({ col, row, cols, rows });
+
+/**
+ * Ready arrangements for one to four capture frames, on the grid. Frames take
+ * the boxes in the order they are listed in the overlay, so the first frame is
+ * the main one; rotateFrames() moves who is main. The boxes keep close to 16:9
+ * where a whole number of cells allows (7x4, 12x7, 14x8 and 16x9 are within 2%
+ * of it; 5x3 within 4%).
+ */
+export const ARRANGEMENTS = Object.freeze({
+  1: [
+    { key: 'full', name: 'Full screen', boxes: [box(1, 1, 16, 9)] },
+    { key: 'large', name: 'Large, a bar under it', boxes: [box(2, 1, 14, 8)] },
+    { key: 'room', name: 'Room beside and under', boxes: [box(1, 1, 12, 7)] },
+  ],
+  2: [
+    { key: 'main-side', name: 'Main, second beside it', boxes: [box(1, 1, 12, 7), box(13, 1, 4, 3)] },
+    { key: 'pip', name: 'Main full, second inset', boxes: [box(1, 1, 16, 9), box(12, 7, 5, 3)] },
+    { key: 'pair', name: 'Side by side', boxes: [box(2, 3, 7, 4), box(9, 3, 7, 4)] },
+  ],
+  3: [
+    { key: 'main-column', name: 'Main, two down the side', boxes: [box(1, 1, 12, 7), box(13, 1, 4, 3), box(13, 4, 4, 3)] },
+    { key: 'pip-two', name: 'Main full, two inset', boxes: [box(1, 1, 16, 9), box(14, 6, 3, 2), box(14, 8, 3, 2)] },
+    { key: 'across', name: 'Three across', boxes: [box(1, 3, 5, 3), box(6, 3, 5, 3), box(11, 3, 5, 3)] },
+  ],
+  4: [
+    { key: 'main-column', name: 'Main, three down the side', boxes: [box(1, 1, 12, 7), box(13, 1, 4, 3), box(13, 4, 4, 3), box(13, 7, 4, 3)] },
+    { key: 'grid', name: 'Two by two', boxes: [box(2, 1, 7, 4), box(9, 1, 7, 4), box(2, 5, 7, 4), box(9, 5, 7, 4)] },
+  ],
+});
+
+/** The arrangements on offer for the frames in `widgets` (up to four are arranged). */
+export function arrangementsFor(widgets) {
+  const n = Math.min(4, widgets.filter((w) => w.kind === 'frame').length);
+  return n ? ARRANGEMENTS[n] : [];
+}
+
+/** The widgets with their frames moved into arrangement `key`. Anything else stays put. */
+export function arrangeFrames(widgets, key) {
+  const plan = arrangementsFor(widgets).find((a) => a.key === key);
+  if (!plan) return widgets;
+  let i = 0;
+  return widgets.map((w) => {
+    if (w.kind !== 'frame' || i >= plan.boxes.length) return w;
+    return { ...w, ...plan.boxes[i++] };
+  });
+}
+
+/**
+ * The frames' boxes passed along one: the last frame's box goes to the first,
+ * the first's to the second, and so on. Rotating a main-and-two arrangement
+ * puts each source in the main window in turn, without moving anything in OBS
+ * but the sources themselves.
+ */
+export function rotateFrames(widgets) {
+  const at = widgets.map((w, i) => (w.kind === 'frame' ? i : -1)).filter((i) => i >= 0);
+  if (at.length < 2) return widgets;
+  const boxes = at.map((i) => {
+    const { col, row, cols, rows } = widgets[i];
+    return { col, row, cols, rows };
+  });
+  const out = widgets.slice();
+  at.forEach((i, n) => {
+    out[i] = { ...widgets[i], ...boxes[(n - 1 + at.length) % at.length] };
+  });
+  return out;
+}
+
+/** Where each frame is on the canvas, for setting a source's transform in OBS. */
+export function frameTransforms(widgets) {
+  return widgets
+    .filter((w) => w.kind === 'frame')
+    .map((w) => {
+      const b = boxOf(w);
+      return { name: w.text || 'frame', x: b.left, y: b.top, width: b.width, height: b.height, shape: w.shape || 'rect' };
+    });
 }
 
 const boxCells = (w) => ({ x0: w.col, y0: w.row, x1: w.col + w.cols - 1, y1: w.row + w.rows - 1 });
@@ -371,9 +649,11 @@ export const PRESETS = Object.freeze([
       grid: false,
       widgets: [
         at('mark', 1, 1, 3, 1),
+        at('atmosphere', 4, 1, 3, 1, { style: 'badge', surface: 'veil' }),
         at('status', 1, 9, 5, 1),
         at('music', 6, 9, 5, 1),
         at('chat', 13, 1, 4, 5, { max: 6 }),
+        at('poe', 14, 6, 3, 4),
       ],
     },
   },
@@ -446,11 +726,50 @@ export const PRESETS = Object.freeze([
       grid: false,
       widgets: [
         at('frame', 1, 1, 12, 7, { text: 'screen' }),
-        at('frame', 13, 1, 4, 3, { text: 'camera' }),
+        at('frame', 13, 1, 4, 3, { text: 'camera', plate: true }),
         at('chat', 13, 4, 4, 6, { max: 7, surface: 'raised' }),
         at('title', 1, 8, 8, 2, { text: 'what we are making', subtitle: '', size: 'heading', surface: 'none' }),
         at('music', 9, 8, 4, 1, { surface: 'none' }),
         at('mark', 9, 9, 4, 1, { surface: 'none' }),
+      ],
+    },
+  },
+  {
+    key: 'multicam',
+    name: 'multi cam',
+    hint: 'A screen, your main camera and a second one at once, ready to rearrange; the chat, a lower third and Poe.',
+    config: {
+      name: 'multi cam',
+      backdrop: 'page',
+      hour: null,
+      grid: false,
+      widgets: [
+        at('frame', 1, 1, 12, 7, { text: 'screen' }),
+        at('frame', 13, 1, 4, 3, { text: 'main cam', plate: true }),
+        at('frame', 13, 4, 4, 3, { text: 'second cam', plate: true }),
+        at('text', 1, 8, 8, 2, { lines: ['what we are making', 'live on stream.place'], voice: 'heading', surface: 'none', label: 'on stream' }),
+        at('tid', 9, 8, 4, 1, { style: 'mini', surface: 'none' }),
+        at('chat', 13, 7, 4, 3, { max: 3, surface: 'raised' }),
+      ],
+    },
+  },
+  {
+    key: 'atmosphere',
+    name: 'the atmosphere',
+    hint: 'A full screen of the network’s weather: the card, the pulse, the forecast and the busiest apps, with Poe.',
+    config: {
+      name: 'the atmosphere',
+      backdrop: 'page',
+      hour: null,
+      grid: true,
+      widgets: [
+        at('mark', 1, 1, 3, 1, { surface: 'none' }),
+        at('tid', 12, 1, 5, 1, { style: 'mini', surface: 'none', align: 'end' }),
+        at('atmosphere', 1, 3, 6, 3, { style: 'card', surface: 'raised' }),
+        at('atmosphere', 7, 3, 6, 3, { style: 'pulse', surface: 'none' }),
+        at('atmosphere', 1, 7, 8, 2, { style: 'forecast', surface: 'none' }),
+        at('atmosphere', 9, 6, 4, 3, { style: 'apps', surface: 'none' }),
+        at('poe', 14, 6, 3, 4),
       ],
     },
   },

@@ -316,3 +316,143 @@
   font-size: var(--text-meta);
   color: var(--ink-muted);
 }
+
+/* --- what a widget is drawn on: a swatch of each ground --------------------- */
+
+.os-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.os-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: var(--text-meta);
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.os-swatch:hover {
+  background: var(--wash-hover);
+}
+
+.os-swatch.is-on {
+  background: var(--wash-selected);
+  border-color: var(--accent);
+}
+
+/* Each chip in the admin's own palette, as a hint of the ground it names. */
+.os-swatch-chip {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+}
+
+.os-swatch[data-surface='none'] .os-swatch-chip {
+  background:
+    linear-gradient(to top right, transparent 45%, var(--rule) 45% 55%, transparent 55%);
+}
+
+.os-swatch[data-surface='raised'] .os-swatch-chip {
+  background: var(--surface-raised);
+}
+
+.os-swatch[data-surface='veil'] .os-swatch-chip {
+  background: color-mix(in srgb, var(--page) 66%, transparent);
+  border-style: dashed;
+}
+
+.os-swatch[data-surface='accent'] .os-swatch-chip {
+  background: var(--accent-fill);
+}
+
+.os-swatch[data-surface='ink'] .os-swatch-chip {
+  background: var(--ink);
+}
+
+.os-swatch[data-surface='sky'] .os-swatch-chip {
+  background: linear-gradient(to bottom, var(--accent), var(--tan));
+}
+
+/* --- the frames' arrangements -------------------------------------------------- */
+
+.os-arrangements {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: var(--space-2);
+}
+
+.os-arrangement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  font: inherit;
+  font-size: var(--text-meta);
+  line-height: var(--leading-tight);
+  text-align: start;
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.os-arrangement:hover,
+.os-arrangement:focus-visible {
+  border-color: var(--accent);
+  background: var(--wash-hover);
+}
+
+.os-arrangement svg {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: color-mix(in oklab, var(--ink) 6%, var(--page));
+}
+
+.os-arrangement rect {
+  fill: color-mix(in srgb, var(--accent) 22%, transparent);
+  stroke: var(--accent);
+  stroke-width: 0.08;
+}
+
+.os-arrangement rect[data-main] {
+  fill: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.os-transforms {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.os-transforms caption {
+  text-align: start;
+  padding-bottom: var(--space-1);
+}
+
+.os-transforms th,
+.os-transforms td {
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  text-align: start;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.os-transforms thead th {
+  font-weight: 400;
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.os-transforms tbody th {
+  font-weight: 400;
+}

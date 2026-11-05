@@ -10,7 +10,7 @@
 // child would change nothing: both names are written here.
 
 import { memo, useMemo } from 'react';
-import { paletteForHour } from '../lib/skyTheme.js';
+import { SKY_BANDS, contrastRatio, paletteForHour } from '../lib/skyTheme.js';
 import {
   CANVAS_H,
   CANVAS_W,
@@ -23,7 +23,11 @@ import {
 import { WIDGET_COMPONENTS } from './widgets.jsx';
 import './overlay.css';
 
-/** The hour's palette as inline custom properties, under both names. */
+/**
+ * The hour's palette as inline custom properties, under both names, and the
+ * hour's sky for the `sky` surface: the avatar's top and bottom bands, with
+ * whichever of the hour's ink and page colour reads better on both.
+ */
 export function paletteStyle(hour) {
   const { vars, colorScheme } = paletteForHour(hour);
   const style = { colorScheme };
@@ -31,6 +35,13 @@ export function paletteStyle(hour) {
     style[name] = value;
     style[name.replace(/^--sky-/, '--')] = value;
   }
+  const band = SKY_BANDS[((hour % 24) + 24) % 24];
+  const worst = (c) => Math.min(contrastRatio(c, band.top), contrastRatio(c, band.bottom));
+  const ink = vars['--sky-ink'];
+  const page = vars['--sky-page'];
+  style['--ov-sky-top'] = band.top;
+  style['--ov-sky-bottom'] = band.bottom;
+  style['--ov-sky-ink'] = worst(ink) >= worst(page) ? ink : page;
   return style;
 }
 
@@ -44,12 +55,17 @@ function backdropPath(widgets) {
   for (const w of widgets) {
     if (w.kind !== 'frame') continue;
     const b = boxOf(w);
-    d += `M${b.left} ${b.top}h${b.width}v${b.height}h${-b.width}Z`;
+    if (w.shape === 'circle') {
+      // An ellipse inside the box (a circle when the box is square), as two arcs.
+      const rx = b.width / 2;
+      const ry = b.height / 2;
+      d += `M${b.left} ${b.top + ry}a${rx} ${ry} 0 1 0 ${b.width} 0a${rx} ${ry} 0 1 0 ${-b.width} 0Z`;
+    } else d += `M${b.left} ${b.top}h${b.width}v${b.height}h${-b.width}Z`;
   }
   return d;
 }
 
-function OverlayCanvas({ config, hour, demo = false, chat = null, className = '' }) {
+function OverlayCanvas({ config, hour, demo = false, chat = null, bus = null, live = false, className = '' }) {
   const palette = useMemo(() => paletteStyle(hour), [hour]);
   const style = useMemo(
     () => ({
@@ -86,6 +102,8 @@ function OverlayCanvas({ config, hour, demo = false, chat = null, className = ''
             className={`ov-w ov-w-${w.kind}`}
             data-surface={w.surface}
             data-align={w.align}
+            data-style={w.style}
+            data-shape={w.shape}
             style={{
               left: b.left,
               top: b.top,
@@ -94,7 +112,7 @@ function OverlayCanvas({ config, hour, demo = false, chat = null, className = ''
               '--ov-scale': w.scale / 100,
             }}
           >
-            <Widget widget={w} hour={hour} demo={demo} chat={chat} />
+            <Widget widget={w} hour={hour} demo={demo} chat={chat} bus={bus} live={live} />
           </section>
         );
       })}

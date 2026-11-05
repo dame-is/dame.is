@@ -15,7 +15,16 @@ import {
   ROWS,
   WIDGET_KINDS,
   WIDGETS,
+  ARRANGEMENTS,
+  CATALOG,
+  STYLES,
+  arrangeFrames,
+  arrangementsFor,
   boxOf,
+  catalogEntry,
+  defaultBox,
+  frameTransforms,
+  rotateFrames,
   cellAt,
   cleanWidget,
   countdownLeft,
@@ -189,5 +198,84 @@ describe('countdown', () => {
     const now = Date.parse('2026-11-05T18:29:30.000Z');
     expect(countdownLeft(w, now, 0)).toBe('1:30:30');
     expect(countdownLeft({ mode: 'until' }, now, 0)).toBeNull();
+  });
+});
+
+describe('the new kinds', () => {
+  it('keeps a style only from its kind’s list', () => {
+    const base = { kind: 'atmosphere', col: 1, row: 1, cols: 2, rows: 1 };
+    expect(cleanWidget({ ...base, style: 'pulse' }).style).toBe('pulse');
+    expect(cleanWidget({ ...base, style: 'nope' }).style).toBe('card');
+    expect(cleanWidget({ kind: 'tid', col: 1, row: 1, cols: 2, rows: 1 }).style).toBe('ticking');
+    expect(defaultBox('atmosphere', 'strip')).toEqual([16, 1]);
+    expect(defaultBox('chat')).toEqual([4, 5]);
+  });
+
+  it('gives Poe its defaults and no plate', () => {
+    const poe = cleanWidget({ kind: 'poe', col: 14, row: 6, cols: 3, rows: 4, surface: 'raised', volume: 400 });
+    expect(poe).toMatchObject({ surface: 'none', side: 'right', greet: true, follows: true, alerts: true, volume: 100, nap: 5 });
+  });
+
+  it('keeps the text widget’s lines, voice and ticker', () => {
+    const t = cleanWidget({ kind: 'text', col: 1, row: 1, cols: 4, rows: 1, lines: ['a', '', ' b '], voice: 'mono', ticker: true, surface: 'sky' });
+    expect(t).toMatchObject({ lines: ['a', 'b'], voice: 'mono', ticker: true, surface: 'sky' });
+    expect(cleanWidget({ kind: 'text', col: 1, row: 1, cols: 4, rows: 1, voice: 'shout' }).voice).toBe('reading');
+  });
+
+  it('every catalog entry makes a widget', () => {
+    for (const g of CATALOG) {
+      for (const item of g.items) {
+        const w = newWidget(item.kind, [], item.extra);
+        expect(w, item.id).not.toBeNull();
+        expect(w.kind).toBe(item.kind);
+      }
+    }
+    expect(catalogEntry('text:banner').extra.ticker).toBe(true);
+    expect(newWidget('text', [], catalogEntry('text:banner').extra)).toMatchObject({ col: 1, row: 9, cols: 16, rows: 1 });
+    expect(CATALOG.find((g) => g.group === 'The atmosphere').items).toHaveLength(Object.keys(STYLES.atmosphere).length);
+  });
+});
+
+describe('arranging frames', () => {
+  const frame = (text, col = 1, row = 1) => cleanWidget({ kind: 'frame', text, col, row, cols: 2, rows: 2 });
+  const three = [frame('screen'), cleanWidget({ kind: 'chat', col: 13, row: 7, cols: 4, rows: 3 }), frame('cam', 5, 5), frame('cam 2', 9, 5)];
+
+  it('keeps every arrangement on the grid, its boxes apart', () => {
+    for (const [n, list] of Object.entries(ARRANGEMENTS)) {
+      for (const a of list) {
+        expect(a.boxes).toHaveLength(Number(n));
+        for (const b of a.boxes) expect(cleanWidget({ kind: 'frame', ...b })).toMatchObject(b);
+        for (let i = 0; i < a.boxes.length; i += 1) {
+          for (let j = i + 1; j < a.boxes.length; j += 1) {
+            const p = a.boxes[i];
+            const q = a.boxes[j];
+            const apart = p.col + p.cols <= q.col || q.col + q.cols <= p.col || p.row + p.rows <= q.row || q.row + q.rows <= p.row;
+            // an inset sits on top of the main window on purpose
+            if (!(i === 0 && p.cols === 16)) expect(apart, `${n}:${a.key} ${i}/${j}`).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
+  it('offers arrangements for the number of frames, and moves only frames', () => {
+    expect(arrangementsFor(three).map((a) => a.key)).toContain('main-column');
+    const out = arrangeFrames(three, 'main-column');
+    expect(out[0]).toMatchObject({ col: 1, row: 1, cols: 12, rows: 7, text: 'screen' });
+    expect(out[1]).toBe(three[1]);
+    expect(out[2]).toMatchObject({ col: 13, row: 1, cols: 4, rows: 3 });
+    expect(arrangeFrames(three, 'nope')).toBe(three);
+  });
+
+  it('rotates which source has which window', () => {
+    const arranged = arrangeFrames(three, 'main-column');
+    const once = rotateFrames(arranged);
+    expect(once[2]).toMatchObject({ text: 'cam', col: 1, row: 1, cols: 12, rows: 7 });
+    expect(once[0]).toMatchObject({ text: 'screen', col: 13, row: 4 });
+    expect(rotateFrames(rotateFrames(once))).toEqual(arranged);
+  });
+
+  it('says where each frame is, for OBS', () => {
+    expect(frameTransforms(arrangeFrames(three, 'main-column'))[0]).toEqual({ name: 'screen', x: 44, y: 30, width: 1368, height: 788, shape: 'rect' });
   });
 });

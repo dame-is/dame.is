@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CHAT,
   CHAT_EMPTY,
+  FOLLOW,
   GATE,
+  LIVESTREAM,
+  commandOf,
   OVERLAY,
   TEXT_MAX,
   blockedDids,
@@ -22,7 +25,7 @@ describe('eventFrom', () => {
   const chat = { did: 'did:plc:a', collection: CHAT, rkey: '3k1', operation: 'create', record: { streamer: ME, text: ' hi\nthere ' } };
 
   it('reads chat in our stream on either wire', () => {
-    const want = { type: 'chat', did: 'did:plc:a', rkey: '3k1', text: 'hi there' };
+    const want = { type: 'chat', did: 'did:plc:a', rkey: '3k1', text: 'hi there', command: null };
     expect(eventFrom(v2(chat), ME)).toEqual(want);
     expect(eventFrom(v1(chat), ME)).toEqual(want);
   });
@@ -77,10 +80,11 @@ describe('chatText', () => {
 describe('streamUrl', () => {
   it('asks each wire for the same collections in its own words', () => {
     const two = new URL(streamUrl({ v: 2, url: 'wss://a/xrpc/x' }));
-    expect(two.searchParams.getAll('collections')).toEqual([CHAT, GATE, OVERLAY]);
+    expect(two.searchParams.getAll('collections')).toEqual([CHAT, GATE, OVERLAY, LIVESTREAM]);
     expect(two.searchParams.get('kinds')).toBe('commit');
     const one = new URL(streamUrl({ v: 1, url: 'wss://b/subscribe' }));
-    expect(one.searchParams.getAll('wantedCollections')).toEqual([CHAT, GATE, OVERLAY]);
+    expect(one.searchParams.getAll('wantedCollections')).toEqual([CHAT, GATE, OVERLAY, LIVESTREAM]);
+    expect(new URL(streamUrl({ v: 2, url: 'wss://a/x' }, { follows: true })).searchParams.getAll('collections')).toContain(FOLLOW);
   });
 });
 
@@ -135,7 +139,7 @@ describe('listenStream', () => {
     sockets[0].onmessage({
       data: JSON.stringify(v2({ did: 'did:plc:a', collection: CHAT, rkey: '1', operation: 'create', record: { streamer: ME, text: 'yo' } })),
     });
-    expect(onEvent).toHaveBeenCalledWith({ type: 'chat', did: 'did:plc:a', rkey: '1', text: 'yo' });
+    expect(onEvent).toHaveBeenCalledWith({ type: 'chat', did: 'did:plc:a', rkey: '1', text: 'yo', command: null });
     sockets[0].onclose();
     vi.advanceTimersByTime(2000);
     expect(sockets).toHaveLength(2);
@@ -144,5 +148,18 @@ describe('listenStream', () => {
     vi.advanceTimersByTime(60_000);
     expect(sockets).toHaveLength(2);
     vi.useRealTimers();
+  });
+});
+
+describe('Poe’s events', () => {
+  it('reads commands, follows and the stream going live and ending', () => {
+    const chat = { did: 'did:plc:a', collection: CHAT, rkey: '1', operation: 'create', record: { streamer: ME, text: '!Weather please' } };
+    expect(eventFrom(v2(chat), ME).command).toBe('weather');
+    expect(commandOf('hello !pet')).toBeNull();
+    expect(eventFrom(v2({ did: 'did:plc:a', collection: FOLLOW, rkey: 'f', operation: 'create', record: { subject: ME } }), ME)).toEqual({ type: 'follow', did: 'did:plc:a' });
+    expect(eventFrom(v2({ did: 'did:plc:a', collection: FOLLOW, rkey: 'f', operation: 'create', record: { subject: 'did:plc:z' } }), ME)).toBeNull();
+    expect(eventFrom(v2({ did: ME, collection: LIVESTREAM, rkey: 's', operation: 'create', record: { title: ' making overlays ' } }), ME)).toEqual({ type: 'live', rkey: 's', title: 'making overlays' });
+    expect(eventFrom(v2({ did: ME, collection: LIVESTREAM, rkey: 's', operation: 'update', record: { endedAt: '2026-11-05T21:00:00Z' } }), ME)).toEqual({ type: 'ended', rkey: 's' });
+    expect(eventFrom(v2({ did: 'did:plc:a', collection: LIVESTREAM, rkey: 's', operation: 'create', record: {} }), ME)).toBeNull();
   });
 });

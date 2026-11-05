@@ -91,6 +91,21 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   Edited in the admin's "Stream overlays" studio; see
   [`src/lib/overlay.js`](src/lib/overlay.js).
 
+  Also on the canvas: **Poe**, atpota.to's potato, ported to run here
+  ([`src/overlay/poe/`](src/overlay/poe/)): it greets chatters, thanks new
+  followers, says weather alerts and answers `!weather`, `!forecast`, `!apps`,
+  `!pet` and `!poe`. The **atmosphere** widgets (card, strip, badge, busiest
+  apps, forecast, pulse) draw atpota.to's weather station in this site's type;
+  the readings come through [`api/atmosphere.js`](api/atmosphere.js), which
+  passes on `atpota.to/api/atmosphere` and `/api/weather-forecast`. A **TID
+  clock** shows the time as an atproto record key, and optionally the repo's
+  latest revision. **Text** widgets set your own words in any of the site's
+  voices on any of its grounds (page, raised, veil, accent, ink, the hour's
+  sky), or as a ticker. **Capture frames** (rectangles or circles, with an
+  optional nameplate) can be arranged for one to four sources at once, rotated
+  so a different source takes the main window, and the studio lists where each
+  goes in OBS.
+
 Plus teal.fm for the now-playing signal: `fm.teal.feed.play` for plays and
 `fm.teal.actor.status` for what's on right now. teal.fm moved off its
 `fm.teal.alpha.*` lexicons in August 2026, so both namespaces are read and

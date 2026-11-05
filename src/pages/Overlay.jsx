@@ -21,6 +21,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import OverlayCanvas from '../overlay/OverlayCanvas.jsx';
+import { createBus } from '../overlay/poe/brain.js';
 import { getRecord, getRepoRev, isRecordNotFound, listRecords, resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { easternHour } from '../lib/time.js';
@@ -74,6 +75,8 @@ export default function Overlay() {
   const [state, setState] = useState('loading'); // loading | ready | missing | error
   const [chat, dispatch] = useReducer(chatReducer, CHAT_EMPTY);
   const [names, setNames] = useState({});
+  // Stream events for the widgets that answer them (Poe), as they come.
+  const bus = useMemo(() => createBus(), []);
   const asked = useRef(new Set());
   const clockHour = useEasternHour();
   const fit = useFit();
@@ -119,10 +122,15 @@ export default function Overlay() {
     };
   }, [id, valid]);
 
-  // The stream: chat, and saves to this overlay.
+  // Follows come for the whole network, so they are only asked for while a
+  // Poe on screen will thank people for them; switching that reconnects.
+  const wantFollows = Boolean(config?.widgets.some((w) => w.kind === 'poe' && w.follows));
+
+  // The stream: chat, saves to this overlay, and what Poe answers.
   useEffect(() => {
     if (!valid) return undefined;
     return listenStream(ME_DID, {
+      follows: wantFollows,
       onEvent: (e) => {
         if (e.type === 'overlay') {
           if (e.rkey === id) {
@@ -133,9 +141,10 @@ export default function Overlay() {
         }
         if (e.type === 'unoverlay') return;
         dispatch(e);
+        bus.emit(e);
       },
     });
-  }, [id, valid]);
+  }, [id, valid, wantFollows, bus]);
 
   const hasChat = Boolean(config?.widgets.some((w) => w.kind === 'chat'));
 
@@ -198,7 +207,7 @@ export default function Overlay() {
   return (
     <div className="ov-page">
       <div style={{ transform: `translate(${fit.x}px, ${fit.y}px) scale(${fit.scale})`, transformOrigin: '0 0' }}>
-        <OverlayCanvas config={config} hour={hour} demo={demo} chat={lines} />
+        <OverlayCanvas config={config} hour={hour} demo={demo} chat={lines} bus={bus} live />
       </div>
     </div>
   );
