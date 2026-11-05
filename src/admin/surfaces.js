@@ -421,6 +421,20 @@ export const SURFACES = Object.freeze([
     fullWidth: true,
   }),
   surface({
+    key: 'overlays',
+    urlByView: true,
+    label: 'Stream overlays',
+    shortLabel: 'Overlays',
+    nsid: COLLECTIONS.overlay,
+    group: 'studios',
+    kind: 'studio',
+    icon: 'Clapperboard',
+    blurb: 'Overlays and scenes for OBS, on the site’s grid and in the hour’s sky.',
+    // The preview is a 16:9 canvas beside a settings column: it wants the
+    // whole pane, as the sky studio's palette grid does.
+    fullWidth: true,
+  }),
+  surface({
     key: 'analytics',
     urlByView: true,
     label: 'Analytics',

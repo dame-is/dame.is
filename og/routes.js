@@ -67,6 +67,9 @@ export const STATIC_ROUTE_PATTERNS = [
   '/exploring/:repo/:collection',
   '/exploring/:repo/:collection/:rkey',
   '/oauth/callback',
+  // A stream overlay, for an OBS browser source. Rendered outside the site's
+  // frame (App.jsx), but a route all the same.
+  '/overlay/:id',
 ];
 
 /**

@@ -1,0 +1,1126 @@
+/* The stream overlay's canvas (OverlayCanvas.jsx): 1920x1080 canvas pixels,
+   the page grid carried onto it (lib/overlay.js says how), and the widgets in
+   the site's own voice.
+
+   Type is set in canvas pixels, not rem: the canvas is scaled as a whole
+   (to the browser source in OBS, to the preview in the studio), so its sizes
+   are fractions of 1080 lines of video rather than of a reader's font size.
+   The steps keep the site's proportions (theme.css): the label is the
+   small-caps eyebrow, the reading a step above body, the display the title
+   role's 3rem at the scale a stream is watched at. Each is multiplied by the
+   widget's own size (--ov-scale). */
+
+.ov-canvas {
+  --ov-text-label: 22px;
+  --ov-text-meta: 22px;
+  --ov-text-reading: 32px;
+  --ov-text-figure: 48px;
+  --ov-text-heading: 64px;
+  --ov-text-display: 112px;
+  --ov-text-figure-big: 104px;
+  --ov-pad: 18px;
+  --ov-scale: 1;
+
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  line-height: var(--leading-ui);
+  /* Nothing behind the widgets unless the overlay asks for the page: OBS
+     composites a transparent page over whatever is under the source. */
+  background: transparent;
+  isolation: isolate;
+}
+
+.ov-canvas *,
+.ov-canvas *::before,
+.ov-canvas *::after {
+  box-sizing: border-box;
+}
+
+/* The page, with the capture frames cut out of it. */
+.ov-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--page);
+  z-index: -2;
+}
+
+/* The grid, as grid.css draws the site's: a hairline at each edge of each
+   cell, the ink at a whisper, across and down. */
+.ov-grid {
+  --ov-line: color-mix(in srgb, var(--ink) 8%, transparent);
+
+  position: absolute;
+  inset: var(--ov-my) var(--ov-mx);
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      var(--ov-line) 0,
+      var(--ov-line) 1px,
+      transparent 1px,
+      transparent calc(var(--ov-cell) - 1px),
+      var(--ov-line) calc(var(--ov-cell) - 1px),
+      var(--ov-line) var(--ov-cell),
+      transparent var(--ov-cell),
+      transparent var(--ov-pitch)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--ov-line) 0,
+      var(--ov-line) 1px,
+      transparent 1px,
+      transparent calc(var(--ov-cell) - 1px),
+      var(--ov-line) calc(var(--ov-cell) - 1px),
+      var(--ov-line) var(--ov-cell),
+      transparent var(--ov-cell),
+      transparent var(--ov-pitch)
+    );
+}
+
+/* --- a widget's box -------------------------------------------------------- */
+
+.ov-w {
+  position: absolute;
+  /* A widget's box is a container, so what is in it can size to the box: a
+     reading takes one line in a one-row box and more in a taller one. */
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--ov-pad) calc(var(--ov-pad) + 4px);
+}
+
+.ov-w[data-surface='none'] {
+  padding: 0;
+}
+
+/* The two plates: the page, and the chrome's raised surface, each ruled with
+   the site's hairline and square at the corners. */
+.ov-w[data-surface='page'] {
+  background: var(--page);
+  border: 1px solid var(--rule);
+}
+
+.ov-w[data-surface='raised'] {
+  background: var(--surface-raised);
+  border: 1px solid var(--rule);
+}
+
+/* On the raised surface the muted inks are the chrome's (theme.css re-tunes
+   them for the bars), so the labels keep their contrast there too. */
+.ov-w[data-surface='raised'] {
+  --ink-muted: var(--sky-ink-muted-raised, var(--sky-ink-muted));
+  --ink-faint: var(--sky-ink-faint-raised, var(--sky-ink-faint));
+}
+
+.ov-w[data-align='center'] {
+  text-align: center;
+  align-items: center;
+}
+
+.ov-w[data-align='end'] {
+  text-align: end;
+  align-items: flex-end;
+}
+
+.ov-w p,
+.ov-w h1,
+.ov-w ol,
+.ov-w ul {
+  margin: 0;
+  padding: 0;
+  /* Readings, not a passage: no `p + p` indent (typography.css). */
+  text-indent: 0;
+}
+
+/* --- the voices ------------------------------------------------------------ */
+
+/* The label: the ledger's small-caps line ("dame is listening"). */
+.ov-label {
+  font-size: calc(var(--ov-text-label) * var(--ov-scale));
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  line-height: var(--leading-solid);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.ov-reading {
+  font-size: calc(var(--ov-text-reading) * var(--ov-scale));
+  line-height: var(--leading-heading);
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+@container (min-height: 150px) {
+  .ov-reading {
+    -webkit-line-clamp: 3;
+  }
+}
+
+.ov-reading strong {
+  font-weight: 600;
+}
+
+.ov-soft {
+  color: var(--ink-soft);
+}
+
+.ov-meta {
+  font-size: calc(var(--ov-text-meta) * var(--ov-scale));
+  color: var(--ink-faint);
+}
+
+.ov-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  line-height: var(--leading-display);
+  letter-spacing: -0.01em;
+  font-size: calc(var(--ov-text-display) * var(--ov-scale));
+  text-wrap: balance;
+}
+
+.ov-title[data-size='heading'] {
+  font-size: calc(var(--ov-text-heading) * var(--ov-scale));
+}
+
+.ov-title[data-size='body'] {
+  font-size: calc(var(--ov-text-reading) * var(--ov-scale));
+  letter-spacing: 0;
+}
+
+.ov-sub {
+  font-size: calc(var(--ov-text-reading) * var(--ov-scale));
+  color: var(--ink-soft);
+  font-style: italic;
+  line-height: var(--leading-heading);
+  margin-top: 8px;
+}
+
+/* Figures that tick (clock, countdown, day) hold their width as they change. */
+.ov-figure {
+  font-size: calc(var(--ov-text-figure) * var(--ov-scale));
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: var(--leading-solid);
+  white-space: nowrap;
+}
+
+.ov-figure-big {
+  font-size: calc(var(--ov-text-figure-big) * var(--ov-scale));
+  font-weight: 300;
+}
+
+.ov-figure-meta {
+  font-size: calc(var(--ov-text-meta) * var(--ov-scale));
+  color: var(--ink-faint);
+  font-variant-numeric: oldstyle-nums;
+}
+
+/* --- particular widgets ----------------------------------------------------- */
+
+.ov-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  height: 100%;
+}
+
+.ov-w[data-align='end'] .ov-row {
+  flex-direction: row-reverse;
+}
+
+.ov-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ov-w[data-align='center'] .ov-col {
+  align-items: center;
+}
+
+.ov-w[data-align='end'] .ov-col {
+  align-items: flex-end;
+}
+
+.ov-art {
+  flex: none;
+  width: calc(76px * var(--ov-scale));
+  height: calc(76px * var(--ov-scale));
+  max-height: 100%;
+  aspect-ratio: 1;
+  background: color-mix(in oklab, var(--ink) 9%, var(--page));
+  border: 1px solid var(--rule);
+}
+
+.ov-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ov-reading.ov-vitals {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 28px;
+  row-gap: 4px;
+  -webkit-line-clamp: unset;
+}
+
+.ov-vitals[data-stale] {
+  opacity: 0.6;
+}
+
+.ov-vital-glyph {
+  color: var(--accent);
+}
+
+.ov-mark-img {
+  flex: none;
+  width: calc(64px * var(--ov-scale));
+  height: calc(64px * var(--ov-scale));
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  object-fit: cover;
+}
+
+.ov-wordmark {
+  font-size: calc(var(--ov-text-figure) * var(--ov-scale));
+  line-height: var(--leading-solid);
+  letter-spacing: -0.01em;
+}
+
+.ov-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The chat: newest at the bottom, the older lines rising out of the top of
+   the box as new ones come in, each a handle in the accent and the words in
+   ink. */
+.ov-w-chat {
+  justify-content: flex-start;
+}
+
+.ov-chat {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  font-size: calc(var(--ov-text-meta) * 1.2 * var(--ov-scale));
+  line-height: var(--leading-tight);
+}
+
+.ov-chat-line {
+  overflow-wrap: anywhere;
+  animation: ov-chat-in 420ms ease-out both;
+}
+
+.ov-chat-who {
+  color: var(--accent);
+  font-variant: all-small-caps;
+  letter-spacing: 0.04em;
+}
+
+.ov-chat-empty {
+  margin-top: auto;
+}
+
+@keyframes ov-chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ov-chat-line {
+    animation: none;
+  }
+}
+
+/* A capture frame: a hole, ruled at its edge in the hour's ink so it reads
+   as a plate laid on the page, with its name small in the corner. */
+.ov-w-frame {
+  justify-content: flex-start;
+  border: 1px solid var(--rule);
+  outline: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  outline-offset: 6px;
+}
+
+.ov-w-frame[data-shape='circle'] {
+  border-radius: 50%;
+  outline: 0;
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--page) 0%, transparent),
+    0 0 0 7px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+/* A frame's nameplate: its name on a small raised plate at its foot, the
+   ledger's small caps on the chrome's surface ("dame", "second cam"). */
+.ov-w-frame {
+  overflow: visible;
+  container-type: normal;
+}
+
+.ov-frame-plate {
+  position: absolute;
+  left: -1px;
+  bottom: -1px;
+  padding: 6px 14px 8px;
+  font-size: calc(var(--ov-text-label) * var(--ov-scale));
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  line-height: var(--leading-solid);
+  color: var(--ink);
+  background: var(--surface-raised);
+  border: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.ov-w-frame[data-shape='circle'] .ov-frame-plate {
+  left: 50%;
+  bottom: -12px;
+  transform: translateX(-50%);
+}
+
+/* --- the grounds beyond the page and the raised surface --------------------- */
+
+/* The page at two thirds, over a capture: OBS composites the canvas over the
+   video, so there is nothing for a blur to blur, and the veil is honest
+   about that by being a tint and nothing more. */
+.ov-w[data-surface='veil'] {
+  background: color-mix(in srgb, var(--page) 66%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
+}
+
+/* The accent filled, as the site's primary control is (theme.css
+   --accent-fill), with page-coloured words. skyTheme.js holds the accent at
+   4.5:1 or better against the page, so the page reads on it at every hour. */
+.ov-w[data-surface='accent'] {
+  --ink: var(--sky-page);
+  --ink-soft: color-mix(in srgb, var(--sky-page) 90%, var(--sky-accent));
+  --ink-muted: color-mix(in srgb, var(--sky-page) 82%, var(--sky-accent));
+  --ink-faint: color-mix(in srgb, var(--sky-page) 78%, var(--sky-accent));
+  --accent: var(--sky-page);
+  --rule: color-mix(in srgb, var(--sky-page) 30%, var(--sky-accent));
+
+  background: color-mix(in srgb, var(--sky-accent) 85%, var(--sky-ink));
+  border: 1px solid color-mix(in srgb, var(--sky-accent) 72%, var(--sky-ink));
+  color: var(--ink);
+}
+
+/* The page turned over: an ink ground and page-coloured words. */
+.ov-w[data-surface='ink'] {
+  --ink: var(--sky-page);
+  --ink-soft: color-mix(in srgb, var(--sky-page) 86%, var(--sky-ink));
+  --ink-muted: color-mix(in srgb, var(--sky-page) 72%, var(--sky-ink));
+  --ink-faint: color-mix(in srgb, var(--sky-page) 66%, var(--sky-ink));
+  --accent: color-mix(in srgb, var(--sky-accent) 45%, var(--sky-page));
+  --rule: color-mix(in srgb, var(--sky-page) 22%, var(--sky-ink));
+
+  background: var(--sky-ink);
+  border: 1px solid var(--sky-ink);
+  color: var(--ink);
+}
+
+/* The hour's sky, from the avatar's own bands: deep sky at the top, horizon
+   at the foot (skyTheme.js SKY_BANDS), with whichever of the hour's inks
+   reads on it (OverlayCanvas paletteStyle). */
+.ov-w[data-surface='sky'] {
+  --ink: var(--ov-sky-ink);
+  --ink-soft: color-mix(in srgb, var(--ov-sky-ink) 88%, transparent);
+  --ink-muted: color-mix(in srgb, var(--ov-sky-ink) 78%, transparent);
+  --ink-faint: color-mix(in srgb, var(--ov-sky-ink) 72%, transparent);
+  --accent: var(--ov-sky-ink);
+  --rule: color-mix(in srgb, var(--ov-sky-ink) 25%, transparent);
+
+  background: linear-gradient(to bottom, var(--ov-sky-top), var(--ov-sky-bottom));
+  border: 1px solid color-mix(in srgb, var(--ov-sky-ink) 20%, transparent);
+  color: var(--ink);
+}
+
+/* --- text: your own words ------------------------------------------------------ */
+
+.ov-text {
+  max-width: 100%;
+  line-height: var(--leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.ov-text-under {
+  font-size: calc(var(--ov-text-reading) * var(--ov-scale));
+  line-height: var(--leading-heading);
+  color: var(--ink-soft);
+  max-width: 100%;
+}
+
+.ov-voice-display {
+  font-size: calc(var(--ov-text-display) * var(--ov-scale));
+  line-height: var(--leading-display);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.ov-voice-heading {
+  font-size: calc(var(--ov-text-heading) * var(--ov-scale));
+  line-height: var(--leading-display);
+  text-wrap: balance;
+}
+
+.ov-voice-reading {
+  font-size: calc(var(--ov-text-reading) * var(--ov-scale));
+}
+
+.ov-voice-italic {
+  font-size: calc(var(--ov-text-heading) * 0.8 * var(--ov-scale));
+  font-style: italic;
+  font-weight: 300;
+  line-height: var(--leading-heading);
+  text-wrap: balance;
+}
+
+.ov-voice-label {
+  font-size: calc(var(--ov-text-label) * 1.3 * var(--ov-scale));
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.ov-voice-mono {
+  font-family: var(--code);
+  font-size: calc(var(--ov-text-reading) * 0.85 * var(--ov-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+/* The ticker: the lines along one line, twice over, sliding left by one copy's
+   width and starting again, so the seam never shows. */
+.ov-ticker {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
+}
+
+.ov-ticker-track {
+  display: flex;
+  width: max-content;
+  white-space: nowrap;
+  animation: ov-ticker var(--ov-ticker-s, 30s) linear infinite;
+}
+
+.ov-ticker-track span {
+  padding-right: 2em;
+}
+
+@keyframes ov-ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ov-ticker-track {
+    animation: none;
+  }
+}
+
+/* --- the TID clock ------------------------------------------------------------- */
+
+/* Thirteen characters in the code voice, which keeps every one the same width
+   (the site's serif doesn't); the clock id's two set apart in the faint ink;
+   a character that just changed lit in the accent. */
+.ov-tid {
+  display: flex;
+  font-family: var(--code);
+  font-size: calc(var(--ov-text-figure) * 0.95 * var(--ov-scale));
+  line-height: var(--leading-solid);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.ov-tid-c {
+  transition: color 400ms ease-out;
+}
+
+.ov-tid-c.is-new {
+  color: var(--accent);
+  transition: none;
+}
+
+.ov-tid-clock {
+  color: var(--ink-faint);
+}
+
+.ov-tid-clock:first-of-type,
+.ov-tid-c:nth-child(12) {
+  margin-left: 0.25em;
+}
+
+.ov-tid-when {
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.ov-tid-sep {
+  color: var(--ink-faint);
+}
+
+.ov-tid-rev {
+  font-family: var(--code);
+  font-size: 0.9em;
+  color: var(--ink-soft);
+}
+
+.ov-w-tid[data-style='mini'] .ov-tid {
+  font-size: calc(var(--ov-text-reading) * 1.1 * var(--ov-scale));
+}
+
+/* --- the atmosphere ------------------------------------------------------------- */
+
+.ov-atm-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ov-atm-condition {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.ov-atm-foot {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@container (max-height: 200px) {
+  .ov-atm-foot {
+    display: none;
+  }
+}
+
+.ov-atm-strip {
+  display: flex;
+  align-items: baseline;
+  gap: 0 26px;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+  font-size: calc(var(--ov-text-reading) * 0.9 * var(--ov-scale));
+}
+
+.ov-atm-strip > span + span::before {
+  content: '·';
+  margin-right: 26px;
+  color: var(--ink-faint);
+}
+
+.ov-atm-strip > .ov-label + span::before {
+  content: none;
+}
+
+.ov-atm-strip-lead {
+  font-style: italic;
+}
+
+.ov-atm-apps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.ov-atm-apps li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  column-gap: 12px;
+  font-size: calc(var(--ov-text-reading) * 0.8 * var(--ov-scale));
+  line-height: var(--leading-tight);
+}
+
+.ov-atm-app {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-atm-bar {
+  grid-column: 1 / -1;
+  height: 3px;
+  margin-top: 3px;
+  background: linear-gradient(to right, var(--accent) calc(var(--share) * 100%), var(--rule-soft) 0);
+}
+
+.ov-atm-hours {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.ov-atm-hours li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 1px solid var(--rule);
+}
+
+.ov-atm-hour-rate {
+  font-size: calc(var(--ov-text-figure) * 0.75 * var(--ov-scale));
+}
+
+.ov-atm-words {
+  margin-top: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@container (max-height: 240px) {
+  .ov-atm-words {
+    display: none;
+  }
+}
+
+.ov-w-atmosphere[data-style='pulse'] {
+  justify-content: flex-start;
+}
+
+.ov-atm-pulse-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+}
+
+.ov-atm-pulse {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin-top: 8px;
+  overflow: visible;
+}
+
+.ov-atm-pulse-area {
+  fill: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.ov-atm-pulse-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* --- Poe ------------------------------------------------------------------------- */
+
+/* Poe's box has no plate and lets Poe and its words out: the potato sits at
+   the foot of the box, as wide as the box, and the bubble rises above it. */
+.ov-w-poe {
+  overflow: visible;
+  container-type: normal;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.ov-poe {
+  position: relative;
+  width: 100%;
+}
+
+.ov-potato {
+  position: relative;
+  transform-origin: 50% 100%;
+  animation: ov-breathe var(--bob, 3200ms) ease-in-out infinite;
+}
+
+/* On the bottom row, Poe's bottom is tucked under the edge of the screen. */
+.ov-poe[data-edge] .ov-potato {
+  margin-bottom: -18%;
+}
+
+.ov-potato-img,
+.ov-potato-arm {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+/* The leaf arm on its own, behind the body; it swings while Poe waves. */
+.ov-potato-arm {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: -1;
+  opacity: 0;
+  transform-origin: 19% 53%;
+}
+
+.ov-poe[data-side='left'] .ov-potato-arm {
+  transform-origin: 81% 53%;
+}
+
+.ov-potato[data-waving] .ov-potato-arm {
+  opacity: 1;
+  animation: ov-wave 1.6s ease-in-out;
+}
+
+.ov-poe[data-side='left'] .ov-potato[data-waving] .ov-potato-arm {
+  animation-name: ov-wave-left;
+}
+
+.ov-potato[data-hopping] .ov-potato-img {
+  transform-origin: 50% 100%;
+  animation: ov-hop 1.2s cubic-bezier(0.2, 0.7, 0.4, 1);
+}
+
+.ov-potato[data-napping] {
+  animation-duration: 5s;
+}
+
+.ov-potato[data-startled] .ov-potato-img {
+  transform-origin: 50% 100%;
+  animation: ov-startle 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* The z's while Poe naps, in the site's italic. */
+.ov-potato-zzz {
+  --zzz-dir: -1;
+
+  position: absolute;
+  left: 22%;
+  top: 4%;
+  width: 90px;
+  height: 110px;
+  pointer-events: none;
+}
+
+.ov-poe[data-side='left'] .ov-potato-zzz {
+  left: auto;
+  right: 22%;
+  --zzz-dir: 1;
+}
+
+.ov-potato-zzz i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  font-size: var(--ov-text-reading);
+  font-style: italic;
+  color: var(--ink);
+  text-shadow: 0 0 6px var(--page);
+  opacity: 0;
+}
+
+.ov-potato[data-napping] .ov-potato-zzz i {
+  animation: ov-zzz 2.4s ease-in infinite;
+}
+
+.ov-potato[data-napping] .ov-potato-zzz i:nth-child(2) {
+  font-size: calc(var(--ov-text-reading) * 1.25);
+  animation-delay: 0.8s;
+}
+
+.ov-potato[data-napping] .ov-potato-zzz i:nth-child(3) {
+  font-size: calc(var(--ov-text-reading) * 1.5);
+  animation-delay: 1.6s;
+}
+
+/* What Poe says: a page plate in the site's idiom, square and ruled, rising
+   above the potato into the screen. */
+.ov-bubble {
+  position: absolute;
+  right: 30%;
+  bottom: calc(100% + 10px);
+  width: max-content;
+  max-width: 540px;
+  padding: 16px 22px 18px;
+  background: var(--page);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  box-shadow: 0 12px 30px var(--shadow);
+  transform-origin: 90% 100%;
+  animation: ov-bubble-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ov-poe[data-edge] .ov-bubble {
+  bottom: calc(82% + 10px);
+}
+
+.ov-poe[data-side='left'] .ov-bubble {
+  right: auto;
+  left: 30%;
+  transform-origin: 10% 100%;
+}
+
+.ov-bubble.is-leaving {
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease-out;
+}
+
+.ov-bubble:has(.ov-bubble-avatar:not([hidden])) {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* The site's reset sets images to block, which would win over [hidden]. */
+.ov-bubble-avatar[hidden] {
+  display: none;
+}
+
+.ov-bubble-avatar {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--rule);
+}
+
+.ov-bubble p {
+  margin: 0;
+  text-indent: 0;
+}
+
+.ov-bubble-label {
+  margin-bottom: 6px;
+  font-size: var(--ov-text-label);
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  line-height: var(--leading-solid);
+  color: var(--ink-muted);
+}
+
+.ov-bubble-text {
+  font-size: var(--ov-text-reading);
+  line-height: var(--leading-tight);
+}
+
+.ov-bubble-sub {
+  margin-top: 6px;
+  font-size: var(--ov-text-meta);
+  font-style: italic;
+  line-height: var(--leading-tight);
+  color: var(--ink-soft);
+}
+
+/* Celebrations bursting out of Poe: atpota.to's leaves, hearts and petals,
+   here as small square cells (the site draws no corners) in the hour's
+   accent, soft accent and tan, hearts in the danger red, petals round. They
+   are inside the box, so they scale with the canvas. */
+.ov-bursts {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.ov-burst {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  background: var(--accent);
+  animation: ov-burst 0.9s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+
+.ov-burst[data-shade='1'] {
+  background: var(--accent-soft);
+}
+
+.ov-burst[data-shade='2'] {
+  background: var(--tan);
+}
+
+.ov-burst-hearts {
+  background: var(--danger);
+}
+
+.ov-burst-petals {
+  border-radius: 50%;
+}
+
+@keyframes ov-burst {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0) scale(0.6);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1);
+  }
+}
+
+@keyframes ov-zzz {
+  0% {
+    opacity: 0;
+    transform: none;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--zzz-dir) * 40px), -90px) rotate(calc(var(--zzz-dir) * 12deg));
+  }
+}
+
+@keyframes ov-startle {
+  25% {
+    transform: translateY(-36px) scale(0.94, 1.08);
+  }
+}
+
+@keyframes ov-breathe {
+  50% {
+    transform: scale(1.025, 0.975);
+  }
+}
+
+@keyframes ov-hop {
+  20%,
+  70% {
+    transform: translateY(-40px) scale(0.95, 1.06);
+  }
+
+  40%,
+  90% {
+    transform: scale(1.06, 0.94);
+  }
+}
+
+@keyframes ov-wave {
+  20% {
+    transform: rotate(12deg);
+  }
+
+  40% {
+    transform: rotate(-5deg);
+  }
+
+  60% {
+    transform: rotate(10deg);
+  }
+
+  80% {
+    transform: rotate(-2deg);
+  }
+}
+
+@keyframes ov-wave-left {
+  20% {
+    transform: rotate(-12deg);
+  }
+
+  40% {
+    transform: rotate(5deg);
+  }
+
+  60% {
+    transform: rotate(-10deg);
+  }
+
+  80% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes ov-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ov-potato,
+  .ov-potato[data-waving] .ov-potato-arm,
+  .ov-potato[data-hopping] .ov-potato-img,
+  .ov-potato[data-startled] .ov-potato-img,
+  .ov-potato[data-napping] .ov-potato-zzz i,
+  .ov-bubble {
+    animation: none;
+  }
+}
+
+/* --- the public page --------------------------------------------------------- */
+
+/* /overlay/:id: nothing but the canvas, scaled to the window, on a page OBS
+   can see through. The site's html/body paint --page; this takes it away. */
+:root[data-overlay],
+:root[data-overlay] body {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+.ov-page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ov-page .ov-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+.ov-page-note {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  margin: 0;
+  max-width: 34rem;
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}

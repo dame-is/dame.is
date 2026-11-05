@@ -1,0 +1,458 @@
+/* The Overlays studio (OverlayStudio.jsx), in the site studios' idiom
+   (siteStudios.css): section heads on a hairline, ruled rows, the label voice,
+   square corners, no fills but the preview itself. Every class is `os-`. */
+
+.os-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* The preview beside a settings column; the column drops under the preview
+   below the desk breakpoint. */
+.os-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (min-width: 62rem) {
+  .os-main {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+  }
+
+  .os-stage-col {
+    position: sticky;
+    top: var(--space-4);
+  }
+}
+
+.os-stage-col,
+.os-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* --- the stage ------------------------------------------------------------- */
+
+/* A transparent overlay is previewed over the usual stand-in for "whatever is
+   underneath": a quiet checker in the page's own ink, so the widgets' plates
+   and the frame holes read as they will over a capture. */
+.os-stage,
+.os-thumb {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  background-color: color-mix(in oklab, var(--ink) 6%, var(--page));
+  background-image:
+    linear-gradient(45deg, color-mix(in oklab, var(--ink) 12%, transparent) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in oklab, var(--ink) 12%, transparent) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in oklab, var(--ink) 12%, transparent) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in oklab, var(--ink) 12%, transparent) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  aspect-ratio: 16 / 9;
+  touch-action: none;
+}
+
+.os-scaled {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+/* The grid as a guide while placing: the cells' edges, dashed in the admin's
+   accent so they never read as part of the overlay. Not drawn on stream. */
+.os-guides {
+  position: absolute;
+  inset: var(--os-my) var(--os-mx);
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--accent) 45%, transparent) 0 1px,
+      transparent 1px var(--os-cell),
+      transparent var(--os-cell) var(--os-pitch)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--accent) 45%, transparent) 0 1px,
+      transparent 1px var(--os-cell),
+      transparent var(--os-cell) var(--os-pitch)
+    );
+}
+
+.os-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.os-box {
+  position: absolute;
+  cursor: grab;
+  outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -1px;
+  touch-action: none;
+}
+
+.os-box:hover {
+  outline-style: solid;
+}
+
+.os-box.is-on,
+.os-box:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  z-index: 1;
+}
+
+.os-box:active {
+  cursor: grabbing;
+}
+
+.os-box-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0 var(--space-1);
+  font-family: var(--sans);
+  font-size: var(--text-2xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  color: var(--page);
+  background: var(--accent);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.os-box:hover .os-box-tag,
+.os-box.is-on .os-box-tag,
+.os-box:focus-visible .os-box-tag {
+  opacity: 1;
+}
+
+.os-box-handle {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border: 1px solid var(--page);
+  cursor: nwse-resize;
+  opacity: 0;
+}
+
+.os-box.is-on .os-box-handle,
+.os-box:hover .os-box-handle {
+  opacity: 1;
+}
+
+/* --- under the stage --------------------------------------------------------- */
+
+.os-under {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.os-hourline,
+.os-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.os-hourline input[type='range'] {
+  flex: 1;
+  min-width: 10rem;
+  accent-color: var(--accent);
+}
+
+.os-address {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.os-url {
+  font-family: var(--code);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+  background: none;
+  padding: 0;
+}
+
+/* --- the settings column ---------------------------------------------------- */
+
+.os-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.os-field input[type='range'] {
+  accent-color: var(--accent);
+}
+
+.os-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.os-select {
+  width: auto;
+  min-width: 7rem;
+}
+
+.os-grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.os-num {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.os-widgets .ss-row {
+  border-bottom-color: var(--rule-soft);
+}
+
+.os-widget-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: start;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.os-widget-row:hover {
+  background: var(--wash-hover);
+}
+
+.os-widget-row.is-on {
+  background: var(--wash-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.os-widget-where {
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.os-widget-editor {
+  padding-top: var(--space-2);
+}
+
+/* --- every overlay, and the presets ------------------------------------------ */
+
+.os-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--space-5);
+}
+
+.os-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  text-align: start;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.os-card .os-thumb {
+  margin-bottom: var(--space-2);
+  transition: border-color 120ms ease;
+}
+
+.os-card:hover .os-thumb,
+.os-card:focus-visible .os-thumb {
+  border-color: var(--accent);
+}
+
+.os-card-name {
+  font-size: var(--text-lg);
+}
+
+.os-card-meta {
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+}
+
+/* --- what a widget is drawn on: a swatch of each ground --------------------- */
+
+.os-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.os-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: var(--text-meta);
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.os-swatch:hover {
+  background: var(--wash-hover);
+}
+
+.os-swatch.is-on {
+  background: var(--wash-selected);
+  border-color: var(--accent);
+}
+
+/* Each chip in the admin's own palette, as a hint of the ground it names. */
+.os-swatch-chip {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+}
+
+.os-swatch[data-surface='none'] .os-swatch-chip {
+  background:
+    linear-gradient(to top right, transparent 45%, var(--rule) 45% 55%, transparent 55%);
+}
+
+.os-swatch[data-surface='raised'] .os-swatch-chip {
+  background: var(--surface-raised);
+}
+
+.os-swatch[data-surface='veil'] .os-swatch-chip {
+  background: color-mix(in srgb, var(--page) 66%, transparent);
+  border-style: dashed;
+}
+
+.os-swatch[data-surface='accent'] .os-swatch-chip {
+  background: var(--accent-fill);
+}
+
+.os-swatch[data-surface='ink'] .os-swatch-chip {
+  background: var(--ink);
+}
+
+.os-swatch[data-surface='sky'] .os-swatch-chip {
+  background: linear-gradient(to bottom, var(--accent), var(--tan));
+}
+
+/* --- the frames' arrangements -------------------------------------------------- */
+
+.os-arrangements {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: var(--space-2);
+}
+
+.os-arrangement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  font: inherit;
+  font-size: var(--text-meta);
+  line-height: var(--leading-tight);
+  text-align: start;
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.os-arrangement:hover,
+.os-arrangement:focus-visible {
+  border-color: var(--accent);
+  background: var(--wash-hover);
+}
+
+.os-arrangement svg {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: color-mix(in oklab, var(--ink) 6%, var(--page));
+}
+
+.os-arrangement rect {
+  fill: color-mix(in srgb, var(--accent) 22%, transparent);
+  stroke: var(--accent);
+  stroke-width: 0.08;
+}
+
+.os-arrangement rect[data-main] {
+  fill: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.os-transforms {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.os-transforms caption {
+  text-align: start;
+  padding-bottom: var(--space-1);
+}
+
+.os-transforms th,
+.os-transforms td {
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  text-align: start;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.os-transforms thead th {
+  font-weight: 400;
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.os-transforms tbody th {
+  font-weight: 400;
+}
