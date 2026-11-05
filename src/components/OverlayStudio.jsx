@@ -20,7 +20,7 @@
 // its name when it is first saved, and is its address from then on.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Copy, ExternalLink, Plus, RotateCw, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, ExternalLink, Plus, Redo2, RotateCw, Trash2, Undo2 } from 'lucide-react';
 import Button from './Button.jsx';
 import Segmented from './Segmented.jsx';
 import SectionHead from './SectionHead.jsx';
@@ -28,6 +28,7 @@ import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import OverlayCanvas from '../overlay/OverlayCanvas.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { isSwapConflict } from '../lib/recordWrites.js';
+import { canRedo, canUndo, createHistory, keyAction, record as recordStep, redo, replacePresent, undo } from '../lib/editHistory.js';
 import { skyHourLabel } from '../lib/skyTheme.js';
 import { easternHour } from '../lib/time.js';
 import {
@@ -367,7 +368,13 @@ function PresetPicker({ hour, onPick, onCancel }) {
 function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, onDeleted, onDuplicate }) {
   const { registerActions, reportDirty } = useAdminShell();
   const initial = useMemo(() => fromRecord(saved ? saved.config : seed), [saved, seed]);
-  const [draft, setDraft] = useState(initial);
+  // The draft, with its undo history (lib/editHistory.js). Every change goes
+  // through setDraft; a `group` folds a gesture's changes into one step.
+  const [hist, setHist] = useState(() => createHistory(initial));
+  const draft = hist.present;
+  const setDraft = useCallback((next, { group = null } = {}) => {
+    setHist((h) => recordStep(h, typeof next === 'function' ? next(h.present) : next, { group }));
+  }, []);
   const [baseline, setBaseline] = useState(saved ? initial : null);
   const [selected, setSelected] = useState(initial.widgets.length ? 0 : -1);
   const [previewHour, setPreviewHour] = useState(null);
@@ -383,13 +390,16 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
 
   /* editing */
 
-  const patch = (fields) => setDraft((d) => ({ ...d, ...fields }));
+  const patch = (fields) => setDraft((d) => ({ ...d, ...fields }), { group: `canvas:${Object.keys(fields).sort().join(',')}` });
   // Words are kept as typed while editing (a trailing space is the start of
   // the next word, an empty line in Links the start of the next line) and
   // cleaned on the way to the PDS by toRecord. Geometry is clamped as it moves.
-  const setWidget = useCallback((i, next) => {
-    setDraft((d) => ({ ...d, widgets: d.widgets.map((w, j) => (j === i ? next : w)) }));
-  }, []);
+  const setWidget = useCallback(
+    (i, next, group = null) => {
+      setDraft((d) => ({ ...d, widgets: d.widgets.map((w, j) => (j === i ? next : w)) }), { group });
+    },
+    [setDraft],
+  );
   const addWidget = (id) => {
     const entry = catalogEntry(id);
     if (!entry || draft.widgets.length >= MAX_WIDGETS) return;
@@ -419,6 +429,33 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
     setSelected(j);
   };
 
+  /* undo, redo, and the keys for them */
+
+  const doUndo = useCallback(() => setHist(undo), []);
+  const doRedo = useCallback(() => setHist(redo), []);
+  // Read through refs, so the key listener is added once and always sees
+  // the present draft and selection.
+  const keysRef = useRef(null);
+  keysRef.current = { selected, count: draft.widgets.length, removeWidget, doUndo, doRedo };
+  useEffect(() => {
+    const onKey = (e) => {
+      const action = keyAction(e);
+      if (!action) return;
+      const k = keysRef.current;
+      if (action === 'delete') {
+        if (k.selected < 0 || k.selected >= k.count) return;
+        e.preventDefault();
+        k.removeWidget(k.selected);
+        return;
+      }
+      e.preventDefault();
+      if (action === 'undo') k.doUndo();
+      else k.doRedo();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
   /* saving */
 
   const handleSave = useCallback(async () => {
@@ -438,7 +475,9 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
         ...(id ? {} : { swapRecord: null }),
       });
       const written = fromRecord(record);
-      setDraft(written);
+      // What was written becomes the present without a step of its own, so
+      // an undo after saving goes back to the edit before it.
+      setHist((h) => replacePresent(h, written));
       setBaseline(written);
       setFlash(true);
       clearTimeout(flashTimer.current);
@@ -521,6 +560,17 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
       {error && <p className="ss-error">{error}</p>}
       <div className="os-main">
         <div className="os-stage-col">
+          <div className="os-toolbar">
+            <Button size="sm" onClick={doUndo} disabled={!canUndo(hist)} title="Undo (⌘Z / Ctrl+Z)">
+              <Undo2 size={13} aria-hidden="true" /> Undo
+            </Button>
+            <Button size="sm" onClick={doRedo} disabled={!canRedo(hist)} title="Redo (⇧⌘Z / Ctrl+Y)">
+              <Redo2 size={13} aria-hidden="true" /> Redo
+            </Button>
+            <span className="ss-hint">
+              {sel ? `Delete or Backspace removes ${widgetName(sel).toLowerCase()}. ` : ''}Arrow keys move the picked widget a cell; with Shift they resize it.
+            </span>
+          </div>
           <OverlayPreview
             config={draft}
             hour={hour}
@@ -675,7 +725,7 @@ function OverlayEditor({ agent, did, id, saved, seed, taken, hourNow, onSaved, o
               widget={sel}
               index={selected}
               count={draft.widgets.length}
-              onChange={(next) => setWidget(selected, next)}
+              onChange={(next, group) => setWidget(selected, next, group ? `${selected}:${group}` : null)}
               onRemove={() => removeWidget(selected)}
               onDuplicate={() => duplicateWidget(selected)}
               onReorder={(dir) => reorder(selected, dir)}
@@ -737,6 +787,10 @@ function OverlayPreview({ config, hour, selected, onSelect, onChange }) {
   const [ref, width] = useWidth();
   const scale = width / CANVAS_W;
   const drag = useRef(null);
+  const dragSeq = useRef(0);
+  // The guides come up while something is being dragged, and stay faint over
+  // the widgets otherwise.
+  const [dragging, setDragging] = useState(false);
 
   const start = (e, i, mode) => {
     if (e.button !== 0) return;
@@ -744,7 +798,10 @@ function OverlayPreview({ config, hour, selected, onSelect, onChange }) {
     e.stopPropagation();
     onSelect(i);
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    drag.current = { i, mode, x: e.clientX, y: e.clientY, w: config.widgets[i] };
+    // One drag is one undo step, however many cells it crosses.
+    dragSeq.current += 1;
+    drag.current = { i, mode, x: e.clientX, y: e.clientY, w: config.widgets[i], group: `drag:${dragSeq.current}` };
+    setDragging(true);
   };
   const moveTo = (e) => {
     const d = drag.current;
@@ -757,11 +814,12 @@ function OverlayPreview({ config, hour, selected, onSelect, onChange }) {
         : resizeWidget(d.w, d.w.col + d.w.cols - 1 + dc, d.w.row + d.w.rows - 1 + dr);
     const cur = config.widgets[d.i];
     if (cur && (cur.col !== next.col || cur.row !== next.row || cur.cols !== next.cols || cur.rows !== next.rows)) {
-      onChange(d.i, next);
+      onChange(d.i, next, d.group);
     }
   };
   const end = () => {
     drag.current = null;
+    setDragging(false);
   };
   const onKey = (e, i) => {
     const w = config.widgets[i];
@@ -781,6 +839,7 @@ function OverlayPreview({ config, hour, selected, onSelect, onChange }) {
       ref={ref}
       className="os-stage"
       data-backdrop={config.backdrop}
+      data-dragging={dragging ? '' : undefined}
       style={{ height: CANVAS_H * scale || undefined }}
       onPointerDown={() => onSelect(-1)}
     >
@@ -966,7 +1025,8 @@ function toLocalInput(iso) {
 
 function WidgetEditor({ widget: w, index, count, onChange, onRemove, onDuplicate, onReorder }) {
   const def = WIDGETS[w.kind];
-  const set = (fields) => onChange({ ...w, ...fields });
+  // A field's edits fold into one undo step while it is being typed in.
+  const set = (fields) => onChange({ ...w, ...fields }, Object.keys(fields).sort().join(','));
   const ownLabel = typeof w.label === 'string';
   const showLabel = !ownLabel || w.label !== '';
 
@@ -1050,7 +1110,7 @@ function WidgetEditor({ widget: w, index, count, onChange, onRemove, onDuplicate
                   if (e.target.checked) {
                     const next = { ...w };
                     delete next.label;
-                    onChange(next);
+                    onChange(next, 'label');
                   } else set({ label: '' });
                 }}
               />
@@ -1068,7 +1128,7 @@ function WidgetEditor({ widget: w, index, count, onChange, onRemove, onDuplicate
                   else {
                     const next = { ...w };
                     delete next.label;
-                    onChange(next);
+                    onChange(next, 'label');
                   }
                 }}
                 aria-label="Label text"
