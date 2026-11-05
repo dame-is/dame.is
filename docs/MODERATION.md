@@ -66,6 +66,11 @@ Computed in `src/lib/moderation/score.js`. Vetoes win over everything.
 | `NOTABLE`    | No connection, but ≥10k followers or very high activity with real reach.                                   |
 | `UNKNOWN`    | No connection, nothing notable. Most of any stranger sweep.                                                |
 
+Curation lists made by the graph-lists cron (`is.dame.graph.list`) do not count
+toward `PROTECTED` unless their definition sets `protects: true`; see
+[GRAPH-LISTS.md](GRAPH-LISTS.md). The same snapshot drives that page's degree
+breakdown and proximity lists.
+
 Against the September sweep these produce 1.0% / 2.2% / 1.5% / 95.3%. Against
 the accounts you picked by hand, 54% need a look. Nearly frictionless on
 strangers, hard to get past for people near you — that asymmetry is the design.

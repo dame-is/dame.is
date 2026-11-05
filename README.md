@@ -74,6 +74,11 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   `self`: its name, the form's heading, the thank-you line and the fine
   print. Every field falls back to the built-in sentence. Edited in the admin's
   Newsletter surface; see [Newsletter](#newsletter).
+- `is.dame.graph.list` — one record per managed Bluesky list: a rule
+  (people I engage with, people who engage with me, or accounts close in my
+  follow graph, over a rolling 30 days) and the list it keeps current. Synced
+  every six hours by `api/graph-lists.js`; managed in the Analytics studio's
+  Graph tab. See [`docs/GRAPH-LISTS.md`](docs/GRAPH-LISTS.md).
 - `is.dame.nav` — optional PDS override for the nav-menu (dock sheet) route
   list. When its `enabled` flag is set, its `items` select / reorder / relabel /
   hide the entries; otherwise the site uses the hardcoded routes in

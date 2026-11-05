@@ -1,0 +1,67 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.graph.list",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "One managed Bluesky list: a rule and the app.bsky.graph.list it keeps in step with. Written only by api/graph-lists.js (as dame, with the app password); the cron re-applies every enabled rule every six hours. Holds the last sync's counts, never who joined or left. See docs/GRAPH-LISTS.md.",
+      "record": {
+        "type": "object",
+        "required": ["kind", "name", "listUri", "createdAt"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "knownValues": ["engaged-out", "engaged-in", "proximity"],
+            "description": "engaged-out: people dame engaged with most. engaged-in: people who engaged with dame most. proximity: accounts close in dame's follow graph."
+          },
+          "name": { "type": "string", "maxLength": 64 },
+          "description": { "type": "string", "maxLength": 300 },
+          "listUri": { "type": "string", "format": "at-uri", "description": "The curation list this rule drives. Always one this endpoint created." },
+          "enabled": { "type": "boolean", "description": "False pauses the cron for this list; the list stays as it is." },
+          "notFollowing": { "type": "boolean", "description": "Only accounts dame does not follow." },
+          "size": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Most members." },
+          "windowDays": { "type": "integer", "minimum": 1, "maximum": 365, "description": "The rolling window, 30 by default." },
+          "minInteractions": { "type": "integer", "minimum": 0, "description": "Engagement lists: the floor, inside the window." },
+          "kinds": {
+            "type": "array",
+            "items": { "type": "string", "knownValues": ["like", "repost", "reply", "quote", "mention"] },
+            "description": "Engagement lists: which acts count."
+          },
+          "maxDegree": { "type": "integer", "minimum": 0, "maximum": 2, "description": "Proximity lists: 1 = people dame follows; 2 = also accounts dame's follows follow." },
+          "minVouches": { "type": "integer", "minimum": 0, "description": "Proximity lists: how many of dame's follows must follow a 2nd-degree account." },
+          "protects": { "type": "boolean", "description": "Whether members count as curated for the moderation gate's PROTECTED veto. Off by default." },
+          "lastSync": {
+            "type": "object",
+            "properties": {
+              "at": { "type": "string", "format": "datetime" },
+              "size": { "type": "integer" },
+              "target": { "type": "integer" },
+              "eligible": { "type": "integer" },
+              "added": { "type": "integer" },
+              "removed": { "type": "integer" },
+              "pending": { "type": "integer" },
+              "error": { "type": "string" }
+            }
+          },
+          "history": {
+            "type": "array",
+            "maxLength": 30,
+            "description": "The last syncs, newest first: counts only.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": { "type": "string", "format": "datetime" },
+                "size": { "type": "integer" },
+                "added": { "type": "integer" },
+                "removed": { "type": "integer" }
+              }
+            }
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
