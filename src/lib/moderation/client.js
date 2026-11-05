@@ -26,6 +26,7 @@ export const LXM = {
   hub: 'is.dame.mod.hub',
   plan: 'is.dame.mod.plan',
   queue: 'is.dame.mod.queue',
+  graphLists: 'is.dame.graph.lists',
 };
 
 /**
@@ -123,6 +124,19 @@ export function precomputeStatus(agent, { restart = false, signal } = {}) {
   return call(agent, `/api/mod-precompute${restart ? '?restart=1' : ''}`, {
     lxm: LXM.precompute,
     body: {},
+    signal,
+  });
+}
+
+/**
+ * The managed graph lists (api/graph-lists.js). One endpoint, an `action` in
+ * the body: status, preview, save, sync, remove, orbit. Lives here because it
+ * signs in the same way the moderation calls do.
+ */
+export function graphLists(agent, body = {}, { signal } = {}) {
+  return call(agent, '/api/graph-lists', {
+    lxm: LXM.graphLists,
+    body: { action: 'status', ...body },
     signal,
   });
 }

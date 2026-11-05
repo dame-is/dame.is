@@ -15,6 +15,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { handleMod } from './harness/modFixtures.js';
+import { handleGraph } from './harness/graphFixtures.js';
 
 const REAL_SESSION = fileURLToPath(new URL('./src/hooks/useAtprotoSession.jsx', import.meta.url));
 const FAKE_SESSION = fileURLToPath(new URL('./harness/fakeSession.jsx', import.meta.url));
@@ -82,7 +83,8 @@ function serveHarnessShell() {
 }
 
 /**
- * Answer the moderation hub's /api/mod-* calls from fixtures.
+ * Answer the moderation hub's /api/mod-* calls (and the Analytics Graph
+ * tab's /api/graph-lists, from harness/graphFixtures.js) from fixtures.
  *
  * In production those are Vercel functions that verify a service-auth token
  * and read the `mod` schema; here they are one in-memory module, so the hub
@@ -95,7 +97,8 @@ function serveModerationFixtures() {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const path = (req.url || '').split('?')[0];
-        if (!path.startsWith('/api/mod-')) return next();
+        const graph = path === '/api/graph-lists';
+        if (!path.startsWith('/api/mod-') && !graph) return next();
         let raw = '';
         req.on('data', (c) => (raw += c));
         req.on('end', () => {
@@ -105,7 +108,7 @@ function serveModerationFixtures() {
           } catch {
             body = {};
           }
-          const out = handleMod(path, body);
+          const out = graph ? handleGraph(body) : handleMod(path, body);
           setTimeout(() => {
             res.statusCode = out?.error ? 404 : 200;
             res.setHeader('Content-Type', 'application/json');

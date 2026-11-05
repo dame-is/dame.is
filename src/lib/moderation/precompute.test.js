@@ -4,6 +4,7 @@ import {
   indexCircleFollows,
   referenceFrom,
   nextAction,
+  readCurationMembers,
 } from './precompute.js';
 
 /** A getFollows stub: `pages` responses, each optionally taking time. */
@@ -219,5 +220,74 @@ describe('nextAction', () => {
   it('starts when asked, or when there is nothing yet', () => {
     expect(at({ restart: true, vouches: 73215 })).toBe('start');
     expect(at({ exists: false })).toBe('start');
+  });
+});
+
+describe('readCurationMembers', () => {
+  const CURATE = 'app.bsky.graph.defs#curatelist';
+  const collections = {
+    'app.bsky.graph.list': [
+      {
+        uri: 'at://me/app.bsky.graph.list/hand',
+        value: { purpose: CURATE, name: 'Noticing' },
+      },
+      {
+        uri: 'at://me/app.bsky.graph.list/auto',
+        value: { purpose: CURATE, name: 'Who engages with me' },
+      },
+      {
+        uri: 'at://me/app.bsky.graph.list/kept',
+        value: { purpose: CURATE, name: 'Who I engage with' },
+      },
+    ],
+    'is.dame.graph.list': [
+      {
+        uri: 'at://me/is.dame.graph.list/a',
+        value: { listUri: 'at://me/app.bsky.graph.list/auto' },
+      },
+      {
+        uri: 'at://me/is.dame.graph.list/b',
+        value: { listUri: 'at://me/app.bsky.graph.list/kept', protects: true },
+      },
+    ],
+    'app.bsky.graph.listitem': [
+      {
+        value: {
+          list: 'at://me/app.bsky.graph.list/hand',
+          subject: 'did:plc:picked',
+        },
+      },
+      {
+        value: {
+          list: 'at://me/app.bsky.graph.list/auto',
+          subject: 'did:plc:replier',
+        },
+      },
+      {
+        value: {
+          list: 'at://me/app.bsky.graph.list/kept',
+          subject: 'did:plc:friend',
+        },
+      },
+    ],
+  };
+  const fetchImpl = vi.fn(async (url) => {
+    const collection = new URL(url).searchParams.get('collection');
+    return {
+      ok: true,
+      json: async () => ({ records: collections[collection] || [] }),
+    };
+  });
+
+  it('leaves generated lists out of the protected set unless they opt in', async () => {
+    const out = await readCurationMembers({
+      pds: 'https://pds',
+      did: 'me',
+      fetchImpl,
+    });
+    expect([...out.keys()].sort()).toEqual([
+      'did:plc:friend',
+      'did:plc:picked',
+    ]);
   });
 });

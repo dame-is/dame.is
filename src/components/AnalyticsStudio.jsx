@@ -1,5 +1,7 @@
 // The Analytics studio — /admin?view=analytics. Follower growth, posting
-// trends, engagement, the people behind it, and the whole repo's pulse.
+// trends, engagement, the people behind it, the whole repo's pulse, and (in
+// the Graph tab, AnalyticsGraph.jsx) where people sit in your follow graph
+// plus the Bluesky lists kept in step with it.
 //
 // The shape of the thing:
 //
@@ -32,6 +34,7 @@ import {
   Repeat2,
 } from 'lucide-react';
 import Button from './Button.jsx';
+import GraphTab from './AnalyticsGraph.jsx';
 import Figures from './Figures.jsx';
 import SectionHead from './SectionHead.jsx';
 import Segmented from './Segmented.jsx';
@@ -128,6 +131,7 @@ const TABS = [
   { key: 'engagement', label: 'Engagement' },
   { key: 'people', label: 'People' },
   { key: 'atmosphere', label: 'Atmosphere' },
+  { key: 'graph', label: 'Graph' },
 ];
 
 export default function AnalyticsStudio({ agent, did }) {
@@ -163,7 +167,7 @@ export default function AnalyticsStudio({ agent, did }) {
         <FirstRun archive={archive} />
       ) : (
         <>
-          {/* The six sections, then the window and (where it applies) the
+          {/* The sections, then the window and (where it applies) the
               kind of engagement: three rows of keys, each the kit's
               Segmented, so "which one is on" reads the same in all three. */}
           <Segmented
@@ -174,40 +178,45 @@ export default function AnalyticsStudio({ agent, did }) {
             options={TABS.map((t) => ({ value: t.key, label: t.label }))}
           />
 
-          <div className="an-filters">
-            <Segmented
-              label="Period"
-              value={periodKey}
-              onChange={setPeriodKey}
-              options={ANALYTICS_PERIODS.map((p) => ({ value: p.key, label: p.label }))}
-            />
-            {tab === 'engagement' && (
+          {/* The Graph tab keeps its own rolling 30 days: its lists are
+              rebuilt by a cron over that window, so a period key here would
+              change the picture without changing the lists. */}
+          {tab !== 'graph' && (
+            <div className="an-filters">
               <Segmented
-                label="Engagement direction"
-                value={direction}
-                onChange={setDirection}
-                options={DIRECTIONS.map((d) => ({ value: d.key, label: d.label }))}
+                label="Period"
+                value={periodKey}
+                onChange={setPeriodKey}
+                options={ANALYTICS_PERIODS.map((p) => ({ value: p.key, label: p.label }))}
               />
-            )}
-            {showKind && (
-              <Segmented
-                label="Engagement type"
-                value={kind}
-                onChange={setKind}
-                options={kinds.map((k) => ({ value: k.key, label: k.label }))}
-              />
-            )}
-            {/* Only once the follows are known: filtering against an empty
-                set would call everyone "not following". */}
-            {tab === 'people' && archive.meta.following && (
-              <Segmented
-                label="Show people"
-                value={relation}
-                onChange={setRelation}
-                options={RELATIONS.map((r) => ({ value: r.key, label: r.label }))}
-              />
-            )}
-          </div>
+              {tab === 'engagement' && (
+                <Segmented
+                  label="Engagement direction"
+                  value={direction}
+                  onChange={setDirection}
+                  options={DIRECTIONS.map((d) => ({ value: d.key, label: d.label }))}
+                />
+              )}
+              {showKind && (
+                <Segmented
+                  label="Engagement type"
+                  value={kind}
+                  onChange={setKind}
+                  options={kinds.map((k) => ({ value: k.key, label: k.label }))}
+                />
+              )}
+              {/* Only once the follows are known: filtering against an empty
+                  set would call everyone "not following". */}
+              {tab === 'people' && archive.meta.following && (
+                <Segmented
+                  label="Show people"
+                  value={relation}
+                  onChange={setRelation}
+                  options={RELATIONS.map((r) => ({ value: r.key, label: r.label }))}
+                />
+              )}
+            </div>
+          )}
 
           {tab === 'followers' && <FollowersTab archive={archive} period={period} nowMs={nowMs} />}
           {tab === 'blocks' && <BlocksTab archive={archive} period={period} nowMs={nowMs} />}
@@ -235,6 +244,7 @@ export default function AnalyticsStudio({ agent, did }) {
             />
           )}
           {tab === 'atmosphere' && <AtmosphereTab archive={archive} period={period} nowMs={nowMs} />}
+          {tab === 'graph' && <GraphTab agent={agent} />}
         </>
       )}
     </div>

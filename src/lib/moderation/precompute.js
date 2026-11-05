@@ -15,6 +15,7 @@
 // vouch table that looks finished and is wrong.
 
 import { APPVIEW, ME_DID } from '../../config.js';
+import { GRAPH_LIST_NSID } from '../graphLists.js';
 
 /** `getFollows` pages at 100. */
 const PAGE = 100;
@@ -244,10 +245,20 @@ export async function readCurationMembers({
   };
 
   const lists = await pages('app.bsky.graph.list');
+  // Lists the graph-lists cron rebuilds from engagement and proximity are
+  // curation lists in form only. Nobody chose their members; a list of "who
+  // engaged with me most" fills with whoever replied most, pile-ons included.
+  // They protect only when their definition says `protects: true`.
+  const generated = new Set(
+    (await pages(GRAPH_LIST_NSID))
+      .filter((r) => r.value?.listUri && r.value?.protects !== true)
+      .map((r) => r.value.listUri),
+  );
   const curation = new Set(
     lists
       .filter((r) => r.value?.purpose === 'app.bsky.graph.defs#curatelist')
-      .map((r) => r.uri),
+      .map((r) => r.uri)
+      .filter((uri) => !generated.has(uri)),
   );
   const nameByUri = new Map(
     lists.map((r) => [r.uri, r.value?.name || 'untitled']),
