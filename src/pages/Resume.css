@@ -86,6 +86,68 @@
   }
 }
 
+/* --- Services ------------------------------------------------------ */
+/* The consulting / contract card between the header and the summary: a line,
+   the areas of work set like the contact line (middot-separated), and the
+   page's one filled button. Hung in the text column at desk widths (below). */
+.resume-services {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4);
+  background: var(--page-edge);
+  border: 1px solid var(--rule-soft);
+}
+
+/* Clips the separator that would otherwise open a wrapped line of the list
+   (see .resume-services-list). */
+.resume-services-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1 1 20rem;
+  overflow: hidden;
+}
+
+.resume-services-note {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin: 0;
+}
+
+/* Every item carries its separator in front, and the list is pulled one
+   separator's width to the left, so whichever item opens a line has its dot
+   in the body's clipped margin: wrap where it will, no line starts with "·". */
+.resume-services-list {
+  --sep: 1.2em;
+
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0 0 0 calc(-1 * var(--sep));
+  padding: 0;
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+}
+
+.resume-services-list li::before {
+  content: "·";
+  display: inline-block;
+  width: var(--sep);
+  text-align: center;
+  color: var(--ink-faint);
+}
+
+.resume-services-cta {
+  flex: none;
+}
+
 /* --- Sections ------------------------------------------------------- */
 .resume-section {
   display: flex;
@@ -368,7 +430,8 @@
     max-width: none;
   }
 
-  .resume-section > :not(.resume-section-title, .resume-skills) {
+  .resume-section > :not(.resume-section-title, .resume-skills),
+  .resume-services {
     margin-inline-start: var(--text-inset);
   }
 
@@ -572,6 +635,12 @@
 
   /* The closing footnote is a site-navigation aside — not resume content. */
   .resume-footnote {
+    display: none !important;
+  }
+
+  /* The consulting card is a screen call to action: paper keeps the contact
+     line's address and stays a résumé. */
+  .resume-services {
     display: none !important;
   }
 }

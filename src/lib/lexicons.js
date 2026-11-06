@@ -415,6 +415,10 @@ export const LEXICONS = {
         key: 'contact', label: 'Contact', type: 'contact',
         hint: 'Leave blank to fall back to the site profile.',
       },
+      {
+        key: 'services', label: 'Consulting & contract', type: 'services',
+        hint: 'A small card under the header: a line, the areas you take work in, and a button that emails you. Leave the areas blank to show none. Not printed.',
+      },
       ...COMMON_TIMESTAMPS,
     ],
   },

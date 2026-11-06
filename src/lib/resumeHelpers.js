@@ -333,7 +333,43 @@ export function resolveResume(resumeRecord, jobs, education, documents) {
         }))
       : [],
     contact: value.contact || null,
+    services: resolveServices(value.services),
     unresolved,
+  };
+}
+
+/** The line above the services list when a version doesn't write its own. */
+export const SERVICES_NOTE = 'Open to consulting and contract work.';
+
+/** Where the "Get in touch" button mails when a version names no address. */
+export const SERVICES_EMAIL = 'consulting@dame.is';
+
+/** The subject a "Get in touch" email opens with. */
+const SERVICES_SUBJECT = 'Consulting or contract work';
+
+/**
+ * A version's consulting / contract block, ready to render, or null when it
+ * has nothing to offer. Items are trimmed and deduped (the page keys on them);
+ * the note falls back to SERVICES_NOTE and the button's address to
+ * SERVICES_EMAIL. Consulting mail has its own inbox, so the résumé's contact
+ * email is deliberately not a fallback.
+ */
+export function resolveServices(services) {
+  if (!services || typeof services !== 'object') return null;
+  const items = [
+    ...new Set(
+      (Array.isArray(services.items) ? services.items : [])
+        .map((s) => (typeof s === 'string' ? s.trim() : ''))
+        .filter(Boolean),
+    ),
+  ];
+  if (items.length === 0) return null;
+  const text = (v) => (typeof v === 'string' ? v.trim() : '');
+  const email = text(services.email) || SERVICES_EMAIL;
+  return {
+    note: text(services.note) || SERVICES_NOTE,
+    items,
+    href: `mailto:${email}?subject=${encodeURIComponent(SERVICES_SUBJECT)}`,
   };
 }
 

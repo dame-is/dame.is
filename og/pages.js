@@ -48,7 +48,7 @@ export const PAGES = {
   '/available': {
     label: 'for hire',
     title: 'dame.is available',
-    desc: "Dame's résumé and work history — design, strategy, and building on the open social web. Currently available for hire.",
+    desc: "Dame's résumé and work history — design, strategy, and building on the open social web. Available for hire, and for consulting and contract work.",
     nsid: 'is.dame.resume',
   },
   '/blogging': {
