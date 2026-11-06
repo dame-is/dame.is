@@ -102,7 +102,7 @@
           "description": "The areas of work, in order, e.g. \"atproto\", \"branding\".",
           "items": { "type": "string", "maxLength": 80 }
         },
-        "email": { "type": "string", "maxLength": 320, "description": "Where the button sends mail. Falls back to contact.email; with neither, no button is shown." }
+        "email": { "type": "string", "maxLength": 320, "description": "Where the button sends mail. Falls back to consulting@dame.is." }
       }
     },
     "contact": {

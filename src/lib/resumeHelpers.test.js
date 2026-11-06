@@ -6,6 +6,7 @@ import {
   printableUrl,
   resolveResume,
   resolveServices,
+  SERVICES_EMAIL,
   SERVICES_NOTE,
   splitTags,
 } from './resumeHelpers.js';
@@ -147,15 +148,12 @@ describe('resolveServices', () => {
     );
   });
 
-  it('mails its own address first, then the contact email, else no button', () => {
-    const own = resolveServices(
-      { items: ['atproto'], email: 'work@example.com' },
-      { email: 'resume@example.com' },
-    );
+  it('mails its own address, else the consulting inbox, never the résumé contact', () => {
+    const own = resolveServices({ items: ['atproto'], email: 'work@example.com' });
     expect(own.href).toMatch(/^mailto:work@example\.com\?subject=/);
-    const fallback = resolveServices({ items: ['atproto'] }, { email: 'resume@example.com' });
-    expect(fallback.href).toMatch(/^mailto:resume@example\.com\?subject=/);
-    expect(resolveServices({ items: ['atproto'] }, null).href).toBeNull();
+    const fallback = resolveServices({ items: ['atproto'], email: '  ' });
+    expect(fallback.href.startsWith(`mailto:${SERVICES_EMAIL}?subject=`)).toBe(true);
+    expect(SERVICES_EMAIL).toBe('consulting@dame.is');
   });
 
   it('comes through resolveResume with the version', () => {

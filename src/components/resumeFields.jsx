@@ -9,6 +9,7 @@ import {
   resolveHighlightRef,
   collectHighlightUsage,
   splitTags,
+  SERVICES_EMAIL,
   SERVICES_NOTE,
 } from '../lib/resumeHelpers.js';
 import { showOnCreating, workSlug } from '../lib/publications.js';
@@ -891,7 +892,7 @@ export function ServicesField({ value, onChange }) {
           className="admin-input"
           type="email"
           value={s.email ?? ''}
-          placeholder="Falls back to the contact email"
+          placeholder={SERVICES_EMAIL}
           onChange={(e) => setField('email', e.target.value)}
         />
       </label>

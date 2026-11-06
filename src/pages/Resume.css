@@ -638,8 +638,8 @@
     display: none !important;
   }
 
-  /* The consulting card is a screen call to action: paper keeps the address
-     in the contact line and stays a résumé. */
+  /* The consulting card is a screen call to action: paper keeps the contact
+     line's address and stays a résumé. */
   .resume-services {
     display: none !important;
   }

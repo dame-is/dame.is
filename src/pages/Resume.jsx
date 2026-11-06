@@ -284,8 +284,8 @@ function ResumeIdentity({ screenTitle, printName, headline, contact }) {
 /**
  * The consulting / contract card under the header: a line, the areas of work,
  * and a button that starts an email. Kept short on purpose, since the résumé
- * below it is the detail. Screen only: on paper the contact line already
- * carries the address, and a button can't be pressed (see Resume.css, print).
+ * below it is the detail. Screen only: paper has the contact line to write
+ * to, and a button can't be pressed (see Resume.css, print).
  */
 function ResumeServices({ services }) {
   if (!services) return null;

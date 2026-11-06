@@ -608,7 +608,6 @@ export function buildRepo() {
       // No note and no address of its own: the card's line and its button
       // both fall back, which is the state most worth seeing.
       services: { items: ['Design systems', 'Small durable tools', 'Brand'] },
-      contact: { email: 'studio@example.com' },
       createdAt: ago(60000),
       updatedAt: ago(11000),
     }),

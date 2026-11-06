@@ -62,7 +62,7 @@ Owns no employment facts. It's an ordered, curated **view**:
 - `contact` — inline contact block, or omit to fall back to the site profile.
 - `services` — an optional consulting / contract block: a line, the areas of
   work (`items`), and an `email` for the button (falls back to
-  `contact.email`). It renders as a small card under the header on screen and
+  consulting@dame.is, not the résumé's contact email). It renders as a small card under the header on screen and
   is left off the printout, which stays a résumé. Omit it to show none.
 - `visibility` + `featured` — control what the website renders (see below).
 
