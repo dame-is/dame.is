@@ -333,7 +333,41 @@ export function resolveResume(resumeRecord, jobs, education, documents) {
         }))
       : [],
     contact: value.contact || null,
+    services: resolveServices(value.services, value.contact),
     unresolved,
+  };
+}
+
+/** The line above the services list when a version doesn't write its own. */
+export const SERVICES_NOTE = 'Open to consulting and contract work.';
+
+/** The subject a "Get in touch" email opens with. */
+const SERVICES_SUBJECT = 'Consulting or contract work';
+
+/**
+ * A version's consulting / contract block, ready to render, or null when it
+ * has nothing to offer. Items are trimmed and deduped (the page keys on them);
+ * the note falls back to SERVICES_NOTE; the button's address falls back to the
+ * contact email, and with neither the block shows no button at all.
+ */
+export function resolveServices(services, contact) {
+  if (!services || typeof services !== 'object') return null;
+  const items = [
+    ...new Set(
+      (Array.isArray(services.items) ? services.items : [])
+        .map((s) => (typeof s === 'string' ? s.trim() : ''))
+        .filter(Boolean),
+    ),
+  ];
+  if (items.length === 0) return null;
+  const text = (v) => (typeof v === 'string' ? v.trim() : '');
+  const email = text(services.email) || text(contact?.email);
+  return {
+    note: text(services.note) || SERVICES_NOTE,
+    items,
+    href: email
+      ? `mailto:${email}?subject=${encodeURIComponent(SERVICES_SUBJECT)}`
+      : null,
   };
 }
 

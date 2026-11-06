@@ -37,6 +37,7 @@
             "items": { "type": "ref", "ref": "#skillGroup" }
           },
           "contact":    { "type": "ref", "ref": "#contact", "description": "Contact block for this version. Omit to fall back to the site profile." },
+          "services":   { "type": "ref", "ref": "#services", "description": "A short consulting / contract block shown under the header: one line, the areas of work, and a button that starts an email. Omit to show none." },
           "createdAt":  { "type": "string", "format": "datetime" },
           "updatedAt":  { "type": "string", "format": "datetime" }
         }
@@ -87,6 +88,21 @@
           "maxLength": 100,
           "items": { "type": "string", "maxLength": 80 }
         }
+      }
+    },
+    "services": {
+      "type": "object",
+      "description": "What this version offers as consulting or contract work. Kept on the version, like skills, so an audience-tailored version can offer a different set.",
+      "required": ["items"],
+      "properties": {
+        "note":  { "type": "string", "maxLength": 300, "description": "The line above the list. Falls back to \"Open to consulting and contract work.\"" },
+        "items": {
+          "type": "array",
+          "maxLength": 12,
+          "description": "The areas of work, in order, e.g. \"atproto\", \"branding\".",
+          "items": { "type": "string", "maxLength": 80 }
+        },
+        "email": { "type": "string", "maxLength": 320, "description": "Where the button sends mail. Falls back to contact.email; with neither, no button is shown." }
       }
     },
     "contact": {

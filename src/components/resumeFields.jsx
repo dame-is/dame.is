@@ -9,6 +9,7 @@ import {
   resolveHighlightRef,
   collectHighlightUsage,
   splitTags,
+  SERVICES_NOTE,
 } from '../lib/resumeHelpers.js';
 import { showOnCreating, workSlug } from '../lib/publications.js';
 import { move, replaceAt, removeAt, RowControls } from './listFields.jsx';
@@ -838,6 +839,62 @@ export function SkillGroupsField({ value, onChange }) {
       <button type="button" className="rf-add" onClick={add}>
         <Plus size={15} aria-hidden="true" /> Add skill group
       </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Services (consulting / contract)                                     */
+/* ------------------------------------------------------------------ */
+
+function isEmptyServices(s) {
+  if (!s) return true;
+  const hasItems = Array.isArray(s.items) && s.items.length > 0;
+  return !hasItems && !s.note?.trim?.() && !s.email?.trim?.();
+}
+
+/**
+ * The version's consulting / contract card: a line, the areas of work, and the
+ * address its button mails. Emits undefined when all three are blank, so the
+ * record omits the block and the page shows none. A note or address with no
+ * areas is kept (it is half-typed, not deleted), but renders nothing until an
+ * area is added.
+ */
+export function ServicesField({ value, onChange }) {
+  const s = value && typeof value === 'object' ? value : {};
+  const commit = (next) => onChange(isEmptyServices(next) ? undefined : next);
+  const setField = (key, val) => commit({ ...s, [key]: val || undefined });
+
+  return (
+    <div className="rf-contact">
+      <label className="rf-inline-field rf-inline-field-block">
+        <span className="rf-inline-label">Areas (comma separated)</span>
+        <TagsInput
+          value={s.items}
+          placeholder="atproto, social software, branding"
+          onChange={(items) => commit({ ...s, items })}
+        />
+      </label>
+      <label className="rf-inline-field rf-inline-field-block">
+        <span className="rf-inline-label">Line above the areas</span>
+        <input
+          className="admin-input"
+          type="text"
+          value={s.note ?? ''}
+          placeholder={SERVICES_NOTE}
+          onChange={(e) => setField('note', e.target.value)}
+        />
+      </label>
+      <label className="rf-inline-field rf-inline-field-block">
+        <span className="rf-inline-label">Button emails</span>
+        <input
+          className="admin-input"
+          type="email"
+          value={s.email ?? ''}
+          placeholder="Falls back to the contact email"
+          onChange={(e) => setField('email', e.target.value)}
+        />
+      </label>
     </div>
   );
 }

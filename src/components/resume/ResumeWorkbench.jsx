@@ -5,7 +5,7 @@ import { AdminEditorSkeleton, AdminRecordListSkeleton } from '../Skeleton.jsx';
 import Button from '../Button.jsx';
 import SectionHead from '../SectionHead.jsx';
 import Tag from '../Tag.jsx';
-import { SkillGroupsField, ContactField, TagsInput } from '../resumeFields.jsx';
+import { SkillGroupsField, ContactField, ServicesField, TagsInput } from '../resumeFields.jsx';
 import { COLLECTIONS } from '../../config.js';
 import { useAdminShell } from '../../admin/useAdminShell.jsx';
 import { rkeyFromAtUri } from '../../lib/atproto.js';
@@ -98,6 +98,8 @@ const NOTES = {
   framing: "This version's own copy — name, headline, and summary. Job facts stay on the job records.",
   skills: 'Skill groups live on the version itself — emphasis is the most audience-specific part.',
   contact: 'Leave blank to fall back to the site profile.',
+  services:
+    'A small card under the header: a line, the areas you take work in, and a button that emails you. Leave the areas blank to show none. Not printed.',
 };
 
 /**
@@ -390,6 +392,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
         if (Array.isArray(record[k]) && record[k].length === 0) delete record[k];
       }
       if (!record.contact) delete record.contact;
+      if (!record.services) delete record.services;
       const uri = `at://${did}/${COLLECTIONS.resume}/${rkey}`;
       writing = versionName;
       const res = await agent.com.atproto.repo.putRecord({
@@ -706,6 +709,15 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
         <div className="rw reveal">
           <FramingSection draft={draft} patchDraft={patchDraft} />
 
+          <section className="rw-section">
+            <SectionHead title="Consulting & contract" />
+            <p className="rs-note">{NOTES.services}</p>
+            <ServicesField
+              value={draft?.services}
+              onChange={(v) => patchDraft({ services: v })}
+            />
+          </section>
+
           {['job', 'education'].map((kind) => (
             <EntriesSection
               key={kind}
@@ -772,6 +784,11 @@ function TailorSkeleton() {
         <SectionHead title="Framing" />
         <p className="rs-note">{NOTES.framing}</p>
         <AdminEditorSkeleton fields={5} />
+      </section>
+      <section className="rw-section">
+        <SectionHead title="Consulting & contract" />
+        <p className="rs-note">{NOTES.services}</p>
+        <AdminEditorSkeleton fields={3} />
       </section>
       {['job', 'education'].map((kind) => (
         <section className="rw-section" key={kind}>

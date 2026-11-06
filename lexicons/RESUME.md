@@ -14,7 +14,8 @@ is.dame.resume            (a resume version — "primary", "product-design", …
  │   └─ linkIds[]           ─▶ picks job.links[].id — portfolio pieces shown under the role
  ├─ education[] ──at://──▶ is.dame.resume.education   (canonical degree/program)
  ├─ skills[]                  (inline skill groups — the audience-specific part)
- └─ contact                   (inline, or fall back to the site profile)
+ ├─ contact                   (inline, or fall back to the site profile)
+ └─ services                  (inline consulting / contract block, optional)
 ```
 
 ## The three records
@@ -59,6 +60,10 @@ Owns no employment facts. It's an ordered, curated **view**:
 - `skills[]` — inline skill groups (kept inline because skill emphasis is the
   most audience-specific part of a resume).
 - `contact` — inline contact block, or omit to fall back to the site profile.
+- `services` — an optional consulting / contract block: a line, the areas of
+  work (`items`), and an `email` for the button (falls back to
+  `contact.email`). It renders as a small card under the header on screen and
+  is left off the printout, which stays a résumé. Omit it to show none.
 - `visibility` + `featured` — control what the website renders (see below).
 
 ## Why backlink jobs but embed bullets?

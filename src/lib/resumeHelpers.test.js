@@ -5,6 +5,8 @@ import {
   pickDefaultResume,
   printableUrl,
   resolveResume,
+  resolveServices,
+  SERVICES_NOTE,
   splitTags,
 } from './resumeHelpers.js';
 
@@ -122,5 +124,47 @@ describe('printableUrl', () => {
     expect(printableUrl('mailto:resume@dame.is')).toBe('');
     expect(printableUrl('')).toBe('');
     expect(printableUrl(null)).toBe('');
+  });
+});
+
+describe('resolveServices', () => {
+  it('shows nothing when the version offers nothing', () => {
+    expect(resolveServices(undefined)).toBeNull();
+    expect(resolveServices({ items: [] })).toBeNull();
+    expect(resolveServices({ note: 'Hire me', items: ['  ', ''] })).toBeNull();
+  });
+
+  it('trims and dedupes the items, keeping their order', () => {
+    const s = resolveServices({ items: [' atproto ', 'branding', 'atproto', 7] });
+    expect(s.items).toEqual(['atproto', 'branding']);
+  });
+
+  it('falls back to the built-in line when the note is blank', () => {
+    expect(resolveServices({ items: ['atproto'] }).note).toBe(SERVICES_NOTE);
+    expect(resolveServices({ note: '  ', items: ['atproto'] }).note).toBe(SERVICES_NOTE);
+    expect(resolveServices({ note: 'Taking on a few projects.', items: ['atproto'] }).note).toBe(
+      'Taking on a few projects.',
+    );
+  });
+
+  it('mails its own address first, then the contact email, else no button', () => {
+    const own = resolveServices(
+      { items: ['atproto'], email: 'work@example.com' },
+      { email: 'resume@example.com' },
+    );
+    expect(own.href).toMatch(/^mailto:work@example\.com\?subject=/);
+    const fallback = resolveServices({ items: ['atproto'] }, { email: 'resume@example.com' });
+    expect(fallback.href).toMatch(/^mailto:resume@example\.com\?subject=/);
+    expect(resolveServices({ items: ['atproto'] }, null).href).toBeNull();
+  });
+
+  it('comes through resolveResume with the version', () => {
+    const r = resume('primary', {
+      visibility: 'public',
+      services: { items: ['atproto'] },
+      contact: { email: 'resume@example.com' },
+    });
+    expect(resolveResume(r, [], []).services.items).toEqual(['atproto']);
+    expect(resolveResume(resume('bare', {}), [], []).services).toBeNull();
   });
 });

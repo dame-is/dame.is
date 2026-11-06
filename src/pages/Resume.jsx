@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ExternalLink } from 'lucide-react';
+import { ArrowRight, ExternalLink } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import { XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import { useXray } from '../hooks/useXray.jsx';
@@ -281,6 +281,33 @@ function ResumeIdentity({ screenTitle, printName, headline, contact }) {
   );
 }
 
+/**
+ * The consulting / contract card under the header: a line, the areas of work,
+ * and a button that starts an email. Kept short on purpose, since the résumé
+ * below it is the detail. Screen only: on paper the contact line already
+ * carries the address, and a button can't be pressed (see Resume.css, print).
+ */
+function ResumeServices({ services }) {
+  if (!services) return null;
+  return (
+    <section className="resume-services" aria-label="Consulting and contract work">
+      <div className="resume-services-body">
+        <p className="resume-services-note">{services.note}</p>
+        <ul className="resume-services-list">
+          {services.items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+      {services.href && (
+        <a className="btn btn--primary resume-services-cta" href={services.href}>
+          Get in touch <ArrowRight size={14} aria-hidden="true" />
+        </a>
+      )}
+    </section>
+  );
+}
+
 const sameSite = (url) => {
   try {
     return new URL(url).hostname.replace(/^www\./, '') === ME_HANDLE;
@@ -383,6 +410,8 @@ export default function Resume() {
             contact={contact}
           />
         </header>
+
+        <ResumeServices services={resolved.services} />
 
         {summaryHtml && (
           <section className="resume-section resume-summary">
