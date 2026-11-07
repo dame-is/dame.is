@@ -79,6 +79,12 @@ export default function FlatLedger({ rows }) {
             </div>
             {row.time && row.runCont ? (
               <span className="ledger-time ledger-run">
+                {/* An invisible copy of the year holds the cell at the printed
+                    year's width, so this row's title wraps where the year
+                    row's does instead of running under the leader. */}
+                <span className="ledger-run-strut" aria-hidden="true">
+                  {row.time}
+                </span>
                 <span className="visually-hidden">{row.time}</span>
               </span>
             ) : row.time ? (

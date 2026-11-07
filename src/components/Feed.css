@@ -2425,11 +2425,18 @@ a.ledger-verb:focus-visible,
 }
 
 /* The index's run leader: a year printed once, then a dotted rule down the
-   column through the rest of its run (FlatLedger `runCont`). */
+   column through the rest of its run (FlatLedger `runCont`). The cell keeps
+   the year's width through an invisible copy of it (the strut): each row is
+   its own grid with an auto time column, so an empty cell collapsed to
+   nothing and handed its width to the title, which then ran under the rule. */
 .ledger-time.ledger-run {
   position: relative;
   align-self: stretch;
   min-height: 1em;
+}
+
+.ledger-run-strut {
+  visibility: hidden;
 }
 
 .ledger-time.ledger-run::before {
