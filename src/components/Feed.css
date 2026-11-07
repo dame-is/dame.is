@@ -2540,14 +2540,13 @@ a.ledger-time:focus-visible {
   aspect-ratio: 3 / 2;
 }
 
+/* A video takes the same cap as a lone picture, so it fills the measure at
+   its own ratio and a portrait clip comes out narrower rather than
+   pillarboxed. It used to stop at 20rem by 10rem: on a phone that left the
+   player short of the column's edge, with a 16:9 poster squeezed into a 2:1
+   frame. */
 .ledger-embed .post-embed-video {
-  max-width: 20rem;
-  max-height: 10rem;
-}
-
-.ledger-embed .post-embed-video video,
-.ledger-embed .post-embed-video img {
-  max-height: 10rem;
+  --embed-video-max-h: min(calc(100% * 4 / 3), 32rem);
 }
 
 /* Link card: one tight strip — small thumb, host + one-line title,
@@ -2631,8 +2630,21 @@ a.ledger-time:focus-visible {
   max-height: 16rem;
 }
 
+/* A video there stops at the same 16rem as a lone picture. */
 .ledger-embed .post-embed-quote:not(:has(> .post-embed-quote-text)) > .post-embed-video {
+  --embed-video-max-h: 16rem;
+
   display: block;
+}
+
+.ledger-embed
+  .post-embed-quote:not(:has(> .post-embed-quote-text))
+  > .post-embed-video:not([data-sized='true']),
+.ledger-embed
+  .post-embed-quote:not(:has(> .post-embed-quote-text))
+  > .post-embed-video:not([data-sized='true'])
+  :is(video, img) {
+  max-height: 16rem;
 }
 
 .ledger-embed .post-embed-quote:not(:has(> .post-embed-quote-text)) > .post-embed-link-card {

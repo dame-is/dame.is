@@ -140,6 +140,8 @@
 
 /* Video. Same border treatment as images so the row reads cohesively. */
 .post-embed-video {
+  --embed-video-max-h: 520px;
+
   border: 1px solid var(--rule-soft);
   background: var(--page-edge);
   background: color-mix(in oklab, var(--ink) calc((var(--nest, 0) + 1) * var(--nest-step)), var(--page));
@@ -156,6 +158,15 @@
   height: 100%;
   max-height: 520px;
   object-fit: contain;
+}
+
+/* A clip whose record carries its ratio is framed the way a lone image is.
+   PostEmbed.jsx sets that ratio on the frame (as aspect-ratio, and as
+   --video-ar for the sum below), so the frame fills the column at the clip's
+   own shape and a tall clip meets the height cap by getting narrower, rather
+   than standing in a full-width frame with bars down either side. */
+.post-embed-video[data-sized='true'] {
+  max-width: min(var(--measure), calc(var(--embed-video-max-h) * var(--video-ar)));
 }
 
 /* A browser that can't play the HLS stream inline gets the poster as a link

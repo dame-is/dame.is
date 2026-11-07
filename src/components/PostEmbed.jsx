@@ -326,9 +326,16 @@ function VideoBlock({
 }) {
   const plateId = useId();
   if (!playlist && !thumbnail) return null;
-  const style = aspectRatio
-    ? { aspectRatio: `${aspectRatio.width} / ${aspectRatio.height}` }
+  // Framed like a lone image (see PostEmbed.css): the frame takes the clip's
+  // ratio, and --video-ar lets the CSS cap a tall clip by its width.
+  const sized = aspectRatio?.width > 0 && aspectRatio?.height > 0;
+  const style = sized
+    ? {
+        aspectRatio: `${aspectRatio.width} / ${aspectRatio.height}`,
+        '--video-ar': aspectRatio.width / aspectRatio.height,
+      }
     : undefined;
+  const dataSized = sized ? 'true' : undefined;
   const plate = (hidden = true) =>
     inspect ? (
       <BlobPlate
@@ -344,7 +351,7 @@ function VideoBlock({
   const describedBy = inspect ? plateId : undefined;
   if (playlist && playsHlsNatively()) {
     return (
-      <div className="post-embed-video" style={style}>
+      <div className="post-embed-video" data-sized={dataSized} style={style}>
         <video
           controls
           preload="none"
@@ -370,7 +377,7 @@ function VideoBlock({
   if (!href) {
     // No control to describe it, so the plate speaks for itself here.
     return poster ? (
-      <div className="post-embed-video" style={style}>
+      <div className="post-embed-video" data-sized={dataSized} style={style}>
         {poster}
         {plate(false)}
       </div>
@@ -379,6 +386,7 @@ function VideoBlock({
   return (
     <a
       className="post-embed-video post-embed-video-out"
+      data-sized={dataSized}
       style={style}
       href={href}
       target="_blank"
