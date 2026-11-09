@@ -1,0 +1,647 @@
+/* Experimenting — the bench (a list of experiments), an experiment's own
+   page, and the reactions under both. */
+
+/* --- the bench ---------------------------------------------------------- */
+
+/* The owner's way in to the editor. Nobody else is ever sent this line. */
+.experiment-owner-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  text-indent: 0;
+}
+
+.experiment-bench {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.experiment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* An entry is a row of the page grid (theme.css): its number and date in the
+   note column, set to that column's right edge as the guestbook sets its line
+   numbers, and everything there is to read in the text column. On a phone
+   there is one column, and the number and date head the entry on one line. */
+.experiment-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--space-2);
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--rule-soft);
+  /* A fragment link (a reaction written on the way back from a sign-in)
+     lands under the running head, not behind it. */
+  scroll-margin-top: calc(var(--chrome-h) + var(--space-5));
+}
+
+.experiment-entry:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+@media (min-width: 701px) {
+  .experiment-entry {
+    grid-template-columns: var(--note) minmax(0, var(--text));
+    column-gap: var(--gutter);
+  }
+}
+
+.experiment-entry-margin {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
+.experiment-number {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  font-variant-numeric: oldstyle-nums tabular-nums;
+}
+
+/* The date in the register's small caps, as the guestbook dates its lines. */
+.experiment-date {
+  white-space: nowrap;
+  font-variant: all-small-caps;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.07em;
+}
+
+/* On a phone the number reads "No. 7", since nothing else says what it is. */
+.experiment-number::before {
+  content: 'No.\00a0';
+}
+
+.experiment-date a,
+.experiment-date time {
+  color: inherit;
+}
+
+@media (min-width: 701px) {
+  .experiment-entry-margin {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+    /* Level with the title's first line, past the facts line above it. */
+    padding-top: calc(var(--text-sm) * 1.4 + var(--space-2) + 0.5rem);
+    text-align: right;
+  }
+
+  .experiment-number::before {
+    content: none;
+  }
+}
+
+.experiment-entry-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.experiment-entry-body p {
+  margin: 0;
+  text-indent: 0;
+}
+
+/* A draft, which only its author is shown, reads as not yet there. */
+.experiment-entry.is-draft .experiment-title,
+.experiment-entry.is-draft .experiment-pitch,
+.experiment-entry.is-draft .experiment-figure {
+  opacity: 0.6;
+}
+
+/* What it is and where it stands: "prototype" and, once it has stopped taking
+   reactions, a tag saying how it came out. */
+.experiment-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-height: calc(var(--text-sm) * 1.4);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.experiment-facts:empty {
+  display: none;
+}
+
+.experiment-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-heading);
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.experiment-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .experiment-title a:hover {
+    color: var(--accent);
+  }
+}
+
+/* The idea in a sentence or two: the loudest prose on the entry. */
+.experiment-pitch {
+  max-width: var(--measure);
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* Its one picture: a screenshot, a sketch, a mock-up. Shown whole, on the
+   page's deeper tint, behind a hairline, so a picture with a pale edge still
+   has one. */
+.experiment-figure {
+  display: block;
+  margin: var(--space-2) 0;
+  background: var(--surface-deep);
+  outline: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  outline-offset: -1px;
+}
+
+.experiment-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 30rem;
+  object-fit: contain;
+}
+
+.experiment-figure-full img {
+  max-height: none;
+}
+
+.experiment-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.experiment-entry-more {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.experiment-entry-more a {
+  color: inherit;
+}
+
+/* An empty bench that says so. */
+.experiment-empty-eyebrow {
+  margin: 0 0 var(--space-1);
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  font-style: normal;
+  letter-spacing: 0;
+  color: var(--ink-faint);
+}
+
+.experiment-empty-line {
+  margin: 0;
+}
+
+/* --- an experiment's own page ------------------------------------------- */
+
+/* Everything under the title keeps to the text column, as an essay's body
+   does; the title, the facts and the pitch above it are the page's own. */
+.experiment-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+@media (min-width: 701px) {
+  .experiment-page > * {
+    margin-inline-start: var(--text-inset);
+    max-width: var(--text);
+  }
+}
+
+.experiment-page p {
+  text-indent: 0;
+}
+
+.experiment-page .experiment-figure {
+  margin-block: 0;
+}
+
+.page-facts .experiment-facts-tag {
+  margin-inline-start: var(--space-2);
+  vertical-align: 0.1em;
+}
+
+.experiment-try {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block: 0;
+}
+
+.experiment-try-host {
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+/* The anchors `#react` and `#reactions` land on, clear of the running head. */
+.experiment-anchor {
+  scroll-margin-top: calc(var(--chrome-h) + var(--space-5));
+}
+
+/* --- reacting ----------------------------------------------------------- */
+
+/* The ask and its three answers. On an experiment's own page it is set off
+   between hairlines, as the thing the page is for; on the bench it rides
+   under its entry, quieter. */
+.experiment-react {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  /* The sign-in line below restacks by this block's width. */
+  container: experiment-react / inline-size;
+}
+
+.experiment-react.is-compact {
+  margin-top: var(--space-2);
+  padding: 0;
+  border: 0;
+}
+
+.experiment-react p {
+  margin: 0;
+  text-indent: 0;
+}
+
+/* The question, in the italic the site keeps for a voice. */
+.experiment-ask {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.experiment-react.is-compact .experiment-ask {
+  font-size: var(--text-base);
+  color: var(--ink-soft);
+}
+
+.experiment-verdicts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* A verdict carries its own count: the tally and the way to add to it are
+   one control. The count sits past a hairline, in tabular figures, so three
+   buttons with three counts read as a row of figures. */
+.experiment-verdict-count {
+  margin-inline-start: 0.2em;
+  padding-inline-start: 0.55em;
+  border-inline-start: 1px solid var(--rule);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.experiment-verdict.is-on .experiment-verdict-count {
+  border-color: var(--accent-soft);
+  color: var(--ink-soft);
+}
+
+/* A finger gets the touch height the site keeps for anything tapped often. */
+@media (pointer: coarse) {
+  .experiment-verdict {
+    min-height: var(--control-h-md);
+  }
+}
+
+/* The small print under the buttons: who you're reacting as, what was saved,
+   what went wrong. */
+.experiment-react-line {
+  max-width: var(--measure);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+.experiment-react-line strong {
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.experiment-react-line.is-error,
+.experiment-reaction-error {
+  color: var(--danger);
+}
+
+.experiment-react-closed {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+/* An action set in a line of text: underlined like a link, and a button. */
+.experiment-link-button {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.2em;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.experiment-link-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+@media (hover: hover) {
+  .experiment-link-button:hover:not(:disabled) {
+    color: var(--ink);
+    text-decoration-color: var(--accent);
+  }
+}
+
+/* The note: written as it will read, in the serif, in a plain hairline box
+   that takes the accent while it is being written in. */
+.experiment-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: var(--measure);
+}
+
+.experiment-note-write {
+  width: 100%;
+  min-height: 4.75rem;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+/* The box and the ruled line are the focus indicators for the fields drawn
+   as them, as on the guestbook's pen: the site's ring (reset.css) would box a
+   field a second time. */
+.experiment-note-write:focus-visible,
+.experiment-signin-input:focus-visible {
+  outline: none;
+}
+
+.experiment-note-write:focus-visible {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.experiment-note-write::placeholder,
+.experiment-signin-input::placeholder {
+  font-style: italic;
+  color: var(--ink-muted);
+  opacity: 1;
+}
+
+.experiment-note-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.experiment-note-count {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.experiment-note-count.is-over {
+  color: var(--danger);
+}
+
+/* Signing a reaction, for a visitor who isn't signed in: the label, a handle
+   on a ruled line, and the page's one filled button. */
+.experiment-signin {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
+  max-width: var(--measure);
+}
+
+.experiment-signin-label {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.experiment-signin-input {
+  min-width: 0;
+  width: 100%;
+  padding: 0.2em 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  outline: none;
+}
+
+.experiment-signin-input:focus-visible {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+
+.experiment-signin-help {
+  grid-column: 1 / -1;
+}
+
+/* Where the form itself is narrow (a phone, mostly) the button takes a line
+   of its own under the handle. Asked of the form's own width, not the
+   window's, since that is what runs out. */
+@container experiment-react (max-width: 26rem) {
+  .experiment-signin {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .experiment-signin > .btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* --- everyone's reactions ----------------------------------------------- */
+
+.experiment-reactions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.experiment-reactions p {
+  margin: 0;
+  text-indent: 0;
+}
+
+.experiment-reactions-empty {
+  max-width: var(--measure);
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.experiment-reaction-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* One person's reaction: their portrait, then who and what on one line, and
+   the note under it when they left one. */
+.experiment-reaction {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  column-gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.experiment-reaction:first-child {
+  border-top: 0;
+}
+
+.experiment-reaction.is-suppressed {
+  opacity: 0.6;
+}
+
+.experiment-reaction-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.experiment-reaction-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  outline: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  outline-offset: -1px;
+}
+
+.experiment-reaction-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base);
+  line-height: 1;
+  color: var(--ink-muted);
+  border: 1px dashed var(--rule);
+}
+
+.experiment-reaction-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.experiment-reaction-who {
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.experiment-reaction-handle {
+  color: var(--ink-soft);
+}
+
+.experiment-reaction-handle a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .experiment-reaction-handle a:hover {
+    color: var(--accent);
+  }
+}
+
+.experiment-reaction-time {
+  white-space: nowrap;
+}
+
+.experiment-reaction-time::before {
+  content: '· ';
+}
+
+.experiment-reaction-text {
+  max-width: var(--measure);
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.experiment-reaction-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.experiment-source {
+  max-width: var(--measure);
+}

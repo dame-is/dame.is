@@ -423,6 +423,60 @@ export const LEXICONS = {
     ],
   },
 
+  [COLLECTIONS.experiment]: {
+    label: 'Experimenting',
+    summary:
+      'Quick prototypes and concepts, posted on /experimenting to find out what people make of them. Visitors answer with is.dame.experiment.reaction records on their own PDSes, so the reactions never appear in this list; they are on each experiment’s own page.',
+    rkeyMode: 'tid',
+    typeFieldValue: COLLECTIONS.experiment,
+    fields: [
+      { key: 'title', label: 'Title', type: 'text', required: true, maxLength: 120 },
+      {
+        key: 'pitch', label: 'Pitch', type: 'textarea', maxLength: 600,
+        hint: 'The idea in a sentence or two. Shown on the bench and at the top of its page.',
+      },
+      {
+        key: 'kind', label: 'Kind', type: 'category',
+        placeholder: 'concept, prototype, sketch',
+        suggestions: ['concept', 'prototype', 'sketch'],
+        hint: 'How far along it is: an idea in words, something that can be tried, or a picture of one.',
+      },
+      {
+        key: 'url', label: 'Link to try it', type: 'text', placeholder: 'https://…',
+        hint: 'Where the prototype can be tried, if anywhere. Becomes the “Try it” button.',
+      },
+      {
+        key: 'image', label: 'Picture', type: 'image',
+        hint: 'One picture of it: a screenshot, a sketch, a mock-up.',
+      },
+      { key: 'imageAlt', label: 'Picture alt text', type: 'textarea' },
+      {
+        key: 'ask', label: 'The ask', type: 'text', maxLength: 300,
+        placeholder: 'What do you make of it?',
+        hint: 'The question set above the reaction buttons. Blank = “What do you make of it?”',
+      },
+      {
+        key: 'status', label: 'Status', type: 'select', default: 'open',
+        options: [
+          { value: 'open', label: 'Open: taking reactions' },
+          { value: 'pursuing', label: 'Pursuing: being built for real' },
+          { value: 'shelved', label: 'Shelved: put down' },
+        ],
+        hint: 'Reactions are only invited while it is open. The ones already left stay on the page.',
+      },
+      {
+        key: 'draft', label: 'Draft — hidden from the public page (you still see it)',
+        type: 'boolean',
+      },
+      { key: 'content', label: 'Write-up (optional)', type: 'blocks' },
+      {
+        key: 'hidden', label: 'Hidden reaction at-uris', type: 'json',
+        hint: 'Reactions left out of the tally and the list. Prefer the hide button beside a reaction on the experiment’s own page.',
+      },
+      ...COMMON_TIMESTAMPS,
+    ],
+  },
+
   [COLLECTIONS.arenaChannel]: {
     label: 'Curating',
     summary:

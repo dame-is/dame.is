@@ -56,6 +56,8 @@ import { listTealPlays } from '../src/lib/teal.js';
 import { fetchMothData, buildSessions } from '../src/lib/inaturalist.js';
 import { firstSightingIds, observedTaxonIds } from '../src/lib/firstSightings.js';
 import { fetchGuestbookEntries } from '../src/lib/guestbook.js';
+import { experimentPath, experimentDate, listExperiments } from '../src/lib/experiments.js';
+import { fetchExperimentRecords, fetchReactions } from '../src/lib/experimentReactions.js';
 import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
 import {
   fetchChannelMeta,
@@ -133,6 +135,9 @@ function snapshotCount(data) {
   // drops out of the sitemap and llms.txt.
   if (Array.isArray(data?.observations)) return data.observations.length;
   if (Array.isArray(data?.galleries)) return data.galleries.length;
+  // The bench. The edge resolves /experimenting/:rkey from it, so an empty one
+  // written over a good one would 404 every experiment until the next build.
+  if (Array.isArray(data?.experiments)) return data.experiments.length;
   return null;
 }
 
@@ -554,6 +559,7 @@ const SITEMAP_SURFACES = [
   '/available',
   '/blogging',
   '/creating',
+  '/experimenting',
   '/curating',
   '/posting',
   '/logging',
@@ -599,6 +605,7 @@ function buildSitemap({
   mothNights,
   albums,
   pages,
+  experiments,
   builtAt,
 }) {
   const entries = [];
@@ -611,8 +618,13 @@ function buildSitemap({
 
   // A surface with nothing on it yet (see surfaceHasContent) isn't listed.
   for (const path of SITEMAP_SURFACES) {
-    if (!surfaceHasContent(path, pages)) continue;
+    if (!surfaceHasContent(path, pages, { experiments })) continue;
     push(path, path === '/' ? builtAt : null);
+  }
+
+  // Each experiment's own page. Drafts are the owner's alone and stay out.
+  for (const r of listExperiments(experiments)) {
+    push(experimentPath(rkeyFromAtUri(r.uri)), r.value.updatedAt || experimentDate(r));
   }
 
   // A document cross-posted onto the other section by a tag is listed once,
@@ -1209,6 +1221,56 @@ async function main() {
     { guardEmpty: true },
   );
 
+  // --- Experimenting (my experiments + visitors' reactions to them) ---------
+  // The experiments are records on my repo; the reactions are records on the
+  // REACTORS' repos, gathered the way the guestbook's signatures are (backlink
+  // index → record hydration → profiles; see src/lib/experimentReactions.js).
+  // Snapshotting both lets /experimenting paint its tallies at once. The
+  // browser then asks the index what has changed, and fetches only the
+  // reactions left since this build.
+  //
+  // What is written is what the public page shows: no drafts, and none of the
+  // reactions the host has hidden.
+  const experimentRecords = await safe(
+    'fetchExperimentRecords',
+    () => fetchExperimentRecords({ pds }),
+    [],
+  );
+  const bench = listExperiments(experimentRecords);
+  const benchReactions = {};
+  for (const record of bench) {
+    const gathered = await safe(
+      `fetchReactions ${rkeyFromAtUri(record.uri)}`,
+      async () => {
+        const page = await fetchReactions(record.uri);
+        // `null` is the backlink index being unreachable, not an experiment
+        // nobody reacted to, so throw and let `safe` retry it.
+        if (!page) throw new Error('backlink index unreachable');
+        return page;
+      },
+      null,
+    );
+    // Left out when the index couldn't be reached: the browser gathers them
+    // itself rather than being told there are none.
+    if (!gathered) continue;
+    const hidden = new Set(Array.isArray(record.value?.hidden) ? record.value.hidden : []);
+    const reactions = gathered.reactions.filter((r) => !hidden.has(r.uri));
+    benchReactions[record.uri] = {
+      reactions,
+      total: reactions.length,
+      truncated: gathered.truncated,
+    };
+  }
+  if (bench.length) {
+    const count = Object.values(benchReactions).reduce((n, g) => n + g.total, 0);
+    log(`experimenting: ${bench.length} experiment(s), ${count} reaction(s)`);
+  }
+  const experimentingWritten = await writeJson(
+    'experimenting',
+    { builtAt: new Date().toISOString(), experiments: bench, reactions: benchReactions },
+    { guardEmpty: true },
+  );
+
   // --- Registry-driven ingest (delegated to the shared builder) -------------
   const { unified, perCollection, perVerb, authorFeed, counts } = await buildUnifiedFeed({
     pds,
@@ -1342,6 +1404,7 @@ async function main() {
           mothNights: buildSessions(mothing?.observations).sessions.map((n) => n.date),
           albums: albumsWritten?.albums || [],
           pages: pagesWritten,
+          experiments: experimentingWritten?.experiments || [],
           builtAt,
         }),
       ),
@@ -1366,6 +1429,7 @@ async function main() {
           mothNights: buildSessions(mothing?.observations).sessions.map((n) => n.date),
           albums: albumsWritten?.albums || [],
           pages: pagesWritten,
+          experiments: experimentingWritten?.experiments || [],
         }),
       ),
     null,

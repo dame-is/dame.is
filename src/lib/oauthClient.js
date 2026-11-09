@@ -26,18 +26,25 @@ export function getOauthEvents() {
   return _events;
 }
 
-// Two grants, chosen per sign-in (see scopeForAccount):
+// Three grants, chosen per sign-in (see scopeForAccount, reactionScopeForAccount):
 //   - The owner (dame.is) signs in to administer the whole site, so they get
 //     the broad transitional scope.
-//   - Everyone else signs in for exactly one reason — to leave a guestbook
-//     signature — so visitors get a granular scope that grants write access to
-//     just the is.dame.guestbook.entry collection on their own PDS, nothing else.
+//   - A visitor signing the guestbook gets a granular scope that grants write
+//     access to just the is.dame.guestbook.entry collection on their own PDS.
+//   - A visitor reacting on /experimenting gets that plus the reaction
+//     collection. Both, because an account holds one session here: granting
+//     reactions alone would take the guestbook permission away from someone
+//     who had signed the book, and with it the "remove" on their signature.
 const OWNER_SCOPE = 'atproto transition:generic';
 const GUESTBOOK_SCOPE = 'atproto repo:is.dame.guestbook.entry';
+const REACTION_SCOPE =
+  'atproto repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction';
 // Client metadata must advertise every scope the client may ever request — the
 // authorization server validates each authorization request against it — so it
-// declares the union of both. A single sign-in then narrows to one of the two.
-const CLIENT_SCOPE = 'atproto transition:generic repo:is.dame.guestbook.entry';
+// declares the union of all three. A single sign-in then narrows to one. Keep
+// in step with api/client-metadata.js, which serves the same string.
+const CLIENT_SCOPE =
+  'atproto transition:generic repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction';
 
 function isLoopbackHost(hostname) {
   return (
@@ -53,8 +60,8 @@ function isLoopbackHost(hostname) {
  * query params naming its redirect URI and scope, which the authorization
  * server parses instead of fetching a document. The scope has to be declared
  * here for the same reason it is in the production metadata — every sign-in
- * narrows to one of OWNER_SCOPE / GUESTBOOK_SCOPE, and a server checks the
- * request against what the client declared.
+ * narrows to one of OWNER_SCOPE / GUESTBOOK_SCOPE / REACTION_SCOPE, and a
+ * server checks the request against what the client declared.
  */
 export function buildLoopbackClientId(origin, redirectPath) {
   const redirect = new URL(redirectPath, origin);
@@ -143,6 +150,15 @@ export function scopeForAccount(input) {
 }
 
 /**
+ * The scope for a sign-in started from /experimenting, to leave a reaction.
+ * The owner still gets the owner's scope: a narrower grant would replace their
+ * admin session with one the admin can't use.
+ */
+export function reactionScopeForAccount(input) {
+  return scopeForAccount(input) === OWNER_SCOPE ? OWNER_SCOPE : REACTION_SCOPE;
+}
+
+/**
  * A sign-in that couldn't start (the handle didn't resolve, the PDS's
  * authorization server didn't answer), in words a visitor can act on. The
  * library's own messages are written for developers — an unresolvable handle
@@ -179,4 +195,4 @@ export function callbackErrorMessage(err) {
   return 'Sign-in didn’t finish, so you’re not signed in. Nothing was changed.';
 }
 
-export { OWNER_SCOPE, GUESTBOOK_SCOPE, CLIENT_SCOPE };
+export { OWNER_SCOPE, GUESTBOOK_SCOPE, REACTION_SCOPE, CLIENT_SCOPE };

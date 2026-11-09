@@ -17,8 +17,11 @@
 //    the tie. A draft is on neither.
 //  - Records whose verb has no page of its own. Anisota posts and reposts link
 //    to the explorer, and a publication isn't a post; neither gets a link.
+//
+// And one collection that has a page without being a verb: an experiment
+// (`is.dame.experiment`) reads at `/experimenting/<rkey>`.
 
-import { ME_DID } from '../config.js';
+import { ME_DID, EXPERIMENT_NSID } from '../config.js';
 import { nsidConfig, recordHrefFor } from './verbRegistry.js';
 import {
   canonicalWorkPath,
@@ -61,6 +64,10 @@ export function publicRecordPath({
     if (showOnCreating(value)) return canonicalWorkPath(value, rkey);
     return null;
   }
+
+  // An experiment is a page of its own rather than a feed verb, so the
+  // registry below has never heard of it.
+  if (collection === EXPERIMENT_NSID) return `/experimenting/${encodeURIComponent(rkey)}`;
 
   // `nsidConfig` hands back `{ verb, collection }` where `verb` is the whole
   // registry entry; `recordHrefFor` wants the gerund string off it.

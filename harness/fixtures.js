@@ -437,6 +437,54 @@ export function buildRepo() {
     ),
   );
 
+  /* Experiments — is.dame.experiment. One of each state the public page
+     draws differently: taking reactions, being built, shelved, and a draft. */
+  put(
+    COLLECTIONS.experiment,
+    [
+      {
+        title: 'A status line that follows you between apps',
+        pitch:
+          'One short line, “dame is mothing”, that every atproto app you use can read and show beside your name. You set it once; it expires on its own.',
+        kind: 'prototype',
+        url: 'https://example.com/status',
+        ask: 'Would you set one?',
+        status: 'open',
+        content: leafletBody([
+          'The record is tiny: a string, a created date and an expiry. Apps that know the lexicon show it; apps that don’t never see it.',
+          'What I don’t know yet is whether anyone wants a second place to say what they’re doing.',
+        ]),
+      },
+      {
+        title: 'Margin notes on other people’s essays',
+        pitch:
+          'Select a passage on any standard.site post and leave a note in its margin. The note lives on your PDS and points at the passage.',
+        kind: 'concept',
+        status: 'pursuing',
+      },
+      {
+        title: 'A guestbook that prints',
+        pitch: 'Every hundred signatures, the book typesets itself into a PDF you could bind.',
+        kind: 'sketch',
+        status: 'shelved',
+      },
+      {
+        title: 'An unfinished thought',
+        pitch: 'Not ready for anyone yet.',
+        kind: 'concept',
+        status: 'open',
+        draft: true,
+      },
+    ].map((value, i) =>
+      rec(COLLECTIONS.experiment, {
+        $type: COLLECTIONS.experiment,
+        ...value,
+        createdAt: ago(600 + i * 9000),
+        updatedAt: ago(300 + i * 9000),
+      }),
+    ),
+  );
+
   /* Site pages — is.dame.page, keyed by slug */
   put(
     COLLECTIONS.page,

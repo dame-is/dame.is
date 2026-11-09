@@ -57,6 +57,13 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   Constellation backlinks hydrated through Slingshot; writes happen in the
   browser via atproto OAuth. See [`lexicons/GUESTBOOK.md`](lexicons/GUESTBOOK.md).
   Create the book once with [`scripts/create-guestbook.mjs`](scripts/create-guestbook.mjs).
+- `is.dame.experiment` / `is.dame.experiment.reaction` — quick prototypes
+  and concepts, posted for reactions and rendered at `/experimenting`. An
+  experiment is a record on my PDS; each reaction is an
+  `is.dame.experiment.reaction` record **on the visitor's own PDS** whose
+  `subject` backlinks to it, gathered the way the guestbook's signatures are.
+  See [Experimenting](#experimenting) and
+  [`lexicons/EXPERIMENTING.md`](lexicons/EXPERIMENTING.md).
 - `is.dame.state` — live iPhone-sourced physical + ambient state (heart rate,
   activity, battery, ambient sound, calories). An append-only log keyed by TID:
   the **latest** record is the current "right now" rendered by the atmosphere-bar
@@ -161,6 +168,37 @@ catalogue from one of the album's plays (ISRC → Apple song id → track + arti
 [`src/lib/musicIds.js`](src/lib/musicIds.js) is the ladder, shared by the
 browser, the `/api/albumart` proxy, and the card renderer) and inlined as bytes,
 so one dead cover can't take a card down with it.
+
+## Experimenting
+
+`/experimenting` is the bench: quick prototypes and half-formed concepts, put
+up before they are finished to find out what people make of them. Each one is
+an `is.dame.experiment` record (a title, a pitch, and whatever there is to show
+so far: a picture, a link to try, a longer write-up) with a page of its own at
+`/experimenting/{rkey}`.
+
+Under each is the ask and three answers, **More of this**, **Curious** and
+**Not for me**, as buttons that carry their own counts, so the tally and the
+way to add to it are one row. A reaction is an `is.dame.experiment.reaction`
+record on the reactor's own PDS, signed with any atproto account, with an
+optional note; one per person per experiment, and theirs to change or take
+back. They are read from backlinks (Constellation → Slingshot → AppView), the
+same way the guestbook is, and snapshotted at build time into
+`public/data/experimenting.json` so the tallies paint at once.
+
+To post one, sign in and use **Content → Experimenting → New** in the admin
+(`/admin?c=is.dame.experiment&mode=new`); the owner also gets a "Post an
+experiment" button on the page itself. `status` says where it stands: `open`
+takes reactions, `pursuing` and `shelved` close them and say how it came out.
+A `draft` is the owner's alone. The page's own title and intro are its
+`is.dame.page/experimenting` record, like every page's.
+
+The whole design, including sign-in scopes and moderation, is in
+[`lexicons/EXPERIMENTING.md`](lexicons/EXPERIMENTING.md);
+[`src/lib/experiments.js`](src/lib/experiments.js) is what an experiment and
+its reactions add up to, and
+[`src/lib/experimentReactions.js`](src/lib/experimentReactions.js) reads and
+writes them.
 
 ## Mothing / iNaturalist
 

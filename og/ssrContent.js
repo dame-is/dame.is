@@ -48,6 +48,7 @@ export const NAV_PATHS = [
   '/posting',
   '/blogging',
   '/creating',
+  '/experimenting',
   '/curating',
   '/listening',
   '/mothing',

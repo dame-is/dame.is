@@ -25,6 +25,7 @@ import {
   ME_DID,
   APPVIEW,
   COLLECTIONS,
+  EXPERIMENT_NSID,
   GUESTBOOK_NSID,
   MOTHING_OBSERVATION_NSID,
   OBSERVING_OBSERVATION_NSID,
@@ -72,6 +73,7 @@ import {
 import { composeEventLog, livingKindsIndex } from '../src/lib/ratioedLog.js';
 import { audienceIndex, fmtReach } from '../src/lib/ratioedReach.js';
 import { quoteFrom, encodeQuote } from '../src/lib/quote.js';
+import { findExperiment, isDraftExperiment } from '../src/lib/experiments.js';
 
 const SNAPSHOT_TIMEOUT_MS = 2000;
 const PDS_TIMEOUT_MS = 2500;
@@ -85,8 +87,9 @@ const APPVIEW_TIMEOUT_MS = 2000;
 // Sections whose leaves are addressed by something other than an rkey in a
 // verb's own collections, and so resolve through a function of their own below:
 // blogging/creating are slug-addressed and read the snapshots, curating pulls
-// its title from the are.na-backed `curating` snapshot.
-const SLUG_SECTIONS = ['blogging', 'creating', 'curating'];
+// its title from the are.na-backed `curating` snapshot, and experimenting is
+// keyed by rkey but isn't a verb at all (and keeps its drafts to itself).
+const SLUG_SECTIONS = ['blogging', 'creating', 'curating', 'experimenting'];
 
 // rkey-addressed sections → the collection(s) a getRecord(rkey) should try, in
 // order. Every verb in the registry that App.jsx gives a `/{verb}/:rkey` page,
@@ -213,6 +216,13 @@ const CARD_EXTRACTORS = {
     textOnly: false,
   }),
 };
+
+// An experiment: its title, and the pitch as the line under it.
+CARD_EXTRACTORS[EXPERIMENT_NSID] = (v) => ({
+  title: firstText(v.title),
+  description: firstText(v.pitch),
+  textOnly: false,
+});
 
 const docCard = (v) => ({
   title: firstText(v.title, v.name),
@@ -378,6 +388,22 @@ async function resolveChannel(origin, slug) {
       description: firstText(v.description, arenaText(meta?.description)),
     },
   };
+}
+
+// /experimenting/:rkey — one experiment. The build's snapshot first (it lists
+// every public one), then the PDS for one posted since. A draft is the owner's
+// alone, so it resolves to nothing here and the address answers 404, whichever
+// of the two holds it.
+async function resolveExperiment(origin, rkey) {
+  const snap = origin
+    ? await fetchJson(`${origin}/data/experimenting.json`, SNAPSHOT_TIMEOUT_MS)
+    : null;
+  const held = findExperiment(snap?.experiments, rkey);
+  if (held) return held;
+  const live = await withTimeout(liveByRkey(rkey, [EXPERIMENT_NSID]), PDS_TIMEOUT_MS);
+  return live?.value && !isDraftExperiment(live.value) && String(live.value.title || '').trim()
+    ? live
+    : null;
 }
 
 // Every collection is asked at once and the first in order that holds the rkey
@@ -1310,6 +1336,7 @@ export async function recordMeta(pathname, origin, { quote = '' } = {}) {
     if (section === 'blogging') record = await resolveBlog(origin, slug);
     else if (section === 'creating') record = await resolveWork(origin, slug);
     else if (section === 'curating') record = await resolveChannel(origin, slug);
+    else if (section === 'experimenting') record = await resolveExperiment(origin, slug);
     // A play resolves through the same function the card renderer calls, so the
     // two can't disagree about which record a `/listening/{rkey}` link names —
     // and so a play already in the build's merged archive costs no PDS round

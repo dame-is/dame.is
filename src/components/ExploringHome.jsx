@@ -36,6 +36,7 @@ const CUSTOM_LEXICONS = [
   { nsid: 'is.dame.profile', title: 'profile', blurb: 'My long-form bio. My Bluesky description holds the short version; this record holds the rest.', route: '/themself' },
   { nsid: 'is.dame.page', title: 'page', blurb: 'The title and intro text for each page of this site. I edit the record to change the page.' },
   { nsid: 'is.dame.creating.work', title: 'creating', blurb: 'Things I’ve made: art, software, writing. Each record gets its own page.', route: '/creating' },
+  { nsid: 'is.dame.experiment', title: 'experiment', blurb: 'Quick prototypes and concepts, posted for reactions. A reaction is a record in the reactor’s repo that links back to the experiment.', route: '/experimenting' },
   { nsid: 'is.dame.resume', title: 'resume', blurb: 'My work history and education, as records instead of a PDF.', route: '/available' },
   { nsid: 'is.dame.mothing', title: 'mothing', blurb: 'Moths I’ve logged on iNaturalist, mirrored here. No location is stored.', route: '/mothing' },
   { nsid: 'is.dame.observing', title: 'observing', blurb: 'Everything I’ve logged on iNaturalist that isn’t a moth: birds, plants, fungi.' },

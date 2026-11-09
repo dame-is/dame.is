@@ -11,6 +11,7 @@ export const DEFAULT_ROUTES = [
   { to: '/logging', label: 'logging' },
   { to: '/blogging', label: 'blogging' },
   { to: '/creating', label: 'creating' },
+  { to: '/experimenting', label: 'experimenting' },
   { to: '/listening', label: 'listening' },
   { to: '/curating', label: 'curating' },
   { to: '/mothing', label: 'mothing' },

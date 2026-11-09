@@ -24,6 +24,14 @@ describe('publicRecordPath', () => {
     );
   });
 
+  it('links an experiment to its page, though experimenting is no verb', () => {
+    expect(path('is.dame.experiment', '3exp', { title: 'An idea' })).toBe('/experimenting/3exp');
+    // A draft is on no public page, like any other draft.
+    expect(path('is.dame.experiment', '3exp', { title: 'An idea', draft: true })).toBeNull();
+    // A reaction is a visitor's record, and has no page of its own.
+    expect(path('is.dame.experiment.reaction', '3rx', { reaction: 'more' })).toBeNull();
+  });
+
   it('falls back to the lexicon-form route for verbs without a short one', () => {
     expect(path('app.bsky.feed.like', 'abc')).toBe('/app.bsky.feed.like/abc');
     expect(path('app.bsky.graph.follow', 'abc')).toBe(
