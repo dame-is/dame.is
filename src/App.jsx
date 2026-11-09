@@ -101,6 +101,9 @@ const Exploring = lazy(recoverable(() => import('./pages/Exploring.jsx')));
 // Lazy and never warmed: a stream overlay is a page for OBS, not for visitors,
 // and it renders outside the site's frame (see App below).
 const Overlay = lazy(recoverable(() => import('./pages/Overlay.jsx')));
+// Lazy and never warmed: the workbench carries a WebGL simulation and its
+// shaders, which nobody who came for the feed should fetch behind it.
+const Culturing = lazy(recoverable(() => import('./pages/Culturing.jsx')));
 // Lazy: the quick-edit sheet and the edit-mode bar are the owner's alone. See
 // OwnerTools.
 const EditSheet = lazy(() => import('./components/EditSheet.jsx'));
@@ -424,6 +427,10 @@ export default function App() {
                   <Route path="/for-hire" element={<ForHireRedirect />} />
                   <Route path="/for-hire/:slug" element={<ForHireRedirect />} />
                   <Route path="/sharing" element={<Sharing />} />
+                  {/* A bench of simulated petri dishes. No records behind
+                      it, so no leaf routes: a plate travels in the query
+                      (?plate=…), not in the path. */}
+                  <Route path="/culturing" element={<Culturing />} />
                   <Route path="/mothing" element={<Mothing />} />
                   <Route path="/mothing/:rkey" element={<MothingLeaf />} />
                   <Route path="/welcoming" element={<Guestbook />} />

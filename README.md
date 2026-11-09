@@ -217,6 +217,55 @@ The `/mothing` page applies the same freshness check in the browser: it paints
 from the snapshot and only re-pulls the full observation set from iNaturalist
 when the cheap signature says something actually changed.
 
+## Culturing
+
+`/culturing` is a workbench of petri dishes that aren't real: pour a medium,
+put cultures on it, add a disc or a drop of dye, and leave it in the incubator.
+It is the one page with no record behind it. Nothing on it is science, and
+everything on it is modelled on how real colonies and biofilms look and grow;
+the page says which parts are borrowed from where, in the notes on each
+culture and medium and in "What is real here" at its foot.
+
+It lives in [`src/culturing/`](src/culturing/), and is its own chunk that is
+never warmed (it carries a WebGL2 simulation and its shaders).
+
+- **The model** ([`shaders/culture.js`](src/culturing/shaders/culture.js),
+  [`agar.js`](src/culturing/shaders/agar.js),
+  [`wrinkle.js`](src/culturing/shaders/wrinkle.js)). A plate is a handful of
+  float textures. Each of up to four cultures is a thin layer that travels and
+  a film that stays; growth eats a nutrient that diffuses through the gel; a
+  film buckles into wrinkles past a thickness (Swift–Hohenberg); toxins,
+  quorum signals, acid, enzymes and pigments spread through the agar at half
+  the surface's resolution. No pattern is drawn. Branches, rings, spokes,
+  sectors, halos and standoffs are what those rules do when they meet, which
+  is why the cultures are only parameter sets
+  ([`cultures.js`](src/culturing/cultures.js)).
+- **Units.** Every number in the libraries is in millimetres and hours
+  ([`units.js`](src/culturing/units.js) converts), so the same recipe grows
+  the same plate at 256 texels (phones) or 384, and a culture's numbers can be
+  read against a paper's. [`pack.js`](src/culturing/pack.js) turns a recipe
+  into uniforms and clamps anything that would break the explicit schemes.
+- **A plate is its recipe** ([`recipe.js`](src/culturing/recipe.js),
+  [`incubate.js`](src/culturing/incubate.js)): the medium, the incubator, and
+  everything done to it with the hour it was done. The picture is not kept.
+  The bench is saved to `localStorage` as recipes and re-grown on return, and
+  a plate travels in a link as `?plate=…`. Grown twice, a plate comes out
+  alike but not the same.
+- **Drawing** ([`renderer.js`](src/culturing/renderer.js),
+  [`shaders/scene.js`](src/culturing/shaders/scene.js)). The surface is one
+  displaced sheet per plate, lit four ways a microbiologist would recognise:
+  a raking lamp over a black bench, a light table from underneath, a 365 nm
+  lamp, and the dark. Heights are true and the vertical is stretched, by an
+  amount the page states.
+- **The bench** ([`bench.js`](src/culturing/bench.js)) owns the canvas, the
+  clock and the pointer, and knows nothing about React; the page reads a
+  snapshot of it.
+
+`src/culturing/culturing.test.js` covers what can be checked without a GPU:
+that every uniform a shader declares is supplied, that every culture on every
+medium stays inside the schemes' stability bounds on every grid, and that
+recipes survive a link and reject what isn't one.
+
 ## Newsletter
 
 The blog ("dame.is blogging", `BLOG_PUBLICATION`) doubles as an email

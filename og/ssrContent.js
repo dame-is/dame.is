@@ -51,6 +51,7 @@ export const NAV_PATHS = [
   '/curating',
   '/listening',
   '/mothing',
+  '/culturing',
   '/welcoming',
   '/sharing',
   '/themself',

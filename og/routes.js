@@ -55,6 +55,7 @@ export const STATIC_ROUTE_PATTERNS = [
   '/for-hire',
   '/for-hire/:slug',
   '/sharing',
+  '/culturing',
   '/mothing',
   '/mothing/:rkey',
   '/welcoming',

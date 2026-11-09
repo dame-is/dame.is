@@ -560,6 +560,7 @@ const SITEMAP_SURFACES = [
   '/listening',
   '/listening/albums',
   '/mothing',
+  '/culturing',
   '/sharing',
   '/welcoming',
 ];

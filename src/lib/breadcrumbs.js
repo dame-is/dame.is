@@ -46,6 +46,7 @@ export const DECLARED_ROUTES = [
   '/for-hire',
   '/for-hire/:slug',
   '/sharing',
+  '/culturing',
   '/mothing',
   '/mothing/:rkey',
   '/welcoming',

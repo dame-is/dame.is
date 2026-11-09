@@ -40,6 +40,7 @@ export const LLMS_SURFACES = [
   '/listening',
   '/listening/albums',
   '/mothing',
+  '/culturing',
   '/sharing',
   '/welcoming',
 ];
