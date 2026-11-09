@@ -73,8 +73,8 @@ export const CULTURE_DEFAULTS = {
   launchHi: 0.7,
   launchTop: 1e3, // biofilm denser than this makes no more swarmers
 
-  // ---- steering (mm²/h per unit of potential; chirality in degrees)
-  taxis: { nutrient: 0, surfactant: 0, toxin: 0, chirality: 0 },
+  // ---- steering (mm²/h per unit of potential)
+  taxis: { nutrient: 0, surfactant: 0, toxin: 0 },
 
   // ---- what it secretes, per hour per unit of biomass
   surfactant: 0,
@@ -252,7 +252,6 @@ export function packPlate({ slots, medium, env, grid, seed }) {
       ? hexToAbsorbance(c.secretes.color, rate(c.secretes.rate))
       : [0, 0, 0];
 
-  const chiral = each((c) => (c.taxis.chirality * Math.PI) / 180);
   const hasTaxis = cultures.some(
     (c) =>
       c &&
@@ -320,8 +319,6 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uTaxN: each((c) => grid.diffusion(c.taxis.nutrient)),
     uTaxS: each((c) => grid.diffusion(c.taxis.surfactant)),
     uTaxX: each((c) => grid.diffusion(c.taxis.toxin)),
-    uChiralCos: chiral.map(Math.cos),
-    uChiralSin: chiral.map(Math.sin),
 
     uSensX: each((c) => c.sensX),
     uSensY: each((c) => c.sensY),

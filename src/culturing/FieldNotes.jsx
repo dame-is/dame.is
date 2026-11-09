@@ -104,10 +104,10 @@ export default function FieldNotes() {
           say otherwise.
         </li>
         <li>
-          On the lean plate the limiting nutrient diffuses about a hundred times
-          more slowly than any sugar really does. The published models need the
-          same thing to draw branches at the width real plates show, and say so
-          less loudly.
+          On the lean plate the limiting nutrient diffuses about ten times more
+          slowly than a sugar really does. The published models need the same
+          thing to draw branches at the width real plates show, and say so less
+          loudly.
         </li>
         <li>
           Colours are estimates from descriptions and photographs of real

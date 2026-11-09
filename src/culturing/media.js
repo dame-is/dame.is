@@ -65,7 +65,7 @@ export const MEDIA = [
     ],
     nutrient: 0.3,
     agar: 1.5,
-    diffusion: 0.14,
+    diffusion: 0.2,
     look: { color: '#e2dab2', opacity: 0.1 },
   },
   {

@@ -47,11 +47,10 @@ const streak = (culture, path, extra = {}) => ({
   seed: 11,
   ...extra,
 });
-const lawn = (culture, density = 0.05, extra = {}) => ({
+const lawn = (culture, extra = {}) => ({
   at: 0,
   do: 'lawn',
   culture,
-  density,
   seed: 5,
   ...extra,
 });
@@ -107,7 +106,7 @@ export const RECIPES = [
       env: { temperature: 34 },
       events: [spot('bullseye', 0, 0)],
     },
-    start: 12,
+    start: 20,
   },
   {
     id: 'zone',
@@ -117,11 +116,7 @@ export const RECIPES = [
     dish: {
       medium: 'broth',
       env: { temperature: 36 },
-      events: [
-        lawn('gold', 0.07),
-        add('penicillin', -12, 6),
-        add('biocide', 14, -8),
-      ],
+      events: [lawn('gold'), add('penicillin', -12, 6), add('biocide', 14, -8)],
     },
     start: 9,
   },
@@ -133,10 +128,7 @@ export const RECIPES = [
     dish: {
       medium: 'broth',
       env: { temperature: 28 },
-      events: [
-        spot('velvet', -20, 8, { size: 2 }),
-        lawn('gold', 0.05, { at: 30 }),
-      ],
+      events: [spot('velvet', -20, 8, { size: 2 }), lawn('gold', { at: 30 })],
     },
     start: 34,
   },
@@ -163,7 +155,7 @@ export const RECIPES = [
       'A lawn that can hear but not speak, and one colony in the middle that speaks. The lawn turns violet as far as the signal carries.',
     dish: {
       medium: 'broth',
-      events: [lawn('listener', 0.06), spot('violet', 0, 0, { size: 2.2 })],
+      events: [lawn('listener'), spot('violet', 0, 0, { size: 2.2 })],
     },
     start: 14,
   },
@@ -189,7 +181,7 @@ export const RECIPES = [
       events: [
         spot('feather', -15, -9),
         spot('feather', 15, -9),
-        spot('curl', 0, 17),
+        spot('feather', 0, 17),
       ],
     },
     start: 24,

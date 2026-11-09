@@ -83,8 +83,6 @@ uniform vec4 uLaunchTop;    // ... and not once it is denser than this
 uniform vec4 uTaxN;         // drift up the nutrient gradient
 uniform vec4 uTaxS;         // drift down the surfactant gradient
 uniform vec4 uTaxX;         // drift down the toxin gradient
-uniform vec4 uChiralCos;    // the handedness of that drift
-uniform vec4 uChiralSin;
 uniform vec4 uTaxMax;       // the fastest a raft is carried, texels per step
 uniform float uTaxK;
 
@@ -209,27 +207,12 @@ void main() {
   float inherited = 0.0;
 
   // What each culture drifts down, at this texel and its eight neighbours:
-  // the food potential plus the part of the repellent's that its
-  // handedness leaves pointing straight (psi), and the repellent's alone
-  // for the part that is turned aside.
+  // toward food, away from what repels it.
   vec4 psi[9];
-  vec4 rep[9];
   if (uHasTaxis) {
     for (int k = 0; k < 9; k++) {
-      rep[k] = repelPotential(k0[k], k1[k]);
-      psi[k] = foodPotential(k0[k]) + uChiralCos * rep[k];
+      psi[k] = foodPotential(k0[k]) + repelPotential(k0[k], k1[k]);
     }
-  }
-  // The turned part, as a velocity: the repellent's gradient here, rotated
-  // a quarter turn, no faster than a raft is carried.
-  vec4 turnX = vec4(0.0);
-  vec4 turnY = vec4(0.0);
-  if (uHasTaxis) {
-    vec4 gx = 0.5 * (rep[5] - rep[3]);
-    vec4 gy = 0.5 * (rep[7] - rep[1]);
-    vec4 limit = min(ONE, uTaxMax / max(sqrt(gx * gx + gy * gy), vec4(1e-6)));
-    turnX = uChiralSin * gy * limit;
-    turnY = -uChiralSin * gx * limit;
   }
 
   for (int j = 0; j < 8; j++) {
@@ -289,13 +272,6 @@ void main() {
       vec4 steep = sqrt(along * along + across * across);
       vec4 v = -drop * min(ONE, uTaxMax / max(steep, vec4(1e-6))) * passable;
       dB += w * (max(-v, 0.0) * bj - max(v, 0.0) * b);
-      // A culture's handedness turns the repellent's push and leaves the
-      // pull toward food alone. That is what curls a chiral colony's
-      // branches (Ben-Jacob et al. 1995); the other way round does
-      // nothing. The turned flow has no divergence, so it only moves what
-      // is there sideways along the front.
-      vec4 turn = (turnX * float(o.x) + turnY * float(o.y)) * passable;
-      dB += w * max(-turn, 0.0) * (bj - b);
     }
 
     // Biofilm creeps down its own pressure gradient, each culture carried

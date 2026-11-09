@@ -942,13 +942,12 @@ export function createBench(canvas, options = {}) {
   }
 
   /** Spread a culture over the whole plate. */
-  function spread(index, cultureId, density = 0.05) {
+  function spread(index, cultureId) {
     const entry = entries[index];
     if (!entry || !cultureById(cultureId)) return;
     const refused = act(sim, entry.live, {
       do: 'lawn',
       culture: cultureId,
-      density,
       seed: (Math.random() * 1e6) | 0,
     });
     if (refused) say(refused);

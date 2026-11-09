@@ -809,6 +809,21 @@ describe('stamps', () => {
     expect(stamps[0].surface.speckle).toBe(0.04);
   });
 
+  it('spreads an even lawn unless told how thinly, with the same load', () => {
+    const lawn = (density) =>
+      stampsFor({ do: 'lawn', culture: 'gold', density, seed: 2 }, []).stamps[0]
+        .surface;
+    const thick = lawn(undefined);
+    const thin = lawn(0.25);
+    expect(thick.speckle).toBe(0.5);
+    // Half the texels with half the cells each, or a quarter with all.
+    expect(thick.speckle * thick.addD[0]).toBeCloseTo(
+      thin.speckle * thin.addD[0],
+      6,
+    );
+    expect(thick.addD[0]).toBeLessThan(thin.addD[0]);
+  });
+
   it('puts a disc into the agar as its drug and a piece of paper', () => {
     const { stamps } = stampsFor(
       { do: 'add', addition: 'penicillin', x: 5, y: 5 },
