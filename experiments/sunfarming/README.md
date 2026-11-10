@@ -1,10 +1,10 @@
 # Sunfarming
 
-A small island, a village, and the sun. Put down solar panels, wire them to the
-houses, keep the spare in batteries for the night, and the village grows.
+A small island that runs on a diesel generator, and the sun. Put down solar
+panels, mind the shade, keep the spare in batteries for the night, and the
+village grows until the generator falls silent. Then there is another island.
 
-It is the beginnings of a game: one loop that works end to end, drawn in a
-cel-shaded 3D style, on a grid. Everything past that is still to be found out.
+It is a small game, drawn in a cel-shaded 3D style, on a grid.
 
 ```
 npm run dev      # http://localhost:5180
@@ -16,29 +16,65 @@ npm run build    # a standalone build in dist/
 
 ## How it plays
 
-The island is a 20 × 20 grid of sea, beach and grass. A village of three
-houses stands on it, with nine more plots pegged out beside them.
+Every island starts the same way: a few cottages, and an old generator on the
+beach with a power line up to them. The lights are on from the first minute,
+and every kilowatt-hour of it burns fuel.
 
-- **Solar panels** (40 coins) make up to 1 kW each, following the sun: nothing
-  at night, a half sine from dawn (6 am) to dusk (6 pm), full power at noon.
-- **Things that touch share power.** A panel, a battery, a power line and a
-  house all conduct to whatever stands on the four tiles beside them, so a
-  block of panels is already wired together.
-- **Power lines** (4 coins) carry power across a gap. Drag to lay a run.
-- **Houses** want 0.4 kW each, day and night, and pay 5 coins for every
-  kilowatt-hour they are actually sent. That is the only income.
-- **Batteries** (100 coins) hold 8 kWh and move up to 2 kW. They fill on
-  whatever the houses didn't need and hand it back after dark.
-- **At dawn the day's books close.** If the village got at least 90% of the
-  power it asked for, a family moves onto the next plot, and the village wants
-  more.
-- **Trees and rocks** are in the way and cost coins to clear. Buildings come
-  back up for what they cost, so trying a different layout is free.
+- **The generator** fills whatever is short, up to what it can make (2 kW on
+  most islands). Homes pay for the power they get, and the fuel (4 coins a
+  kWh) comes out of that, so diesel power earns a little and sun power earns
+  a lot. It is asked last, after the sun, the wind and the batteries.
+- **Solar panels** (40) make up to 1 kW each along a half sine from dawn to
+  dusk. **Things that touch share power**, so a panel against the old line is
+  already wired in; **power lines** (4) cross a gap.
+- **Shade is real.** A panel in the shadow of a tree, a home or a tall machine
+  makes a quarter of what it would. The shadows on screen are the ones the
+  rules use. With a panel in hand the ground shows a **sun map**: how much of
+  the day's light each tile gets.
+- **Batteries** (100) hold 8 kWh and fill on whatever the homes didn't need.
+- **The village grows at dawn** after a day in which it got at least 90% of
+  the power it asked for: a family moves onto the next plot, and up to two
+  homes that have had enough good days move up a tier.
+- **Each tier wants power at a harder time of day.** A cottage wants a little
+  all the time. A house has an evening peak, after the sun has gone. A
+  townhouse works by day, is busy all evening and charges overnight. Each
+  pays more per kWh than the last.
+- **New things to build turn up as the village grows**, and come with you to
+  the next island: the **tracking panel** (85; follows the sun, so far more in
+  the morning and evening), the **wind turbine** (160; blows at night and
+  under cloud, best on the beach) and the **battery bank** (300; 28 kWh on one
+  tile).
+- **Weather and seasons.** Each day is clear, fair, cloudy or stormy, decided
+  by the island's seed, so there is a forecast and it is always right. Cloud
+  cuts the sun and brings wind. On islands with seasons a year is twelve
+  days: summer days are long, winter days are short, weak and low, and winter
+  shadows are long.
+- **An island is finished** when every home is as far up as it can go and a
+  whole day has passed with the generator silent. After the first such day
+  the generator can be sent back on the boat.
 
-Five goals lead through it, each paying a bonus: wire a panel to the village,
-light every house, last a whole day and night, reach six houses, fill all
-twelve. The island is saved in `localStorage` and picked up on the next visit;
-**New island** starts over on a different one.
+The island answers: smoke over the generator while it runs, a fuel boat that
+comes each morning for as long as fuel is burned, and flowers and gulls that
+turn up as the sun takes over.
+
+### The islands
+
+Six of them, each opening when the one before runs on the sun, and each
+leaning on one thing the others don't:
+
+| island    | what is different                                    |
+| --------- | ---------------------------------------------------- |
+| Tern Rock | The first. Sunny, eight plots, homes stop at houses. |
+| The Pines | Wooded nearly to the water. A shade puzzle.          |
+| Windward  | More cloud than sun, and a lot of wind.              |
+| Saltmarsh | A 16 × 16 grid with hardly any land.                 |
+| Northing  | Seasons, starting in autumn.                         |
+| Harbour   | 26 × 26, sixteen plots, all four seasons.            |
+
+Once the first is done there are two more: **Today's island**, the same one
+for everybody on a given day, with a result that can be copied and shared, and
+**Free build**, with no purse, no goals and nothing locked. Every island keeps
+its own save in `localStorage`.
 
 ### Controls
 
@@ -71,15 +107,25 @@ src/
 ```
 
 **The rules** ([`src/sim/`](src/sim/)). [`catalog.js`](src/sim/catalog.js) is
-every number the game is balanced on, in real units (kW, kWh, hours).
-[`island.js`](src/sim/island.js) grows an island from a seed: a coast, a
-beach, woods, and the village's plots.
+every number the game is balanced on, in real units (kW, kWh, hours), and the
+three tiers of home with their daily load.
+[`islands.js`](src/sim/islands.js) is the archipelago: each island as a spec,
+and what has been finished and unlocked across them.
+[`island.js`](src/sim/island.js) grows the ground from a spec: a coast, a
+beach, woods, the village's plots, and the generator on the shore with its
+line. [`sun.js`](src/sim/sun.js) is the clock, the seasons and where the sun
+stands; [`weather.js`](src/sim/weather.js) is each day's sky and the wind;
+[`shade.js`](src/sim/shade.js) walks from a panel toward the sun to see what
+is in the way, and draws the sun map.
 [`network.js`](src/sim/network.js) finds which things are wired to which with
 a flood fill. [`game.js`](src/sim/game.js) is the state and everything that
 changes it: building, removing, and `step(game, hours)`, where each network
-balances on its own (panels feed houses, spare charges batteries, a shortfall
-drains them, the rest is wasted). It also serialises a game to JSON and reads
-one back, refusing anything that isn't a save.
+balances on its own (sun and wind feed homes, spare charges batteries, a
+shortfall drains them, the generator makes up the rest, what nobody wants is
+wasted), and the village grows at daybreak. It also serialises a game to JSON
+and reads one back, refusing anything that isn't a save. The tests play whole
+islands through with a scripted player, so a change that makes one
+unfinishable fails.
 
 **The picture** ([`src/view/`](src/view/)). The look is two old tricks
 ([`toon.js`](src/view/toon.js)): a three-step light ramp instead of smooth
@@ -91,9 +137,11 @@ serves the whole scene. The sea ([`water.js`](src/view/water.js)) is a single
 sheet whose shader knows how far each point is from land: banded shallows,
 foam on the shore, rings of foam travelling in. The sky
 ([`sky.js`](src/view/sky.js)) is the day in keyframes, with one light that is
-the sun by day and the moon by night. [`world.js`](src/view/world.js) keeps the
-models in step with the game by comparing, every frame, what is on each tile
-with what it drew there.
+the sun by day and the moon by night, placed by the same function the rules
+use for shade, and dimmed by the day's cloud. [`world.js`](src/view/world.js)
+keeps the models in step with the game by comparing, every frame, what is on
+each tile with what it drew there, and animates what moves: smoke, the fuel
+boat, turbine rotors, tracker heads, flowers and gulls.
 
 **The game running** ([`src/sunfarm.js`](src/sunfarm.js)) is framework-free:
 `createSunfarm({ host })` puts a canvas in an element and returns
@@ -129,17 +177,18 @@ In development the standalone page puts the running game on the console as
 
 ## What might come next
 
-It is rough on purpose. Some of what it doesn't do yet:
+Some of what it doesn't do yet:
 
-- **Weather.** Clouds that actually shade panels, so a bank of batteries is
-  insurance and not just a night light.
-- **Somewhere to send the surplus.** An undersea cable to the mainland, paying
-  less than the village does, so over-building is worth something.
-- **More to build.** Trackers that follow the sun, wind turbines for the
-  night, bigger batteries, transformers with a limit on what one line carries.
-- **Demand with a shape.** An evening peak; a workshop that only runs by day.
-- **Terrain.** Hills that shade their neighbours, cliffs that lines can't
-  cross, more than one island.
+- **Lines with a limit.** Every power line carries anything. A cap on what one
+  line can carry would make the layout of a big farm a puzzle of its own.
+- **Cables between islands.** The islands are separate games. Linking a
+  finished one to the next, and sending it surplus, is the obvious next step
+  for the archipelago.
+- **Clouds that pass.** A cloudy day dims the whole island evenly; cloud
+  shadows that drift across it would make where things stand matter more.
+- **Sharing a result as a record.** Today's island gives a line of text to
+  copy. On a site built on atproto it could be a record on the player's own
+  repository.
 - **Performance.** Every building is its own mesh. Past a few hundred, they
   should be instanced.
 - **Sound.**

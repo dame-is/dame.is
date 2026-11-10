@@ -293,12 +293,15 @@ would have to travel with it if it left.
 
 ## Sunfarming
 
-`/experimenting/sunfarming` is the beginnings of a game: an island on a grid, a
-village on it, and the sun going over. Put down solar panels, wire them to the
-houses, keep the spare in batteries for the night, and the village grows by a
-house each dawn it was well powered. It is drawn in cel-shaded 3D (three.js): a
-three-step light ramp, an ink outline round everything, a banded sea with foam
-on the shore, and a sky that goes through the day.
+`/experimenting/sunfarming` is a small game. Each island starts on a diesel
+generator; put down solar panels where the shade allows, keep the spare in
+batteries, add wind for the night, and the village grows at dawn after a well
+powered day, its homes moving up through three tiers that each want power at
+a harder hour. An island is finished when every home is at its best and a
+whole day has passed with the generator silent, and that opens the next of
+six, each with its own weather, woods and seasons. It is drawn in cel-shaded
+3D (three.js): a three-step light ramp, an ink outline round everything, a
+banded sea with foam on the shore, and a sky that goes through the day.
 
 It is the second [experiment](#experimenting) built into the site. The whole
 of it is [`experiments/sunfarming/`](experiments/sunfarming/), a package the

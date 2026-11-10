@@ -93,7 +93,7 @@ export const PAGES = {
   '/experimenting/sunfarming': {
     label: 'experimenting',
     title: 'Sunfarming — dame.is experimenting',
-    desc: 'A small cel-shaded game: build a solar farm on an island grid, wire it to the village, keep the spare in batteries for the night, and watch the village grow.',
+    desc: 'A small cel-shaded game: take an island off its diesel generator with solar panels, batteries and wind, mind the shade, and watch the village grow until the generator falls silent.',
     nsid: 'is.dame.experiment',
   },
   '/curating': {

@@ -381,8 +381,8 @@
   justify-self: start;
   display: inline-grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 11.5rem);
-  gap: 4px 14px;
+  grid-auto-columns: minmax(6.2rem, auto);
+  gap: 4px 16px;
   max-width: 100%;
   padding: 7px 12px 8px;
   border-radius: 14px;
@@ -407,10 +407,9 @@
 .sunfarm .sunfarm-meter-text {
   grid-area: text;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
   min-width: 0;
+  line-height: 1.15;
   white-space: nowrap;
 }
 
@@ -714,6 +713,193 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* The island's name, the forecast, the fifth and sixth meters          */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-top {
+  flex-wrap: wrap;
+}
+
+.sunfarm .sunfarm-btn.sunfarm-pill--isle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px 0 9px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 999px;
+  background: var(--sf-paper);
+  box-shadow: var(--sf-shadow);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sunfarm .sunfarm-btn.sunfarm-pill--isle:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--sf-ink);
+}
+
+.sunfarm .sunfarm-btn.sunfarm-pill--isle:hover {
+  background: #fff;
+}
+
+.sunfarm .sunfarm-pill-name {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sunfarm .sunfarm-forecast {
+  gap: 4px;
+  padding: 0 10px;
+}
+
+.sunfarm .sunfarm-forecast > span {
+  display: inline-flex;
+  opacity: 0.55;
+}
+
+.sunfarm .sunfarm-forecast > .is-today {
+  margin-right: 5px;
+  padding-right: 8px;
+  border-right: var(--sf-line) solid var(--sf-paper-deep);
+  opacity: 1;
+}
+
+.sunfarm .sunfarm-meter--share .sunfarm-meter-bar > span {
+  background: linear-gradient(90deg, var(--sf-sun), #ffb13b);
+}
+
+.sunfarm .sunfarm-meter--share .sunfarm-meter-value {
+  font-size: 0.95em;
+}
+
+.sunfarm .sunfarm-meter--diesel .sunfarm-meter-bar > span {
+  background: #6b6478;
+}
+
+/* ------------------------------------------------------------------ */
+/* Locked tools                                                         */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-tool-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.sunfarm .sunfarm-tool-lock {
+  position: absolute;
+  right: -9px;
+  bottom: -4px;
+  display: inline-flex;
+}
+
+.sunfarm .sunfarm-tool--locked .sunfarm-tool-icon > .sunfarm-icon:first-child,
+.sunfarm .sunfarm-tool--locked .sunfarm-tool-label {
+  opacity: 0.38;
+}
+
+/* ------------------------------------------------------------------ */
+/* The chart of islands                                                 */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-btn--small {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.9em;
+}
+
+.sunfarm .sunfarm-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+.sunfarm .sunfarm-isles {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sunfarm .sunfarm-isles--extra {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: var(--sf-line) dashed var(--sf-paper-deep);
+}
+
+.sunfarm .sunfarm-isle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.sunfarm .sunfarm-isle::before {
+  content: none;
+}
+
+.sunfarm .sunfarm-isle.is-current {
+  background: #fff3c2;
+}
+
+.sunfarm .sunfarm-isle.is-locked {
+  border-style: dashed;
+  background: transparent;
+}
+
+.sunfarm .sunfarm-isle.is-locked .sunfarm-isle-text {
+  opacity: 0.6;
+}
+
+.sunfarm .sunfarm-isle-mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 50%;
+  background: var(--sf-paper);
+}
+
+.sunfarm .sunfarm-isle:not(.is-locked) .sunfarm-isle-mark:not(:empty) {
+  background: var(--sf-leaf);
+}
+
+.sunfarm .sunfarm-isle-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sunfarm .sunfarm-isle-blurb {
+  font-size: 0.83em;
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-isle-status {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-isle-here {
+  padding: 3px 10px;
+  font-size: 0.8em;
+  background: var(--sf-sun);
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 999px;
+}
+
+/* ------------------------------------------------------------------ */
 /* Narrow: a phone held upright                                         */
 /* ------------------------------------------------------------------ */
 
@@ -810,6 +996,42 @@
 
   .sunfarm .sunfarm-info {
     max-width: 13rem;
+  }
+
+  /* Five meters in rows of three; eight tools with no room for names. */
+  .sunfarm .sunfarm-meters {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sunfarm .sunfarm-tool-label {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-tool {
+    padding: 6px 0 5px;
+  }
+
+  .sunfarm .sunfarm-tools {
+    gap: 2px;
+  }
+
+  .sunfarm .sunfarm-pill-name,
+  .sunfarm .sunfarm-pill-extra {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-btn.sunfarm-pill--isle {
+    height: 36px;
+    padding: 0 8px;
+  }
+
+  .sunfarm .sunfarm-forecast > span:nth-child(n + 4) {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-isle-blurb {
+    font-size: 0.8em;
   }
 
   .sunfarm .sunfarm-card {

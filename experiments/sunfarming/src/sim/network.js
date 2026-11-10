@@ -1,7 +1,7 @@
 // Which things are wired to which.
 //
-// There are no wires to route. Anything that conducts (a panel, a battery, a
-// power line, a house) joins the network of any conducting thing on the four
+// There are no wires to route. Anything that conducts (a panel, a turbine, a
+// battery, a power line, a home, the generator) joins the network of any conducting thing on the four
 // tiles it touches. So a network is a patch of touching tiles, found with a
 // flood fill, and it is recounted only when something is built or removed.
 
@@ -16,9 +16,10 @@ export function conducts(thing) {
  * Split the board into power networks.
  *
  * Returns `{ netOf, nets }`. `netOf[idx]` is the network a tile belongs to,
- * or -1. Each net lists its tiles by what stands on them; houses are in the
- * order the village built them, which is the order they are lit in when
- * there isn't enough to go round.
+ * or -1. Each net lists its tiles by what stands on them: `panels` (fixed and
+ * tracking), `turbines`, `stores` (batteries and banks), `generators`,
+ * `cables` and `houses`. Houses are in the order the village built them,
+ * which is the order they are lit in when there isn't enough to go round.
  */
 export function findNetworks(things, size) {
   const netOf = new Int32Array(things.length).fill(-1);
@@ -29,7 +30,9 @@ export function findNetworks(things, size) {
       id: nets.length,
       tiles: [],
       panels: [],
-      batteries: [],
+      turbines: [],
+      stores: [],
+      generators: [],
       houses: [],
       cables: [],
     };
@@ -39,8 +42,10 @@ export function findNetworks(things, size) {
       const idx = queue.pop();
       net.tiles.push(idx);
       const kind = things[idx].kind;
-      if (kind === 'panel') net.panels.push(idx);
-      else if (kind === 'battery') net.batteries.push(idx);
+      if (kind === 'panel' || kind === 'tracker') net.panels.push(idx);
+      else if (kind === 'turbine') net.turbines.push(idx);
+      else if (KINDS[kind].stores) net.stores.push(idx);
+      else if (kind === 'generator') net.generators.push(idx);
       else if (kind === 'house') net.houses.push(idx);
       else if (kind === 'cable') net.cables.push(idx);
       for (const n of neighbours(idx, size)) {

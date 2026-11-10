@@ -5,4 +5,4 @@
 export const SLUG = 'sunfarming';
 export const TITLE = 'Sunfarming';
 export const PITCH =
-  'A small island, a village, and the sun. Put down solar panels, wire them to the houses, keep the spare in batteries for the night, and watch the village grow.';
+  'A small island that runs on a diesel generator, and the sun. Put down solar panels, mind the shade, keep the spare in batteries for the night, and watch the village grow until the generator falls silent.';

@@ -1,25 +1,42 @@
 // The game, running: a `game` (src/sim), a picture of it (src/view), the
-// clock that moves one and redraws the other, and the pointer and keys that
-// turn into building. It owns a canvas inside the element it is given and
-// knows nothing about React; the HUD reads `getSnapshot()` and calls the
-// methods below.
+// clock that moves one and redraws the other, the pointer and keys that turn
+// into building, and the book it is all saved in. It owns a canvas inside the
+// element it is given and knows nothing about React; the HUD reads
+// `getSnapshot()` and calls the methods below.
 
-import { BUILDABLE, GROW_AT, KINDS } from './sim/catalog.js';
+import { BUILDABLE, GROW_AT, KINDS, TIERS } from './sim/catalog.js';
 import {
   GOALS,
   canPlace,
   canRemove,
+  costOf,
   createGame,
+  dawnPlan,
   describeTile,
   deserialize,
+  generatorTile,
+  isUnlocked,
   nextGoal,
   place,
   remove,
   serialize,
   step,
 } from './sim/game.js';
-import { DEFAULT_SEED } from './sim/island.js';
-import { dayOf, formatClock, hourOf, isDaylight } from './sim/sun.js';
+import {
+  FREE_BUILD,
+  ISLANDS,
+  dateKey,
+  isOpen,
+  markDone,
+  nextIsland,
+  readProgress,
+  specById,
+  todaysIsland,
+  withUnlocked,
+} from './sim/islands.js';
+import { sunMap } from './sim/shade.js';
+import { dayOf, formatClock, hourOf, isDaylight, seasonAt } from './sim/sun.js';
+import { forecast } from './sim/weather.js';
 import { createStage } from './view/stage.js';
 
 /** Island hours that pass in one real second at 1× speed: a day in 96 s. */
@@ -27,17 +44,18 @@ export const HOURS_PER_SECOND = 0.25;
 export const SPEEDS = Object.freeze([1, 3, 10]);
 export const TOOLS = Object.freeze(['look', ...BUILDABLE, 'remove']);
 
-const SAVE_KEY = 'sunfarming:save:v1';
+const SAVE_KEY = 'sunfarming:book:v2';
+const BOOK_VERSION = 2;
 const SAVE_EVERY_MS = 8000;
 const SNAPSHOT_EVERY_MS = 180;
-const TOAST_MS = 4200;
+const TOAST_MS = 4600;
 // A press that travels less than this is a tap, not a drag.
 const TAP_SLOP = 7;
 
 /**
  * Where the game is kept between visits. Anything with these three methods
  * will do; this one is the browser's localStorage, which can be missing or
- * refuse (a private window), in which case the island just isn't kept.
+ * refuse (a private window), in which case nothing is kept.
  */
 export function browserStorage(key = SAVE_KEY) {
   return {
@@ -67,6 +85,8 @@ export function browserStorage(key = SAVE_KEY) {
 }
 
 const round1 = (n) => Math.round(n * 10) / 10;
+const percent = (n) => Math.round(n * 100);
+const usesSunMap = (tool) => tool === 'panel' || tool === 'tracker';
 
 /**
  * Start the game inside `host`.
@@ -92,7 +112,37 @@ export function createSunfarm({
   );
   host.prepend(canvas);
 
-  let game = deserialize(storage?.load()) || createGame({ seed: DEFAULT_SEED });
+  /* ── the book: every island's save, and what has been done ────────────── */
+
+  // `{ current, progress, saves }`: which island is being played, what has
+  // been finished and unlocked across all of them, and each island's game.
+  const book = (() => {
+    const data = storage?.load();
+    const ok = data && typeof data === 'object' && data.v === BOOK_VERSION;
+    return {
+      current:
+        ok && typeof data.current === 'string' ? data.current : ISLANDS[0].id,
+      progress: readProgress(ok ? data.progress : null),
+      saves:
+        ok && data.saves && typeof data.saves === 'object'
+          ? { ...data.saves }
+          : {},
+    };
+  })();
+
+  // An island's game: its save if there is a good one, or a fresh start.
+  function gameFor(id) {
+    // Anything that isn't an island that can be played yet is the first one.
+    const spec = (isOpen(book.progress, id) && specById(id)) || ISLANDS[0];
+    const saved = deserialize(book.saves[spec.id]);
+    // Yesterday's "today's island" is not today's.
+    if (saved && (!spec.daily || saved.spec.date === spec.date)) return saved;
+    return createGame({ spec, unlocked: book.progress.unlocked });
+  }
+
+  let game = gameFor(book.current);
+  book.current = game.spec.id;
+
   // Throws when WebGL isn't to be had; the caller says so on the page.
   let stage;
   try {
@@ -109,9 +159,17 @@ export function createSunfarm({
     hover: -1,
     selected: -1,
     toasts: [],
+    // The last morning's report, and whether the island has just been
+    // finished (until the HUD has said so).
+    finished: null,
   };
   let toastId = 0;
   let destroyed = false;
+  // Counts every change to what stands on the island, so the sun map knows
+  // when it is out of date.
+  let built = 0;
+  let sunlight = null;
+  let sunlightKey = '';
 
   /* ── what the HUD reads ───────────────────────────────────────────────── */
 
@@ -120,27 +178,87 @@ export function createSunfarm({
   let snapshotKey = '';
   let snapshotAt = 0;
 
+  function chart() {
+    const entry = (spec) => {
+      const result = book.progress.done[spec.id];
+      const done =
+        result && (!spec.daily || result.date === spec.date)
+          ? result.day
+          : null;
+      return {
+        id: spec.id,
+        name: spec.name,
+        blurb: spec.blurb,
+        open: isOpen(book.progress, spec.id),
+        done,
+        current: spec.id === game.spec.id,
+        started: Boolean(book.saves[spec.id]) || spec.id === game.spec.id,
+      };
+    };
+    return {
+      islands: ISLANDS.map(entry),
+      today: entry(todaysIsland()),
+      free: entry(FREE_BUILD),
+    };
+  }
+
+  function refreshSunMap() {
+    if (!usesSunMap(ui.tool)) {
+      if (sunlight) stage.showSunMap(null);
+      sunlight = null;
+      sunlightKey = '';
+      return;
+    }
+    const key = `${game.spec.id}:${dayOf(game.time)}:${built}`;
+    if (key === sunlightKey) return;
+    sunlightKey = key;
+    sunlight = sunMap(game, seasonAt(game.spec, game.time));
+    stage.showSunMap(sunlight);
+  }
+
   function buildSnapshot() {
-    const { flow } = game;
+    const { flow, spec } = game;
     const goal = nextGoal(game);
+    const season = seasonAt(spec, game.time);
     const focus = ui.hover >= 0 ? ui.hover : ui.selected;
     const info = focus >= 0 ? describeTile(game, focus) : null;
     let action = null;
     if (focus >= 0 && ui.tool === 'remove') {
       const can = canRemove(game, focus);
-      if (can.ok)
+      if (can.ok) {
         action =
-          can.coins >= 0
+          can.coins > 0
             ? `Take it up: +${can.coins}`
-            : `Clear it: ${can.coins}`;
-      else if (can.message) action = can.message;
+            : can.coins < 0
+              ? `Clear it: ${can.coins}`
+              : 'Take it up';
+      } else if (can.message) action = can.message;
     } else if (focus >= 0 && BUILDABLE.includes(ui.tool)) {
       const can = canPlace(game, ui.tool, focus);
+      const cost = costOf(game, ui.tool);
       action = can.ok
-        ? `Build a ${KINDS[ui.tool].name.toLowerCase()}: -${KINDS[ui.tool].cost}`
+        ? `Build a ${KINDS[ui.tool].name.toLowerCase()}${cost ? `: -${cost}` : ''}`
         : can.message;
+      if (can.ok && sunlight && sunlight[focus] >= 0) {
+        info.lines = [
+          ...info.lines,
+          `Sun here: ${percent(sunlight[focus])}% of the day’s light.`,
+        ];
+      }
     }
+    const plan = dawnPlan(game);
+    const tiers = [0, 0, 0, 0];
+    for (let i = 0; i < game.houses; i += 1)
+      tiers[game.things[game.plots[i]].tier] += 1;
+    const today = game.today;
     return {
+      island: {
+        id: spec.id,
+        name: spec.name,
+        free: Boolean(spec.free),
+        daily: Boolean(spec.daily),
+        date: spec.date || null,
+      },
       tool: ui.tool,
       speed: ui.speed,
       paused: ui.paused,
@@ -148,24 +266,39 @@ export function createSunfarm({
       day: dayOf(game.time),
       clock: formatClock(game.time),
       hour: Math.floor(hourOf(game.time) * 2) / 2,
-      daylight: isDaylight(game.time),
-      sun: round1(flow.sun * 100),
-      makingKw: round1(flow.generatingKw),
+      daylight: isDaylight(game.time, season),
+      season: spec.seasons ? season.name : null,
+      forecast: forecast(spec, game.time, 3).map((sky) => ({
+        key: sky.key,
+        name: sky.name,
+      })),
+      // How much of what the village has had today came from sun and wind.
+      clean:
+        today.delivered > 0.01 ? percent(today.clean / today.delivered) : null,
+      cleanYesterday: game.yesterday ? percent(game.yesterday.clean) : null,
+      served:
+        today.demanded > 0.01
+          ? percent(today.delivered / today.demanded)
+          : null,
+      makingKw: round1(flow.solarKw + flow.windKw),
       peakKw: round1(flow.peakKw),
+      windKw: round1(flow.windKw),
+      shaded: flow.shadedPanels,
+      dieselKw: round1(flow.dieselKw),
+      generator: generatorTile(game) >= 0,
+      fuelToday: Math.round(today.fuel),
       wantedKw: round1(flow.demandKw),
       sentKw: round1(flow.deliveredKw),
       chargingKw: round1(flow.chargingKw),
-      wastedKw: round1(flow.wastedKw),
       storedKwh: round1(flow.storedKwh),
       capacityKwh: round1(flow.capacityKwh),
       litHouses: flow.litHouses,
       houses: game.houses,
       plots: game.plots.length,
-      todayShare:
-        game.today.demanded > 0
-          ? Math.round((game.today.delivered / game.today.demanded) * 100)
-          : 0,
-      growAt: Math.round(GROW_AT * 100),
+      tiers: tiers.slice(1, spec.maxTier + 1),
+      tierNames: TIERS.slice(1, spec.maxTier + 1).map((tier) => tier.name),
+      growAt: percent(GROW_AT),
+      dawn: { moves: plan.moves, upgrades: plan.upgrades.length },
       goal: goal
         ? {
             key: goal.key,
@@ -174,22 +307,31 @@ export function createSunfarm({
             reward: goal.reward,
           }
         : null,
-      goals: GOALS.map((g) => ({
-        key: g.key,
-        title: g.title,
-        reward: g.reward,
-        done: Boolean(game.goals[g.key]),
-      })),
+      goals: spec.free
+        ? []
+        : GOALS.map((g) => ({
+            key: g.key,
+            title: g.title,
+            reward: g.reward,
+            done: Boolean(game.goals[g.key]),
+          })),
+      done: game.done ? game.done.day : null,
+      finished: ui.finished,
       info: info ? { ...info, action } : null,
       toasts: ui.toasts,
-      afford: Object.fromEntries(
-        BUILDABLE.map((kind) => [kind, game.coins >= KINDS[kind].cost]),
-      ),
-      seed: game.seed,
+      tools: BUILDABLE.map((kind) => ({
+        tool: kind,
+        cost: costOf(game, kind),
+        afford: game.coins >= costOf(game, kind),
+        locked: !isUnlocked(game, kind),
+        unlock: KINDS[kind].unlock || null,
+      })),
+      chart: chart(),
     };
   }
 
   function publish(force = false) {
+    refreshSunMap();
     const next = buildSnapshot();
     const key = JSON.stringify(next);
     snapshotAt = performance.now();
@@ -199,18 +341,18 @@ export function createSunfarm({
     for (const listener of listeners) listener();
   }
 
-  function toast(text, tone = 'note') {
+  function toast(text, tone = 'note', life = TOAST_MS) {
     if (!text) return;
     // The same thing said twice in a row (a drag across the sea) is said once.
     const last = ui.toasts[ui.toasts.length - 1];
     if (last && last.text === text) {
-      last.until = performance.now() + TOAST_MS;
+      last.until = performance.now() + life;
       return;
     }
     toastId += 1;
     ui.toasts = [
       ...ui.toasts.slice(-2),
-      { id: toastId, text, tone, until: performance.now() + TOAST_MS },
+      { id: toastId, text, tone, until: performance.now() + life },
     ];
     publish();
   }
@@ -222,7 +364,13 @@ export function createSunfarm({
   function save() {
     dirty = false;
     savedAt = performance.now();
-    storage?.save(serialize(game));
+    book.saves[game.spec.id] = serialize(game);
+    storage?.save({
+      v: BOOK_VERSION,
+      current: book.current,
+      progress: book.progress,
+      saves: book.saves,
+    });
   }
 
   /* ── tools ────────────────────────────────────────────────────────────── */
@@ -251,6 +399,13 @@ export function createSunfarm({
 
   function setTool(tool) {
     if (!TOOLS.includes(tool)) return;
+    if (BUILDABLE.includes(tool) && !isUnlocked(game, tool)) {
+      toast(
+        `${KINDS[tool].name}: ${KINDS[tool].unlock.toLowerCase()}.`,
+        'note',
+      );
+      return;
+    }
     ui.tool = tool;
     ui.selected = -1;
     // The stylesheet picks the pointer's shape from this.
@@ -275,6 +430,14 @@ export function createSunfarm({
       ui.tool === 'remove' ? remove(game, idx) : place(game, ui.tool, idx);
     if (result.ok) {
       dirty = true;
+      built += 1;
+      if (result.kind === 'generator') {
+        toast(
+          'The generator goes back on the boat. The island is on its own now.',
+          'good',
+          7000,
+        );
+      }
       return true;
     }
     if (result.reason === 'coins') {
@@ -460,8 +623,8 @@ export function createSunfarm({
     const whole = captureWheel || document.fullscreenElement === host;
     if (!whole && !event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
-    const step = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-    stage.zoom(Math.exp(Math.max(-120, Math.min(120, step)) * 0.0022));
+    const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+    stage.zoom(Math.exp(Math.max(-120, Math.min(120, delta)) * 0.0022));
   }
 
   const onContextMenu = (event) => event.preventDefault();
@@ -476,8 +639,18 @@ export function createSunfarm({
       event.metaKey
     )
       return;
-    if (event.target !== host && event.target !== canvas) return;
+    // Keys work anywhere in the game, but not under an open card, never in
+    // a field, and a button keeps the keys that press it.
+    const target = event.target;
+    if (host.querySelector('.sunfarm-veil')) return;
+    if (target.matches?.('input, textarea, select, [contenteditable]')) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (
+      target !== host &&
+      target !== canvas &&
+      (key === ' ' || key === 'Enter')
+    )
+      return;
     const digit = Number(key);
     let handled = true;
     if (digit >= 1 && digit <= TOOLS.length) setTool(TOOLS[digit - 1]);
@@ -508,17 +681,50 @@ export function createSunfarm({
   let elapsed = 0;
   let onScreen = true;
 
+  // What happened, said to the player.
   function report(event) {
     if (event.type === 'morning') {
-      const percent = Math.round(event.share * 100);
-      let text = `Day ${event.day}: the village got ${percent}% of the power it wanted.`;
-      if (event.grew) text += ' A family moved in.';
-      else if (event.houses < game.plots.length && event.share < GROW_AT) {
-        text += ` At ${Math.round(GROW_AT * 100)}% a new family moves in.`;
+      const parts = [
+        `Day ${event.day}: ${percent(event.clean)}% from sun and wind.`,
+      ];
+      if (event.fuel >= 1) parts.push(`Fuel cost ${Math.round(event.fuel)}.`);
+      else if (event.share >= GROW_AT) parts.push('The generator never ran.');
+      if (event.moved) parts.push('A family moved in.');
+      if (event.upgraded === 1) parts.push('A home moved up.');
+      else if (event.upgraded > 1)
+        parts.push(`${event.upgraded} homes moved up.`);
+      if (event.share < GROW_AT) {
+        parts.push(
+          `The village only got ${percent(event.share)}% of what it wanted, so nobody moved.`,
+        );
       }
-      toast(text, event.grew ? 'good' : 'note');
+      toast(
+        parts.join(' '),
+        event.moved || event.upgraded ? 'good' : 'note',
+        7000,
+      );
     } else if (event.type === 'goal') {
-      toast(`${event.title}. +${event.reward} coins`, 'good');
+      toast(`${event.title}. +${event.reward} coins`, 'good', 6000);
+    } else if (event.type === 'unlock') {
+      book.progress = withUnlocked(book.progress, [event.kind]);
+      toast(
+        `New to build: ${event.name.toLowerCase()}. ${KINDS[event.kind].blurb}`,
+        'good',
+        8000,
+      );
+    } else if (event.type === 'house' || event.type === 'upgrade') {
+      built += 1;
+    } else if (event.type === 'done') {
+      book.progress = markDone(book.progress, game.spec, event.day);
+      const next = nextIsland(game.spec.id);
+      ui.finished = {
+        id: game.spec.id,
+        name: game.spec.name,
+        day: event.day,
+        next: next ? { id: next.id, name: next.name, blurb: next.blurb } : null,
+        daily: Boolean(game.spec.daily),
+        date: game.spec.date || null,
+      };
     }
   }
 
@@ -533,6 +739,7 @@ export function createSunfarm({
       if (events.length) {
         dirty = true;
         events.forEach(report);
+        publish();
       }
     }
 
@@ -595,6 +802,24 @@ export function createSunfarm({
   document.addEventListener('visibilitychange', onVisibility);
   window.addEventListener('pagehide', save);
 
+  // Put a different game on the stage: another island, or this one afresh.
+  function show(next) {
+    game = next;
+    book.current = game.spec.id;
+    stage.setGame(game);
+    ui.hover = -1;
+    ui.selected = -1;
+    ui.tool = 'look';
+    ui.paused = false;
+    ui.toasts = [];
+    ui.finished = null;
+    host.dataset.tool = 'look';
+    built += 1;
+    sunlightKey = '';
+    save();
+    publish(true);
+  }
+
   const api = {
     subscribe(listener) {
       listeners.add(listener);
@@ -620,17 +845,39 @@ export function createSunfarm({
     zoom(direction) {
       stage.zoom(direction > 0 ? 0.78 : 1.28);
     },
-    /** Start over on a new island: a given seed, or one out of the air. */
-    newIsland(seed = Math.floor(Math.random() * 1e9)) {
-      game = createGame({ seed });
-      stage.setGame(game);
-      ui.hover = -1;
-      ui.selected = -1;
-      ui.tool = 'look';
-      ui.paused = false;
-      ui.toasts = [];
+    /**
+     * Go to another island, picking up where it was left or starting it
+     * fresh. Does nothing for an island that isn't open yet.
+     */
+    openIsland(id) {
+      if (!isOpen(book.progress, id) || !specById(id)) return false;
+      if (id === game.spec.id) return true;
       save();
-      publish(true);
+      show(gameFor(id));
+      return true;
+    },
+    /** Start the island being played over from nothing. */
+    restart() {
+      delete book.saves[game.spec.id];
+      show(
+        createGame({
+          spec: specById(game.spec.id, game.spec.date),
+          unlocked: book.progress.unlocked,
+        }),
+      );
+    },
+    /** The HUD has told the player the island is finished. */
+    acknowledge() {
+      ui.finished = null;
+      publish();
+    },
+    /** A line to share for a finished island, or '' for one that isn't. */
+    shareText() {
+      if (!game.done) return '';
+      const where = game.spec.daily
+        ? `today’s island (${dateKey()})`
+        : game.spec.name;
+      return `Sunfarming: ${where} off diesel and on the sun in ${game.done.day} days.`;
     },
     /** For tests and the console: the live game object. */
     get game() {

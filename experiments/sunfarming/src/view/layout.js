@@ -3,11 +3,11 @@
 // east, leans south at noon and sets in the west, so +z is the lit side of
 // everything.
 
-import { TERRAIN } from '../sim/catalog.js';
+import { GROUND, TERRAIN } from '../sim/catalog.js';
 
 /** Heights of the tops of things: the grass sits a step above the beach. */
-export const GRASS_Y = 0.16;
-export const SAND_Y = 0;
+export const GRASS_Y = GROUND.GRASS;
+export const SAND_Y = GROUND.SAND;
 export const SEA_Y = -0.13;
 /** How far the island's skirt hangs down under the water. */
 export const SKIRT_Y = -0.9;

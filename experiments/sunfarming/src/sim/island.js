@@ -1,23 +1,22 @@
-// The island: which tiles are sea, beach and grass, where the trees and rocks
-// stand, and which tiles the village will grow onto.
+// The island's ground: which tiles are sea, beach and grass, where the trees
+// and rocks stand, which tiles the village will grow onto, and where the old
+// diesel generator sits at the water's edge with its line up to the village.
 //
-// It is all drawn from a seed, and nothing here is saved: a saved game keeps
-// the seed and what has been built, and the ground comes back from this.
+// It is all drawn from a spec (src/sim/islands.js) and nothing here is saved:
+// a saved game keeps the spec's id and what has been built, and the ground
+// comes back from this.
 
-import { GRID, TERRAIN, VILLAGE_PLOTS } from './catalog.js';
+import { START_HOUSES, TERRAIN } from './catalog.js';
 import { createRng, hash2 } from './rng.js';
 
-/** The seed a first visit lands on: an island picked to be a good start. */
-export const DEFAULT_SEED = 11;
-
-export const indexOf = (x, z, size = GRID) => z * size + x;
-export const xOf = (idx, size = GRID) => idx % size;
-export const zOf = (idx, size = GRID) => Math.floor(idx / size);
-export const inBounds = (x, z, size = GRID) =>
+export const indexOf = (x, z, size) => z * size + x;
+export const xOf = (idx, size) => idx % size;
+export const zOf = (idx, size) => Math.floor(idx / size);
+export const inBounds = (x, z, size) =>
   x >= 0 && z >= 0 && x < size && z < size;
 
 /** The four tiles a tile touches, as indexes. Diagonals don't touch. */
-export function neighbours(idx, size = GRID) {
+export function neighbours(idx, size) {
   const x = xOf(idx, size);
   const z = zOf(idx, size);
   const out = [];
@@ -44,15 +43,19 @@ function valueNoise(x, z, seed) {
 }
 
 /**
- * Grow an island from a seed.
+ * Grow an island from its spec.
  *
- * Returns `{ seed, size, terrain, scenery, plots }`: `terrain` is one
- * TERRAIN value per tile, `scenery` the trees and rocks as `{ idx, kind,
- * variant }`, and `plots` the tiles kept for the village, in the order houses
- * are built on them. Each plot touches one before it, so the village is
- * always a single block that one power line can reach.
+ * Returns `{ size, terrain, scenery, plots, generator, line, pier }`:
+ * `terrain` is one TERRAIN value per tile; `scenery` the trees and rocks as
+ * `{ idx, kind, variant }`; `plots` the tiles kept for the village, in the
+ * order homes are built on them (each touches one before it, so the village
+ * is always a single block); `generator` the beach tile the diesel generator
+ * stands on, `line` the tiles of power line from it to the first home, and
+ * `pier` the tile of sea its fuel comes in at. The last three are -1, [] and
+ * -1 on the rare island with no way to the coast.
  */
-export function generateIsland(seed = DEFAULT_SEED, size = GRID) {
+export function generateIsland(spec) {
+  const { seed, size } = spec;
   const rng = createRng(seed);
   const terrain = new Uint8Array(size * size);
 
@@ -70,7 +73,7 @@ export function generateIsland(seed = DEFAULT_SEED, size = GRID) {
       const v = (z + 0.5 - half) / half;
       const r = Math.hypot(u, v);
       const angle = Math.atan2(v, u);
-      let edge = 0.78;
+      let edge = spec.reach;
       for (const lobe of lobes)
         edge += lobe.amp * Math.sin(lobe.n * angle + lobe.phase);
       edge += (hash2(x, z, seed) - 0.5) * 0.05;
@@ -108,52 +111,58 @@ export function generateIsland(seed = DEFAULT_SEED, size = GRID) {
   }
   for (const idx of beach) terrain[idx] = TERRAIN.SAND;
 
-  const plots = villagePlots(terrain, size);
+  const plots = villagePlots(terrain, size, spec.block);
   const plotSet = new Set(plots);
+  const dock = generatorSite(terrain, size, plots);
+  const kept = new Set([...plots, ...dock.line, dock.generator]);
 
   // Keep a clear tile around the village so there is always a way in.
-  const apron = new Set(plots);
   for (const idx of plots) {
     const x = xOf(idx, size);
     const z = zOf(idx, size);
     for (let dz = -1; dz <= 1; dz += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
         if (inBounds(x + dx, z + dz, size))
-          apron.add(indexOf(x + dx, z + dz, size));
+          kept.add(indexOf(x + dx, z + dz, size));
       }
     }
   }
 
   // Trees in clumps on the grass, a few rocks anywhere on land.
   const scenery = [];
+  const woods = spec.trees ?? 1;
   for (let z = 0; z < size; z += 1) {
     for (let x = 0; x < size; x += 1) {
       const idx = indexOf(x, z, size);
-      if (terrain[idx] === TERRAIN.WATER || plotSet.has(idx) || apron.has(idx))
-        continue;
+      // The stream is drawn from for every tile, wooded or not, so the same
+      // seed scatters the same rocks however many trees were asked for.
       const roll = rng();
       const variant = Math.floor(rng() * 1000);
+      if (terrain[idx] === TERRAIN.WATER || plotSet.has(idx) || kept.has(idx))
+        continue;
       if (terrain[idx] === TERRAIN.GRASS) {
         const wood = valueNoise(x / 3.1, z / 3.1, seed + 17);
+        const chance = Math.min(
+          0.85,
+          (Math.max(0, wood - 0.42) * 1.25 + (woods - 1) * 0.12) * woods,
+        );
         if (roll < 0.03) scenery.push({ idx, kind: 'rock', variant });
-        else if (roll < 0.03 + Math.max(0, wood - 0.42) * 1.25) {
+        else if (roll < 0.03 + Math.max(0, chance))
           scenery.push({ idx, kind: 'tree', variant });
-        }
       } else if (roll < 0.035) {
         scenery.push({ idx, kind: 'rock', variant });
       }
     }
   }
 
-  return { seed, size, terrain, scenery, plots };
+  return { size, terrain, scenery, plots, ...dock };
 }
 
-// The village: a 4 × 3 block of grass, as near as it can be found to a spot
-// west of the middle. Its plots are ordered from the block's heart outwards,
-// each one touching an earlier one.
-function villagePlots(terrain, size) {
-  const W = 4;
-  const D = 3;
+// The village: a block of grass, as near as it can be found to a spot west of
+// the middle. Its plots are ordered outwards from the first, each one
+// touching an earlier one.
+function villagePlots(terrain, size, block) {
+  const [W, D] = block;
   const targetX = size * 0.3;
   const targetZ = size * 0.52;
   let best = null;
@@ -175,10 +184,10 @@ function villagePlots(terrain, size) {
   }
   if (!best) return [];
 
-  // The first house goes on the edge of the block that faces the middle of
+  // The first home goes on the edge of the block that faces the middle of
   // the island, where the room to build is, and the rest spread back from
-  // it. An edge, because the plots around a house are kept for the village:
-  // a first house in the middle of the block could never be wired to.
+  // it. An edge, because the plots around a home are kept for the village:
+  // a first home in the middle of the block could never be wired to.
   const mid = (size - 1) / 2;
   const cells = [];
   for (let dz = 0; dz < D; dz += 1) {
@@ -204,11 +213,52 @@ function villagePlots(terrain, size) {
   cells.sort((a, b) => a.d - b.d);
 
   const ordered = [cells.shift().idx];
-  while (cells.length && ordered.length < VILLAGE_PLOTS) {
+  while (cells.length) {
     const at = cells.findIndex((c) =>
       neighbours(c.idx, size).some((n) => ordered.includes(n)),
     );
     ordered.push(cells.splice(at < 0 ? 0 : at, 1)[0].idx);
   }
   return ordered;
+}
+
+// Where the generator goes: the nearest piece of beach with sea beside it
+// that can be walked to from the first homes without crossing a plot. The
+// walk is the power line.
+function generatorSite(terrain, size, plots) {
+  const none = { generator: -1, line: [], pier: -1 };
+  if (!plots.length) return none;
+  const plotSet = new Set(plots);
+  const homes = plots.slice(0, START_HOUSES);
+  const from = new Map();
+  const queue = [];
+  for (const home of homes) {
+    for (const n of neighbours(home, size)) {
+      if (terrain[n] === TERRAIN.WATER || plotSet.has(n) || from.has(n))
+        continue;
+      from.set(n, -1);
+      queue.push(n);
+    }
+  }
+  while (queue.length) {
+    const idx = queue.shift();
+    const sea = neighbours(idx, size).find((n) => terrain[n] === TERRAIN.WATER);
+    // Not right against a home: a generator wants a little distance.
+    if (
+      terrain[idx] === TERRAIN.SAND &&
+      sea !== undefined &&
+      from.get(idx) !== -1
+    ) {
+      const line = [];
+      for (let at = from.get(idx); at !== -1; at = from.get(at)) line.push(at);
+      return { generator: idx, line: line.reverse(), pier: sea };
+    }
+    for (const n of neighbours(idx, size)) {
+      if (terrain[n] === TERRAIN.WATER || plotSet.has(n) || from.has(n))
+        continue;
+      from.set(n, idx);
+      queue.push(n);
+    }
+  }
+  return none;
 }

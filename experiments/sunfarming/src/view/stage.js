@@ -20,9 +20,9 @@ import {
 } from 'three';
 import { TERRAIN } from '../sim/catalog.js';
 import { GRASS_Y, SAND_Y, tileAt, tileX, tileY, tileZ } from './layout.js';
-import { createModels } from './models.js';
+import { PARTS, createModels } from './models.js';
 import { createSky } from './sky.js';
-import { createGridLines, createTerrain } from './terrain.js';
+import { createGridLines, createSunOverlay, createTerrain } from './terrain.js';
 import { createMaterials } from './toon.js';
 import { createWater } from './water.js';
 import { createWorld } from './world.js';
@@ -62,18 +62,26 @@ export function createStage(canvas, game) {
 
   function setGame(next) {
     if (land) {
-      scene.remove(land.terrain.mesh, land.grid.lines, land.water.mesh);
+      scene.remove(
+        land.terrain.mesh,
+        land.grid.lines,
+        land.water.mesh,
+        land.sunmap.mesh,
+      );
       land.terrain.dispose();
       land.grid.dispose();
+      land.sunmap.dispose();
       land.water.dispose();
       land.world.dispose();
     }
     const terrain = createTerrain(next, materials);
     const grid = createGridLines(next);
     const water = createWater(next);
+    const sunmap = createSunOverlay(next);
     const world = createWorld(scene, next, materials, models);
-    scene.add(terrain.mesh, grid.lines, water.mesh);
-    land = { game: next, terrain, grid, water, world, showGrid: false };
+    scene.add(terrain.mesh, grid.lines, water.mesh, sunmap.mesh);
+    sky.fit(next.size);
+    land = { game: next, terrain, grid, water, sunmap, world, showGrid: false };
   }
   setGame(game);
 
@@ -261,15 +269,26 @@ export function createStage(canvas, game) {
       ghostKind = kind;
       const shape = kind ? models.get(kind) : null;
       if (shape) {
-        ghost = new Mesh(shape.geometry, materials.ghost);
-        ghost.renderOrder = 5;
+        ghost = new Group();
+        ghost.add(new Mesh(shape.geometry, materials.ghost));
+        const moving = PARTS[kind];
+        if (moving) {
+          const part = new Mesh(
+            models.get(moving.part).geometry,
+            materials.ghost,
+          );
+          part.position.set(...moving.at);
+          ghost.add(part);
+        }
+        for (const mesh of ghost.children) mesh.renderOrder = 5;
         scene.add(ghost);
       }
     }
     if (ghost) {
       // No ghost where something already stands: the frame says no by itself.
       ghost.visible = !land.game.things[idx] && terrain[idx] !== TERRAIN.WATER;
-      ghost.material = tone === 'ok' ? materials.ghost : ghostBad;
+      const material = tone === 'ok' ? materials.ghost : ghostBad;
+      for (const mesh of ghost.children) mesh.material = material;
       ghost.position.copy(cursor.position);
     }
   }
@@ -277,6 +296,15 @@ export function createStage(canvas, game) {
   function showGrid(on) {
     land.showGrid = Boolean(on);
     land.grid.lines.visible = land.showGrid;
+  }
+
+  /**
+   * Show the sun map (what sunMap() in src/sim/shade.js returns), or put it
+   * away with null.
+   */
+  function showSunMap(map) {
+    land.sunmap.mesh.visible = Boolean(map);
+    if (map) land.sunmap.paint(map, land.game.things);
   }
 
   /* ── drawing a frame ──────────────────────────────────────────────────── */
@@ -291,7 +319,7 @@ export function createStage(canvas, game) {
     placeCamera();
 
     const { game: current, water, world } = land;
-    sky.update(current.time, camera, elapsed);
+    sky.update(current, camera, elapsed, dt);
     water.uniforms.uTime.value = elapsed;
     water.uniforms.uTint.value.copy(sky.state.sea);
     water.uniforms.uHorizon.value.copy(sky.state.sky);
@@ -304,7 +332,11 @@ export function createStage(canvas, game) {
     );
 
     world.sync(current, elapsed);
-    world.update(current, elapsed, sky.state.night);
+    world.update(current, elapsed, {
+      night: sky.state.night,
+      sun: sky.day ? sky.direction : null,
+      dt,
+    });
     if (cursor.visible) {
       const pulse = 1 + Math.sin(elapsed * 6) * 0.025;
       cursor.scale.set(pulse, 1, pulse);
@@ -332,9 +364,11 @@ export function createStage(canvas, game) {
     zoom,
     setCursor,
     showGrid,
+    showSunMap,
     dispose() {
       land.terrain.dispose();
       land.grid.dispose();
+      land.sunmap.dispose();
       land.water.dispose();
       land.world.dispose();
       sky.dispose();

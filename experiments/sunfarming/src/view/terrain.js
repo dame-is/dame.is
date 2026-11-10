@@ -10,6 +10,7 @@ import {
   LineBasicMaterial,
   LineSegments,
   Mesh,
+  MeshBasicMaterial,
 } from 'three';
 import { TERRAIN } from '../sim/catalog.js';
 import { hash2 } from '../sim/rng.js';
@@ -156,6 +157,78 @@ export function createGridLines(game) {
   lines.name = 'grid';
   return {
     lines,
+    dispose() {
+      geometry.dispose();
+      material.dispose();
+    },
+  };
+}
+
+// From deep shade to full sun.
+const SHADE_TINT = new Color('#3d3a8c');
+const SUN_TINT = new Color('#ffe45c');
+
+/**
+ * The sun map: every tile of land washed in a colour that says how much of
+ * the day's light a panel there would get, from violet (mostly shade) to
+ * yellow (sun all day). Shown while a panel is in hand; `paint(map)` takes
+ * what sunMap() in src/sim/shade.js returns.
+ */
+export function createSunOverlay(game) {
+  const { terrain, size } = game;
+  const tiles = [];
+  const positions = [];
+  const lift = 0.02;
+  for (let idx = 0; idx < terrain.length; idx += 1) {
+    if (terrain[idx] === TERRAIN.WATER) continue;
+    const y = tileY(terrain, idx) + lift;
+    const x0 = tileX(idx, size) - 0.46;
+    const z0 = tileZ(idx, size) - 0.46;
+    const x1 = x0 + 0.92;
+    const z1 = z0 + 0.92;
+    // prettier-ignore
+    positions.push(
+      x0, y, z0, x0, y, z1, x1, y, z1,
+      x0, y, z0, x1, y, z1, x1, y, z0,
+    );
+    tiles.push(idx);
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute(
+    'position',
+    new BufferAttribute(new Float32Array(positions), 3),
+  );
+  const colors = new BufferAttribute(new Float32Array(tiles.length * 6 * 4), 4);
+  geometry.setAttribute('color', colors);
+  const material = new MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+  });
+  const mesh = new Mesh(geometry, material);
+  mesh.visible = false;
+  mesh.renderOrder = 2;
+  mesh.name = 'sunmap';
+  const tint = new Color();
+
+  return {
+    mesh,
+    /** Colour the tiles from a sun map, leaving built-on tiles clear. */
+    paint(map, things) {
+      tiles.forEach((idx, i) => {
+        const light = map[idx];
+        const open = !things[idx] && light >= 0;
+        // Most open ground is in full sun, so the scale is spent where the
+        // difference is: anything under a third reads as deep shade.
+        tint
+          .copy(SHADE_TINT)
+          .lerp(SUN_TINT, Math.min(1, Math.max(0, (light - 0.3) / 0.7)));
+        const alpha = open ? 0.3 + (1 - light) * 0.5 : 0;
+        for (let v = 0; v < 6; v += 1)
+          colors.setXYZW(i * 6 + v, tint.r, tint.g, tint.b, alpha);
+      });
+      colors.needsUpdate = true;
+    },
     dispose() {
       geometry.dispose();
       material.dispose();
