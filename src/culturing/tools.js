@@ -23,8 +23,9 @@ import { additionById } from './additions.js';
 export const SPOT_RADIUS = 1.7;
 /** Half the width of the line a loop draws, mm. */
 export const STREAK_RADIUS = 0.75;
-/** The share of the surface a spread plate's cells land on: a lawn. */
-export const LAWN_DENSITY = 0.5;
+/** The share of the surface a spread plate's cells land on: all of it,
+ *  which is a lawn. */
+export const LAWN_DENSITY = 1;
 /** How far along a streak the loop still carries half its load, mm. */
 const STREAK_HALF = 30;
 
@@ -70,9 +71,9 @@ function inoculation(event, slot) {
 
   if (event.do === 'lawn') {
     // A spread plate. `density` is the share of the surface a cell lands
-    // on. Spread thickly it is a lawn, even from the first hour; spread
-    // thinly each cell becomes a colony of its own, and the same amount of
-    // culture goes onto fewer places.
+    // on. Spread over all of it, it comes up as a lawn, even and all at
+    // once; spread thinly each cell becomes a colony of its own, and the
+    // same amount of culture goes onto fewer places.
     const density = event.density ?? LAWN_DENSITY;
     return [
       {

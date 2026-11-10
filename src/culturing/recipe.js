@@ -122,7 +122,7 @@ function cleanEvent(raw) {
   }
   if (raw.do === 'lawn') {
     if (finite(raw.density))
-      out.density = Math.min(Math.max(raw.density, 0.002), 0.6);
+      out.density = Math.min(Math.max(raw.density, 0.002), 1);
     return out;
   }
   if (Array.isArray(raw.path) && raw.path.length > 1) {

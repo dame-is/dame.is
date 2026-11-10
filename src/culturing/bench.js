@@ -278,7 +278,7 @@ export function createBench(canvas, options = {}) {
         az: user.az,
         el: user.el,
         dist:
-          fitDistance(OUTER_RADIUS, OUTER_RADIUS, user.el, aspect, 1.05) *
+          fitDistance(OUTER_RADIUS, OUTER_RADIUS, user.el, aspect, 1.1) *
           user.zoom,
       };
     }

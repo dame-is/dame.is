@@ -207,7 +207,7 @@
 .cult-bar-group {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-2);
 }
 
@@ -699,9 +699,11 @@
 /* Phone                                                                */
 /* ------------------------------------------------------------------ */
 
-/* One column, and the stage a little shorter so there is room under it for
-   the shelf to scroll. It runs to the window's edges: a picture, not a
-   paragraph. */
+/* One column. The stage stays in view while the shelf scrolls under it, so
+   what stays has to be short: a third of the window for the picture, one
+   line for the caption, and the bar on a single row that scrolls sideways.
+   Otherwise a culture picked from the shelf has no shelf left to be picked
+   from. The stage runs to the window's edges: a picture, not a paragraph. */
 @media (max-width: 700px) {
   .cult {
     margin-inline: calc(-1 * var(--main-gutter));
@@ -709,16 +711,43 @@
 
   .cult-stage {
     min-height: 0;
-    max-height: 46vh;
+    max-height: 36vh;
   }
 
   .cult-caption,
-  .cult-bar,
   .cult-tray {
     padding-inline: var(--main-gutter);
   }
 
+  .cult-caption {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .cult-main {
     gap: var(--space-2);
+  }
+
+  .cult-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-inline: var(--main-gutter);
+    scroll-padding-inline: var(--main-gutter);
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .cult-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cult-bar-group {
+    flex-wrap: nowrap;
+    flex: none;
+  }
+
+  .cult-bar-group:last-child {
+    margin-left: 0;
   }
 }

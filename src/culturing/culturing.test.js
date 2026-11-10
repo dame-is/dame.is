@@ -569,7 +569,7 @@ describe('recipes', () => {
       [5, 'streak'],
       [6, 'set'],
     ]);
-    expect(dish.events[0].density).toBe(0.6);
+    expect(dish.events[0].density).toBe(1);
     expect(dish.events[2].x).toBe(1.23);
     expect(dish.events[3].path).toEqual([
       [0, 0],
@@ -815,8 +815,8 @@ describe('stamps', () => {
         .surface;
     const thick = lawn(undefined);
     const thin = lawn(0.25);
-    expect(thick.speckle).toBe(0.5);
-    // Half the texels with half the cells each, or a quarter with all.
+    expect(thick.speckle).toBe(1);
+    // Every texel with a few cells, or a quarter of them with four times as many.
     expect(thick.speckle * thick.addD[0]).toBeCloseTo(
       thin.speckle * thin.addD[0],
       6,
