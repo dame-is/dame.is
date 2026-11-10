@@ -25,6 +25,7 @@ import {
 import {
   FREE_BUILD,
   ISLANDS,
+  TUTORIAL,
   dateKey,
   isOpen,
   markDone,
@@ -34,6 +35,13 @@ import {
   todaysIsland,
   withUnlocked,
 } from './sim/islands.js';
+import {
+  advanceLesson,
+  inLesson,
+  lessonHolds,
+  lessonNow,
+  lessonSteps,
+} from './sim/lesson.js';
 import { sunMap } from './sim/shade.js';
 import { dayOf, formatClock, hourOf, isDaylight, seasonAt } from './sim/sun.js';
 import { forecast } from './sim/weather.js';
@@ -121,8 +129,9 @@ export function createSunfarm({
     const data = storage?.load();
     const ok = data && typeof data === 'object' && data.v === BOOK_VERSION;
     return {
+      // Somebody who has never played starts on the tutorial island.
       current:
-        ok && typeof data.current === 'string' ? data.current : ISLANDS[0].id,
+        ok && typeof data.current === 'string' ? data.current : TUTORIAL.id,
       progress: readProgress(ok ? data.progress : null),
       saves:
         ok && data.saves && typeof data.saves === 'object'
@@ -163,6 +172,9 @@ export function createSunfarm({
     // The last morning's report, and whether the island has just been
     // finished (until the HUD has said so).
     finished: null,
+    // Whether the view has been moved by hand on this island: the first
+    // thing the tutorial asks for.
+    looked: false,
   };
   // Sound: off until the first press inside the game, and off for good if
   // the player has said so before. A browser only lets sound start from the
@@ -212,10 +224,46 @@ export function createSunfarm({
       };
     };
     return {
+      lesson: entry(TUTORIAL),
       islands: ISLANDS.map(entry),
       today: entry(todaysIsland()),
       free: entry(FREE_BUILD),
     };
+  }
+
+  /* ── the tutorial ─────────────────────────────────────────────────────── */
+
+  // What the lesson (src/sim/lesson.js) can't see for itself: what is in
+  // hand, what has been looked at, what the clock is set to.
+  const seen = () => ({
+    tool: ui.tool,
+    selected: ui.selected,
+    looked: ui.looked,
+    speed: ui.speed,
+    paused: ui.paused,
+  });
+
+  // Where the lesson is pointing, as it was last drawn on the ground.
+  let marksKey = '';
+  function teach() {
+    const now = inLesson(game) ? lessonNow(game, seen()) : null;
+    const key = now ? now.tiles.join(',') : '';
+    if (key !== marksKey) {
+      marksKey = key;
+      stage.setMarks(now ? now.tiles : []);
+    }
+    return now;
+  }
+
+  // Move the lesson on if the step it is on has just been done. Called every
+  // frame and after everything the player does; it is a handful of counts.
+  function learn() {
+    if (!inLesson(game)) return false;
+    const passed = advanceLesson(game, seen());
+    if (!passed.length) return false;
+    dirty = true;
+    if (inLesson(game)) sound.play('lesson');
+    return true;
   }
 
   function refreshSunMap() {
@@ -235,6 +283,7 @@ export function createSunfarm({
   function buildSnapshot() {
     const { flow, spec } = game;
     const goal = nextGoal(game);
+    const lesson = teach();
     const season = seasonAt(spec, game.time);
     const focus = ui.hover >= 0 ? ui.hover : ui.selected;
     const info = focus >= 0 ? describeTile(game, focus) : null;
@@ -274,7 +323,23 @@ export function createSunfarm({
         free: Boolean(spec.free),
         daily: Boolean(spec.daily),
         date: spec.date || null,
+        lesson: Boolean(spec.lesson),
       },
+      // The tutorial's step, if the island has one and it isn't over: what
+      // to say, and which control to point at (the ground it points at is
+      // drawn by the stage).
+      lesson: lesson
+        ? {
+            index: lesson.index,
+            total: lesson.total,
+            key: lesson.key,
+            say: lesson.say,
+            more: lesson.more,
+            point: lesson.point,
+          }
+        : null,
+      // The clock is waiting on the tutorial.
+      held: Boolean(lesson?.hold),
       tool: ui.tool,
       speed: ui.speed,
       paused: ui.paused,
@@ -325,12 +390,14 @@ export function createSunfarm({
         : null,
       goals: spec.free
         ? []
-        : GOALS.map((g) => ({
-            key: g.key,
-            title: g.title,
-            reward: g.reward,
-            done: Boolean(game.goals[g.key]),
-          })),
+        : spec.lesson
+          ? lessonSteps(game).map((s) => ({ ...s, reward: 0 }))
+          : GOALS.map((g) => ({
+              key: g.key,
+              title: g.title,
+              reward: g.reward,
+              done: Boolean(game.goals[g.key]),
+            })),
       done: game.done ? game.done.day : null,
       finished: ui.finished,
       info: info ? { ...info, action } : null,
@@ -427,6 +494,7 @@ export function createSunfarm({
     if (tool !== ui.tool) sound.play('tap');
     ui.tool = tool;
     ui.selected = -1;
+    learn();
     // The stylesheet picks the pointer's shape from this.
     host.dataset.tool = tool === 'look' ? 'look' : 'build';
     stage.showGrid(tool !== 'look');
@@ -443,6 +511,7 @@ export function createSunfarm({
     if (idx < 0) return true;
     if (ui.tool === 'look') {
       ui.selected = ui.selected === idx ? -1 : idx;
+      learn();
       return true;
     }
     const result =
@@ -450,6 +519,7 @@ export function createSunfarm({
     if (result.ok) {
       dirty = true;
       built += 1;
+      learn();
       if (ui.tool === 'remove') sound.play('remove');
       else sound.place(result.kind);
       if (result.kind === 'generator') {
@@ -570,6 +640,7 @@ export function createSunfarm({
       stage.orbit(-turn);
       stage.pan(next.x - pinch.x, next.y - pinch.y);
       pinch = next;
+      ui.looked = true;
       return;
     }
 
@@ -604,9 +675,14 @@ export function createSunfarm({
     // Still deciding what this touch is.
     if (stroke.waiting) return;
 
-    if (stroke.mode === 'orbit') stage.orbit(-dx * 0.006, dy * 0.005);
-    else if (stroke.mode === 'pan') {
-      if (stroke.moved) stage.pan(dx, dy);
+    if (stroke.mode === 'orbit') {
+      stage.orbit(-dx * 0.006, dy * 0.005);
+      ui.looked = true;
+    } else if (stroke.mode === 'pan') {
+      if (stroke.moved) {
+        stage.pan(dx, dy);
+        ui.looked = true;
+      }
     } else {
       const idx = stage.pick(at.x, at.y);
       if (idx !== ui.hover) {
@@ -667,6 +743,7 @@ export function createSunfarm({
     event.preventDefault();
     const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
     stage.zoom(Math.exp(Math.max(-120, Math.min(120, delta)) * 0.0022));
+    ui.looked = true;
   }
 
   const onContextMenu = (event) => event.preventDefault();
@@ -700,7 +777,22 @@ export function createSunfarm({
     else if (key === 'x' || key === 'Backspace' || key === 'Delete')
       setTool('remove');
     else if (key === ' ') api.setPaused(!ui.paused);
-    else if (key === 'w' || key === 'ArrowUp') stage.nudge(0, 1.5);
+    else if (
+      (key.length === 1 && 'wasdqe=+-_'.includes(key)) ||
+      key.startsWith('Arrow')
+    ) {
+      ui.looked = true;
+      moveView(key);
+    } else handled = false;
+    if (handled) {
+      event.preventDefault();
+      // A key the game used is not also a shortcut for the page it sits in.
+      if (key !== 'Escape') event.stopPropagation();
+    }
+  }
+
+  function moveView(key) {
+    if (key === 'w' || key === 'ArrowUp') stage.nudge(0, 1.5);
     else if (key === 's' || key === 'ArrowDown') stage.nudge(0, -1.5);
     else if (key === 'a' || key === 'ArrowLeft') stage.nudge(-1.5, 0);
     else if (key === 'd' || key === 'ArrowRight') stage.nudge(1.5, 0);
@@ -708,12 +800,6 @@ export function createSunfarm({
     else if (key === 'e') stage.orbit(Math.PI / 4);
     else if (key === '=' || key === '+') stage.zoom(0.8);
     else if (key === '-' || key === '_') stage.zoom(1.25);
-    else handled = false;
-    if (handled) {
-      event.preventDefault();
-      // A key the game used is not also a shortcut for the page it sits in.
-      if (key !== 'Escape') event.stopPropagation();
-    }
   }
 
   /* ── the loop ─────────────────────────────────────────────────────────── */
@@ -746,7 +832,9 @@ export function createSunfarm({
         7000,
       );
     } else if (event.type === 'goal') {
-      toast(`${event.title}. +${event.reward} coins`, 'good', 6000);
+      // On the tutorial island the card that follows says it.
+      if (!game.spec.lesson)
+        toast(`${event.title}. +${event.reward} coins`, 'good', 6000);
     } else if (event.type === 'unlock') {
       book.progress = withUnlocked(book.progress, [event.kind]);
       toast(
@@ -766,6 +854,7 @@ export function createSunfarm({
         next: next ? { id: next.id, name: next.name, blurb: next.blurb } : null,
         daily: Boolean(game.spec.daily),
         date: game.spec.date || null,
+        lesson: Boolean(game.spec.lesson),
       };
     }
   }
@@ -776,11 +865,16 @@ export function createSunfarm({
     last = time;
     elapsed += dt;
 
-    if (!ui.paused && dt > 0) {
+    // The view moved, something was looked at: the lesson may have moved on.
+    if (learn()) publish();
+
+    // The clock waits while the tutorial has the player build.
+    if (!ui.paused && !lessonHolds(game) && dt > 0) {
       const events = step(game, dt * HOURS_PER_SECOND * ui.speed);
       if (events.length) {
         dirty = true;
         events.forEach(report);
+        learn();
         const heard = [
           'done',
           'unlock',
@@ -876,6 +970,9 @@ export function createSunfarm({
     ui.paused = false;
     ui.toasts = [];
     ui.finished = null;
+    ui.looked = false;
+    marksKey = '';
+    stage.setMarks([]);
     host.dataset.tool = 'look';
     built += 1;
     sunlightKey = '';
@@ -917,7 +1014,8 @@ export function createSunfarm({
      * `{ island, name, date, days }`, or null before then.
      */
     result() {
-      if (!game.done) return null;
+      // The tutorial is not a run to compare.
+      if (!game.done || game.spec.lesson) return null;
       return {
         island: game.spec.id,
         name: game.spec.name,
@@ -928,10 +1026,12 @@ export function createSunfarm({
     /** Turn the view an eighth of the way round: -1 left, 1 right. */
     turn(direction) {
       stage.orbit((Math.PI / 4) * Math.sign(direction));
+      ui.looked = true;
     },
     /** Move the view in (1) or out (-1). */
     zoom(direction) {
       stage.zoom(direction > 0 ? 0.78 : 1.28);
+      ui.looked = true;
     },
     /**
      * Go to another island, picking up where it was left or starting it
@@ -943,6 +1043,12 @@ export function createSunfarm({
       save();
       show(gameFor(id));
       return true;
+    },
+    /** Go to the tutorial island and start its lesson from the beginning. */
+    startTutorial() {
+      save();
+      delete book.saves[TUTORIAL.id];
+      show(createGame({ spec: TUTORIAL, unlocked: book.progress.unlocked }));
     },
     /** Start the island being played over from nothing. */
     restart() {
@@ -961,7 +1067,7 @@ export function createSunfarm({
     },
     /** A line to share for a finished island, or '' for one that isn't. */
     shareText() {
-      if (!game.done) return '';
+      if (!game.done || game.spec.lesson) return '';
       const where = game.spec.daily
         ? `today’s island (${dateKey()})`
         : game.spec.name;
@@ -971,6 +1077,8 @@ export function createSunfarm({
     get game() {
       return game;
     },
+    /** For the same: where a tile is on the canvas, in CSS pixels. */
+    locate: (idx) => stage.locate(idx),
     destroy() {
       if (destroyed) return;
       destroyed = true;

@@ -57,6 +57,37 @@ The island answers: smoke over the generator while it runs, a fuel boat that
 comes each morning for as long as fuel is burned, and flowers and gulls that
 turn up as the sun takes over.
 
+### The tutorial
+
+Somebody who has never played starts on **First Light**: two cottages, a
+generator, and a lesson of eight steps that takes a couple of minutes. It
+shows more than it says. Each step is one short line, an arrow on the button
+to press, and an arrow on the tile to build on, and it is over the moment
+the thing has been done:
+
+1. Drag to look around.
+2. Tap the generator (and read what it burns).
+3. Put a solar panel on the marked tile. It stands on its own in the field
+   and does nothing for anybody.
+4. Draw a power line to it. The generator eases off.
+5. Add two more panels, touching the first. The generator falls silent, and
+   the meter says one of the panels is in shade.
+6. Clear the tree whose shadow is on it.
+7. Build two batteries.
+8. Let a day and a night go by. The batteries fill, the lights stay on after
+   dark, and at dawn the island is finished.
+
+The island's clock is held through the first seven, so the sun stays where
+the lesson needs it and nothing is burned while the player reads. A step
+asks for a state, not a deed: a panel put somewhere else still counts, and a
+step whose work is already done is passed over. "Skip tutorial" goes
+straight to Tern Rock, and the tutorial can be played again from **How to
+play** or from the chart of islands.
+
+The first visit opens with two sentences and two buttons (show me how, or
+skip it), not a manual. **How to play**, behind the question mark, is five
+lines to come back to.
+
 ### The islands
 
 Six of them, each opening when the one before runs on the sun, and each
@@ -119,7 +150,11 @@ three tiers of home with their daily load.
 and what has been finished and unlocked across them.
 [`island.js`](src/sim/island.js) grows the ground from a spec: a coast, a
 beach, woods, the village's plots, and the generator on the shore with its
-line. [`sun.js`](src/sim/sun.js) is the clock, the seasons and where the sun
+line. The tutorial island is the one exception: it is drawn by hand, as a
+map of characters in its spec, so that its lesson
+([`lesson.js`](src/sim/lesson.js)) knows where everything is. The lesson is
+a list of steps, each with a line to say, a tool, the tiles to mark and a
+test for "done" that reads the game and nothing else. [`sun.js`](src/sim/sun.js) is the clock, the seasons and where the sun
 stands; [`weather.js`](src/sim/weather.js) is each day's sky and the wind;
 [`shade.js`](src/sim/shade.js) walks from a panel toward the sun to see what
 is in the way, and draws the sun map.
@@ -131,7 +166,8 @@ shortfall drains them, the generator makes up the rest, what nobody wants is
 wasted), and the village grows at daybreak. It also serialises a game to JSON
 and reads one back, refusing anything that isn't a save. The tests play whole
 islands through with a scripted player, so a change that makes one
-unfinishable fails.
+unfinishable fails, and follow the tutorial's arrows from the first step to
+the last, so a change that breaks the lesson fails too.
 
 **The picture** ([`src/view/`](src/view/)). The look is two old tricks
 ([`toon.js`](src/view/toon.js)): a three-step light ramp instead of smooth
@@ -147,7 +183,10 @@ the sun by day and the moon by night, placed by the same function the rules
 use for shade, and dimmed by the day's cloud. [`world.js`](src/view/world.js)
 keeps the models in step with the game by comparing, every frame, what is on
 each tile with what it drew there, and animates what moves: smoke, the fuel
-boat, turbine rotors, tracker heads, flowers and gulls.
+boat, turbine rotors, tracker heads, flowers and gulls. The stage
+([`stage.js`](src/view/stage.js)) also draws where the tutorial is pointing:
+a frame on the tile and an arrow over it that faces the camera whichever way
+the view is turned.
 
 **The game running** ([`src/sunfarm.js`](src/sunfarm.js)) is framework-free:
 `createSunfarm({ host })` puts a canvas in an element and returns

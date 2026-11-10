@@ -30,6 +30,8 @@ export const SKIES = Object.freeze({
  * chance of clear, then fair, then cloudy; what is left is storm.
  */
 export const CLIMATES = Object.freeze({
+  // Never a cloud: the tutorial island, where the weather isn't the lesson.
+  clear: Object.freeze([1, 0, 0]),
   sunny: Object.freeze([0.56, 0.3, 0.12]),
   mixed: Object.freeze([0.36, 0.34, 0.24]),
   grey: Object.freeze([0.18, 0.3, 0.4]),

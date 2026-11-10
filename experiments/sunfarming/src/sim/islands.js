@@ -93,6 +93,56 @@ export const ISLANDS = Object.freeze([
   }),
 ]);
 
+/**
+ * The tutorial island: two cottages, a generator, and a lesson that points
+ * at each thing in turn (src/sim/lesson.js). It is drawn by hand, not grown
+ * from a seed, so that the lesson knows where everything is. One character
+ * is one tile, north at the top:
+ *
+ *   .  sea            #  land (the beach is worked out, as on a grown island)
+ *   T  a tree         R  a rock
+ *   1 2  the village's plots, in the order homes are built on them
+ *   G  the generator  =  its old line   ~  the sea its fuel comes in at
+ *   *  a tree the lesson points at (marked `tree`)
+ *   a-z  empty land the lesson points at, marked with that letter:
+ *        a  where the first panel goes     c  the gap a line is drawn across
+ *        b  where the next two go          e  where the batteries go
+ *
+ * The clock starts at half past eight and is held there while the lesson
+ * has things built, with the sun low in the east, so the marked tree's
+ * shadow lies across one of the `b` tiles until it is cleared. Three panels
+ * and two batteries carry two cottages through the night, so the island is
+ * finished at the first dawn.
+ */
+export const TUTORIAL = island({
+  id: 'first',
+  name: 'First Light',
+  seed: 3,
+  size: 12,
+  map: Object.freeze([
+    '............',
+    '....####....',
+    '..###T####..',
+    '.####T#T###.',
+    '.#########T.',
+    '.##2######R.',
+    '.##1#b#####.',
+    '.##=cab*###.',
+    '.##=#ee###..',
+    '..#G####R...',
+    '...~####....',
+    '............',
+  ]),
+  houses: 2,
+  maxTier: 1,
+  climate: 'clear',
+  coins: 400,
+  generatorKw: 1.5,
+  startHour: 8.5,
+  lesson: true,
+  blurb: 'The tutorial. Two cottages, a generator, and a couple of minutes.',
+});
+
 /** Build with no purse, no goals and nothing locked. */
 export const FREE_BUILD = island({
   id: 'free',
@@ -140,6 +190,7 @@ export function todaysIsland(key = dateKey()) {
 
 /** The spec an id names, or null. `date` is for 'today'. */
 export function specById(id, date) {
+  if (id === TUTORIAL.id) return TUTORIAL;
   if (id === 'free') return FREE_BUILD;
   if (id === 'today') return todaysIsland(date || dateKey());
   return ISLANDS.find((spec) => spec.id === id) || null;
@@ -173,11 +224,12 @@ export function readProgress(data) {
 }
 
 /**
- * Whether an island can be played yet: the first always can, each of the
- * others once the one before it is done. Free build opens with the second
- * island, so the first is always met with a purse.
+ * Whether an island can be played yet: the tutorial and the first always
+ * can, each of the others once the one before it is done. Free build opens
+ * with the second island, so the first is always met with a purse.
  */
 export function isOpen(progress, id) {
+  if (id === TUTORIAL.id) return true;
   if (id === 'today') return Boolean(progress.done[ISLANDS[0].id]);
   if (id === 'free') return Boolean(progress.done[ISLANDS[0].id]);
   const i = ISLANDS.findIndex((spec) => spec.id === id);
@@ -211,8 +263,9 @@ export function withUnlocked(progress, kinds) {
   return { ...progress, unlocked: all };
 }
 
-/** The island that opens when `id` is finished, or null. */
+/** The island to sail to when `id` is finished, or null. */
 export function nextIsland(id) {
+  if (id === TUTORIAL.id) return ISLANDS[0];
   const i = ISLANDS.findIndex((spec) => spec.id === id);
   return i >= 0 && i < ISLANDS.length - 1 ? ISLANDS[i + 1] : null;
 }

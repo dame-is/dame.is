@@ -152,7 +152,8 @@ export function createGame({ spec = ISLANDS[0], unlocked = [] } = {}) {
   game.unlocked = spec.free
     ? [...LOCKED]
     : LOCKED.filter((kind) => unlocked.includes(kind));
-  for (let i = 0; i < START_HOUSES; i += 1) buildHouse(game);
+  const homes = spec.houses ?? START_HOUSES;
+  for (let i = 0; i < homes; i += 1) buildHouse(game);
   refresh(game);
   return game;
 }
@@ -166,9 +167,13 @@ function base(spec, island, things) {
     plots: island.plots,
     pier: island.pier,
     things,
+    // The tiles a drawn island's map names (see islands.js), or null.
+    marks: island.marks || null,
+    // How far through its lesson a tutorial island is (see lesson.js).
+    lesson: spec.lesson ? { step: 0 } : null,
     houses: 0,
     coins: 0,
-    time: START_HOUR,
+    time: spec.startHour ?? START_HOUR,
     today: emptyDay(),
     yesterday: null,
     totals: { delivered: 0, clean: 0, diesel: 0, earned: 0, fuel: 0 },
@@ -314,7 +319,7 @@ export function canRemove(game, idx) {
     return { ok: false, reason: 'house', message: 'Somebody lives there.' };
   }
   if (thing.kind === 'generator') {
-    if (!game.goals.quiet && !game.spec.free) {
+    if (!game.goals.quiet && !game.done && !game.spec.free) {
       return {
         ok: false,
         reason: 'needed',
@@ -665,9 +670,14 @@ function checkUnlocks(game, events) {
   }
 }
 
+// A tutorial island has a lesson to follow in place of the goals, and keeps
+// only the last of them: the island finished.
+const goalsOf = (game) =>
+  game.spec.lesson ? GOALS.filter((goal) => goal.key === 'done') : GOALS;
+
 function checkGoals(game, events) {
   if (game.spec.free) return;
-  for (const goal of GOALS) {
+  for (const goal of goalsOf(game)) {
     if (game.goals[goal.key]) continue;
     if (!goal.done(game)) continue;
     game.goals[goal.key] = true;
@@ -687,7 +697,7 @@ function checkGoals(game, events) {
 
 /** The first goal not yet reached, or null when they all are (or in free build). */
 export function nextGoal(game) {
-  if (game.spec.free) return null;
+  if (game.spec.free || game.spec.lesson) return null;
   return GOALS.find((goal) => !game.goals[goal.key]) || null;
 }
 
@@ -824,6 +834,7 @@ export function serialize(game) {
     goals: Object.keys(game.goals).filter((key) => game.goals[key]),
     unlocked: [...game.unlocked],
     done: game.done ? { day: game.done.day } : null,
+    ...(game.lesson ? { lesson: game.lesson.step } : {}),
   };
 }
 
@@ -934,6 +945,8 @@ export function deserialize(data) {
             Array.isArray(data.unlocked) && data.unlocked.includes(kind),
         );
     if (data.done && finite(data.done.day)) game.done = { day: data.done.day };
+    if (game.lesson && Number.isInteger(data.lesson) && data.lesson >= 0)
+      game.lesson.step = data.lesson;
     refresh(game);
     return game;
   } catch {

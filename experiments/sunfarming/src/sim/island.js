@@ -53,8 +53,12 @@ function valueNoise(x, z, seed) {
  * stands on, `line` the tiles of power line from it to the first home, and
  * `pier` the tile of sea its fuel comes in at. The last three are -1, [] and
  * -1 on the rare island with no way to the coast.
+ *
+ * A spec with a `map` is drawn by hand instead (see drawnIsland), and also
+ * returns `marks`: the tiles its map names, for a lesson to point at.
  */
 export function generateIsland(spec) {
+  if (spec.map) return drawnIsland(spec);
   const { seed, size } = spec;
   const rng = createRng(seed);
   const terrain = new Uint8Array(size * size);
@@ -90,26 +94,7 @@ export function generateIsland(spec) {
     terrain[indexOf(size - 1, i, size)] = TERRAIN.WATER;
   }
 
-  // The beach: any land that can see the sea, corners included.
-  const beach = [];
-  for (let z = 0; z < size; z += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const idx = indexOf(x, z, size);
-      if (terrain[idx] !== TERRAIN.GRASS) continue;
-      let coastal = false;
-      for (let dz = -1; dz <= 1 && !coastal; dz += 1) {
-        for (let dx = -1; dx <= 1; dx += 1) {
-          if (!inBounds(x + dx, z + dz, size)) continue;
-          if (terrain[indexOf(x + dx, z + dz, size)] === TERRAIN.WATER) {
-            coastal = true;
-            break;
-          }
-        }
-      }
-      if (coastal) beach.push(idx);
-    }
-  }
-  for (const idx of beach) terrain[idx] = TERRAIN.SAND;
+  layBeach(terrain, size);
 
   const plots = villagePlots(terrain, size, spec.block);
   const plotSet = new Set(plots);
@@ -156,6 +141,98 @@ export function generateIsland(spec) {
   }
 
   return { size, terrain, scenery, plots, ...dock };
+}
+
+// The beach: any land that can see the sea, corners included.
+function layBeach(terrain, size) {
+  const beach = [];
+  for (let z = 0; z < size; z += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const idx = indexOf(x, z, size);
+      if (terrain[idx] !== TERRAIN.GRASS) continue;
+      let coastal = false;
+      for (let dz = -1; dz <= 1 && !coastal; dz += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (!inBounds(x + dx, z + dz, size)) continue;
+          if (terrain[indexOf(x + dx, z + dz, size)] === TERRAIN.WATER) {
+            coastal = true;
+            break;
+          }
+        }
+      }
+      if (coastal) beach.push(idx);
+    }
+  }
+  for (const idx of beach) terrain[idx] = TERRAIN.SAND;
+}
+
+/**
+ * An island drawn by hand: `spec.map` is its rows, north first, a character
+ * a tile (the key is beside the one island that has one, in islands.js). It
+ * returns what generateIsland does, and `marks`: for each name the map
+ * uses, the tiles carrying it, in reading order.
+ */
+function drawnIsland(spec) {
+  const { size, seed = 0 } = spec;
+  const terrain = new Uint8Array(size * size);
+  const scenery = [];
+  const plots = [];
+  const line = [];
+  const marks = {};
+  let generator = -1;
+  let pier = -1;
+  const mark = (name, idx) => {
+    (marks[name] ||= []).push(idx);
+  };
+  const variantAt = (x, z) => Math.floor(hash2(x, z, seed) * 1000);
+
+  for (let z = 0; z < size; z += 1) {
+    const row = spec.map[z] || '';
+    for (let x = 0; x < size; x += 1) {
+      const idx = indexOf(x, z, size);
+      const c = row[x] || '.';
+      if (c === '.' || c === '~') {
+        terrain[idx] = TERRAIN.WATER;
+        if (c === '~') pier = idx;
+        continue;
+      }
+      terrain[idx] = TERRAIN.GRASS;
+      if (c === 'T' || c === '*') {
+        scenery.push({ idx, kind: 'tree', variant: variantAt(x, z) });
+        if (c === '*') mark('tree', idx);
+      } else if (c === 'R') {
+        scenery.push({ idx, kind: 'rock', variant: variantAt(x, z) });
+      } else if (c === 'G') generator = idx;
+      else if (c === '=') line.push(idx);
+      else if (c >= '1' && c <= '9') plots[Number(c) - 1] = idx;
+      else if (c >= 'a' && c <= 'z') mark(c, idx);
+    }
+  }
+  layBeach(terrain, size);
+
+  // The line as a walk from the first home down to the generator, which is
+  // the order the grown islands give it in.
+  const ordered = [];
+  const left = new Set(line);
+  let at = plots[0];
+  while (left.size) {
+    const next = neighbours(at, size).find((n) => left.has(n));
+    if (next === undefined) break;
+    left.delete(next);
+    ordered.push(next);
+    at = next;
+  }
+
+  return {
+    size,
+    terrain,
+    scenery,
+    plots: plots.filter((idx) => idx !== undefined),
+    generator,
+    line: ordered,
+    pier,
+    marks,
+  };
 }
 
 // The village: a block of grass, as near as it can be found to a spot west of

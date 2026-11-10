@@ -4,6 +4,7 @@
 
 import {
   BoxGeometry,
+  CanvasTexture,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -13,12 +14,15 @@ import {
   PlaneGeometry,
   Raycaster,
   Scene,
+  Sprite,
+  SpriteMaterial,
   SRGBColorSpace,
   Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
 import { TERRAIN } from '../sim/catalog.js';
+import { shadeHeight } from '../sim/shade.js';
 import { GRASS_Y, SAND_Y, tileAt, tileX, tileY, tileZ } from './layout.js';
 import { PARTS, createModels } from './models.js';
 import { createSky } from './sky.js';
@@ -208,6 +212,23 @@ export function createStage(canvas, game) {
     return -1;
   }
 
+  const projected = new Vector3();
+
+  /**
+   * Where the middle of tile `idx` is on the canvas, in CSS pixels from its
+   * top left, as the last frame drew it: pick() the other way round.
+   */
+  function locate(idx) {
+    const { terrain, size } = land.game;
+    projected
+      .set(tileX(idx, size), tileY(terrain, idx), tileZ(idx, size))
+      .project(camera);
+    return {
+      x: ((projected.x + 1) / 2) * width,
+      y: ((1 - projected.y) / 2) * height,
+    };
+  }
+
   /* ── the cursor: a frame on the tile, and a ghost of what would go there ─ */
 
   const cursor = new Group();
@@ -293,6 +314,101 @@ export function createStage(canvas, game) {
     }
   }
 
+  /* ── marks: where the tutorial is pointing ────────────────────────────── */
+
+  // A frame on the ground and an arrow bobbing over it. The arrow is a
+  // picture that always faces the camera and is drawn over everything, trees
+  // included, because it is a finger pointing and not a thing on the island.
+  // It is the same arrow, in the same colour, that the HUD stands on a
+  // button it is pointing at.
+  const markFrame = new MeshBasicMaterial({ color: '#ffd23f' });
+  const markWash = new MeshBasicMaterial({
+    color: '#ffd23f',
+    transparent: true,
+    opacity: 0.34,
+    depthWrite: false,
+  });
+  const arrowTexture = (() => {
+    const picture = document.createElement('canvas');
+    picture.width = 128;
+    picture.height = 128;
+    const pen = picture.getContext('2d');
+    pen.lineJoin = 'round';
+    pen.beginPath();
+    for (const [x, y] of [
+      [46, 12],
+      [82, 12],
+      [82, 58],
+      [108, 58],
+      [64, 116],
+      [20, 58],
+      [46, 58],
+    ])
+      pen.lineTo(x, y);
+    pen.closePath();
+    pen.fillStyle = '#f25f4c';
+    pen.fill();
+    pen.lineWidth = 9;
+    pen.strokeStyle = '#2a2440';
+    pen.stroke();
+    const texture = new CanvasTexture(picture);
+    texture.colorSpace = SRGBColorSpace;
+    return texture;
+  })();
+  const markArrow = new SpriteMaterial({
+    map: arrowTexture,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const marks = [];
+
+  function makeMark() {
+    const group = new Group();
+    for (const [x, z, turn] of [
+      [0, -0.47, 0],
+      [0, 0.47, 0],
+      [-0.47, 0, Math.PI / 2],
+      [0.47, 0, Math.PI / 2],
+    ]) {
+      const side = new Mesh(edge, markFrame);
+      side.position.set(x, 0.035, z);
+      side.rotation.y = turn;
+      group.add(side);
+    }
+    const ground = new Mesh(washGeometry, markWash);
+    ground.position.y = 0.025;
+    group.add(ground);
+    const arrow = new Sprite(markArrow);
+    // Held by its tip, so where it is put is where it points.
+    arrow.center.set(0.5, 0.06);
+    arrow.scale.set(0.85, 0.85, 1);
+    arrow.renderOrder = 9;
+    // Not inside the group: the group breathes, and the arrow shouldn't.
+    scene.add(group, arrow);
+    return { group, arrow, lift: 0 };
+  }
+
+  /** Mark these tiles as the ones to look at; an empty list clears them. */
+  function setMarks(tiles = []) {
+    const { terrain, size, things } = land.game;
+    while (marks.length < tiles.length) marks.push(makeMark());
+    marks.forEach((mark, i) => {
+      const idx = tiles[i];
+      mark.group.visible = idx !== undefined && idx >= 0;
+      mark.arrow.visible = mark.group.visible;
+      if (!mark.group.visible) return;
+      mark.group.position.set(
+        tileX(idx, size),
+        tileY(terrain, idx),
+        tileZ(idx, size),
+      );
+      mark.arrow.position.copy(mark.group.position);
+      // Clear of whatever stands there: a tree is a good deal taller than
+      // bare ground.
+      mark.lift = mark.group.position.y + 0.6 + shadeHeight(things[idx]) * 1.3;
+    });
+  }
+
   function showGrid(on) {
     land.showGrid = Boolean(on);
     land.grid.lines.visible = land.showGrid;
@@ -341,6 +457,13 @@ export function createStage(canvas, game) {
       const pulse = 1 + Math.sin(elapsed * 6) * 0.025;
       cursor.scale.set(pulse, 1, pulse);
     }
+    marks.forEach((mark, i) => {
+      if (!mark.group.visible) return;
+      const beat = elapsed * 4.2 + i * 0.9;
+      const pulse = 1 + Math.sin(beat) * 0.06;
+      mark.group.scale.set(pulse, 1, pulse);
+      mark.arrow.position.y = mark.lift + Math.abs(Math.sin(beat * 0.75)) * 0.3;
+    });
     renderer.render(scene, camera);
   }
 
@@ -350,6 +473,7 @@ export function createStage(canvas, game) {
       setGame(next);
       showGrid(false);
       setCursor({ idx: -1 });
+      setMarks([]);
       goal.x = 0;
       goal.z = 0;
       fitted = true;
@@ -358,11 +482,13 @@ export function createStage(canvas, game) {
     resize,
     render,
     pick,
+    locate,
     pan,
     nudge,
     orbit,
     zoom,
     setCursor,
+    setMarks,
     showGrid,
     showSunMap,
     dispose() {
@@ -375,6 +501,10 @@ export function createStage(canvas, game) {
       models.dispose();
       materials.dispose();
       ghostBad.dispose();
+      markFrame.dispose();
+      markWash.dispose();
+      markArrow.dispose();
+      arrowTexture.dispose();
       frameMaterial.dispose();
       washMaterial.dispose();
       edge.dispose();

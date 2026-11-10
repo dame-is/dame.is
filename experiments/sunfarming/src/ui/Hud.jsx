@@ -8,6 +8,10 @@
 // come up from the bottom as sheets. `compact` below says which it is, for
 // the few things that behave differently and aren't just laid out
 // differently.
+//
+// On the tutorial island the goal's place is taken by the coach: the one
+// line the lesson is saying, and a ring round whichever button it is
+// pointing at. Where it points on the ground is the stage's to draw.
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { KINDS } from '../sim/catalog.js';
@@ -174,9 +178,11 @@ function Card({ title, onClose, children, wide = false }) {
 
 // One island on the chart: its name, what is different about it, and where
 // it stands (finished, under way, open, or still locked).
-function Island({ entry, onSail }) {
+function Island({ entry, onSail, lesson = false }) {
   const status = entry.done
-    ? `On the sun in ${entry.done} days`
+    ? lesson
+      ? 'Done'
+      : `On the sun in ${entry.done} ${entry.done === 1 ? 'day' : 'days'}`
     : !entry.open
       ? 'Locked'
       : entry.started
@@ -207,7 +213,7 @@ function Island({ entry, onSail }) {
           disabled={!entry.open}
           onClick={() => onSail(entry.id)}
         >
-          Sail
+          {lesson && entry.done ? 'Replay' : 'Sail'}
         </button>
       )}
     </li>
@@ -236,7 +242,7 @@ function Forecast({ days }) {
 
 export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
   const s = useSyncExternalStore(farm.subscribe, farm.getSnapshot);
-  const [card, setCard] = useState(() => (hasSeenHelp() ? null : 'help'));
+  const [card, setCard] = useState(() => (hasSeenHelp() ? null : 'welcome'));
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const compact = useCompact(host);
@@ -248,7 +254,7 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
 
   const close = useCallback(() => {
     setCard((open) => {
-      if (open === 'help') markHelpSeen();
+      if (open === 'welcome') markHelpSeen();
       return null;
     });
     refocus();
@@ -297,6 +303,19 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
     refocus();
   };
 
+  // The tutorial island, from its first step.
+  const teach = () => {
+    markHelpSeen();
+    farm.startTutorial();
+    setCard(null);
+    refocus();
+  };
+  // Straight to the first island proper.
+  const skip = () => {
+    markHelpSeen();
+    sail(s.chart.islands[0].id);
+  };
+
   const copyResult = () => {
     const text = farm.shareText();
     if (!text || !navigator.clipboard) return;
@@ -330,6 +349,10 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
     TOOL_REMOVE,
   ];
   const inHand = tools.find((t) => t.tool === s.tool);
+  const lesson = s.lesson;
+  // What the tutorial is pointing at on the HUD, if anything.
+  const point = (!open && lesson?.point) || null;
+  const onLesson = s.island.lesson;
   // Real full screen where the browser has it. Where it doesn't, the game is
   // laid over the window instead, which is no use if it already has it all.
   const canFullscreen =
@@ -420,7 +443,7 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
       </div>
 
       <div className="sunfarm-top-end">
-        {social && (
+        {social && !onLesson && (
           <button
             type="button"
             className="sunfarm-btn sunfarm-btn--round sunfarm-wide"
@@ -435,8 +458,8 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
           type="button"
           className="sunfarm-btn sunfarm-btn--round sunfarm-wide"
           onClick={() => setCard('goals')}
-          aria-label="Goals"
-          title="Goals"
+          aria-label={onLesson ? 'The tutorial’s steps' : 'Goals'}
+          title={onLesson ? 'The tutorial’s steps' : 'Goals'}
         >
           <FlagIcon />
         </button>
@@ -578,6 +601,42 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
         </button>
       )}
 
+      {lesson && (
+        <div className="sunfarm-coach">
+          <div className="sunfarm-coach-head">
+            <span className="sunfarm-coach-dots" aria-hidden="true">
+              {Array.from({ length: lesson.total }, (_, i) => (
+                <span
+                  key={i}
+                  className={
+                    i < lesson.index
+                      ? 'is-done'
+                      : i === lesson.index
+                        ? 'is-now'
+                        : undefined
+                  }
+                />
+              ))}
+            </span>
+            <span className="sunfarm-sr">
+              Step {lesson.index + 1} of {lesson.total}.
+            </span>
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-coach-skip"
+              onClick={skip}
+            >
+              Skip tutorial
+            </button>
+          </div>
+          {/* Keyed by step, so each one arrives rather than changing. */}
+          <div key={lesson.key} className="sunfarm-coach-step" role="status">
+            <p className="sunfarm-coach-say">{lesson.say}</p>
+            {lesson.more && <p className="sunfarm-coach-more">{lesson.more}</p>}
+          </div>
+        </div>
+      )}
+
       <div className="sunfarm-toasts" aria-live="polite">
         {s.toasts.map((t) => (
           <p key={t.id} className={`sunfarm-toast sunfarm-toast--${t.tone}`}>
@@ -612,17 +671,21 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
         )}
 
         <div
-          className="sunfarm-group sunfarm-speed"
+          className={`sunfarm-group sunfarm-speed${s.held ? ' is-held' : ''}`}
           role="group"
-          aria-label="Speed"
+          aria-label={s.held ? 'Speed. The clock is waiting.' : 'Speed'}
+          title={s.held ? 'The clock waits while you build.' : undefined}
         >
           <button
             type="button"
             className="sunfarm-btn sunfarm-btn--seg"
             aria-pressed={s.paused}
+            disabled={s.held}
             onClick={() => farm.setPaused(!s.paused)}
             aria-label={s.paused ? 'Resume' : 'Pause'}
-            title={s.paused ? 'Resume (space)' : 'Pause (space)'}
+            title={
+              s.held ? undefined : s.paused ? 'Resume (space)' : 'Pause (space)'
+            }
           >
             {s.paused ? <PlayIcon size={18} /> : <PauseIcon size={18} />}
           </button>
@@ -630,8 +693,11 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
             <button
               key={speed}
               type="button"
-              className="sunfarm-btn sunfarm-btn--seg"
+              className={`sunfarm-btn sunfarm-btn--seg${
+                point?.speed === speed ? ' is-pointed' : ''
+              }`}
               aria-pressed={!s.paused && s.speed === speed}
+              disabled={s.held}
               onClick={() => farm.setSpeed(speed)}
               aria-label={`${speed} times speed`}
             >
@@ -654,7 +720,7 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
                   cost && afford === false && !locked
                     ? ' sunfarm-tool--short'
                     : ''
-                }`}
+                }${point?.tool === tool ? ' is-pointed' : ''}`}
                 aria-pressed={s.tool === tool}
                 aria-label={locked ? `${label}, locked: ${unlock}` : undefined}
                 onClick={() => farm.setTool(s.tool === tool ? 'look' : tool)}
@@ -755,9 +821,9 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
               onClick={() => setCard('goals')}
             >
               <FlagIcon />
-              Goals
+              {onLesson ? 'The steps' : 'Goals'}
             </button>
-            {social && (
+            {social && !onLesson && (
               <button
                 type="button"
                 className="sunfarm-btn sunfarm-menu-item"
@@ -843,48 +909,63 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
         </Card>
       )}
 
-      {card === 'help' && (
-        <Card title={TITLE} onClose={close} wide>
+      {card === 'welcome' && (
+        <Card title={TITLE} onClose={close}>
           <p className="sunfarm-card-lede">
-            The island runs on a diesel generator. See how much of it the sun
-            can take over.
+            A small island runs on a diesel generator. Take it onto the sun.
           </p>
-          <ol className="sunfarm-steps">
+          <p className="sunfarm-card-small">
+            {onLesson
+              ? 'This first island is the tutorial. It takes a couple of minutes.'
+              : 'There is a tutorial island, if you’d like to be shown. It takes a couple of minutes.'}
+          </p>
+          <div className="sunfarm-card-foot">
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-btn--plain"
+              onClick={onLesson ? skip : close}
+            >
+              {onLesson ? 'Skip it' : 'Just play'}
+            </button>
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-btn--primary"
+              onClick={onLesson ? close : teach}
+            >
+              Show me how
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {card === 'help' && (
+        <Card title="How to play" onClose={close}>
+          <ul className="sunfarm-steps">
             <li>
-              <PanelIcon />
-              <span>
-                <strong>Put down solar panels</strong> against the village’s
-                power line. Things that touch share power. Every bit the sun
-                makes is fuel the generator doesn’t burn.
-              </span>
+              <GeneratorIcon />
+              <span>The generator keeps the lights on, and burns fuel.</span>
             </li>
             <li>
-              <SunIcon />
-              <span>
-                <strong>Mind the shade.</strong> With a panel in hand the ground
-                shows how much of the day’s light each tile gets. Trees and
-                homes throw shadows.
-              </span>
+              <PanelIcon />
+              <span>Panels make power from the sun. Shade costs them.</span>
+            </li>
+            <li>
+              <CableIcon />
+              <span>Things that touch share power. Lines cross gaps.</span>
             </li>
             <li>
               <BatteryIcon />
-              <span>
-                <strong>Save some for the night.</strong> Batteries fill on
-                spare sun and empty after dark, before the generator is asked.
-              </span>
+              <span>Batteries keep the day’s spare for the night.</span>
             </li>
             <li>
               <HouseIcon />
-              <span>
-                <strong>Watch the village grow.</strong> After a well powered
-                day a family moves in and homes move up, wanting more power at
-                harder hours, and new things to build turn up.
-              </span>
+              <span>A well powered village grows at dawn.</span>
             </li>
-          </ol>
+          </ul>
           <p className="sunfarm-card-small sunfarm-wide">
-            Drag to move the view. Right-drag to turn it. Hold ctrl and scroll
-            to zoom. Number keys pick a tool; space pauses.
+            Drag to move the view, right-drag to turn it, scroll to zoom (with
+            ctrl, if the page scrolls too). Number keys pick a tool; space
+            pauses.
           </p>
           <p className="sunfarm-card-small sunfarm-narrow">
             Tap to build. Drag to move the view, pinch to zoom, twist two
@@ -893,10 +974,17 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
           <div className="sunfarm-card-foot">
             <button
               type="button"
+              className="sunfarm-btn sunfarm-btn--plain"
+              onClick={teach}
+            >
+              {onLesson ? 'Restart tutorial' : 'Play tutorial'}
+            </button>
+            <button
+              type="button"
               className="sunfarm-btn sunfarm-btn--primary"
               onClick={close}
             >
-              Start building
+              Got it
             </button>
           </div>
         </Card>
@@ -915,7 +1003,9 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
                     {goal.done ? <CheckIcon size={16} /> : null}
                   </span>
                   <span className="sunfarm-goals-title">{goal.title}</span>
-                  <span className="sunfarm-goals-reward">+{goal.reward}</span>
+                  {goal.reward > 0 && (
+                    <span className="sunfarm-goals-reward">+{goal.reward}</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -947,6 +1037,13 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
 
       {card === 'chart' && (
         <Card title="The islands" onClose={close} wide>
+          <ul className="sunfarm-isles sunfarm-isles--first">
+            <Island
+              entry={s.chart.lesson}
+              onSail={s.chart.lesson.done ? teach : sail}
+              lesson
+            />
+          </ul>
           <ul className="sunfarm-isles">
             {s.chart.islands.map((entry) => (
               <Island key={entry.id} entry={entry} onSail={sail} />
@@ -1008,7 +1105,49 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
         </Card>
       )}
 
-      {!card && s.finished && (
+      {!card && s.finished && s.finished.lesson && (
+        <Card
+          title={`${s.finished.name} runs on the sun`}
+          onClose={() => {
+            farm.acknowledge();
+            refocus();
+          }}
+        >
+          <p className="sunfarm-card-lede">
+            A whole day and night, and the generator never started. That is the
+            game.
+          </p>
+          <p className="sunfarm-card-small">
+            {s.finished.next.name} is next: a bigger island, a village that
+            grows, and nobody pointing.
+          </p>
+          <div className="sunfarm-card-foot">
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-btn--plain"
+              onClick={() => {
+                farm.acknowledge();
+                refocus();
+              }}
+            >
+              Stay a while
+            </button>
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-btn--primary"
+              onClick={() => {
+                const { id } = s.finished.next;
+                farm.acknowledge();
+                sail(id);
+              }}
+            >
+              Sail to {s.finished.next.name}
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {!card && s.finished && !s.finished.lesson && (
         <Card
           title={`${s.finished.name} runs on the sun`}
           onClose={() => {
@@ -1020,7 +1159,8 @@ export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
         >
           <p className="sunfarm-card-lede">
             Every home lit, a whole day and night, and the generator never
-            started. It took {s.finished.day} days.
+            started. It took {s.finished.day}{' '}
+            {s.finished.day === 1 ? 'day' : 'days'}.
           </p>
           <p className="sunfarm-card-small">
             The generator can go back on the boat now: the Remove tool will take

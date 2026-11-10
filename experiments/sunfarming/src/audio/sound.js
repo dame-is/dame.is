@@ -174,6 +174,9 @@ export function createSound({ muted = false } = {}) {
       tone({ freq: 160, type: 'triangle', at: 0.1, dur: 0.09, gain: 0.1 });
     },
     goal: () => tune([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6]),
+    // A step of the tutorial done: lighter than a goal, there are eight.
+    lesson: () =>
+      tune([NOTE.E5, NOTE.A5], { step: 0.08, dur: 0.2, gain: 0.07 }),
     morning: () =>
       tune([NOTE.G4, NOTE.C5], {
         step: 0.16,

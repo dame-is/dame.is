@@ -35,6 +35,7 @@ import { generateIsland, indexOf, neighbours, xOf, zOf } from './island.js';
 import {
   FREE_BUILD,
   ISLANDS,
+  TUTORIAL,
   isOpen,
   markDone,
   newProgress,
@@ -44,6 +45,14 @@ import {
   todaysIsland,
   withUnlocked,
 } from './islands.js';
+import {
+  LESSON,
+  advanceLesson,
+  inLesson,
+  lessonHolds,
+  lessonNow,
+  lessonSteps,
+} from './lesson.js';
 import { findNetworks } from './network.js';
 import { isShaded, shadeHeight, sunMap } from './shade.js';
 import {
@@ -1509,5 +1518,305 @@ describe('the archipelago', () => {
     expect(specById('atlantis')).toBeNull();
     const ids = ISLANDS.map((spec) => spec.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+/* ── the tutorial ─────────────────────────────────────────────────────────── */
+
+// What the running game would report having seen the player do.
+const fresh = () => ({
+  tool: 'look',
+  selected: -1,
+  looked: false,
+  speed: 1,
+  paused: false,
+});
+
+// The player the lesson hopes for: it does what each step points at, and
+// nothing else. Returns the keys of the steps as they were passed.
+function followLesson(game, seen = fresh(), upTo = Infinity) {
+  const passed = [];
+  for (let guard = 0; guard < 200 && inLesson(game); guard += 1) {
+    passed.push(...advanceLesson(game, seen));
+    const now = lessonNow(game, seen);
+    if (!now || now.index >= upTo) break;
+    if (now.key === 'look') seen.looked = true;
+    else if (now.point?.tool) seen.tool = now.point.tool;
+    else if (now.point?.speed) seen.speed = now.point.speed;
+    else if (now.tiles.length) {
+      const idx = now.tiles[0];
+      if (seen.tool === 'look') seen.selected = idx;
+      else if (seen.tool === 'remove') expect(remove(game, idx).ok).toBe(true);
+      else expect(place(game, seen.tool, idx).ok).toBe(true);
+    } else if (!now.hold) step(game, 0.5);
+    else throw new Error(`the lesson points at nothing in "${now.key}"`);
+  }
+  passed.push(...advanceLesson(game, seen));
+  return passed;
+}
+
+describe('the tutorial island', () => {
+  it('is drawn by hand: two cottages, a generator on the beach, and its line', () => {
+    const island = generateIsland(TUTORIAL);
+    const { size } = island;
+    expect(island.terrain).toHaveLength(size * size);
+    expect(TUTORIAL.map).toHaveLength(size);
+    for (const row of TUTORIAL.map) expect(row).toHaveLength(size);
+    // Sea all the way round, and the generator on sand beside it.
+    for (let i = 0; i < size; i += 1) {
+      for (const idx of [
+        indexOf(i, 0, size),
+        indexOf(i, size - 1, size),
+        indexOf(0, i, size),
+        indexOf(size - 1, i, size),
+      ])
+        expect(island.terrain[idx]).toBe(TERRAIN.WATER);
+    }
+    expect(island.terrain[island.generator]).toBe(TERRAIN.SAND);
+    expect(island.terrain[island.pier]).toBe(TERRAIN.WATER);
+    expect(neighbours(island.generator, size)).toContain(island.pier);
+    expect(island.plots).toHaveLength(2);
+    for (const idx of island.plots)
+      expect(island.terrain[idx]).toBe(TERRAIN.GRASS);
+    // The same every time.
+    expect(generateIsland(TUTORIAL)).toEqual(island);
+
+    const game = createGame({ spec: TUTORIAL });
+    expect(game.houses).toBe(2);
+    expect(game.coins).toBe(TUTORIAL.coins);
+    expect(hourOf(game.time)).toBe(TUTORIAL.startHour);
+    // Lit from the first minute, by the generator.
+    const { nets } = networks(game);
+    const net = nets.find((n) => n.houses.length);
+    expect(net.houses).toHaveLength(2);
+    expect(net.generators).toEqual([island.generator]);
+    expect(game.flow.dieselKw).toBeCloseTo(0.8, 5);
+    expect(homes(game).every((home) => home.lit)).toBe(true);
+    // And never a cloud.
+    for (let day = 1; day <= 30; day += 1)
+      expect(skyOf(TUTORIAL, day)).toBe(SKIES.clear);
+  });
+
+  it('marks the ground the lesson points at, and the marks are where it says', () => {
+    const game = createGame({ spec: TUTORIAL });
+    const { size, marks } = game;
+    expect(Object.keys(marks).sort()).toEqual(['a', 'b', 'c', 'e', 'tree']);
+    expect(marks.a).toHaveLength(1);
+    expect(marks.b).toHaveLength(2);
+    expect(marks.c).toHaveLength(1);
+    expect(marks.e).toHaveLength(2);
+    // Everything but the tree is room to build.
+    for (const idx of [...marks.a, ...marks.b, ...marks.c, ...marks.e])
+      expect(canPlace(game, 'cable', idx).ok).toBe(true);
+    expect(game.things[marks.tree[0]].kind).toBe('tree');
+    // The first panel stands apart from the line, with one tile between.
+    const old = (idx) => game.things[idx]?.kind === 'cable';
+    expect(neighbours(marks.a[0], size).some(old)).toBe(false);
+    expect(neighbours(marks.c[0], size)).toContain(marks.a[0]);
+    expect(neighbours(marks.c[0], size).some(old)).toBe(true);
+    // The next two touch it, and the batteries touch the panels.
+    for (const idx of marks.b)
+      expect(neighbours(idx, size)).toContain(marks.a[0]);
+    const panels = new Set([...marks.a, ...marks.b]);
+    for (const idx of marks.e)
+      expect(neighbours(idx, size).some((n) => panels.has(n))).toBe(true);
+  });
+
+  it('has the marked tree’s shadow on one panel at the hour the clock is held', () => {
+    const game = createGame({ spec: TUTORIAL });
+    const dir = sunDirection(game.time);
+    const { marks } = game;
+    const shaded = [...marks.a, ...marks.b].filter((idx) =>
+      isShaded(game, idx, dir),
+    );
+    expect(shaded).toHaveLength(1);
+    expect(marks.b).toContain(shaded[0]);
+    // It is that tree and no other: take it away and the shadow goes.
+    const before = sunMap(game)[shaded[0]];
+    game.coins = 1000;
+    remove(game, marks.tree[0]);
+    expect(isShaded(game, shaded[0], dir)).toBe(false);
+    expect(sunMap(game)[shaded[0]]).toBeGreaterThan(before + 0.1);
+  });
+
+  it('has a lesson in place of goals, and finishes like any other island', () => {
+    const game = createGame({ spec: TUTORIAL });
+    expect(nextGoal(game)).toBeNull();
+    // Nothing is paid for the goals an island this small is born meeting.
+    expect(step(game, 1).filter((e) => e.type === 'goal')).toEqual([]);
+    expect(game.coins).toBeLessThan(TUTORIAL.coins + 10);
+    expect(specById('first')).toBe(TUTORIAL);
+    expect(isOpen(newProgress(), 'first')).toBe(true);
+    // Finishing it leads to the first island, which was open all along.
+    expect(nextIsland('first')).toBe(ISLANDS[0]);
+    expect(isOpen(markDone(newProgress(), TUTORIAL, 1), ISLANDS[1].id)).toBe(
+      false,
+    );
+  });
+});
+
+describe('the lesson', () => {
+  it('is only on the tutorial island', () => {
+    const game = createGame({ spec: TERN });
+    expect(game.lesson).toBeNull();
+    expect(inLesson(game)).toBe(false);
+    expect(lessonHolds(game)).toBe(false);
+    expect(lessonNow(game, fresh())).toBeNull();
+    expect(advanceLesson(game, fresh())).toEqual([]);
+    expect(lessonSteps(game)).toEqual([]);
+  });
+
+  it('says one short thing at a time', () => {
+    const keys = LESSON.map((s) => s.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const s of LESSON) {
+      expect(s.title.length, s.key).toBeLessThanOrEqual(24);
+      expect(s.say.length, s.key).toBeLessThanOrEqual(64);
+      if (typeof s.more === 'string')
+        expect(s.more.length, s.key).toBeLessThanOrEqual(64);
+    }
+    // Only the last lets the clock run.
+    expect(LESSON.map((s) => Boolean(s.hold))).toEqual([
+      ...LESSON.slice(1).map(() => true),
+      false,
+    ]);
+  });
+
+  it('points at the tool first and the ground second', () => {
+    const game = createGame({ spec: TUTORIAL });
+    const seen = fresh();
+    expect(lessonNow(game, seen)).toMatchObject({
+      index: 0,
+      total: LESSON.length,
+      key: 'look',
+      hold: true,
+      point: null,
+      tiles: [],
+    });
+    // Nothing moves on until the thing has been done.
+    expect(advanceLesson(game, seen)).toEqual([]);
+    seen.looked = true;
+    expect(advanceLesson(game, seen)).toEqual(['look']);
+    expect(lessonNow(game, seen)).toMatchObject({
+      key: 'generator',
+      point: null,
+      tiles: [generatorTile(game)],
+    });
+    // With something else in hand, the looking tool is pointed at instead.
+    seen.tool = 'panel';
+    expect(lessonNow(game, seen)).toMatchObject({
+      point: { tool: 'look' },
+      tiles: [],
+    });
+    seen.tool = 'look';
+    seen.selected = generatorTile(game);
+    expect(advanceLesson(game, seen)).toEqual(['generator']);
+    expect(lessonNow(game, seen)).toMatchObject({
+      key: 'panel',
+      point: { tool: 'panel' },
+      tiles: [],
+    });
+    seen.tool = 'panel';
+    expect(lessonNow(game, seen)).toMatchObject({
+      point: null,
+      tiles: game.marks.a,
+    });
+    expect(lessonHolds(game)).toBe(true);
+  });
+
+  it('shows each thing it teaches happen', () => {
+    const game = createGame({ spec: TUTORIAL });
+    const seen = fresh();
+    followLesson(game, seen, 3);
+    // A panel on its own in the field: making power, and helping nobody.
+    expect(lessonNow(game, seen).key).toBe('line');
+    expect(game.things[game.marks.a[0]].kind).toBe('panel');
+    expect(game.things[game.marks.a[0]].live).toBe(false);
+    expect(game.flow.dieselKw).toBeCloseTo(0.8, 5);
+    // Wired in, the generator eases off...
+    followLesson(game, seen, 4);
+    expect(game.things[game.marks.a[0]].live).toBe(true);
+    expect(game.flow.dieselKw).toBeGreaterThan(0.05);
+    expect(game.flow.dieselKw).toBeLessThan(0.4);
+    // ...and with two more it is silent, though one of them is in shade.
+    followLesson(game, seen, 5);
+    expect(lessonNow(game, seen).key).toBe('shade');
+    expect(game.flow.dieselKw).toBe(0);
+    expect(game.flow.shadedPanels).toBe(1);
+    const dim = game.flow.solarKw;
+    followLesson(game, seen, 6);
+    expect(game.flow.shadedPanels).toBe(0);
+    expect(game.flow.solarKw).toBeGreaterThan(dim * 1.25);
+    // The clock has not moved, and nothing was burned while it waited.
+    expect(hourOf(game.time)).toBe(TUTORIAL.startHour);
+    expect(game.totals.fuel).toBe(0);
+  });
+
+  it('can be followed to an island that runs on the sun by the first dawn', () => {
+    const game = createGame({ spec: TUTORIAL });
+    const seen = fresh();
+    const passed = followLesson(game, seen);
+    expect(passed).toEqual(LESSON.map((s) => s.key));
+    expect(inLesson(game)).toBe(false);
+    expect(lessonNow(game, seen)).toBeNull();
+    expect(game.done).toEqual({ day: 1 });
+    expect(dayOf(game.time)).toBe(2);
+    expect(game.yesterday.diesel).toBeLessThan(0.01);
+    expect(game.totals.fuel).toBe(0);
+    // It was paid for out of the opening purse, with nothing to wait for.
+    expect(lessonSteps(game).every((s) => s.done)).toBe(true);
+    // The generator can go back on the boat.
+    expect(canRemove(game, generatorTile(game)).ok).toBe(true);
+  });
+
+  it('takes the state for the deed: steps already done are passed over', () => {
+    const game = createGame({ spec: TUTORIAL });
+    const seen = { ...fresh(), looked: true, selected: generatorTile(game) };
+    // A player who goes their own way: three panels straight against the
+    // old line, nowhere near the marks.
+    const patch = clearPatch(game, 3);
+    for (const idx of patch) expect(place(game, 'panel', idx).ok).toBe(true);
+    expect(advanceLesson(game, seen)).toEqual([
+      'look',
+      'generator',
+      'panel',
+      'line',
+      'more',
+    ]);
+    expect(lessonNow(game, seen).key).toBe('shade');
+    // Told again, differently, when a day goes by on diesel.
+    game.lesson.step = LESSON.length - 1;
+    const first = lessonNow(game, seen).more;
+    for (const idx of patch) remove(game, idx);
+    runHours(game, 24);
+    expect(game.done).toBeNull();
+    expect(lessonNow(game, seen).more).not.toBe(first);
+    expect(lessonNow(game, seen).point).toEqual({ speed: 10 });
+    expect(lessonNow(game, { ...seen, speed: 10 }).point).toBeNull();
+    expect(lessonNow(game, { ...seen, speed: 10, paused: true }).point).toEqual(
+      { speed: 10 },
+    );
+  });
+
+  it('is saved with the island, part way through and finished', () => {
+    const game = createGame({ spec: TUTORIAL });
+    const seen = fresh();
+    followLesson(game, seen, 5);
+    const back = deserialize(JSON.parse(JSON.stringify(serialize(game))));
+    expect(back).not.toBeNull();
+    expect(back.spec).toBe(TUTORIAL);
+    expect(back.lesson).toEqual(game.lesson);
+    expect(back.marks).toEqual(game.marks);
+    expect(lessonNow(back, seen)).toEqual(lessonNow(game, seen));
+    expect(hourOf(back.time)).toBe(TUTORIAL.startHour);
+    // And it can be finished from there.
+    followLesson(back, seen);
+    expect(back.done).toEqual({ day: 1 });
+    const done = deserialize(JSON.parse(JSON.stringify(serialize(back))));
+    expect(inLesson(done)).toBe(false);
+    expect(done.done).toEqual({ day: 1 });
+    // A save that says nonsense about the lesson starts it over.
+    const odd = { ...serialize(game), lesson: 'halfway' };
+    expect(deserialize(odd).lesson).toEqual({ step: 0 });
   });
 });

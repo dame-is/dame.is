@@ -63,6 +63,13 @@
   box-sizing: border-box;
 }
 
+/* A page that sets its own prose (a measure, a first-line indent on a
+   paragraph that follows another) doesn't get to set the game's. */
+.sunfarm p {
+  max-width: none;
+  text-indent: 0;
+}
+
 /* The whole window: the standalone build, and "full screen" on a browser
    that has no such thing for an element (an iPhone). */
 .sunfarm--fill,
@@ -906,6 +913,143 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* The tutorial                                                         */
+/* ------------------------------------------------------------------ */
+
+/* The coach: the one thing the lesson is saying, where the goal would be.
+   A line of dots for how far along it is, then the line itself. */
+.sunfarm .sunfarm-coach {
+  grid-area: goal;
+  justify-self: start;
+  box-sizing: border-box;
+  width: min(100%, 25rem);
+  padding: 8px 12px 10px;
+  background: var(--sf-paper);
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 14px;
+  box-shadow: var(--sf-shadow);
+  pointer-events: auto;
+}
+
+.sunfarm .sunfarm-coach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 20px;
+}
+
+.sunfarm .sunfarm-coach-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.sunfarm .sunfarm-coach-dots span {
+  width: 9px;
+  height: 9px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.sunfarm .sunfarm-coach-dots .is-done {
+  background: var(--sf-ink);
+}
+
+.sunfarm .sunfarm-coach-dots .is-now {
+  background: var(--sf-sun);
+}
+
+.sunfarm .sunfarm-btn.sunfarm-coach-skip {
+  padding: 2px 4px;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--sf-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sunfarm .sunfarm-btn.sunfarm-coach-skip:hover {
+  color: var(--sf-ink);
+}
+
+.sunfarm .sunfarm-coach-step {
+  animation: sunfarm-drop 0.25s ease-out both;
+}
+
+.sunfarm .sunfarm-coach-say {
+  margin: 5px 0 0;
+  font-size: 1.07em;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.sunfarm .sunfarm-coach-more {
+  margin: 3px 0 0;
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--sf-muted);
+}
+
+/* The button the lesson is pointing at: a ring that breathes, and an arrow
+   standing on it. */
+.sunfarm .sunfarm-btn.is-pointed {
+  position: relative;
+  z-index: 2;
+  outline: 3px solid var(--sf-coral);
+  outline-offset: 2px;
+  animation: sunfarm-point 1.1s ease-in-out infinite;
+}
+
+.sunfarm .sunfarm-btn.is-pointed::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  width: 0;
+  height: 0;
+  margin-left: -11px;
+  border: 11px solid transparent;
+  border-top: 15px solid var(--sf-coral);
+  border-bottom-width: 0;
+  filter: drop-shadow(0 2px 0 var(--sf-ink));
+  animation: sunfarm-bob 0.7s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes sunfarm-point {
+  50% {
+    outline-offset: 6px;
+  }
+}
+
+@keyframes sunfarm-bob {
+  to {
+    transform: translateY(-7px);
+  }
+}
+
+/* The clock waiting on the lesson: the speeds are there, and not yet. */
+.sunfarm .sunfarm-speed.is-held .sunfarm-btn--seg {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sunfarm .sunfarm-speed.is-held .sunfarm-btn--seg[aria-pressed='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.sunfarm .sunfarm-isles--first {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: var(--sf-line) dashed var(--sf-paper-deep);
+}
+
+/* ------------------------------------------------------------------ */
 /* Pieces that only one layout shows                                    */
 /* ------------------------------------------------------------------ */
 
@@ -1325,6 +1469,17 @@
     display: none;
   }
 
+  .sunfarm .sunfarm-coach {
+    justify-self: stretch;
+    width: auto;
+    padding: 6px 10px 8px;
+  }
+
+  .sunfarm .sunfarm-coach-say {
+    margin-top: 3px;
+    font-size: 1em;
+  }
+
   /* One toast at a time, the newest. */
   .sunfarm .sunfarm-toast {
     padding: 6px 12px;
@@ -1482,9 +1637,16 @@
       'bottom bottom bottom';
   }
 
-  .sunfarm .sunfarm-goal {
+  .sunfarm .sunfarm-goal,
+  .sunfarm .sunfarm-coach {
     justify-self: start;
     width: min(100%, 27rem);
+  }
+
+  /* The coach is taller than the chips beside it; they keep their height. */
+  .sunfarm .sunfarm-meters,
+  .sunfarm .sunfarm-goal {
+    align-self: start;
   }
 
   .sunfarm .sunfarm-bottom {
@@ -1528,7 +1690,10 @@
   }
 
   .sunfarm .sunfarm-toast,
-  .sunfarm .sunfarm-card {
+  .sunfarm .sunfarm-card,
+  .sunfarm .sunfarm-coach-step,
+  .sunfarm .sunfarm-btn.is-pointed,
+  .sunfarm .sunfarm-btn.is-pointed::after {
     animation: none;
   }
 }
