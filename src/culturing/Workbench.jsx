@@ -9,6 +9,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowDownToLine,
   Camera,
+  ChevronDown,
+  Dices,
   LayoutGrid,
   Pause,
   Play,
@@ -23,6 +25,7 @@ import { decodeDish } from './recipe.js';
 import { mediumById } from './media.js';
 import Tray from './Tray.jsx';
 import { formatHours } from './format.js';
+import { useCompact } from './useCompact.js';
 import './culturing.css';
 
 /** Why the bench couldn't start, in a sentence. */
@@ -36,6 +39,16 @@ const UNSUPPORTED = {
 };
 
 const noSubscription = () => () => {};
+
+/** The room a dish's number takes under it, in px: its drop and its line. */
+const LABEL_ROOM = 22;
+
+/** The four lights as a row of keys, each saying what it shows on hover. */
+const LIGHT_KEYS = LIGHTS.map((l) => ({
+  value: l.value,
+  label: l.label,
+  title: l.hint,
+}));
 
 /**
  * The bench on a canvas of its own. The canvas is made here rather than in
@@ -60,15 +73,14 @@ function useBench(stageRef, incoming, reduceMotion) {
     );
     canvas.setAttribute('aria-describedby', 'cult-keys');
     stage.prepend(canvas);
-    const made = createBench(canvas, { incoming });
+    // Growth is motion. Someone who has asked for less of it starts with
+    // the incubator stopped, and presses play if they want it.
+    const made = createBench(canvas, { incoming, playing: !reduceMotion });
     if (made.error) {
       canvas.remove();
       setError(made.error);
       return undefined;
     }
-    // Growth is motion. Someone who has asked for less of it starts with
-    // the incubator stopped, and presses play if they want it.
-    if (reduceMotion) made.setPlaying(false);
     setBench(made);
     return () => {
       made.dispose();
@@ -105,8 +117,12 @@ function usePrefersReducedMotion() {
   return reduce;
 }
 
-/** "Plate 2 of 6. Broth agar, 1.5 % agar. 30 °C. 41 h." */
-function Caption({ snap }) {
+/**
+ * "Plate 2 of 6. Broth agar, 1.5 % agar. 30 °C. 41 h." On a phone it is one
+ * line, and what is cut short is the pour, never the hour: the hour is the
+ * part that changes.
+ */
+function Caption({ snap, compact }) {
   const plate = snap.dishes[snap.selected];
   if (!plate) return null;
   const medium = mediumById(plate.medium);
@@ -115,18 +131,193 @@ function Caption({ snap }) {
     `${medium?.name || 'Agar'}, ${plate.agar} % agar`,
     `${plate.env.temperature} °C`,
   ];
+  const stopped = compact ? 'stopped' : 'incubator stopped';
   let age = formatHours(plate.hours);
   if (plate.catching) {
-    age = `re-growing from its recipe, ${formatHours(plate.hours)} of ${formatHours(plate.goal)}`;
+    age = `${compact ? 're-growing' : 're-growing from its recipe'}, ${formatHours(plate.hours)} of ${formatHours(plate.goal)}`;
+    if (plate.waiting) age = `${age}, ${stopped}`;
   } else if (plate.held) {
     age = `${age}, in the fridge`;
   } else if (!snap.playing) {
-    age = `${age}, incubator stopped`;
+    age = `${age}, ${stopped}`;
   }
   return (
     <figcaption className="cult-caption">
-      {parts.join('. ')}. <span className="cult-caption-age">{age}.</span>
+      <span className="cult-caption-pour">{parts.join('. ')}.</span>{' '}
+      <span className="cult-caption-age">{age}.</span>
     </figcaption>
+  );
+}
+
+/**
+ * One of a few, picked. A row of keys where there is room for one; on a
+ * phone, the system's own picker behind a box the size of a single key.
+ */
+function Pick({ label, options, value, onChange, compact }) {
+  if (!compact) {
+    return (
+      <Segmented
+        label={label}
+        options={options}
+        value={value}
+        onChange={onChange}
+      />
+    );
+  }
+  return (
+    <span className="cult-select">
+      <select
+        aria-label={label}
+        value={String(value)}
+        onChange={(e) => {
+          const next = options.find((o) => String(o.value) === e.target.value);
+          if (next) onChange(next.value);
+        }}
+      >
+        {options.map((o) => (
+          <option key={String(o.value)} value={String(o.value)}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={12} aria-hidden="true" />
+    </span>
+  );
+}
+
+/** The camera's controls: back to the bench, closer, further, from above. */
+function ViewTools({ bench, inPlate, compact }) {
+  return (
+    <>
+      {inPlate && (
+        <Button size="sm" className="cult-tool-back" onClick={bench.leave}>
+          <LayoutGrid size={14} aria-hidden="true" />
+          All plates
+        </Button>
+      )}
+      {/* Two fingers do this on a phone, and the picture is small enough
+          already without two more buttons on it. */}
+      {inPlate && !compact && (
+        <>
+          <Button
+            size="sm"
+            variant="icon"
+            aria-label="Zoom in"
+            title="Zoom in"
+            onClick={() => bench.zoomBy(0.8)}
+          >
+            <ZoomIn size={14} aria-hidden="true" />
+          </Button>
+          <Button
+            size="sm"
+            variant="icon"
+            aria-label="Zoom out"
+            title="Zoom out"
+            onClick={() => bench.zoomBy(1.25)}
+          >
+            <ZoomOut size={14} aria-hidden="true" />
+          </Button>
+        </>
+      )}
+      {inPlate && (
+        <Button
+          size="sm"
+          variant="icon"
+          aria-label="Look straight down"
+          title="Look straight down"
+          onClick={bench.topView}
+        >
+          <ArrowDownToLine size={14} aria-hidden="true" />
+        </Button>
+      )}
+      {/* Across the bench a finger can only turn the view a little, and
+          can turn it back; the corner is left to the picture. */}
+      {(inPlate || !compact) && (
+        <Button
+          size="sm"
+          variant="icon"
+          aria-label="Put the view back"
+          title="Put the view back"
+          onClick={bench.resetView}
+        >
+          <RotateCcw size={14} aria-hidden="true" />
+        </Button>
+      )}
+    </>
+  );
+}
+
+/** The shutter. On a phone it is a square on the picture it takes. */
+function Photograph({ inPlate, compact, onClick }) {
+  return (
+    <Button
+      size="sm"
+      variant={compact ? 'icon' : 'quiet'}
+      className="cult-photo"
+      aria-label="Photograph"
+      title={inPlate ? 'Photograph this plate' : 'Photograph the bench'}
+      onClick={onClick}
+    >
+      <Camera size={14} aria-hidden="true" />
+      {!compact && 'Photograph'}
+    </Button>
+  );
+}
+
+/**
+ * Deal plates nobody chose (chance.js): the one picked up, or, across the
+ * bench, all of them. It can be pressed again and again, since what it
+ * throws away is only what it dealt. A plate with someone's own work on it
+ * is asked after first: one press arms it for a few seconds, the next goes
+ * through.
+ */
+function Randomize({ bench, snap, compact }) {
+  const inPlate = snap.mode === 'plate';
+  const plate = snap.dishes[snap.selected];
+  const sure = inPlate
+    ? Boolean(plate?.touched)
+    : snap.dishes.some((d) => d.touched);
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return undefined;
+    const id = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(id);
+  }, [armed]);
+  // Looking at something else is a different question.
+  useEffect(() => {
+    setArmed(false);
+  }, [snap.mode, snap.selected]);
+
+  const what = inPlate ? `plate ${snap.selected + 1}` : 'every plate';
+  const hint = armed
+    ? `Throw away what’s on ${what} and randomize`
+    : `Randomize ${what}`;
+  return (
+    <Button
+      size="sm"
+      variant={armed ? 'danger' : 'quiet'}
+      className="cult-randomize"
+      aria-label={hint}
+      title={hint}
+      onClick={() => {
+        if (sure && !armed) {
+          setArmed(true);
+          // A phone's bar has no room for the question, so the stage asks.
+          if (compact) {
+            bench.say(
+              `Press again to throw away what’s on ${what} and randomize.`,
+            );
+          }
+          return;
+        }
+        setArmed(false);
+        if (inPlate) bench.randomize(snap.selected);
+        else bench.randomizeBench();
+      }}
+    >
+      <Dices size={14} aria-hidden="true" />
+      {!compact && (armed ? `Throw ${what} away and randomize` : 'Randomize')}
+    </Button>
   );
 }
 
@@ -135,6 +326,7 @@ export default function Workbench() {
   const labelsRef = useRef([]);
   const incoming = useIncomingPlate();
   const reduceMotion = usePrefersReducedMotion();
+  const compact = useCompact();
   const { bench, error } = useBench(stageRef, incoming, reduceMotion);
   const snap = useSyncExternalStore(
     useCallback(
@@ -150,10 +342,13 @@ export default function Workbench() {
   useEffect(() => {
     if (!bench) return undefined;
     return bench.onFrame((places) => {
+      // On a short stage the front row sits against the bottom edge: its
+      // numbers stay inside the frame instead of being cut off by it.
+      const floor = (stageRef.current?.clientHeight ?? Infinity) - LABEL_ROOM;
       places.forEach((p, i) => {
         const el = labelsRef.current[i];
         if (el) {
-          el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) translate(-50%, 0.5em)`;
+          el.style.transform = `translate(${p.x.toFixed(1)}px, ${Math.min(p.y, floor).toFixed(1)}px) translate(-50%, 0.5em)`;
         }
       });
     });
@@ -218,6 +413,19 @@ export default function Workbench() {
                   ))}
                 </ol>
               )}
+              {/* On a phone the camera's controls and its shutter sit on the
+                  picture, where a map keeps its own, and leave the bar a
+                  single row with room for what its pickers say. */}
+              {snap && compact && (
+                <div
+                  className="cult-stage-tools"
+                  role="group"
+                  aria-label="View"
+                >
+                  <ViewTools bench={bench} inPlate={inPlate} compact />
+                  <Photograph inPlate={inPlate} compact onClick={takePhoto} />
+                </div>
+              )}
               {snap?.notice && (
                 <p className="cult-notice" role="status" key={snap.notice.id}>
                   {snap.notice.text}
@@ -231,7 +439,7 @@ export default function Workbench() {
               )}
               {!snap && <p className="cult-loading">Setting up the bench…</p>}
             </div>
-            {snap && <Caption snap={snap} />}
+            {snap && <Caption snap={snap} compact={compact} />}
           </figure>
 
           <p id="cult-keys" className="visually-hidden">
@@ -250,7 +458,12 @@ export default function Workbench() {
                 <Button
                   size="sm"
                   on={snap.playing}
+                  className="cult-play"
                   aria-pressed={snap.playing}
+                  aria-label={snap.playing ? 'Incubating' : 'Stopped'}
+                  title={
+                    snap.playing ? 'Stop the incubator' : 'Start the incubator'
+                  }
                   onClick={() => bench.setPlaying(!snap.playing)}
                 >
                   {snap.playing ? (
@@ -258,82 +471,42 @@ export default function Workbench() {
                   ) : (
                     <Play size={14} aria-hidden="true" />
                   )}
-                  {snap.playing ? 'Incubating' : 'Stopped'}
+                  {!compact && (snap.playing ? 'Incubating' : 'Stopped')}
                 </Button>
-                <Segmented
+                <Pick
                   label="Incubator speed"
                   options={SPEEDS}
                   value={snap.speed}
                   onChange={bench.setSpeed}
+                  compact={compact}
                 />
               </div>
               <div className="cult-bar-group">
-                <Segmented
+                <Pick
                   label="Light"
-                  options={LIGHTS.map((l) => ({
-                    value: l.value,
-                    label: l.label,
-                    title: l.hint,
-                  }))}
+                  options={LIGHT_KEYS}
                   value={snap.light}
-                  onChange={bench.setLight}
+                  onChange={(value) => {
+                    bench.setLight(value);
+                    // A picker has no tooltips: say what this light shows.
+                    const light = LIGHTS.find((l) => l.value === value);
+                    if (compact && light) bench.say(light.hint);
+                  }}
+                  compact={compact}
                 />
               </div>
-              <div className="cult-bar-group">
-                {inPlate && (
-                  <>
-                    <Button size="sm" onClick={bench.leave}>
-                      <LayoutGrid size={14} aria-hidden="true" />
-                      All plates
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="icon"
-                      aria-label="Zoom in"
-                      title="Zoom in"
-                      onClick={() => bench.zoomBy(0.8)}
-                    >
-                      <ZoomIn size={14} aria-hidden="true" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="icon"
-                      aria-label="Zoom out"
-                      title="Zoom out"
-                      onClick={() => bench.zoomBy(1.25)}
-                    >
-                      <ZoomOut size={14} aria-hidden="true" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="icon"
-                      aria-label="Look straight down"
-                      title="Look straight down"
-                      onClick={bench.topView}
-                    >
-                      <ArrowDownToLine size={14} aria-hidden="true" />
-                    </Button>
-                  </>
+              <div className="cult-bar-group cult-bar-group--end">
+                {!compact && <ViewTools bench={bench} inPlate={inPlate} />}
+                <Randomize bench={bench} snap={snap} compact={compact} />
+                {!compact && (
+                  <Photograph inPlate={inPlate} onClick={takePhoto} />
                 )}
-                <Button
-                  size="sm"
-                  variant="icon"
-                  aria-label="Put the view back"
-                  title="Put the view back"
-                  onClick={bench.resetView}
-                >
-                  <RotateCcw size={14} aria-hidden="true" />
-                </Button>
-                <Button size="sm" onClick={takePhoto}>
-                  <Camera size={14} aria-hidden="true" />
-                  Photograph
-                </Button>
               </div>
             </div>
           )}
         </div>
 
-        {snap && <Tray bench={bench} snap={snap} />}
+        {snap && <Tray bench={bench} snap={snap} compact={compact} />}
       </div>
     </section>
   );

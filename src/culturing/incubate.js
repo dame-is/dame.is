@@ -136,6 +136,24 @@ export function behind(live) {
   return Math.max(0, live.dish.hours - live.plate.hours);
 }
 
+/**
+ * Stop a plate at the hour it has actually reached.
+ *
+ * The recipe's clock runs ahead of the simulation by as much as the
+ * incubator's speed allows: at a day a second it is most of a day ahead,
+ * and on a slow device the plate never closes the gap. Left alone, a plate
+ * goes on growing into that gap after the incubator has been stopped, for
+ * as long as it takes to catch up. This hands the gap back, so that stopped
+ * is what is on the plate and not what the clock had promised it.
+ *
+ * `owed` is an hour the plate is due whatever happens: where it stood when
+ * it was last put on the bench, which it may still be growing back to.
+ */
+export function settle(live, owed = 0) {
+  const { dish, plate } = live;
+  dish.hours = Math.min(dish.hours, Math.max(plate.hours, owed));
+}
+
 /** The hour to write an event down at: now, rounded down, so that on a
  *  replay its hour has come by the time the plate gets to where it was. */
 function now(live) {

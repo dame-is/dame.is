@@ -308,12 +308,28 @@ never warmed (it carries a WebGL2 simulation and its shaders).
   amount the page states.
 - **The bench** ([`bench.js`](src/culturing/bench.js)) owns the canvas, the
   clock and the pointer, and knows nothing about React; the page reads a
-  snapshot of it.
+  snapshot of it. A plate's clock runs ahead of its simulation by as much as
+  the incubator's speed allows, so stopping the incubator (or putting a plate
+  in the fridge) hands that lead back: a stopped plate stays at the hour it
+  has reached. One that was still re-growing from its recipe waits where it
+  stands and goes on when the incubator starts again.
+- **Randomize** ([`chance.js`](src/culturing/chance.js)) deals a plate nobody
+  chose: a medium, a few cultures that can live on it, and now and then
+  something off the tray. Across the bench it deals every plate; with one
+  picked up, that one. It only asks first when a plate holds something done by
+  hand.
+- **On a phone** (`useCompact.js`, and the last section of `culturing.css`)
+  the shelf lies on its side: each tab is a strip of chips that scrolls
+  sideways with the card for what is picked under it, the bar is one row with
+  the system's pickers for speed and light, and the camera's controls sit on
+  the picture. The stage takes the height the rest leaves, so picking
+  something up and putting it on a plate fits one screen.
 
 `src/culturing/culturing.test.js` covers what can be checked without a GPU:
 that every uniform a shader declares is supplied, that every culture on every
-medium stays inside the schemes' stability bounds on every grid, and that
-recipes survive a link and reject what isn't one.
+medium stays inside the schemes' stability bounds on every grid, that
+recipes survive a link and reject what isn't one, that a stopped plate takes
+no further step, and that a dealt plate is a recipe like any other.
 
 ## Newsletter
 

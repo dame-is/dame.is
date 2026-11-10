@@ -43,7 +43,17 @@ import {
   slotsOf,
 } from './recipe.js';
 import { FULL, slotFor, stampsFor } from './tools.js';
-import { act, advance, begin, draw, record, setEnv } from './incubate.js';
+import {
+  act,
+  advance,
+  begin,
+  behind,
+  draw,
+  record,
+  setEnv,
+  settle,
+} from './incubate.js';
+import { randomDish, suitedTo } from './chance.js';
 import {
   benchLayout,
   fitDistance,
@@ -711,6 +721,82 @@ describe('the recipes on the shelf', () => {
   });
 });
 
+/** Math.random's shape, but the same numbers every time (mulberry32). */
+function seeded(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+describe('a plate nobody chose', () => {
+  const dealt = Array.from({ length: 300 }, (_, i) =>
+    randomDish(seeded(i + 1)),
+  );
+
+  it('is a recipe like any other: clean, at hour zero, with something on it', () => {
+    for (const dish of dealt) {
+      expect(mediumById(dish.medium)).toBeTruthy();
+      expect(dish.hours).toBe(0);
+      // Nothing in it is dropped or changed by a second cleaning, or by
+      // going out in a link and coming back.
+      expect(cleanDish(dish).events).toEqual(dish.events);
+      expect(JSON.stringify(decodeDish(encodeDish(dish)).events)).toBe(
+        JSON.stringify(dish.events),
+      );
+      const cultures = slotsOf(dish);
+      expect(cultures.length).toBeGreaterThan(0);
+      expect(cultures.length).toBeLessThanOrEqual(SLOTS);
+      // Every culture in it got a slot: none is refused when it is grown.
+      const named = new Set(
+        dish.events.filter((e) => e.culture).map((e) => e.culture),
+      );
+      expect(named.size).toBe(cultures.length);
+      for (const event of dish.events) expect(event.at).toBe(0);
+    }
+  });
+
+  it('puts everything on the gel', () => {
+    for (const dish of dealt) {
+      for (const event of dish.events) {
+        const points = event.path || [[event.x, event.y]];
+        for (const [x, y] of points) {
+          expect(Math.hypot(x, y), event.do).toBeLessThan(DISH.radius - 4);
+        }
+      }
+    }
+  });
+
+  it('only plants what the medium lets grow', () => {
+    for (const medium of MEDIA) {
+      const suited = suitedTo(medium);
+      expect(suited.length, medium.id).toBeGreaterThan(0);
+      for (const culture of suited) {
+        if (medium.salt) expect(culture.salt, culture.id).toBeTruthy();
+        else expect(culture.salt, culture.id).not.toBe('needs');
+      }
+    }
+    for (const dish of dealt) {
+      const allowed = suitedTo(mediumById(dish.medium)).map((c) => c.id);
+      for (const id of slotsOf(dish)) expect(allowed).toContain(id);
+    }
+  });
+
+  it('is not the same plate twice, and is the same plate from the same numbers', () => {
+    expect(new Set(dealt.map((d) => d.medium)).size).toBeGreaterThan(
+      MEDIA.length / 2,
+    );
+    expect(new Set(dealt.map((d) => JSON.stringify(d.events))).size).toBe(
+      dealt.length,
+    );
+    expect(randomDish(seeded(7))).toEqual(randomDish(seeded(7)));
+  });
+});
+
 describe('stamps', () => {
   it('gives a culture the next free slot, and refuses a fifth', () => {
     const slots = [];
@@ -1038,6 +1124,56 @@ describe('incubating', () => {
     setEnv(sim, live, { temperature: 22 });
     expect(dish.events).toEqual([]);
     expect(dish.env.temperature).toBe(22);
+  });
+
+  it('stops where it stands when the incubator does, not where its clock had got to', () => {
+    const sim = fakeSim();
+    const dish = cleanDish({
+      medium: 'broth',
+      hours: 10,
+      events: [{ at: 0, do: 'spot', culture: 'crimson', x: 0, y: 0, seed: 1 }],
+    });
+    const live = begin(sim, sim.createPlate(), dish);
+    advance(sim, live, 1e6);
+    // A day a second: the clock gets most of a day ahead of the plate.
+    dish.hours += 14;
+    advance(sim, live, 3);
+    expect(behind(live)).toBeGreaterThan(13);
+    const reached = live.plate.hours;
+    settle(live, 10);
+    expect(dish.hours).toBe(reached);
+    const steps = sim.calls.step;
+    // However long it is left, it takes no further step.
+    expect(advance(sim, live, 1e6)).toBe(0);
+    expect(sim.calls.step).toBe(steps);
+    expect(live.plate.hours).toBe(reached);
+  });
+
+  it('still gets back to where it was left, and no further, when stopped on the way', () => {
+    const sim = fakeSim();
+    const dish = cleanDish({
+      medium: 'broth',
+      hours: 40,
+      events: [{ at: 0, do: 'spot', culture: 'lemon', x: 0, y: 0, seed: 1 }],
+    });
+    const live = begin(sim, sim.createPlate(), dish);
+    advance(sim, live, 20);
+    // The clock had begun to run on past the hour it was left at.
+    dish.hours = 43;
+    settle(live, 40);
+    expect(dish.hours).toBe(40);
+    advance(sim, live, 1e6);
+    expect(live.plate.hours).toBeGreaterThan(40 - sim.grid.dt);
+    expect(live.plate.hours).toBeLessThanOrEqual(40 + sim.grid.dt);
+  });
+
+  it('never moves a plate on by settling it', () => {
+    const sim = fakeSim();
+    const dish = createDish('broth', { hours: 6 });
+    const live = begin(sim, sim.createPlate(), dish);
+    advance(sim, live, 1e6);
+    settle(live, 30);
+    expect(dish.hours).toBe(6);
   });
 });
 
