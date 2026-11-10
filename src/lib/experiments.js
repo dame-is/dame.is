@@ -30,12 +30,13 @@ export function experimentPath(rkey) {
  * before treating such a path as a record: asked for as one it would 404. A
  * record key is a TID, and none of these is one.
  *
- * The first is /experimenting/culturing, a bench of simulated petri dishes
- * (src/culturing). Its experiment record points its "Try it" here.
+ * The first is /experimenting/culturing, a bench of simulated petri dishes.
+ * Its experiment record points its "Try it" here. The second is
+ * /experimenting/sunfarming, a small game about building a solar farm on an
+ * island.
  *
- * The second is /experimenting/sunfarming, a small game about building a
- * solar farm on an island. It is the first to live in a folder of its own
- * (experiments/sunfarming), as a package the site only imports; see
+ * Each is a package of its own under experiments/ (experiments/culturing,
+ * experiments/sunfarming) that the site only imports; see
  * experiments/README.md for that arrangement.
  */
 export const CULTURING_PATH = `${EXPERIMENTING_PATH}/culturing`;

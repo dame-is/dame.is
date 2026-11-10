@@ -11,9 +11,10 @@ The point is that an experiment can leave. If one turns out to be good enough
 to be a project, its folder is already the project: copy it out, `npm install`,
 and it runs.
 
-| folder                       | what it is                                             | on the site                    |
-| ---------------------------- | ------------------------------------------------------ | ------------------------------ |
-| [`sunfarming/`](sunfarming/) | A small cel-shaded game about building a solar farm.   | `/experimenting/sunfarming`    |
+| folder                       | what it is                                           | on the site                 |
+| ---------------------------- | ---------------------------------------------------- | --------------------------- |
+| [`culturing/`](culturing/)   | A workbench of simulated petri dishes.               | `/experimenting/culturing`  |
+| [`sunfarming/`](sunfarming/) | A small cel-shaded game about building a solar farm. | `/experimenting/sunfarming` |
 
 ## How it fits together
 
@@ -50,12 +51,20 @@ Two rules keep a folder portable:
   own `package.json` lists. It brings its own styles and reads none of the
   site's tokens or fonts, so it looks the same embedded as it does alone.
 
+Sunfarming keeps both. Culturing keeps the first and bends the second, on
+purpose: it was built as a page of the site and is dressed in the site's kit.
+What it borrows goes through exactly two files (`src/host.js` for four
+components, `standalone/host.css` for the base stylesheets), so the list of
+what would have to leave with it is short and written down. An experiment that
+wants the site's look should do the same; one that doesn't should bring its
+own, as Sunfarming does.
+
 ## Working on one
 
 From the repo root:
 
 ```
-npm run dev -w @dame-is/sunfarming      # the experiment alone, on :5180
+npm run dev -w @dame-is/sunfarming      # the experiment alone (:5180; culturing is :5181)
 npm test -w @dame-is/sunfarming         # its own tests
 npm run build -w @dame-is/sunfarming    # standalone build, into its dist/
 npm run dev                              # the site, with every experiment embedded
@@ -99,12 +108,14 @@ npm run dev
 
 That is all of it: the folder has no dependency on this repo. (It will write
 its own lockfile on that first install; inside this repo it shares the root's.)
+Culturing needs one more step, because of what it borrows from the site; its
+[README](culturing/README.md#what-it-borrows-from-the-site) lists it.
 
 To deploy one on its own without moving it, point a host at the folder. On
 Vercel that is a second project on this same repository with **Root Directory**
-set to `experiments/<name>`, the Vite preset, and `dist` as the output. The
-standalone build uses relative asset paths, so its `dist/` can also be dropped
-under any path of any static host.
+set to `experiments/<name>`, the Vite preset, and `dist` as the output.
+Sunfarming's standalone build uses relative asset paths, so its `dist/` can
+also be dropped under any path of any static host.
 
 Once an experiment has moved out, the site can keep its page by depending on
 the published package instead of the workspace one, or drop the page and point

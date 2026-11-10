@@ -17,7 +17,7 @@
     "gen:ratioed-audience": "node scripts/backfill-ratioed-audience.mjs",
     "test": "vitest run",
     "lint": "eslint .",
-    "lint:css": "stylelint \"src/**/*.css\" \"harness/**/*.css\"",
+    "lint:css": "stylelint \"src/**/*.css\" \"harness/**/*.css\" \"experiments/culturing/src/**/*.css\"",
     "format": "prettier --write ."
   },
   "engines": {
@@ -31,6 +31,7 @@
     "@atproto/crypto": "^0.5.5",
     "@atproto/oauth-client-browser": "^0.3.42",
     "@aturi.to/waypoints": "^0.1.4",
+    "@dame-is/culturing": "*",
     "@dame-is/sunfarming": "*",
     "@vercel/analytics": "^2.0.1",
     "@vercel/og": "^0.11.1",

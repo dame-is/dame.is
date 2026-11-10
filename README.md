@@ -280,61 +280,16 @@ links to its reactions ("Say what you make of it"). See
 [Experiments built into the site](lexicons/EXPERIMENTING.md#experiments-built-into-the-site)
 for the convention.
 
-It lives in [`src/culturing/`](src/culturing/), and is its own chunk that is
-never warmed (it carries a WebGL2 simulation and its shaders).
-
-- **The model** ([`shaders/culture.js`](src/culturing/shaders/culture.js),
-  [`agar.js`](src/culturing/shaders/agar.js),
-  [`wrinkle.js`](src/culturing/shaders/wrinkle.js)). A plate is a handful of
-  float textures. Each of up to four cultures is a thin layer that travels and
-  a film that stays; growth eats a nutrient that diffuses through the gel; a
-  film buckles into wrinkles past a thickness (Swift–Hohenberg); toxins,
-  quorum signals, acid, enzymes and pigments spread through the agar at half
-  the surface's resolution. No pattern is drawn. Branches, rings, spokes,
-  sectors, halos and standoffs are what those rules do when they meet, which
-  is why the cultures are only parameter sets
-  ([`cultures.js`](src/culturing/cultures.js)).
-- **Units.** Every number in the libraries is in millimetres and hours
-  ([`units.js`](src/culturing/units.js) converts), so the same recipe grows
-  the same plate at 256 texels (phones) or 384, and a culture's numbers can be
-  read against a paper's. [`pack.js`](src/culturing/pack.js) turns a recipe
-  into uniforms and clamps anything that would break the explicit schemes.
-- **A plate is its recipe** ([`recipe.js`](src/culturing/recipe.js),
-  [`incubate.js`](src/culturing/incubate.js)): the medium, the incubator, and
-  everything done to it with the hour it was done. The picture is not kept.
-  The bench is saved to `localStorage` as recipes and re-grown on return, and
-  a plate travels in a link as `?plate=…`. Grown twice, a plate comes out
-  alike but not the same.
-- **Drawing** ([`renderer.js`](src/culturing/renderer.js),
-  [`shaders/scene.js`](src/culturing/shaders/scene.js)). The surface is one
-  displaced sheet per plate, lit four ways a microbiologist would recognise:
-  a raking lamp over a black bench, a light table from underneath, a 365 nm
-  lamp, and the dark. Heights are true and the vertical is stretched, by an
-  amount the page states.
-- **The bench** ([`bench.js`](src/culturing/bench.js)) owns the canvas, the
-  clock and the pointer, and knows nothing about React; the page reads a
-  snapshot of it. A plate's clock runs ahead of its simulation by as much as
-  the incubator's speed allows, so stopping the incubator (or putting a plate
-  in the fridge) hands that lead back: a stopped plate stays at the hour it
-  has reached. One that was still re-growing from its recipe waits where it
-  stands and goes on when the incubator starts again.
-- **Randomize** ([`chance.js`](src/culturing/chance.js)) deals a plate nobody
-  chose: a medium, a few cultures that can live on it, and now and then
-  something off the tray. Across the bench it deals every plate; with one
-  picked up, that one. It only asks first when a plate holds something done by
-  hand.
-- **On a phone** (`useCompact.js`, and the last section of `culturing.css`)
-  the shelf lies on its side: each tab is a strip of chips that scrolls
-  sideways with the card for what is picked under it, the bar is one row with
-  the system's pickers for speed and light, and the camera's controls sit on
-  the picture. The stage takes the height the rest leaves, so picking
-  something up and putting it on a plate fits one screen.
-
-`src/culturing/culturing.test.js` covers what can be checked without a GPU:
-that every uniform a shader declares is supplied, that every culture on every
-medium stays inside the schemes' stability bounds on every grid, that
-recipes survive a link and reject what isn't one, that a stopped plate takes
-no further step, and that a dealt plate is a recipe like any other.
+The workbench is a package of its own,
+[`experiments/culturing/`](experiments/culturing/), which the site imports as
+`@dame-is/culturing` into one page
+([`src/pages/Culturing.jsx`](src/pages/Culturing.jsx)). It is its own chunk
+and never warmed: it carries a WebGL2 simulation and its shaders. How the
+model, the units, the recipes, the drawing and the bench work is in its
+[README](experiments/culturing/README.md), along with what it can be tested
+for without a GPU. It is dressed in the site's kit, and borrows that through
+one file ([`src/host.js`](experiments/culturing/src/host.js)), which is what
+would have to travel with it if it left.
 
 ## Sunfarming
 
@@ -345,10 +300,9 @@ house each dawn it was well powered. It is drawn in cel-shaded 3D (three.js): a
 three-step light ramp, an ink outline round everything, a banded sea with foam
 on the shore, and a sky that goes through the day.
 
-It is the second [experiment](#experimenting) built into the site and the
-first that is not part of the site's source. The whole of it is
-[`experiments/sunfarming/`](experiments/sunfarming/), a package the site
-imports as `@dame-is/sunfarming`; its
+It is the second [experiment](#experimenting) built into the site. The whole
+of it is [`experiments/sunfarming/`](experiments/sunfarming/), a package the
+site imports as `@dame-is/sunfarming`; its
 [README](experiments/sunfarming/README.md) has the rules, the controls and how
 it is put together. What the site adds is one page
 ([`src/pages/Sunfarming.jsx`](src/pages/Sunfarming.jsx)) that sets the game in

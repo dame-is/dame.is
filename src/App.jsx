@@ -106,8 +106,8 @@ const Overlay = lazy(recoverable(() => import('./pages/Overlay.jsx')));
 // Lazy and never warmed: the workbench carries a WebGL simulation and its
 // shaders, which nobody who came for the feed should fetch behind it.
 const Culturing = lazy(recoverable(() => import('./pages/Culturing.jsx')));
-// Lazy and never warmed, for the same reason: the game is a package of its
-// own (experiments/sunfarming) and brings three.js with it.
+// Lazy and never warmed, for the same reason: the game brings three.js with
+// it. (Both are packages of their own under experiments/.)
 const Sunfarming = lazy(recoverable(() => import('./pages/Sunfarming.jsx')));
 // Lazy: the quick-edit sheet and the edit-mode bar are the owner's alone. See
 // OwnerTools.
@@ -446,12 +446,12 @@ export default function App() {
                       generated. */}
                   <Route path="/experimenting" element={<Experimenting />} />
                   {/* An experiment that is a page of this site: a bench of
-                      simulated petri dishes (src/culturing). It sits where
+                      simulated petri dishes (experiments/culturing). It sits where
                       an experiment's record key would, and a plate travels
                       in the query (?plate=…), not in the path. */}
                   <Route path="/experimenting/culturing" element={<Culturing />} />
-                  {/* And one that is a package of its own: a small game about
-                      a solar farm (experiments/sunfarming). */}
+                  {/* And a second: a small game about a solar farm
+                      (experiments/sunfarming). */}
                   <Route path="/experimenting/sunfarming" element={<Sunfarming />} />
                   <Route path="/experimenting/:rkey" element={<Experiment />} />
                   {/* The roster is Ratioed's, and lives under Ratioed. This is

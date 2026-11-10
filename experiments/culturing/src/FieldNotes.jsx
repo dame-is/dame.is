@@ -1,4 +1,4 @@
-import SectionHead from '../components/SectionHead.jsx';
+import { SectionHead } from './host.js';
 
 /** A paper, named in the line it supports. */
 function Ref({ href, children }) {

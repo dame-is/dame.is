@@ -1,0 +1,105 @@
+# Culturing
+
+A workbench of petri dishes that aren't real. Pour a medium, put cultures on
+it, add a disc or a drop of dye, and leave it in the incubator. Nothing on it
+is science, and everything on it is modelled on how real colonies and biofilms
+look and grow; the page says which parts are borrowed from where, in the notes
+on each culture and medium and in "What is real here" at its foot.
+
+```
+npm run dev      # http://localhost:5181
+npm test         # what can be checked without a GPU
+npm run build    # a standalone build in dist/
+```
+
+(From the repo root: `npm run dev -w @dame-is/culturing`, and so on.)
+
+## How it is built
+
+It carries a WebGL2 simulation and its shaders, so wherever it is embedded it
+should be its own chunk, loaded only by the page that shows it.
+
+- **The model** ([`shaders/culture.js`](src/shaders/culture.js),
+  [`agar.js`](src/shaders/agar.js),
+  [`wrinkle.js`](src/shaders/wrinkle.js)). A plate is a handful of
+  float textures. Each of up to four cultures is a thin layer that travels and
+  a film that stays; growth eats a nutrient that diffuses through the gel; a
+  film buckles into wrinkles past a thickness (Swift–Hohenberg); toxins,
+  quorum signals, acid, enzymes and pigments spread through the agar at half
+  the surface's resolution. No pattern is drawn. Branches, rings, spokes,
+  sectors, halos and standoffs are what those rules do when they meet, which
+  is why the cultures are only parameter sets
+  ([`cultures.js`](src/cultures.js)).
+- **Units.** Every number in the libraries is in millimetres and hours
+  ([`units.js`](src/units.js) converts), so the same recipe grows
+  the same plate at 256 texels (phones) or 384, and a culture's numbers can be
+  read against a paper's. [`pack.js`](src/pack.js) turns a recipe
+  into uniforms and clamps anything that would break the explicit schemes.
+- **A plate is its recipe** ([`recipe.js`](src/recipe.js),
+  [`incubate.js`](src/incubate.js)): the medium, the incubator, and
+  everything done to it with the hour it was done. The picture is not kept.
+  The bench is saved to `localStorage` as recipes and re-grown on return, and
+  a plate travels in a link as `?plate=…`. Grown twice, a plate comes out
+  alike but not the same.
+- **Drawing** ([`renderer.js`](src/renderer.js),
+  [`shaders/scene.js`](src/shaders/scene.js)). The surface is one
+  displaced sheet per plate, lit four ways a microbiologist would recognise:
+  a raking lamp over a black bench, a light table from underneath, a 365 nm
+  lamp, and the dark. Heights are true and the vertical is stretched, by an
+  amount the page states.
+- **The bench** ([`bench.js`](src/bench.js)) owns the canvas, the
+  clock and the pointer, and knows nothing about React; the page reads a
+  snapshot of it. A plate's clock runs ahead of its simulation by as much as
+  the incubator's speed allows, so stopping the incubator (or putting a plate
+  in the fridge) hands that lead back: a stopped plate stays at the hour it
+  has reached. One that was still re-growing from its recipe waits where it
+  stands and goes on when the incubator starts again.
+- **Randomize** ([`chance.js`](src/chance.js)) deals a plate nobody
+  chose: a medium, a few cultures that can live on it, and now and then
+  something off the tray. Across the bench it deals every plate; with one
+  picked up, that one. It only asks first when a plate holds something done by
+  hand.
+- **On a phone** ([`useCompact.js`](src/useCompact.js), and the last section
+  of [`culturing.css`](src/culturing.css))
+  the shelf lies on its side: each tab is a strip of chips that scrolls
+  sideways with the card for what is picked under it, the bar is one row with
+  the system's pickers for speed and light, and the camera's controls sit on
+  the picture. The stage takes the height the rest leaves, so picking
+  something up and putting it on a plate fits one screen.
+
+[`src/culturing.test.js`](src/culturing.test.js) covers what can be checked without a GPU:
+that every uniform a shader declares is supplied, that every culture on every
+medium stays inside the schemes' stability bounds on every grid, that
+recipes survive a link and reject what isn't one, that a stopped plate takes
+no further step, and that a dealt plate is a recipe like any other.
+
+## What it borrows from the site
+
+Culturing was built as a page of dame.is and is dressed in the site's kit, so
+unlike an experiment that brings its whole look with it, this one leans on the
+repo around it in two places, and only these two:
+
+- [`src/host.js`](src/host.js) re-exports four of the site's components
+  (`Button`, `Segmented`, `Tag`, `SectionHead`). Everything else under `src/`
+  imports them from there.
+- [`standalone/host.css`](standalone/host.css) imports the site's base
+  stylesheets (fonts, reset, theme tokens, typography, controls, app) for the
+  standalone page. Embedded in the site they are already on the page.
+  [`src/culturing.css`](src/culturing.css) is written in those tokens, and
+  answers to the site's stylelint guards (`npm run lint:css` at the root).
+
+So inside this repository it runs on its own, and to take it out those two
+files are the list of what has to come with it: copy the four components and
+the six stylesheets alongside, and point the two files at the copies.
+
+## Embedding it
+
+```jsx
+import Culturing from '@dame-is/culturing';
+
+<Culturing />;
+```
+
+It reads and writes `?plate=…` in the address through `react-router`, so it
+has to be rendered inside a Router, on a page that has the site's base styles.
+`@dame-is/culturing/meta` exports `TITLE`, `PITCH` and `SLUG` on their own.

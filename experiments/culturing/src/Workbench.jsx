@@ -18,8 +18,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import Button from '../components/Button.jsx';
-import Segmented from '../components/Segmented.jsx';
+import { Button, Segmented } from './host.js';
 import { createBench, LIGHTS, SPEEDS } from './bench.js';
 import { decodeDish } from './recipe.js';
 import { mediumById } from './media.js';

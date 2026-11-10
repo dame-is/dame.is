@@ -80,7 +80,7 @@ export const PAGES = {
     desc: 'Quick prototypes and half-formed concepts, posted before they’re finished. React with any atproto account; each reaction lives on its author’s own PDS.',
     nsid: 'is.dame.experiment',
   },
-  // An experiment built into the site (src/culturing): a bench of simulated
+  // An experiment built into the site (experiments/culturing): a bench of simulated
   // petri dishes. The page is not a record; the experiment that points at it
   // is, and the chip names that.
   '/experimenting/culturing': {
@@ -89,8 +89,7 @@ export const PAGES = {
     desc: 'A workbench of simulated petri dishes: pour a medium, add cultures, and watch biofilms wrinkle, branch, swarm and stain the agar. Not science, but modelled on how real plates look and grow.',
     nsid: 'is.dame.experiment',
   },
-  // The second, and the first that is a package of its own
-  // (experiments/sunfarming): a small 3D game about a solar farm.
+  // The second (experiments/sunfarming): a small 3D game about a solar farm.
   '/experimenting/sunfarming': {
     label: 'experimenting',
     title: 'Sunfarming — dame.is experimenting',

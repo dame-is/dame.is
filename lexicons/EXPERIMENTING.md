@@ -66,7 +66,7 @@ the one it replaces, and "Take it back" deletes it.
 An experiment's `url` can point anywhere. When the thing to try is a page of
 this site, the page lives under the bench, in the place an experiment's record
 key would be. There are two: `/experimenting/culturing`, a bench of simulated
-petri dishes ([`src/culturing/`](../src/culturing/)), and
+petri dishes ([`experiments/culturing/`](../experiments/culturing/)), and
 `/experimenting/sunfarming`, a small game about a solar farm
 ([`experiments/sunfarming/`](../experiments/sunfarming/)).
 
