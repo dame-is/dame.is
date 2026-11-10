@@ -619,6 +619,15 @@ html {
   color: var(--ink-faint);
 }
 
+/* The arrow on a link that leaves the site (components/OutArrow.jsx): an
+   icon set in a line of text, sitting on the line the way the character it
+   stands for did. */
+.out-arrow {
+  display: inline-block;
+  vertical-align: -0.08em;
+  flex: none;
+}
+
 /* Text for screen readers only (a repeated year the index draws as a
    leader, say). */
 .visually-hidden {

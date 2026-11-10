@@ -13,6 +13,7 @@
 import { rkeyFromAtUri, tidToTimestamp } from './atproto.js';
 import { compareIsoDesc } from './time.js';
 import { ME_DID, EXPERIMENT_NSID, EXPERIMENT_REACTION_NSID } from '../config.js';
+import { SITE_HOST } from './linkPreviews.js';
 
 /** Where the experiments are listed. */
 export const EXPERIMENTING_PATH = '/experimenting';
@@ -137,17 +138,34 @@ export function experimentImage(value) {
   return { url, alt: String(value?.imageAlt || '').trim() };
 }
 
+/** The host this page is being read at, when there is a page. */
+function hostHere() {
+  return typeof window === 'undefined' ? '' : window.location.host;
+}
+
 /**
  * The link to try it at, when it is one a page should offer: http(s) only, so
  * a record can't put a `javascript:` address behind "Try it".
+ *
+ * `local` says the link is to this site: the site's own host, or the host the
+ * page is being read at (`here`; a preview deployment, a dev server). Such a
+ * link is a page here, at `path`. It opens in place, and it isn't said to be
+ * "at" anywhere: that would name the site the reader is already on.
  */
-export function experimentLink(value) {
+export function experimentLink(value, { here = hostHere() } = {}) {
   const raw = String(value?.url || '').trim();
   if (!raw) return null;
   try {
     const url = new URL(raw);
     if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-    return { href: url.href, host: url.host.replace(/^www\./, '') };
+    const host = url.host.replace(/^www\./, '');
+    const local = host === SITE_HOST || (Boolean(here) && url.host === here);
+    return {
+      href: url.href,
+      host,
+      local,
+      path: local ? `${url.pathname}${url.search}${url.hash}` : null,
+    };
   } catch {
     return null;
   }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, GitBranch, PenLine, Plus, RotateCcw, X } from 'lucide-react';
 import { AdminEditorSkeleton, AdminRecordListSkeleton } from '../Skeleton.jsx';
 import Button from '../Button.jsx';
+import OutArrow from '../OutArrow.jsx';
 import SectionHead from '../SectionHead.jsx';
 import Tag from '../Tag.jsx';
 import { SkillGroupsField, ContactField, ServicesField, TagsInput } from '../resumeFields.jsx';
@@ -682,7 +683,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
               size="sm"
               to={`/available/${encodeURIComponent(draft.slug || rkey)}`}
             >
-              View ↗
+              View <OutArrow />
             </Button>
           )}
         </span>

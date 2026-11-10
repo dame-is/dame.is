@@ -337,7 +337,7 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
     if (publicHref) {
       items.push({
         id: 'view-site',
-        label: 'View on site ↗',
+        label: 'View on site',
         icon: 'Newspaper',
         onPress: () => window.open(publicHref, '_blank', 'noopener'),
       });
