@@ -1,0 +1,79 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.experiment",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A quick prototype or concept, posted to find out what people make of it before any more is built. Lives on the host's repo. Visitors answer with is.dame.experiment.reaction records on their own repos, each pointing back here through `subject`, so the reactions are assembled from backlinks and no central database holds them.",
+      "record": {
+        "type": "object",
+        "required": ["title", "createdAt"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 300,
+            "maxGraphemes": 120
+          },
+          "pitch": {
+            "type": "string",
+            "maxLength": 6000,
+            "maxGraphemes": 600,
+            "description": "The idea in a sentence or two. Plain text."
+          },
+          "kind": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["concept", "prototype", "sketch"],
+            "description": "How far along it is: an idea in words, something that can be tried, or a picture of one."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Where the prototype can be tried, if anywhere."
+          },
+          "image": {
+            "type": "blob",
+            "accept": ["image/*"],
+            "maxSize": 2000000,
+            "description": "One picture of it: a screenshot, a sketch, a mock-up."
+          },
+          "imageAlt": {
+            "type": "string",
+            "maxLength": 10000,
+            "maxGraphemes": 1000,
+            "description": "Alt text for `image`."
+          },
+          "content": {
+            "type": "unknown",
+            "description": "Optional longer write-up. A pub.leaflet.content value: { $type, pages: [{ $type, blocks: [...] }] }, the body format site.standard.document and is.dame.creating.work use, so the renderer is shared."
+          },
+          "ask": {
+            "type": "string",
+            "maxLength": 3000,
+            "maxGraphemes": 300,
+            "description": "The question put to visitors, e.g. 'Would you use this?'. Shown above the reactions."
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["open", "pursuing", "shelved"],
+            "default": "open",
+            "description": "open: taking reactions. pursuing: being built for real. shelved: put down. Reactions are only invited while open; ones already left stay."
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "Hidden from the public page while true."
+          },
+          "hidden": {
+            "type": "array",
+            "items": { "type": "string", "format": "at-uri" },
+            "description": "Reactions the host has tucked out of display: at-uris of is.dame.experiment.reaction records. The reactor's record is untouched; a reader leaves these out of the tally and the notes."
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

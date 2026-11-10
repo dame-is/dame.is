@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { callbackErrorMessage } from '../lib/oauthClient.js';
+import { PENDING_REACTION_KEY } from '../lib/experiments.js';
 import { ME_DID, OAUTH_CALLBACK_PATH } from '../config.js';
 
 const RETURN_KEY = 'dame.oauth.return';
@@ -54,6 +55,9 @@ export default function OauthCallback() {
     // visit to /welcoming, for a sign-in that never happened.
     const wasSigning = readStored(AUTOSIGN_KEY) === '1';
     removeStored(AUTOSIGN_KEY);
+    // Likewise a reaction chosen on /experimenting before the hop: with no
+    // session to write it, it must not be written by some later sign-in.
+    removeStored(PENDING_REACTION_KEY);
     const back = returnTo || (wasSigning ? '/welcoming' : '/');
     if (error) setFailedReturn(back);
     else navigate(back, { replace: true });

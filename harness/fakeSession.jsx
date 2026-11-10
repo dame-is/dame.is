@@ -151,6 +151,10 @@ function makeAgent(repo, bump) {
   };
 
   return {
+    // As on @atproto/api's Agent: whose repo a write goes to. The guestbook
+    // and /experimenting both write to `agent.assertDid`.
+    did: ME_DID,
+    assertDid: ME_DID,
     app: {
       bsky: {
         graph: {

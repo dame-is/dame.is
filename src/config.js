@@ -82,6 +82,15 @@ export const LEGACY_GUESTBOOK_NSID = 'a.guestbook.for.my.pds';
 export const LEGACY_GUESTBOOK_ENTRY_NSID = 'a.guestbook.i.signed';
 export const LEGACY_GUESTBOOK_SUBJECT = `at://${ME_DID}/${LEGACY_GUESTBOOK_NSID}/guestbook`;
 
+// --- experimenting -----------------------------------------------------------
+// /experimenting: quick prototypes and concepts, posted to find out what
+// people make of them. An experiment is an `is.dame.experiment` record on my
+// repo; a visitor's reaction is an `is.dame.experiment.reaction` record on
+// THEIR repo whose `subject` points back at it, gathered from backlinks the
+// way the guestbook's signatures are. See lexicons/EXPERIMENTING.md.
+export const EXPERIMENT_NSID = 'is.dame.experiment';
+export const EXPERIMENT_REACTION_NSID = 'is.dame.experiment.reaction';
+
 // --- state / vitals ----------------------------------------------------------
 // Live iPhone-sourced physical + ambient state (heart rate, activity, battery,
 // ambient sound, calories) — an append-only log keyed by TID. The LATEST record
@@ -181,6 +190,7 @@ export const COLLECTIONS = {
   nav: NAV_NSID,
   sky: SKY_NSID,
   overlay: OVERLAY_NSID,
+  experiment: EXPERIMENT_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */

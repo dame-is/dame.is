@@ -16,10 +16,11 @@
 
 import { PAGES } from './pages.js';
 import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
-import { ME_DID, GITHUB_REPO, RATIOED_PATH } from '../src/config.js';
+import { ME_DID, GITHUB_REPO, RATIOED_PATH, EXPERIMENT_NSID } from '../src/config.js';
 import { compareIsoDesc } from '../src/lib/time.js';
 import { isDraft, showOnBlog, workSlug } from '../src/lib/publications.js';
 import { rkeyFromAtUri } from '../src/lib/atproto.js';
+import { experimentPath, listExperiments } from '../src/lib/experiments.js';
 
 const SITE_ORIGIN = 'https://dame.is';
 const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
@@ -34,6 +35,7 @@ export const LLMS_SURFACES = [
   '/available',
   '/blogging',
   '/creating',
+  '/experimenting',
   '/curating',
   '/posting',
   '/logging',
@@ -57,8 +59,15 @@ const BODY_ONLY_SURFACES = { '/sharing': 'sharing' };
  * Whether a surface has anything to list, given the pages snapshot (records
  * keyed by rkey). Every surface does but the body-only ones, which need a
  * body; with no snapshot to say so, they're left out.
+ *
+ * /experimenting is the other one that can be bare: until the first experiment
+ * is posted it says "Nothing on the bench yet." `experiments` is the build's
+ * list of them; a caller with no such list to hand is taken to have some.
  */
-export function surfaceHasContent(path, pages) {
+export function surfaceHasContent(path, pages, { experiments } = {}) {
+  if (path === '/experimenting' && experiments !== undefined) {
+    return listExperiments(experiments).length > 0;
+  }
   const rkey = BODY_ONLY_SURFACES[path];
   if (!rkey) return true;
   return Boolean(String(pages?.[rkey]?.value?.body || '').trim());
@@ -81,6 +90,7 @@ export function buildLlmsTxt({
   mothNights,
   albums,
   pages,
+  experiments,
 }) {
   const out = [
     '# dame.is',
@@ -129,7 +139,7 @@ export function buildLlmsTxt({
   ];
 
   for (const path of LLMS_SURFACES) {
-    if (!surfaceHasContent(path, pages)) continue;
+    if (!surfaceHasContent(path, pages, { experiments })) continue;
     if (path === '/') {
       out.push(llmsLink('Home', '/', PAGES['/']?.desc));
       continue;
@@ -170,6 +180,16 @@ export function buildLlmsTxt({
       out.push(
         llmsLink(w.v.title || w.slug, `/creating/${encodeURIComponent(w.slug)}`, w.v.description),
       );
+    }
+  }
+
+  const bench = listExperiments(experiments);
+  if (bench.length) {
+    out.push('', '## Experiments', '');
+    for (const r of bench) {
+      const date = String(r.value.createdAt || '').slice(0, 10);
+      const notes = [r.value.pitch || '', date && `Posted ${date}.`].filter(Boolean).join(' ');
+      out.push(llmsLink(r.value.title, experimentPath(rkeyFromAtUri(r.uri)), notes));
     }
   }
 
@@ -229,7 +249,11 @@ export function buildLlmsTxt({
     '`com.atproto.repo.listRecords` against the repository above.',
     '',
   );
-  for (const nsid of [...new Set(VERB_REGISTRY.flatMap((v) => v.collections.map((c) => c.nsid)))]) {
+  for (const nsid of [
+    ...new Set(VERB_REGISTRY.flatMap((v) => v.collections.map((c) => c.nsid))),
+    // Not a feed verb, so the registry doesn't list it.
+    EXPERIMENT_NSID,
+  ]) {
     out.push(`- \`${nsid}\``);
   }
 

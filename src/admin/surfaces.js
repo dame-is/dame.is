@@ -230,6 +230,19 @@ export const SURFACES = Object.freeze([
     pageSlug: 'creating',
   }),
   surface({
+    key: 'experimenting',
+    label: 'Experimenting',
+    // The experiments themselves. The reactions to them are
+    // is.dame.experiment.reaction records on the REACTORS' repos, like the
+    // guestbook's signatures, so they are never listed (or counted) here:
+    // each experiment's own page gathers them from backlinks.
+    nsid: COLLECTIONS.experiment,
+    group: 'content',
+    kind: 'records-list',
+    icon: 'FlaskConical',
+    blurb: 'Quick prototypes and concepts, posted for reactions.',
+  }),
+  surface({
     key: 'logging',
     label: 'Logging',
     nsid: COLLECTIONS.now,

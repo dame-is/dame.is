@@ -54,6 +54,7 @@ export function verbIndexIntro(verb) {
 // Paths that are pages on their own, beyond the verb indexes.
 const STATIC_PAGES = new Set([
   '/welcoming',
+  '/experimenting',
   '/themself',
   '/available',
   '/sharing',
@@ -62,7 +63,7 @@ const STATIC_PAGES = new Set([
   '/listening/albums',
 ]);
 const PAGE_PATTERNS = [
-  /^\/(creating|curating|blogging|available|mothing)\/[^/]+$/,
+  /^\/(creating|curating|blogging|available|mothing|experimenting)\/[^/]+$/,
   /^\/listening\/albums\/[^/]+$/,
   /^\/creating\/[^/]+\/participants$/,
   /^\/exploring(\/.*)?$/,

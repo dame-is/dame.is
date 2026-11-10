@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.experiment.reaction",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "One person's reaction to an is.dame.experiment. Lives on the REACTOR's repo and points at the experiment through `subject`, so backlink indexers (Constellation et al.) can gather the reactions without a central database. One reaction per person per experiment: a reader shows the newest and ignores the rest, and the reference UI replaces the old record when a reaction is changed.",
+      "record": {
+        "type": "object",
+        "required": ["subject", "reaction", "createdAt"],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The at-uri of the is.dame.experiment record being reacted to."
+          },
+          "reaction": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["more", "curious", "pass"],
+            "description": "The verdict. more: build this, I want it. curious: interested, not sold yet. pass: not for me. An open set, so a reader should show a value it doesn't know as plain text or leave it out of the tally, never fail."
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "maxGraphemes": 300,
+            "description": "Optional note: what would make it better, what it reminded them of, why not. Plain text."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -48,7 +48,8 @@ Any admin URL works, because the router is real:
 `2026-04-02T16:04Z` — so two runs render identically and screenshots can be
 diffed. It covers every collection the admin touches, sized so lists, paging,
 filters and counts all have something real to work on: 28 documents (3 drafts,
-8 portfolio), 42 statuses, 60 posts, 240 plays, 6 channels, 8 pages, 7
+8 portfolio), 42 statuses, 60 posts, 240 plays, 6 channels, 4 experiments (one
+of each state: open, being built, shelved, draft), 8 pages, 7
 guestbook signatures, 7 hero phrases, 2 publications, 3 resume versions with
 jobs and education, 8 ratioed pieces, and the nav and sky singletons.
 

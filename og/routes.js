@@ -60,6 +60,10 @@ export const STATIC_ROUTE_PATTERNS = [
   '/mothing/:rkey',
   '/welcoming',
   '/guestbook',
+  // The bench and its experiments. Hand-written: experimenting is a page of
+  // its own, not a feed verb, so nothing generates these.
+  '/experimenting',
+  '/experimenting/:rkey',
   '/participants',
   '/colophon',
   '/admin',

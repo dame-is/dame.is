@@ -53,5 +53,6 @@ import '../pages/Resume.css';
 import '../components/ActionDock.css';
 import '../pages/Mothing.css';
 import '../pages/Guestbook.css';
+import '../pages/Experimenting.css';
 import '../components/VitalsChip.css';
 import '../pages/Record.css';

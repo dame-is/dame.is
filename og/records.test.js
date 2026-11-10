@@ -245,6 +245,59 @@ describe('recordMeta — /blogging/:id read live', () => {
   });
 });
 
+describe('recordMeta — /experimenting/:rkey', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const NSID = 'is.dame.experiment';
+  const held = (rkey, value) => ({
+    uri: `at://${ME_DID}/${NSID}/${rkey}`,
+    cid: 'bafyreisnapshotcid',
+    value: { $type: NSID, createdAt: '2026-11-07T15:12:00.000Z', ...value },
+  });
+
+  it('reads an experiment out of the build’s snapshot, without asking the PDS', async () => {
+    const calls = worldFetch({
+      snapshots: {
+        experimenting: {
+          experiments: [held('3exp', { title: 'A status line', pitch: 'One short line.' })],
+        },
+      },
+    });
+    const meta = await recordMeta('/experimenting/3exp', ORIGIN);
+    expect(meta).toMatchObject({
+      title: 'A status line',
+      description: 'One short line.',
+      textOnly: false,
+      section: 'experimenting',
+      nsid: NSID,
+      atUri: `at://${ME_DID}/${NSID}/3exp`,
+      date: '2026-11-07T15:12:00.000Z',
+      canonicalPath: '/experimenting/3exp',
+    });
+    expect(calls.some((u) => u.startsWith(PDS))).toBe(false);
+  });
+
+  it('finds one posted since the build on the PDS', async () => {
+    worldFetch({ records: { [`${NSID}/3fresh`]: { title: 'Fresh idea', pitch: 'Just now.' } } });
+    const meta = await recordMeta('/experimenting/3fresh', ORIGIN);
+    expect(meta.title).toBe('Fresh idea');
+    expect(meta.description).toBe('Just now.');
+  });
+
+  it('resolves nothing for a draft, wherever it is held', async () => {
+    worldFetch({
+      snapshots: { experimenting: { experiments: [held('3draft', { title: 'Not yet', draft: true })] } },
+      records: { [`${NSID}/3draft`]: { title: 'Not yet', draft: true } },
+    });
+    expect(await recordMeta('/experimenting/3draft', ORIGIN)).toBeNull();
+  });
+
+  it('resolves nothing for a key no experiment has', async () => {
+    worldFetch({ snapshots: { experimenting: { experiments: [] } } });
+    expect(await recordMeta('/experimenting/3nope', ORIGIN)).toBeNull();
+  });
+});
+
 describe('recordMeta — one address for a cross-posted document', () => {
   afterEach(() => vi.unstubAllGlobals());
 

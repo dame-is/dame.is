@@ -86,6 +86,8 @@ const Sharing = page(() => import('./pages/Sharing.jsx'));
 const Mothing = page(() => import('./pages/Mothing.jsx'));
 const MothingNight = page(() => import('./pages/MothingNight.jsx'));
 const Guestbook = page(() => import('./pages/Guestbook.jsx'));
+const Experimenting = page(() => import('./pages/Experimenting.jsx'));
+const Experiment = page(() => import('./pages/Experiment.jsx'));
 const Record = page(() => import('./pages/Record.jsx'));
 
 // Lazy, and never warmed: the ATProto OAuth + Agent bundle is heavy and only
@@ -439,6 +441,12 @@ export default function App() {
                       still targets it. Hard loads of /guestbook are 301'd to
                       /welcoming by vercel.json. */}
                   <Route path="/guestbook" element={<Navigate to="/welcoming" replace />} />
+                  {/* Quick prototypes and concepts, posted for reactions: the
+                      bench, and a page for each experiment, keyed by its
+                      record key. Not a feed verb, so neither route is
+                      generated. */}
+                  <Route path="/experimenting" element={<Experimenting />} />
+                  <Route path="/experimenting/:rkey" element={<Experiment />} />
                   {/* The roster is Ratioed's, and lives under Ratioed. This is
                       the short address for it, the way /guestbook above is the
                       short address for the page it redirects to. */}
