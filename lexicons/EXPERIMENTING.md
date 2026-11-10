@@ -61,6 +61,24 @@ an experiment counts (`latestPerPerson` in
 on the way in, too: changing a reaction writes the new record and then deletes
 the one it replaces, and "Take it back" deletes it.
 
+## Experiments built into the site
+
+An experiment's `url` can point anywhere. When the thing to try is a page of
+this site, the page lives under the bench, in the place an experiment's record
+key would be: the first is `/experimenting/culturing`, a bench of simulated
+petri dishes ([`src/culturing/`](../src/culturing/)).
+
+- The path is listed in `EXPERIMENT_PAGE_PATHS` in
+  [`src/lib/experiments.js`](../src/lib/experiments.js). The router gives it
+  its own route, and the edge asks `isExperimentPagePath` before treating a
+  path under `/experimenting` as a record, so it is served as a page (with its
+  own entry in `og/pages.js`) instead of 404ing as a key that names nothing.
+- The page is not a record. What puts it on the bench is an ordinary
+  `is.dame.experiment` record whose `url` is the page's full address, for
+  example `https://dame.is/experimenting/culturing`, so "Try it" opens it.
+- The page finds that record by the address (`experimentForPage`) and links
+  to its reactions. Until one is posted it only links back to the bench.
+
 ## How the reactions are read
 
 The same three hops as the guestbook, in

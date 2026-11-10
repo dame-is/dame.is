@@ -22,6 +22,23 @@ export function experimentPath(rkey) {
   return rkey ? `${EXPERIMENTING_PATH}/${encodeURIComponent(rkey)}` : EXPERIMENTING_PATH;
 }
 
+/**
+ * Experiments that are pages of this site, built into it, rather than links
+ * away from it. Each sits under the bench in the place an experiment's record
+ * key would be, so the router and the edge both ask isExperimentPagePath
+ * before treating such a path as a record: asked for as one it would 404. A
+ * record key is a TID, and none of these is one.
+ *
+ * The first is /experimenting/culturing, a bench of simulated petri dishes
+ * (src/culturing). Its experiment record points its "Try it" here.
+ */
+export const CULTURING_PATH = `${EXPERIMENTING_PATH}/culturing`;
+export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH]);
+
+export function isExperimentPagePath(pathname) {
+  return EXPERIMENT_PAGE_PATHS.includes(String(pathname || '').replace(/\/+$/, ''));
+}
+
 /** The at-uri reactions point at: the experiment record on my repo. */
 export function experimentUri(rkey) {
   return `at://${ME_DID}/${EXPERIMENT_NSID}/${rkey}`;
@@ -166,6 +183,28 @@ export function listExperiments(records, { includeDrafts = false } = {}) {
     .filter((r) => includeDrafts || !isDraftExperiment(r.value))
     .slice()
     .sort((a, b) => compareIsoDesc(experimentDate(a), experimentDate(b)));
+}
+
+/**
+ * The published experiment whose "Try it" leads to `path` on this site, or
+ * null. It is how a built-in experiment's page finds its own record, and so
+ * the reactions to it: by the address the record gives, whatever host it was
+ * written with. The newest wins if two point at one page.
+ */
+export function experimentForPage(records, path) {
+  const want = String(path || '').replace(/\/+$/, '');
+  if (!want) return null;
+  return (
+    listExperiments(records).find((r) => {
+      const link = experimentLink(r.value);
+      if (!link) return false;
+      try {
+        return new URL(link.href).pathname.replace(/\/+$/, '') === want;
+      } catch {
+        return false;
+      }
+    }) || null
+  );
 }
 
 /** The experiment with this record key among `records`, or null. */

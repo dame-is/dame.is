@@ -38,6 +38,7 @@ import { fetchMothObservations } from '../src/lib/inaturalist.js';
 import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
 import { arenaText } from '../src/lib/arena.js';
 import { isSubscribePath } from '../src/lib/newsletter.js';
+import { isExperimentPagePath } from '../src/lib/experiments.js';
 import { pageDefault } from '../src/lib/pageRegistry.js';
 import { smartenText } from '../src/lib/smartPunctuation.js';
 import { VERB_REGISTRY, VERB_LABELS } from '../src/lib/verbRegistry.js';
@@ -262,6 +263,9 @@ export { ALBUMS_SEGMENT, isAlbumPath };
 // /blogging/subscribe is the newsletter's page, not an essay's rkey; the
 // router and the edge both ask the module that owns the newsletter.
 export { isSubscribePath };
+// Likewise /experimenting/culturing: an experiment built into the site, in the
+// place an experiment's record key would be.
+export { isExperimentPagePath };
 
 /** True if `pathname` looks like a slug-addressed record route we can resolve. */
 export function isRecordRoute(pathname) {
@@ -270,7 +274,8 @@ export function isRecordRoute(pathname) {
     segs.length === 2 &&
     RECORD_SECTIONS.has(segs[0]) &&
     !isAlbumPath(pathname) &&
-    !isSubscribePath(pathname)
+    !isSubscribePath(pathname) &&
+    !isExperimentPagePath(pathname)
   );
 }
 

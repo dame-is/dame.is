@@ -103,6 +103,9 @@ const Exploring = lazy(recoverable(() => import('./pages/Exploring.jsx')));
 // Lazy and never warmed: a stream overlay is a page for OBS, not for visitors,
 // and it renders outside the site's frame (see App below).
 const Overlay = lazy(recoverable(() => import('./pages/Overlay.jsx')));
+// Lazy and never warmed: the workbench carries a WebGL simulation and its
+// shaders, which nobody who came for the feed should fetch behind it.
+const Culturing = lazy(recoverable(() => import('./pages/Culturing.jsx')));
 // Lazy: the quick-edit sheet and the edit-mode bar are the owner's alone. See
 // OwnerTools.
 const EditSheet = lazy(() => import('./components/EditSheet.jsx'));
@@ -439,6 +442,11 @@ export default function App() {
                       record key. Not a feed verb, so neither route is
                       generated. */}
                   <Route path="/experimenting" element={<Experimenting />} />
+                  {/* An experiment that is a page of this site: a bench of
+                      simulated petri dishes (src/culturing). It sits where
+                      an experiment's record key would, and a plate travels
+                      in the query (?plate=…), not in the path. */}
+                  <Route path="/experimenting/culturing" element={<Culturing />} />
                   <Route path="/experimenting/:rkey" element={<Experiment />} />
                   {/* The roster is Ratioed's, and lives under Ratioed. This is
                       the short address for it, the way /guestbook above is the

@@ -1,0 +1,753 @@
+/* The workbench at /experimenting/culturing (src/culturing).
+
+   A photograph and its apparatus. The stage is a plate in the book sense: a
+   dark picture set on the page, with a caption under it in the page's own
+   ink. Everything else is the kit (controls.css): hairline buttons, the
+   segmented switch, the one "on". The bench itself is always the same black,
+   whatever hour of sky the page is in, because it is a picture of a bench
+   and not part of the page.
+
+   It hangs into the grid's wings as far as they go, and decides its own
+   layout from the width that gives it (a container query): the stage beside
+   the tray when there is room for both, over it when there isn't. */
+
+.cult {
+  container-type: inline-size;
+  margin-inline: calc(-1 * var(--wing));
+}
+
+.cult-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4) var(--gutter);
+}
+
+/* The stage and what belongs to it stay in view while the tray scrolls: a
+   culture picked from far down the shelf still has a plate to go on. */
+.cult-main {
+  position: sticky;
+  top: calc(var(--chrome-top-h, var(--chrome-h)) + var(--space-2));
+  z-index: 2;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* Whatever scrolls up behind it is covered. */
+  background: var(--page);
+  padding-bottom: var(--space-2);
+}
+
+@container (min-width: 58rem) {
+  .cult-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Stage                                                                */
+/* ------------------------------------------------------------------ */
+
+.cult-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cult-stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  /* Never taller than what is left of the window under the chrome. */
+  max-height: calc(100vh - 2 * var(--chrome-h) - 9rem);
+  min-height: 15rem;
+  width: 100%;
+  overflow: hidden;
+  background: #0b0c0d;
+  /* Fixed inks for what sits on the picture: it is dark at every hour. */
+  --stage-ink: #e9e4d4;
+  --stage-ink-muted: rgba(233, 228, 212, 0.66);
+  --stage-rule: rgba(233, 228, 212, 0.28);
+}
+
+.cult-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  /* Across the bench a finger scrolls the page as usual and only a
+     sideways drag turns the view. Once a plate is picked up the canvas
+     takes every touch. */
+  touch-action: pan-y;
+  outline-offset: -3px;
+}
+
+.cult[data-mode='plate'] .cult-canvas {
+  touch-action: none;
+}
+
+.cult[data-armed] .cult-canvas {
+  cursor: crosshair;
+}
+
+.cult-canvas:active {
+  cursor: grabbing;
+}
+
+.cult[data-armed] .cult-canvas:active {
+  cursor: crosshair;
+}
+
+/* The numbers under the dishes. Each is placed by the bench as the camera
+   moves (Workbench.jsx), from the stage's top-left corner. */
+.cult-labels {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.cult-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: var(--stage-ink-muted);
+  /* Moved under its dish by the bench, which also centres it. */
+  will-change: transform;
+}
+
+.cult-notice,
+.cult-loading {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-4);
+  transform: translateX(-50%);
+  max-width: calc(100% - 2 * var(--space-4));
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+  text-align: center;
+  text-indent: 0;
+  color: var(--stage-ink);
+  background: rgba(11, 12, 13, 0.86);
+  border: 1px solid var(--stage-rule);
+}
+
+.cult-notice {
+  animation: cult-notice 5s ease forwards;
+}
+
+.cult-notice--stay {
+  animation: none;
+}
+
+.cult-loading {
+  bottom: 50%;
+  transform: translate(-50%, 50%);
+  font-style: italic;
+  background: none;
+  border: 0;
+  color: var(--stage-ink-muted);
+}
+
+@keyframes cult-notice {
+  0% {
+    opacity: 0;
+  }
+  6%,
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cult-notice {
+    animation: none;
+  }
+}
+
+.cult-caption {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cult-caption-age {
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bar                                                                  */
+/* ------------------------------------------------------------------ */
+
+.cult-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.cult-bar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.cult-bar-group:last-child {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tray                                                                 */
+/* ------------------------------------------------------------------ */
+
+.cult-tray {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.cult-plates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.cult-plate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  min-width: 3rem;
+  min-height: var(--control-h-sm);
+  padding: 0.2em 0.5rem;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.cult-plate .cult-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+@media (hover: hover) {
+  .cult-plate:hover:not(.is-on) {
+    color: var(--ink);
+    background: var(--wash-hover);
+  }
+}
+
+@media (pointer: coarse) {
+  .cult-plate {
+    min-height: var(--control-h-touch);
+    min-width: var(--control-h-touch);
+  }
+}
+
+.cult-tabs {
+  width: 100%;
+}
+
+/* Six keys in a narrow column: they share the row evenly and wrap as
+   a block rather than leaving one stranded. */
+.cult-tabs .segmented-key {
+  flex: 1 1 auto;
+}
+
+.cult-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.cult-hint {
+  max-width: none;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* The shelf                                                            */
+/* ------------------------------------------------------------------ */
+
+.cult-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cult-group-head {
+  margin: 0;
+  font-weight: 400;
+}
+
+.cult-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.cult-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule-soft);
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 120ms ease;
+}
+
+.cult-item .cult-swatch {
+  grid-row: 1 / span 2;
+}
+
+.cult-item-name {
+  grid-column: 2;
+  align-self: end;
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+}
+
+.cult-item-after {
+  grid-column: 2;
+  align-self: start;
+  font-size: var(--text-meta);
+  font-style: italic;
+  line-height: var(--leading-tight);
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.cult-item-tag {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+
+@media (hover: hover) {
+  .cult-item:hover:not(:disabled, .is-on) {
+    background: var(--wash-hover);
+  }
+}
+
+.cult-item:focus-visible {
+  background: var(--wash-hover);
+}
+
+/* On: the wash, and the accent hairline down its leading edge where a
+   boxed control would wear it all round. */
+.cult-item.is-on {
+  background: var(--wash-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.cult-item:disabled {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+.cult-item:disabled .cult-swatch {
+  opacity: 0.45;
+}
+
+/* A colony in miniature: pigment at the centre, a pale rim. */
+.cult-swatch {
+  flex: none;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent);
+  background: radial-gradient(
+    circle,
+    var(--swatch-core, var(--rule)) 0 36%,
+    var(--swatch-rim, var(--rule-soft)) 64% 100%
+  );
+}
+
+/* A poured plate: the gel, inside a wall. */
+.cult-swatch--gel {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--page) 70%, transparent);
+}
+
+/* A drop has no colour of its own. */
+.cult-swatch--drop {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.cult-swatch--tool {
+  border-radius: 0;
+  height: 2px;
+  border: 0;
+  background: var(--ink-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Card                                                                 */
+/* ------------------------------------------------------------------ */
+
+.cult-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--rule);
+  background: var(--page-edge);
+}
+
+.cult-card-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+
+.cult-card-after {
+  max-width: none;
+  margin: calc(-1 * var(--space-1)) 0 0;
+  font-size: var(--text-meta);
+  font-style: italic;
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.cult-card-blurb {
+  max-width: none;
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-ui);
+  text-indent: 0;
+}
+
+.cult-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.cult-actions--bench {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.cult-notes {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) 0 0 1.1em;
+  border-top: 1px solid var(--rule-soft);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+  color: var(--ink-soft);
+}
+
+.cult-notes li + li {
+  margin-top: var(--space-2);
+}
+
+.cult-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15em;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fields                                                               */
+/* ------------------------------------------------------------------ */
+
+.cult-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+
+.cult-field-label {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.cult-field-value {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.cult-field input[type='range'],
+.cult-field .segmented {
+  grid-column: 1 / -1;
+}
+
+.cult-field input[type='range'] {
+  width: 100%;
+  min-height: 1.5rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+@media (pointer: coarse) {
+  .cult-field input[type='range'] {
+    min-height: var(--control-h-touch);
+  }
+}
+
+.cult-field-hint {
+  grid-column: 1 / -1;
+  max-width: none;
+  margin: 0;
+  font-size: var(--text-meta);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.cult-suits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+}
+
+.cult-suits li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0.15em 0;
+}
+
+.cult-suits-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ------------------------------------------------------------------ */
+/* Recipes                                                              */
+/* ------------------------------------------------------------------ */
+
+.cult-recipes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.cult-recipe {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.cult-recipe.is-current {
+  background: var(--wash-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.cult-recipe-name {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+
+.cult-recipe-watch {
+  max-width: none;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+  color: var(--ink-soft);
+  text-indent: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Record                                                               */
+/* ------------------------------------------------------------------ */
+
+/* A plate's record, set as the site's ledgers are: the hour in the mono
+   gutter, what happened beside it. */
+.cult-record {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.cult-record li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+}
+
+.cult-record-at {
+  font-family: var(--mono);
+  font-size: calc(var(--text-xs) * var(--mono-scale));
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  text-align: right;
+}
+
+.cult-record .is-pending {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------------ */
+/* Field notes                                                          */
+/* ------------------------------------------------------------------ */
+
+.cult-fieldnotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.cult-fieldnotes p {
+  margin: 0;
+  text-indent: 0;
+}
+
+.cult-rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: var(--measure);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.cult-rules li {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule-soft);
+  line-height: var(--leading-ui);
+}
+
+.cult-rules strong {
+  font-weight: 600;
+}
+
+.cult-liberties {
+  margin: 0;
+  padding-left: 1.2em;
+  max-width: var(--measure);
+  color: var(--ink-soft);
+  line-height: var(--leading-ui);
+}
+
+.cult-liberties li + li {
+  margin-top: var(--space-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Phone                                                                */
+/* ------------------------------------------------------------------ */
+
+/* One column. The stage stays in view while the shelf scrolls under it, so
+   what stays has to be short: a third of the window for the picture, one
+   line for the caption, and the bar on a single row that scrolls sideways.
+   Otherwise a culture picked from the shelf has no shelf left to be picked
+   from. The stage runs to the window's edges: a picture, not a paragraph. */
+@media (max-width: 700px) {
+  .cult {
+    margin-inline: calc(-1 * var(--main-gutter));
+  }
+
+  .cult-stage {
+    min-height: 0;
+    max-height: 36vh;
+  }
+
+  .cult-caption,
+  .cult-tray {
+    padding-inline: var(--main-gutter);
+  }
+
+  .cult-caption {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cult-main {
+    gap: var(--space-2);
+  }
+
+  .cult-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-inline: var(--main-gutter);
+    scroll-padding-inline: var(--main-gutter);
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .cult-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cult-bar-group {
+    flex-wrap: nowrap;
+    flex: none;
+  }
+
+  .cult-bar-group:last-child {
+    margin-left: 0;
+  }
+}

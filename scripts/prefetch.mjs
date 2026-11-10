@@ -560,6 +560,7 @@ const SITEMAP_SURFACES = [
   '/blogging',
   '/creating',
   '/experimenting',
+  '/experimenting/culturing',
   '/curating',
   '/posting',
   '/logging',
