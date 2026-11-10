@@ -90,6 +90,11 @@ its own save in `localStorage`.
 
 Embedded in a page, a plain scroll wheel is left to the page.
 
+The full screen button asks the browser for real full screen. Where there is
+no such thing for an element (an iPhone), an embedded game is laid over the
+whole window instead, and a game that already has the window doesn't show the
+button.
+
 ## How it is built
 
 Three layers, each knowing nothing about the one above it:
@@ -162,6 +167,8 @@ import Sunfarming from '@dame-is/sunfarming';
 | prop        | what it does                                                                                          |
 | ----------- | ----------------------------------------------------------------------------------------------------- |
 | `fill`      | Take the whole window (what the standalone build does).                                               |
+| `onExit`    | Show a way back out, and call this when it is pressed. For a host that gave the game the window.      |
+| `exitLabel` | Where that leads, for the button: `"dame.is"` makes it "Back to dame.is".                             |
 | `storage`   | Where the island is saved: `{ load, save, clear }`. Default: `localStorage`. `null` keeps nothing.    |
 | `onReady`   | Called with the running game once it is up.                                                           |
 | `className` | Added to the root element.                                                                            |
@@ -193,12 +200,19 @@ speaker button turns it off and remembers.
 
 ## On a phone
 
-The layout turns on the game's own width, not the window's, so it is the same
-embedded in a column as it is full screen. At phone width the HUD keeps to the
+The layout turns on the game's own size, not the window's, so it is the same
+embedded in a column as it is with the window to itself. The full HUD wants
+about a thousand pixels across and a fair height. With less than that (a phone
+either way up, a tablet held upright, a small window) the HUD keeps to the
 edges: one row across the top, the five meters as a row of chips (tap them for
-the readings in full), the goal on one line, and the rest behind a menu. Cards
-come up from the bottom as sheets, and the tool in hand says what it is just
-above the tools, since nothing can be hovered.
+the readings in full), the goal on one line, the tools as icons, and the rest
+behind a menu. The tool in hand says what it is just above the tools, since
+nothing can be hovered.
+
+A phone held upright stacks all of that in one column, and cards come up from
+the bottom as sheets. A phone on its side has the width but very little
+height, so there the chips sit beside the goal and the speeds, the tools and
+the camera share one row along the bottom.
 
 A finger does different things from a mouse. A tap builds. A one-finger drag
 moves the view whatever tool is in hand, except the power line, which is

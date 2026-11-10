@@ -11,6 +11,10 @@
 //             object between renders, or the game restarts.
 //   onReady   called with the running game (src/sunfarm.js's API) once it is
 //             up: for a host that wants to drive it, or for the console.
+//   onExit    give the game a way back out: a button that calls this. For a
+//             host that has handed it the whole window (`fill`) and has
+//             somewhere to return to. `exitLabel` names that somewhere
+//             ("Back to <exitLabel>").
 //   social    a way to post a finished island and read what others posted,
 //             if the host has one (see README, "Posting results"). Without
 //             it the game offers a line of text to copy and nothing more.
@@ -27,6 +31,8 @@ export default function Sunfarming({
   className = '',
   onReady,
   social = null,
+  onExit,
+  exitLabel,
 }) {
   const hostRef = useRef(null);
   const [farm, setFarm] = useState(null);
@@ -66,7 +72,14 @@ export default function Sunfarming({
       aria-label={TITLE}
     >
       {farm && (
-        <Hud farm={farm} host={hostRef.current} fill={fill} social={social} />
+        <Hud
+          farm={farm}
+          host={hostRef.current}
+          fill={fill}
+          social={social}
+          onExit={onExit}
+          exitLabel={exitLabel}
+        />
       )}
       {failed && (
         <p className="sunfarm-failed">

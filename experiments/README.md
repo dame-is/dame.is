@@ -81,10 +81,16 @@ directly. The root's `npm test` and `npm run lint` cover the experiments too.
 2. **Install.** Add `"@dame-is/<name>": "*"` to the root `package.json`'s
    dependencies and run `npm install` at the root, which links it and updates
    the lockfile.
-3. **Give it a page on the site.** A file in `src/pages/` that wraps the
-   component in [`ExperimentPage`](../src/components/ExperimentPage.jsx), the
-   way [`src/pages/Sunfarming.jsx`](../src/pages/Sunfarming.jsx) does, and a
-   lazy route for it in `src/App.jsx`.
+3. **Give it a page on the site.** A file in `src/pages/` and a lazy route
+   for it in `src/App.jsx`. There are two kinds. Something to look at or poke
+   sits in a page: wrap the component in
+   [`ExperimentPage`](../src/components/ExperimentPage.jsx), the way
+   [`src/pages/Culturing.jsx`](../src/pages/Culturing.jsx) does, and it gets
+   the site's title, pitch and links round it. A game takes the whole window:
+   render it alone and hand it a way back out, the way
+   [`src/pages/Sunfarming.jsx`](../src/pages/Sunfarming.jsx) does, and add its
+   path to `IMMERSIVE_EXPERIMENT_PATHS` so the site stands its own interface
+   down there.
 4. **Register the address.** A built-in experiment lives at
    `/experimenting/<name>`, where an experiment's record key would otherwise
    be, so the router and the edge have to be told it is a page. The list is in

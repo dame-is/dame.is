@@ -23,7 +23,10 @@
   --sf-shadow: 0 3px 0 var(--sf-ink);
   --sf-pad: 10px;
 
-  container: sunfarm / inline-size;
+  /* `size`, not `inline-size`: the layout turns on how tall the game is as
+     well as how wide (a phone on its side). The height is always given
+     (below, or by `fill`), so nothing here is sized by its contents. */
+  container: sunfarm / size;
   position: relative;
   display: block;
   box-sizing: border-box;
@@ -720,6 +723,7 @@
   flex-wrap: wrap;
 }
 
+.sunfarm .sunfarm-btn.sunfarm-pill--exit,
 .sunfarm .sunfarm-btn.sunfarm-pill--isle {
   display: inline-flex;
   align-items: center;
@@ -734,11 +738,13 @@
   cursor: pointer;
 }
 
+.sunfarm .sunfarm-btn.sunfarm-pill--exit:active,
 .sunfarm .sunfarm-btn.sunfarm-pill--isle:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 var(--sf-ink);
 }
 
+.sunfarm .sunfarm-btn.sunfarm-pill--exit:hover,
 .sunfarm .sunfarm-btn.sunfarm-pill--isle:hover {
   background: #fff;
 }
@@ -1171,14 +1177,24 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Narrow: a phone held upright                                         */
+/* Without room to spare                                                */
 /* ------------------------------------------------------------------ */
 
-/* The picture is the game, and on a phone there is not much of it, so the
-   HUD keeps to its edges: one row across the top, one row of chips under
-   it, the goal on a line, and everything else behind the menu. What was a
-   third of the screen is about a sixth. */
-@container sunfarm (max-width: 640px) {
+/* The layout above wants about a thousand pixels across and a fair height.
+   Anything less (a phone either way up, a tablet held upright, a small
+   window) gets this one. The picture is the game, so the HUD keeps to the
+   edges: one row across the top, the meters as a row of chips, the goal on
+   a line, the tools as icons, and everything else behind the menu.
+
+   Three blocks: what every such size shares, then what a phone held upright
+   does with it (everything stacked), then what the sizes in between do
+   (meters beside the goal, the whole bottom on one row, which is what a
+   phone on its side has the width for and not the height to do without).
+
+   These are queries on the game's own box, not the window's, so it lays
+   out the same embedded in a column as it does with the window to itself.
+   COMPACT_WIDTH and COMPACT_HEIGHT in ui/Hud.jsx are the same two numbers. */
+@container sunfarm (max-width: 1000px) or (max-height: 520px) {
   .sunfarm .sunfarm-wide {
     display: none;
   }
@@ -1197,14 +1213,6 @@
   }
 
   .sunfarm .sunfarm-hud {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto auto 1fr auto;
-    grid-template-areas:
-      'top    menu'
-      'meters meters'
-      'goal   goal'
-      'mid    mid'
-      'bottom bottom';
     gap: 6px;
     padding: 8px;
   }
@@ -1220,19 +1228,12 @@
   }
 
   .sunfarm .sunfarm-pill,
+  .sunfarm .sunfarm-btn.sunfarm-pill--exit,
   .sunfarm .sunfarm-btn.sunfarm-pill--isle {
     height: 38px;
     padding: 0 10px 0 7px;
     gap: 5px;
     font-size: 0.93em;
-  }
-
-  .sunfarm .sunfarm-btn.sunfarm-pill--isle {
-    padding: 0 8px;
-  }
-
-  .sunfarm .sunfarm-pill-name {
-    display: none;
   }
 
   .sunfarm .sunfarm-pill--clock {
@@ -1344,14 +1345,11 @@
   .sunfarm .sunfarm-bottom {
     grid-area: bottom;
     display: grid;
-    grid-template-columns: auto 1fr auto;
-    grid-template-areas:
-      'hint  hint  hint'
-      'speed .     camera'
-      'tools tools tools';
     gap: 6px;
   }
 
+  /* Nothing can be hovered on a touch screen, so the tool in hand says what
+     it is and what it does, just above the tools. */
   .sunfarm .sunfarm-hint {
     grid-area: hint;
     display: block;
@@ -1375,14 +1373,14 @@
     color: var(--sf-muted);
   }
 
-  /* A pinch zooms; the two buttons left are for turning, which a finger has
-     no obvious way to do. */
+  /* A pinch zooms, and so does a wheel; the two buttons left are for
+     turning, which a finger has no obvious way to do. */
   .sunfarm .sunfarm-camera .sunfarm-btn--seg:nth-child(n + 3) {
     display: none;
   }
 
-  /* Eight tools across the full width: an icon and a price each. The name
-     of the one in hand is in the hint above. */
+  /* Eight tools as an icon and a price each. The name of the one in hand
+     is in the hint above. */
   .sunfarm .sunfarm-tools {
     justify-self: stretch;
     gap: 2px;
@@ -1400,6 +1398,43 @@
   .sunfarm .sunfarm-tool-cost--locked,
   .sunfarm .sunfarm-tool-cost--key {
     display: none;
+  }
+}
+
+/* A phone held upright: everything in one column. */
+@container sunfarm (max-width: 640px) {
+  .sunfarm .sunfarm-hud {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-areas:
+      'top    menu'
+      'meters meters'
+      'goal   goal'
+      'mid    mid'
+      'bottom bottom';
+  }
+
+  .sunfarm .sunfarm-btn.sunfarm-pill--exit,
+  .sunfarm .sunfarm-btn.sunfarm-pill--isle {
+    padding: 0 8px;
+  }
+
+  /* With a way out to show, there isn't room for the islands button as
+     well: the way out takes its place, and the islands are in the menu. */
+  .sunfarm .sunfarm-top.has-exit .sunfarm-pill--isle {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-pill-name {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-bottom {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'hint  hint  hint'
+      'speed .     camera'
+      'tools tools tools';
   }
 
   /* Cards come up from the bottom, where a thumb is. */
@@ -1429,6 +1464,45 @@
 
   .sunfarm .sunfarm-isle-blurb {
     font-size: 0.8em;
+  }
+}
+
+/* In between: a phone on its side, a tablet held upright, a small window.
+   There is width here but often very little height, so nothing gets a row
+   to itself that can share one: the chips sit beside the goal, and the
+   speeds, the tools and the camera are one row along the bottom. */
+@container sunfarm (min-width: 641px) and ((max-width: 1000px) or (max-height: 520px)) {
+  .sunfarm .sunfarm-hud {
+    grid-template-columns: minmax(0, 21rem) minmax(0, 1fr) auto;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      'top    top    menu'
+      'meters goal   goal'
+      'mid    mid    mid'
+      'bottom bottom bottom';
+  }
+
+  .sunfarm .sunfarm-goal {
+    justify-self: start;
+    width: min(100%, 27rem);
+  }
+
+  .sunfarm .sunfarm-bottom {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'hint  hint  hint'
+      'speed tools camera';
+    align-items: end;
+  }
+
+  .sunfarm .sunfarm-hint {
+    justify-self: center;
+    max-width: 100%;
+  }
+
+  .sunfarm .sunfarm-tools {
+    justify-self: center;
+    width: min(100%, 30rem);
   }
 }
 

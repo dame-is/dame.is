@@ -15,6 +15,7 @@ import { SPEEDS } from '../sunfarm.js';
 import { TITLE } from '../meta.js';
 import Board from './Board.jsx';
 import {
+  BackIcon,
   BankIcon,
   BatteryIcon,
   BoltIcon,
@@ -75,8 +76,15 @@ const BUILD = {
 };
 
 const SEEN_KEY = 'sunfarming:seen:v2';
-/** The game's own width at and under which it is laid out for a phone. */
-const COMPACT_WIDTH = 640;
+/**
+ * The game's own size at and under which it hasn't room for the full HUD: a
+ * phone either way up, a tablet held upright, a small window. The same two
+ * numbers the stylesheet's container queries turn at.
+ */
+const COMPACT_WIDTH = 1000;
+const COMPACT_HEIGHT = 520;
+const isCompact = (width, height) =>
+  width <= COMPACT_WIDTH || height <= COMPACT_HEIGHT;
 
 function hasSeenHelp() {
   try {
@@ -94,16 +102,17 @@ function markHelpSeen() {
   }
 }
 
-// Whether the game is narrow enough to be laid out for a phone. The same
-// width the stylesheet's container query turns at.
+// Whether the game is small enough to be laid out with the compact HUD
+// (meters as chips that open on a tap, and the rest behind a menu).
 function useCompact(host) {
   const [compact, setCompact] = useState(
-    () => Boolean(host) && host.clientWidth <= COMPACT_WIDTH,
+    () => Boolean(host) && isCompact(host.clientWidth, host.clientHeight),
   );
   useEffect(() => {
     if (!host || typeof ResizeObserver === 'undefined') return undefined;
     const watcher = new ResizeObserver(([entry]) => {
-      setCompact(entry.contentRect.width <= COMPACT_WIDTH);
+      const { width, height } = entry.contentRect;
+      setCompact(isCompact(width, height));
     });
     watcher.observe(host);
     return () => watcher.disconnect();
@@ -225,7 +234,7 @@ function Forecast({ days }) {
   );
 }
 
-export default function Hud({ farm, host, fill, social }) {
+export default function Hud({ farm, host, fill, social, onExit, exitLabel }) {
   const s = useSyncExternalStore(farm.subscribe, farm.getSnapshot);
   const [card, setCard] = useState(() => (hasSeenHelp() ? null : 'help'));
   const [expanded, setExpanded] = useState(false);
@@ -321,6 +330,12 @@ export default function Hud({ farm, host, fill, social }) {
     TOOL_REMOVE,
   ];
   const inHand = tools.find((t) => t.tool === s.tool);
+  // Real full screen where the browser has it. Where it doesn't, the game is
+  // laid over the window instead, which is no use if it already has it all.
+  const canFullscreen =
+    !fill ||
+    (typeof document !== 'undefined' && Boolean(document.fullscreenEnabled));
+  const leave = exitLabel ? `Back to ${exitLabel}` : 'Leave the game';
   const TodaySky = SKY_ICONS[s.forecast[0].key] || SunIcon;
   const shareUrl =
     typeof window !== 'undefined'
@@ -332,7 +347,21 @@ export default function Hud({ farm, host, fill, social }) {
 
   return (
     <div className={`sunfarm-hud${compact ? ' is-compact' : ''}`}>
-      <div className="sunfarm-top">
+      <div className={`sunfarm-top${onExit ? ' has-exit' : ''}`}>
+        {/* The way back out, when the game has been given the whole window
+            by a host that has somewhere to go back to. */}
+        {onExit && (
+          <button
+            type="button"
+            className="sunfarm-btn sunfarm-pill sunfarm-pill--exit"
+            onClick={onExit}
+            title={leave}
+            aria-label={leave}
+          >
+            <BackIcon />
+            <span className="sunfarm-pill-name">{exitLabel || 'Exit'}</span>
+          </button>
+        )}
         <button
           type="button"
           className="sunfarm-btn sunfarm-pill sunfarm-pill--isle"
@@ -430,7 +459,7 @@ export default function Hud({ farm, host, fill, social }) {
         >
           {s.muted ? <SoundOffIcon /> : <SoundOnIcon />}
         </button>
-        {!fill && (
+        {canFullscreen && (
           <button
             type="button"
             className="sunfarm-btn sunfarm-btn--round"
@@ -755,6 +784,16 @@ export default function Hud({ farm, host, fill, social }) {
               {s.muted ? <SoundOffIcon /> : <SoundOnIcon />}
               Sound: {s.muted ? 'off' : 'on'}
             </button>
+            {onExit && (
+              <button
+                type="button"
+                className="sunfarm-btn sunfarm-menu-item"
+                onClick={onExit}
+              >
+                <BackIcon />
+                {leave}
+              </button>
+            )}
           </div>
           <Forecast days={s.forecast} />
         </Card>

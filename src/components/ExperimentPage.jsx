@@ -7,33 +7,18 @@
 // one, this finds it by that address and offers "Say what you make of it".
 // Until one is posted the page only links back to the bench. See
 // lexicons/EXPERIMENTING.md, "Experiments built into the site".
+//
+// An experiment that takes the whole window (a game) has no page round it and
+// doesn't use this: see pages/Sunfarming.jsx.
 
-import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import PageShell from './PageShell.jsx';
-import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useExperimentForPage } from '../hooks/useExperimentForPage.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
-import {
-  EXPERIMENTING_PATH,
-  experimentForPage,
-  experimentPath,
-} from '../lib/experiments.js';
-import { fetchExperimentRecords } from '../lib/experimentReactions.js';
+import { EXPERIMENTING_PATH, experimentPath } from '../lib/experiments.js';
 
 export default function ExperimentPage({ path, title, intro, children }) {
-  // The same read the bench itself makes: the build's snapshot, confirmed
-  // against the PDS. Only the record that points here is wanted from it.
-  const { items: records } = useLiveFeed({
-    name: 'experimenting',
-    strategy: 'snapshot-first',
-    fetchLive: async () => ({ experiments: await fetchExperimentRecords() }),
-    mapItems: (data) =>
-      Array.isArray(data?.experiments) ? data.experiments : null,
-  });
-  const record = useMemo(
-    () => experimentForPage(records, path),
-    [records, path],
-  );
+  const record = useExperimentForPage(path);
 
   return (
     <PageShell

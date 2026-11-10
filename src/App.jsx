@@ -140,6 +140,7 @@ import { EditModeProvider, useEditMode } from './hooks/useEditMode.jsx';
 import { XrayProvider } from './hooks/useXray.jsx';
 import { AdminChromeProvider, useStackedViewport } from './hooks/useAdminChrome.jsx';
 import { ME_DID, RATIOED_PATH } from './config.js';
+import { isImmersiveExperimentPath } from './lib/experiments.js';
 import './components/Xray.css';
 
 /**
@@ -352,6 +353,14 @@ export default function App() {
   const inAdmin = location.pathname === '/admin';
   const stacked = useStackedViewport();
   const adminOwnsChrome = inAdmin && !stacked;
+  // A game takes the whole window (isImmersiveExperimentPath). None of the
+  // site's interface is drawn round it: not the bars, not the dock, not the
+  // inspect layer or the owner's tools, at any width. It is a different thing
+  // from the admin's frame above, which stands the bars down to make room for
+  // its own; here there is nothing of the site's left, and the way back out is
+  // a button the game is handed (pages/Sunfarming.jsx). The providers stay, so
+  // the theme, the signed-in session and the updater carry on underneath.
+  const immersive = isImmersiveExperimentPath(location.pathname);
   // A stream overlay (/overlay/:id) is a browser source in OBS: a transparent
   // canvas and nothing else. No chrome, no dock, no providers, and none of the
   // other pages' chunks fetched behind it on a machine that is busy streaming.
@@ -381,9 +390,14 @@ export default function App() {
       <XrayProvider>
       <FeedFooterProvider>
       <AdminChromeProvider>
-          <div className={`app-shell${adminOwnsChrome ? ' app-shell-admin' : ''}`}>
-            <SkipLink />
-            {!adminOwnsChrome && <ChromeBar />}
+          <div
+            className={`app-shell${adminOwnsChrome ? ' app-shell-admin' : ''}${
+              immersive ? ' app-shell-immersive' : ''
+            }`}
+          >
+            {/* With no chrome drawn there is nothing to skip past. */}
+            {!immersive && <SkipLink />}
+            {!adminOwnsChrome && !immersive && <ChromeBar />}
             <main id="main-content" tabIndex={-1} className="layout">
               <div className="main">
                 <ErrorBoundary resetKey={location.pathname}>
@@ -451,7 +465,8 @@ export default function App() {
                       in the query (?plate=…), not in the path. */}
                   <Route path="/experimenting/culturing" element={<Culturing />} />
                   {/* And a second: a small game about a solar farm
-                      (experiments/sunfarming). */}
+                      (experiments/sunfarming). It takes the whole window:
+                      see `immersive` above. */}
                   <Route path="/experimenting/sunfarming" element={<Sunfarming />} />
                   <Route path="/experimenting/:rkey" element={<Experiment />} />
                   {/* The roster is Ratioed's, and lives under Ratioed. This is
@@ -497,9 +512,13 @@ export default function App() {
                 </ErrorBoundary>
               </div>
             </main>
-            <ActionDock />
-            <XrayLayer />
-            <OwnerTools />
+            {!immersive && (
+              <>
+                <ActionDock />
+                <XrayLayer />
+                <OwnerTools />
+              </>
+            )}
             <AutoUpdater />
             <Analytics />
           </div>

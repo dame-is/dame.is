@@ -645,27 +645,3 @@
 .experiment-source {
   max-width: var(--measure);
 }
-
-/* --- an experiment built into the site ---------------------------------- */
-
-/* The frame for a built-in experiment that is a picture rather than part of
-   the page (a game, a canvas). It hangs into the grid's wings as far as they
-   go, and on a phone runs to the edges of the window. It is as tall as the
-   window has room for between the chrome's two bars, so the whole of it can
-   be on screen at once. Whatever is inside brings its own look: the page
-   gives it room and nothing else. */
-.experiment-stage {
-  height: clamp(
-    26rem,
-    calc(100svh - 2 * var(--chrome-h) - var(--space-5)),
-    58rem
-  );
-  margin-block: var(--space-4) var(--space-6);
-  margin-inline: calc(-1 * var(--wing));
-}
-
-@media (max-width: 700px) {
-  .experiment-stage {
-    margin-inline: calc(-1 * var(--main-gutter));
-  }
-}

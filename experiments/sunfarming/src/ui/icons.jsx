@@ -281,6 +281,12 @@ export const StormIcon = (p) => (
   </Icon>
 );
 
+export const BackIcon = (p) => (
+  <Icon {...p}>
+    <path d="M19 12H6M11 6.5 5.5 12l5.5 5.5" strokeWidth="2.6" />
+  </Icon>
+);
+
 export const MenuIcon = (p) => (
   <Icon {...p}>
     <path d="M4.5 7h15M4.5 12h15M4.5 17h15" strokeWidth="2.6" />

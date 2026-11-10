@@ -83,6 +83,15 @@ petri dishes ([`experiments/culturing/`](../experiments/culturing/)), and
   much is the same for every built-in experiment, so it is one component,
   [`src/components/ExperimentPage.jsx`](../src/components/ExperimentPage.jsx),
   which each one's page wraps itself in.
+- A game is the exception. It takes the whole window, so it has no page round
+  it: its path is also in `IMMERSIVE_EXPERIMENT_PATHS`, and on such a path
+  `App.jsx` draws none of the site's interface (the bars, the dock, the
+  inspect layer, the owner's tools) and the site's single-key shortcuts stand
+  down. The game is handed a way back out instead, which goes to its record's
+  page (found the same way, `useExperimentForPage`) so that leaving the game
+  lands on its reactions, or to the bench until there is a record.
+  [`src/pages/Sunfarming.jsx`](../src/pages/Sunfarming.jsx) is the one there
+  is.
 
 The experiment itself is a package of its own under
 [`experiments/`](../experiments/), which the site imports and nothing more;
@@ -99,6 +108,9 @@ the first four are done:
 | `src/lib/breadcrumbs.js`, `og/routes.js`       | the same route, for the crumbs and the edge     |
 | `og/pages.js`                                  | its title and description, for the head and card |
 | `og/llms.js`, `scripts/prefetch.mjs`           | the path, for `llms.txt` and the sitemap        |
+
+And, for one that takes the whole window, the path in
+`IMMERSIVE_EXPERIMENT_PATHS` beside the first.
 
 ## How the reactions are read
 

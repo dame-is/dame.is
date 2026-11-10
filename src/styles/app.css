@@ -39,6 +39,23 @@ html {
   );
 }
 
+/* A page that takes the whole window: a game (isImmersiveExperimentPath in
+   lib/experiments.js; App.jsx sets the class). None of the chrome that the
+   reservation above is for is drawn, and what fills the window is
+   `position: fixed`, so the shell under it keeps no height of its own. And
+   nothing behind it may scroll, or a phone rubber-bands the document about
+   under the game and a wheel meant for the game's zoom moves an empty page. */
+.app-shell-immersive {
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+:root:has(.app-shell-immersive),
+:root:has(.app-shell-immersive) body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* Finer icon strokes site-wide. Lucide renders its stroke-width as a
    presentation attribute (default 2, most call sites pass 1.75); an
    author CSS rule on the shared .lucide class overrides them all with

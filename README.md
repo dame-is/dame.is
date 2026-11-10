@@ -312,10 +312,19 @@ It is the second [experiment](#experimenting) built into the site. The whole
 of it is [`experiments/sunfarming/`](experiments/sunfarming/), a package the
 site imports as `@dame-is/sunfarming`; its
 [README](experiments/sunfarming/README.md) has the rules, the controls and how
-it is put together. What the site adds is one page
-([`src/pages/Sunfarming.jsx`](src/pages/Sunfarming.jsx)) that sets the game in
-[`ExperimentPage`](src/components/ExperimentPage.jsx), the title, pitch and
-links every built-in experiment shares. It is its own chunk and never warmed.
+it is put together. It is its own chunk and never warmed.
+
+A game wants the whole window, so its page
+([`src/pages/Sunfarming.jsx`](src/pages/Sunfarming.jsx)) is the game and
+nothing else. On that address the site draws none of its own interface: no
+bars, no dock, no inspect layer, and its single-key shortcuts stand down
+(`isImmersiveExperimentPath` in
+[`src/lib/experiments.js`](src/lib/experiments.js), asked by `App.jsx`). The
+way back out is a button in the game's top corner, and in its menu on a
+phone, which the page hands it: it goes to the experiment's own page, where
+the reactions are, or to the bench until a record has been posted for it. The
+game's full screen button asks the browser for real full screen where there
+is such a thing.
 
 A player who finishes an island can post the result with an atproto account:
 an `is.dame.sunfarming.result` record on their own PDS, and each island has a

@@ -43,8 +43,22 @@ export const CULTURING_PATH = `${EXPERIMENTING_PATH}/culturing`;
 export const SUNFARMING_PATH = `${EXPERIMENTING_PATH}/sunfarming`;
 export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH, SUNFARMING_PATH]);
 
+const withoutTrailingSlash = (pathname) => String(pathname || '').replace(/\/+$/, '');
+
 export function isExperimentPagePath(pathname) {
-  return EXPERIMENT_PAGE_PATHS.includes(String(pathname || '').replace(/\/+$/, ''));
+  return EXPERIMENT_PAGE_PATHS.includes(withoutTrailingSlash(pathname));
+}
+
+/**
+ * The built-in experiments that take the whole window: a game, rather than a
+ * page with something to look at on it. On one of these none of the site's
+ * own interface is drawn (no bars, no dock, no inspect layer; App.jsx asks
+ * this to decide), and the experiment carries the way back out itself.
+ */
+export const IMMERSIVE_EXPERIMENT_PATHS = Object.freeze([SUNFARMING_PATH]);
+
+export function isImmersiveExperimentPath(pathname) {
+  return IMMERSIVE_EXPERIMENT_PATHS.includes(withoutTrailingSlash(pathname));
 }
 
 /** The at-uri reactions point at: the experiment record on my repo. */
