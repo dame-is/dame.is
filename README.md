@@ -64,6 +64,11 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   `subject` backlinks to it, gathered the way the guestbook's signatures are.
   See [Experimenting](#experimenting) and
   [`lexicons/EXPERIMENTING.md`](lexicons/EXPERIMENTING.md).
+- `is.dame.sunfarming.result` — a finished island of
+  [Sunfarming](#sunfarming), posted by the player: how many days it took. On
+  **the player's own PDS**, pointing at a name for the island's board, so a
+  board is gathered from backlinks like the reactions are. See
+  [`lexicons/SUNFARMING.md`](lexicons/SUNFARMING.md).
 - `is.dame.state` — live iPhone-sourced physical + ambient state (heart rate,
   activity, battery, ambient sound, calories). An append-only log keyed by TID:
   the **latest** record is the current "right now" rendered by the atmosphere-bar
@@ -311,6 +316,14 @@ it is put together. What the site adds is one page
 ([`src/pages/Sunfarming.jsx`](src/pages/Sunfarming.jsx)) that sets the game in
 [`ExperimentPage`](src/components/ExperimentPage.jsx), the title, pitch and
 links every built-in experiment shares. It is its own chunk and never warmed.
+
+A player who finishes an island can post the result with an atproto account:
+an `is.dame.sunfarming.result` record on their own PDS, and each island has a
+board of them, read from backlinks. The game knows nothing of atproto; the
+page hands it a way to post
+([`src/hooks/useSunfarmingSocial.js`](src/hooks/useSunfarmingSocial.js)), and
+without one it only offers a line to copy.
+[`lexicons/SUNFARMING.md`](lexicons/SUNFARMING.md) is the whole of it.
 
 The game looks nothing like the rest of the site, on purpose: it carries its
 own stylesheet, scoped under one class, and reads none of the site's tokens,

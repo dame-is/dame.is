@@ -78,15 +78,15 @@ its own save in `localStorage`.
 
 ### Controls
 
-|                | mouse and keys                        | touch                 |
-| -------------- | ------------------------------------- | --------------------- |
-| Move the view  | drag with **Look**, or WASD / arrows  | drag with **Look**    |
-| Turn the view  | right-drag, or Q / E                  | twist two fingers     |
-| Zoom           | ctrl + wheel (plain wheel standalone) | pinch                 |
-| Pick a tool    | 1 to 5; Esc for **Look**              | tap it                |
-| Build / remove | click, or drag to paint               | tap, or drag to paint |
-| Read a tile    | hover, or click with **Look**         | tap with **Look**     |
-| Pause          | space                                 | the pause button      |
+|                | mouse and keys                        | touch                                  |
+| -------------- | ------------------------------------- | -------------------------------------- |
+| Move the view  | drag with **Look**, or WASD / arrows  | drag (any tool but the power line)     |
+| Turn the view  | right-drag, or Q / E                  | twist two fingers, or the turn buttons |
+| Zoom           | ctrl + wheel (plain wheel standalone) | pinch                                  |
+| Pick a tool    | 1 to 8; Esc for **Look**              | tap it                                 |
+| Build / remove | click, or drag to paint               | tap; the power line is drawn by a drag |
+| Read a tile    | hover, or click with **Look**         | tap with **Look**                      |
+| Pause          | space                                 | the pause button                       |
 
 Embedded in a page, a plain scroll wheel is left to the page.
 
@@ -101,6 +101,7 @@ src/
   view/       the picture. three.js. Reads a game, never changes one.
   sunfarm.js  the game running: the clock that steps the sim and redraws the
               view, the pointer and keys that turn into building, the save.
+  audio/      the sound, synthesised: no files.
   ui/         the HUD, in React, reading a snapshot of the running game.
   Sunfarming.jsx   the one component a host renders.
   index.js    the package's front door.
@@ -158,12 +159,13 @@ import Sunfarming from '@dame-is/sunfarming';
 </div>;
 ```
 
-| prop        | what it does                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------------- |
-| `fill`      | Take the whole window (what the standalone build does).                                            |
-| `storage`   | Where the island is saved: `{ load, save, clear }`. Default: `localStorage`. `null` keeps nothing. |
-| `onReady`   | Called with the running game once it is up.                                                        |
-| `className` | Added to the root element.                                                                         |
+| prop        | what it does                                                                                          |
+| ----------- | ----------------------------------------------------------------------------------------------------- |
+| `fill`      | Take the whole window (what the standalone build does).                                               |
+| `storage`   | Where the island is saved: `{ load, save, clear }`. Default: `localStorage`. `null` keeps nothing.    |
+| `onReady`   | Called with the running game once it is up.                                                           |
+| `className` | Added to the root element.                                                                            |
+| `social`    | A way to post a finished island and read what others posted. See [Posting results](#posting-results). |
 
 Two CSS custom properties can be set from outside: `--sunfarm-height` (how
 tall it is when embedded) and `--sunfarm-font` (the HUD's typeface). Everything
@@ -174,6 +176,61 @@ a host can name the game without loading it.
 
 In development the standalone page puts the running game on the console as
 `sunfarm`: `sunfarm.game` is the live state, to poke at or fast-forward.
+
+## Sound
+
+All of it is made in [`src/audio/sound.js`](src/audio/sound.js) from
+oscillators and filtered noise; there are no audio files. One-shots answer
+what just happened (each kind of building has its own, a goal is a short run
+of notes, daybreak is two). The ambience runs all the time and follows the
+island: the sea, the wind as strong as the wind is, crickets after dark, a
+gull now and then once the island has earned them, and the generator's drone,
+which is there so that the day it stops can be heard.
+
+Nothing plays until the first press inside the game (a browser won't allow it
+sooner), it stops while the game is hidden or scrolled out of view, and the
+speaker button turns it off and remembers.
+
+## On a phone
+
+The layout turns on the game's own width, not the window's, so it is the same
+embedded in a column as it is full screen. At phone width the HUD keeps to the
+edges: one row across the top, the five meters as a row of chips (tap them for
+the readings in full), the goal on one line, and the rest behind a menu. Cards
+come up from the bottom as sheets, and the tool in hand says what it is just
+above the tools, since nothing can be hovered.
+
+A finger does different things from a mouse. A tap builds. A one-finger drag
+moves the view whatever tool is in hand, except the power line, which is
+drawn with a drag. Two fingers pinch to zoom, twist to turn and drag to move.
+With a mouse, a drag with any building tool paints.
+
+## Posting results
+
+The game doesn't know how a result is posted or where the results are kept.
+A host that can do those hands it a `social` prop, and the game then shows a
+"Post result" button and a board for each island. Without one it offers a line
+of text to copy and a link to Bluesky's composer.
+
+```js
+social = {
+  viewer,      // who is signed in: { did, handle, displayName, avatar }, or null
+  restoring,   // true while a remembered sign-in is being picked back up
+  busy,        // true while a post is on its way
+  error,       // why the last post didn't go, in words, or null
+  posted,      // { [board key]: days } for what this visit has posted
+  returned,    // a result that was posted on the way back from signing in
+  post(result, { handle }),  // signed out, `handle` is who to sign in as
+  board(result),             // → { entries: [{ did, days, at, profile }], total, truncated }
+  boardKey(result),          // the key of the board a result belongs on
+  signOut(),
+};
+```
+
+A result is `{ island, date, days }`, which is what `farm.result()` returns
+once an island is finished. On dame.is this is atproto: a record on the
+player's own PDS, and boards read from backlinks
+([`lexicons/SUNFARMING.md`](../../lexicons/SUNFARMING.md)).
 
 ## What might come next
 
@@ -186,9 +243,5 @@ Some of what it doesn't do yet:
   for the archipelago.
 - **Clouds that pass.** A cloudy day dims the whole island evenly; cloud
   shadows that drift across it would make where things stand matter more.
-- **Sharing a result as a record.** Today's island gives a line of text to
-  copy. On a site built on atproto it could be a record on the player's own
-  repository.
 - **Performance.** Every building is its own mesh. Past a few hundred, they
   should be instanced.
-- **Sound.**

@@ -14,14 +14,19 @@
 
 import Sunfarming, { PITCH, TITLE } from '@dame-is/sunfarming';
 import ExperimentPage from '../components/ExperimentPage.jsx';
+import { useSunfarmingSocial } from '../hooks/useSunfarmingSocial.js';
 import { SUNFARMING_PATH } from '../lib/experiments.js';
 
 export default function SunfarmingPage() {
+  // The one thing the site adds to the game itself: a way to post a finished
+  // island with an atproto account, and to read what others posted. The game
+  // only offers either when it is handed this (see lexicons/SUNFARMING.md).
+  const social = useSunfarmingSocial();
   return (
     <ExperimentPage path={SUNFARMING_PATH} title={TITLE} intro={PITCH}>
       {/* The frame sets the height (Experimenting.css); the game fills it. */}
       <div className="experiment-stage" style={{ '--sunfarm-height': '100%' }}>
-        <Sunfarming />
+        <Sunfarming social={social} />
       </div>
     </ExperimentPage>
   );

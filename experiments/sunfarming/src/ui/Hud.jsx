@@ -1,11 +1,19 @@
 // Everything drawn over the island: the purse and the clock, the meters, the
-// tools, the goal, and the few cards that open on top. It reads a snapshot of
-// the running game and calls back into it; it holds no game state of its own.
+// tools, the goal, and the cards that open on top. It reads a snapshot of the
+// running game and calls back into it; it holds no game state of its own.
+//
+// One set of markup serves a desk and a phone. The stylesheet does the
+// layout from the game's own width (a container query): on a phone the
+// meters shrink to a row of chips, the buttons fold into a menu, and cards
+// come up from the bottom as sheets. `compact` below says which it is, for
+// the few things that behave differently and aren't just laid out
+// differently.
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { KINDS } from '../sim/catalog.js';
 import { SPEEDS } from '../sunfarm.js';
 import { TITLE } from '../meta.js';
+import Board from './Board.jsx';
 import {
   BankIcon,
   BatteryIcon,
@@ -22,6 +30,7 @@ import {
   HouseIcon,
   LockIcon,
   LookIcon,
+  MenuIcon,
   MinusIcon,
   MoonIcon,
   PanelIcon,
@@ -30,8 +39,11 @@ import {
   PlusIcon,
   RemoveIcon,
   RestartIcon,
+  ResultsIcon,
   SKY_ICONS,
   ShrinkIcon,
+  SoundOffIcon,
+  SoundOnIcon,
   SunIcon,
   TrackerIcon,
   TurbineIcon,
@@ -42,14 +54,16 @@ import {
 const TOOL_LOOK = {
   tool: 'look',
   label: 'Look',
+  name: 'Look',
   Icon: LookIcon,
   hint: 'Drag to move the view. Tap a tile to read it.',
 };
 const TOOL_REMOVE = {
   tool: 'remove',
   label: 'Remove',
+  name: 'Remove',
   Icon: RemoveIcon,
-  hint: 'Take a building back up, or clear a tree or rock.',
+  hint: 'Take a building back up for what it cost, or clear a tree or rock.',
 };
 const BUILD = {
   panel: { label: 'Panel', Icon: PanelIcon },
@@ -61,6 +75,8 @@ const BUILD = {
 };
 
 const SEEN_KEY = 'sunfarming:seen:v2';
+/** The game's own width at and under which it is laid out for a phone. */
+const COMPACT_WIDTH = 640;
 
 function hasSeenHelp() {
   try {
@@ -78,13 +94,35 @@ function markHelpSeen() {
   }
 }
 
-function Meter({ label, value, share, tone, children }) {
+// Whether the game is narrow enough to be laid out for a phone. The same
+// width the stylesheet's container query turns at.
+function useCompact(host) {
+  const [compact, setCompact] = useState(
+    () => Boolean(host) && host.clientWidth <= COMPACT_WIDTH,
+  );
+  useEffect(() => {
+    if (!host || typeof ResizeObserver === 'undefined') return undefined;
+    const watcher = new ResizeObserver(([entry]) => {
+      setCompact(entry.contentRect.width <= COMPACT_WIDTH);
+    });
+    watcher.observe(host);
+    return () => watcher.disconnect();
+  }, [host]);
+  return compact;
+}
+
+// One reading: a label, a value, and a bar. On a phone the label and the bar
+// go and `short` stands in for the value, which makes it a chip.
+function Meter({ label, value, short, share, tone, children }) {
   return (
     <div className={`sunfarm-meter sunfarm-meter--${tone}`}>
       <span className="sunfarm-meter-icon">{children}</span>
       <span className="sunfarm-meter-text">
         <span className="sunfarm-meter-label">{label}</span>
         <span className="sunfarm-meter-value">{value}</span>
+        <span className="sunfarm-meter-short" aria-hidden="true">
+          {short}
+        </span>
       </span>
       <span className="sunfarm-meter-bar" aria-hidden="true">
         <span
@@ -167,11 +205,32 @@ function Island({ entry, onSail }) {
   );
 }
 
-export default function Hud({ farm, host, fill }) {
+// Today and the three days after it, as icons with their names.
+function Forecast({ days }) {
+  return (
+    <ul className="sunfarm-outlook">
+      {days.map((sky, i) => {
+        const Icon = SKY_ICONS[sky.key] || SunIcon;
+        return (
+          <li key={i}>
+            <Icon size={24} />
+            <span className="sunfarm-outlook-when">
+              {i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : `+${i} days`}
+            </span>
+            <span className="sunfarm-outlook-sky">{sky.name}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export default function Hud({ farm, host, fill, social }) {
   const s = useSyncExternalStore(farm.subscribe, farm.getSnapshot);
   const [card, setCard] = useState(() => (hasSeenHelp() ? null : 'help'));
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const compact = useCompact(host);
 
   const refocus = useCallback(
     () => host?.focus({ preventScroll: true }),
@@ -238,8 +297,15 @@ export default function Hud({ farm, host, fill }) {
     );
   };
 
+  // Came back from signing in with a result posted on the way: show the board.
+  const returned = social?.returned;
+  useEffect(() => {
+    if (returned) setCard('board');
+  }, [returned]);
+
   const battery = s.capacityKwh > 0;
   const free = s.island.free;
+  const making = s.makingKw > 0 || s.peakKw > 0;
   const dawn = [];
   if (s.dawn.moves) dawn.push('a family moves in');
   if (s.dawn.upgrades === 1) dawn.push('a home moves up');
@@ -249,19 +315,30 @@ export default function Hud({ farm, host, fill }) {
     ...s.tools.map((t) => ({
       ...t,
       ...BUILD[t.tool],
+      name: KINDS[t.tool].name,
       hint: KINDS[t.tool].blurb,
     })),
     TOOL_REMOVE,
   ];
+  const inHand = tools.find((t) => t.tool === s.tool);
+  const TodaySky = SKY_ICONS[s.forecast[0].key] || SunIcon;
+  const shareUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}`
+      : '';
+  const compose = `https://bsky.app/intent/compose?text=${encodeURIComponent(
+    `${farm.shareText()} ${shareUrl}`.trim(),
+  )}`;
 
   return (
-    <div className="sunfarm-hud">
+    <div className={`sunfarm-hud${compact ? ' is-compact' : ''}`}>
       <div className="sunfarm-top">
         <button
           type="button"
           className="sunfarm-btn sunfarm-pill sunfarm-pill--isle"
           onClick={() => setCard('chart')}
           title="The islands"
+          aria-label={`The islands. This is ${s.island.name}.`}
         >
           <ChartIcon />
           <span className="sunfarm-pill-name">{s.island.name}</span>
@@ -273,19 +350,25 @@ export default function Hud({ farm, host, fill }) {
           </span>
           <span className="sunfarm-sr">coins</span>
         </div>
-        <div className="sunfarm-pill">
+        <div className="sunfarm-pill sunfarm-pill--clock">
           {s.daylight ? <SunIcon /> : <MoonIcon />}
           <span>
-            Day {s.day}
-            <span aria-hidden="true">{' · '}</span>
+            <span className="sunfarm-wide">Day {s.day} · </span>
+            <span className="sunfarm-narrow">D{s.day} </span>
             {s.clock}
             {s.season && (
-              <span className="sunfarm-pill-extra">{` · ${s.season}`}</span>
+              <span className="sunfarm-wide">{` · ${s.season}`}</span>
             )}
+          </span>
+          <span
+            className="sunfarm-narrow sunfarm-pill-sky"
+            title={s.forecast[0].name}
+          >
+            <TodaySky size={18} />
           </span>
         </div>
         <div
-          className="sunfarm-pill sunfarm-forecast"
+          className="sunfarm-pill sunfarm-forecast sunfarm-wide"
           role="group"
           aria-label="Weather"
         >
@@ -308,9 +391,20 @@ export default function Hud({ farm, host, fill }) {
       </div>
 
       <div className="sunfarm-top-end">
+        {social && (
+          <button
+            type="button"
+            className="sunfarm-btn sunfarm-btn--round sunfarm-wide"
+            onClick={() => setCard('board')}
+            aria-label="Results"
+            title="Results"
+          >
+            <ResultsIcon />
+          </button>
+        )}
         <button
           type="button"
-          className="sunfarm-btn sunfarm-btn--round"
+          className="sunfarm-btn sunfarm-btn--round sunfarm-wide"
           onClick={() => setCard('goals')}
           aria-label="Goals"
           title="Goals"
@@ -319,12 +413,22 @@ export default function Hud({ farm, host, fill }) {
         </button>
         <button
           type="button"
-          className="sunfarm-btn sunfarm-btn--round"
+          className="sunfarm-btn sunfarm-btn--round sunfarm-wide"
           onClick={() => setCard('help')}
           aria-label="How to play"
           title="How to play"
         >
           <HelpIcon />
+        </button>
+        <button
+          type="button"
+          className="sunfarm-btn sunfarm-btn--round sunfarm-wide"
+          onClick={() => farm.setMuted(!s.muted)}
+          aria-label={s.muted ? 'Turn sound on' : 'Turn sound off'}
+          aria-pressed={!s.muted}
+          title={s.muted ? 'Sound is off' : 'Sound is on'}
+        >
+          {s.muted ? <SoundOffIcon /> : <SoundOnIcon />}
         </button>
         {!fill && (
           <button
@@ -337,12 +441,26 @@ export default function Hud({ farm, host, fill }) {
             {expanded ? <ShrinkIcon /> : <ExpandIcon />}
           </button>
         )}
+        <button
+          type="button"
+          className="sunfarm-btn sunfarm-btn--round sunfarm-narrow"
+          onClick={() => setCard('menu')}
+          aria-label="Game menu"
+        >
+          <MenuIcon />
+        </button>
       </div>
 
-      <div className="sunfarm-meters" role="group" aria-label="Power">
+      <div
+        className="sunfarm-meters"
+        role="group"
+        aria-label="Power"
+        onClick={compact ? () => setCard('power') : undefined}
+      >
         <Meter
           label="Sun & wind"
           value={s.clean === null ? 'No power yet' : `${s.clean}% today`}
+          short={s.clean === null ? '–' : `${s.clean}%`}
           share={(s.clean || 0) / 100}
           tone="share"
         >
@@ -351,10 +469,11 @@ export default function Hud({ farm, host, fill }) {
         <Meter
           label="Making"
           value={
-            s.makingKw > 0 || s.peakKw > 0
+            making
               ? `${s.makingKw.toFixed(1)} kW${s.shaded ? ` · ${s.shaded} shaded` : ''}`
               : 'Nothing built'
           }
+          short={making ? s.makingKw.toFixed(1) : '–'}
           share={
             s.peakKw > 0
               ? Math.min(1, s.makingKw / s.peakKw)
@@ -362,9 +481,7 @@ export default function Hud({ farm, host, fill }) {
                 ? 1
                 : 0
           }
-          tone={
-            s.makingKw > 0 || s.peakKw > 0 ? 'sun' : 'sun sunfarm-meter--none'
-          }
+          tone={making ? 'sun' : 'sun sunfarm-meter--none'}
         >
           <BoltIcon size={18} />
         </Meter>
@@ -377,6 +494,13 @@ export default function Hud({ farm, host, fill }) {
                 ? `${s.dieselKw.toFixed(1)} kW · fuel ${s.fuelToday}`
                 : 'Silent'
           }
+          short={
+            !s.generator
+              ? 'gone'
+              : s.dieselKw > 0
+                ? s.dieselKw.toFixed(1)
+                : 'off'
+          }
           share={s.wantedKw > 0 ? s.dieselKw / s.wantedKw : 0}
           tone={s.dieselKw > 0 ? 'diesel' : 'diesel sunfarm-meter--none'}
         >
@@ -385,6 +509,7 @@ export default function Hud({ farm, host, fill }) {
         <Meter
           label="Village"
           value={`${s.litHouses} of ${s.houses} lit`}
+          short={`${s.litHouses}/${s.houses}`}
           share={s.wantedKw > 0 ? s.sentKw / s.wantedKw : 0}
           tone="village"
         >
@@ -396,6 +521,11 @@ export default function Hud({ farm, host, fill }) {
             battery
               ? `${s.storedKwh.toFixed(1)} of ${s.capacityKwh} kWh`
               : 'No batteries'
+          }
+          short={
+            battery
+              ? `${Math.round((s.storedKwh / s.capacityKwh) * 100)}%`
+              : '–'
           }
           share={battery ? s.storedKwh / s.capacityKwh : 0}
           tone={battery ? 'battery' : 'battery sunfarm-meter--none'}
@@ -442,6 +572,16 @@ export default function Hud({ farm, host, fill }) {
       )}
 
       <div className="sunfarm-bottom">
+        {/* On a phone nothing can be hovered, so the tool in hand says what
+            it is and what it does, just above the tools. */}
+        {inHand && inHand.tool !== 'look' && (
+          <p className="sunfarm-hint">
+            <strong>{inHand.name}</strong>
+            {inHand.cost ? ` · ${inHand.cost}` : ''}
+            <span>{` ${inHand.hint}`}</span>
+          </p>
+        )}
+
         <div
           className="sunfarm-group sunfarm-speed"
           role="group"
@@ -501,7 +641,9 @@ export default function Hud({ farm, host, fill }) {
                 </span>
                 <span className="sunfarm-tool-label">{label}</span>
                 {locked ? (
-                  <span className="sunfarm-tool-cost">Locked</span>
+                  <span className="sunfarm-tool-cost sunfarm-tool-cost--locked">
+                    Locked
+                  </span>
                 ) : cost ? (
                   <span className="sunfarm-tool-cost">
                     <CoinIcon size={13} />
@@ -567,6 +709,101 @@ export default function Hud({ farm, host, fill }) {
         </div>
       </div>
 
+      {card === 'menu' && (
+        <Card title={s.island.name} onClose={close}>
+          <div className="sunfarm-menu">
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-menu-item"
+              onClick={() => setCard('chart')}
+            >
+              <ChartIcon />
+              The islands
+            </button>
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-menu-item"
+              onClick={() => setCard('goals')}
+            >
+              <FlagIcon />
+              Goals
+            </button>
+            {social && (
+              <button
+                type="button"
+                className="sunfarm-btn sunfarm-menu-item"
+                onClick={() => setCard('board')}
+              >
+                <ResultsIcon />
+                Results
+              </button>
+            )}
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-menu-item"
+              onClick={() => setCard('help')}
+            >
+              <HelpIcon />
+              How to play
+            </button>
+            <button
+              type="button"
+              className="sunfarm-btn sunfarm-menu-item"
+              aria-pressed={!s.muted}
+              onClick={() => farm.setMuted(!s.muted)}
+            >
+              {s.muted ? <SoundOffIcon /> : <SoundOnIcon />}
+              Sound: {s.muted ? 'off' : 'on'}
+            </button>
+          </div>
+          <Forecast days={s.forecast} />
+        </Card>
+      )}
+
+      {card === 'power' && (
+        <Card title="Power" onClose={close}>
+          <dl className="sunfarm-readings">
+            <div>
+              <dt>From sun and wind today</dt>
+              <dd>{s.clean === null ? 'No power yet' : `${s.clean}%`}</dd>
+            </div>
+            <div>
+              <dt>Making now</dt>
+              <dd>
+                {making ? `${s.makingKw.toFixed(1)} kW` : 'Nothing built'}
+                {s.shaded ? ` (${s.shaded} in shade)` : ''}
+              </dd>
+            </div>
+            <div>
+              <dt>Generator</dt>
+              <dd>
+                {!s.generator
+                  ? 'Gone'
+                  : s.dieselKw > 0
+                    ? `${s.dieselKw.toFixed(1)} kW, fuel ${s.fuelToday} today`
+                    : 'Silent'}
+              </dd>
+            </div>
+            <div>
+              <dt>Village</dt>
+              <dd>
+                {s.litHouses} of {s.houses} lit, wants {s.wantedKw.toFixed(1)}{' '}
+                kW
+              </dd>
+            </div>
+            <div>
+              <dt>Stored</dt>
+              <dd>
+                {battery
+                  ? `${s.storedKwh.toFixed(1)} of ${s.capacityKwh} kWh`
+                  : 'No batteries'}
+              </dd>
+            </div>
+          </dl>
+          <Forecast days={s.forecast} />
+        </Card>
+      )}
+
       {card === 'help' && (
         <Card title={TITLE} onClose={close} wide>
           <p className="sunfarm-card-lede">
@@ -606,10 +843,13 @@ export default function Hud({ farm, host, fill }) {
               </span>
             </li>
           </ol>
-          <p className="sunfarm-card-small">
-            Drag to move the view. Right-drag or twist two fingers to turn it.
-            Pinch, or hold ctrl and scroll, to zoom. Number keys pick a tool;
-            space pauses.
+          <p className="sunfarm-card-small sunfarm-wide">
+            Drag to move the view. Right-drag to turn it. Hold ctrl and scroll
+            to zoom. Number keys pick a tool; space pauses.
+          </p>
+          <p className="sunfarm-card-small sunfarm-narrow">
+            Tap to build. Drag to move the view, pinch to zoom, twist two
+            fingers to turn. The power line is drawn with a drag.
           </p>
           <div className="sunfarm-card-foot">
             <button
@@ -723,6 +963,12 @@ export default function Hud({ farm, host, fill }) {
         </Card>
       )}
 
+      {card === 'board' && social && (
+        <Card title="Results" onClose={close} wide>
+          <Board farm={farm} social={social} island={s.island} done={s.done} />
+        </Card>
+      )}
+
       {!card && s.finished && (
         <Card
           title={`${s.finished.name} runs on the sun`}
@@ -741,14 +987,38 @@ export default function Hud({ farm, host, fill }) {
             The generator can go back on the boat now: the Remove tool will take
             it. Or stay a while and watch the place.
           </p>
-          <div className="sunfarm-card-foot">
-            <button
-              type="button"
-              className="sunfarm-btn sunfarm-btn--plain"
-              onClick={copyResult}
-            >
-              {copied ? 'Copied' : 'Copy result'}
-            </button>
+          <div className="sunfarm-card-foot sunfarm-card-foot--wrap">
+            {social ? (
+              <button
+                type="button"
+                className="sunfarm-btn sunfarm-btn--plain"
+                onClick={() => {
+                  farm.acknowledge();
+                  setCard('board');
+                }}
+              >
+                <ResultsIcon size={18} />
+                Post result
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="sunfarm-btn sunfarm-btn--plain"
+                  onClick={copyResult}
+                >
+                  {copied ? 'Copied' : 'Copy result'}
+                </button>
+                <a
+                  className="sunfarm-btn sunfarm-btn--plain"
+                  href={compose}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  Share on Bluesky
+                </a>
+              </>
+            )}
             {s.finished.next ? (
               <button
                 type="button"

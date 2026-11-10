@@ -11,6 +11,9 @@
 //             object between renders, or the game restarts.
 //   onReady   called with the running game (src/sunfarm.js's API) once it is
 //             up: for a host that wants to drive it, or for the console.
+//   social    a way to post a finished island and read what others posted,
+//             if the host has one (see README, "Posting results"). Without
+//             it the game offers a line of text to copy and nothing more.
 
 import { useEffect, useRef, useState } from 'react';
 import { createSunfarm } from './sunfarm.js';
@@ -23,6 +26,7 @@ export default function Sunfarming({
   storage,
   className = '',
   onReady,
+  social = null,
 }) {
   const hostRef = useRef(null);
   const [farm, setFarm] = useState(null);
@@ -61,7 +65,9 @@ export default function Sunfarming({
       role="application"
       aria-label={TITLE}
     >
-      {farm && <Hud farm={farm} host={hostRef.current} fill={fill} />}
+      {farm && (
+        <Hud farm={farm} host={hostRef.current} fill={fill} social={social} />
+      )}
       {failed && (
         <p className="sunfarm-failed">
           The island is drawn with WebGL, and this browser wouldn’t start it.

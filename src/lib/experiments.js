@@ -358,6 +358,14 @@ export function reactionNotes(standing) {
  * write refused and reading it as the site being broken.
  */
 export function scopeAllowsReaction(scope) {
+  return scopeAllowsCollection(scope, EXPERIMENT_REACTION_NSID);
+}
+
+/**
+ * The same question for any collection: does this grant let its holder write
+ * records of `nsid` to their own repo?
+ */
+export function scopeAllowsCollection(scope, nsid) {
   const tokens = String(scope || '').split(/\s+/).filter(Boolean);
   return tokens.some((t) => {
     if (t === 'transition:generic') return true;
@@ -368,7 +376,7 @@ export function scopeAllowsReaction(scope) {
       ...(named ? [named] : []),
       ...new URLSearchParams(query).getAll('collection'),
     ];
-    return collections.some((c) => c === '*' || c === EXPERIMENT_REACTION_NSID);
+    return collections.some((c) => c === '*' || c === nsid);
   });
 }
 

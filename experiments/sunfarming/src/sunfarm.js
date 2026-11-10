@@ -37,6 +37,7 @@ import {
 import { sunMap } from './sim/shade.js';
 import { dayOf, formatClock, hourOf, isDaylight, seasonAt } from './sim/sun.js';
 import { forecast } from './sim/weather.js';
+import { createSound } from './audio/sound.js';
 import { createStage } from './view/stage.js';
 
 /** Island hours that pass in one real second at 1× speed: a day in 96 s. */
@@ -163,6 +164,21 @@ export function createSunfarm({
     // finished (until the HUD has said so).
     finished: null,
   };
+  // Sound: off until the first press inside the game, and off for good if
+  // the player has said so before. A browser only lets sound start from the
+  // end of a press (a finger going down doesn't count), so it is woken on
+  // pointerup, click and keydown.
+  const MUTED_KEY = 'sunfarming:muted';
+  const readMuted = () => {
+    try {
+      return window.localStorage.getItem(MUTED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  };
+  const sound = createSound({ muted: readMuted() });
+  const wake = () => sound.unlock();
+
   let toastId = 0;
   let destroyed = false;
   // Counts every change to what stands on the island, so the sun map knows
@@ -319,6 +335,7 @@ export function createSunfarm({
       finished: ui.finished,
       info: info ? { ...info, action } : null,
       toasts: ui.toasts,
+      muted: sound.muted,
       tools: BUILDABLE.map((kind) => ({
         tool: kind,
         cost: costOf(game, kind),
@@ -404,8 +421,10 @@ export function createSunfarm({
         `${KINDS[tool].name}: ${KINDS[tool].unlock.toLowerCase()}.`,
         'note',
       );
+      sound.play('deny');
       return;
     }
+    if (tool !== ui.tool) sound.play('tap');
     ui.tool = tool;
     ui.selected = -1;
     // The stylesheet picks the pointer's shape from this.
@@ -431,6 +450,8 @@ export function createSunfarm({
     if (result.ok) {
       dirty = true;
       built += 1;
+      if (ui.tool === 'remove') sound.play('remove');
+      else sound.place(result.kind);
       if (result.kind === 'generator') {
         toast(
           'The generator goes back on the boat. The island is on its own now.',
@@ -442,9 +463,13 @@ export function createSunfarm({
     }
     if (result.reason === 'coins') {
       toast(result.message, 'warn');
+      sound.play('deny');
       return false;
     }
-    if (!quiet && result.message) toast(result.message, 'warn');
+    if (!quiet && result.message) {
+      toast(result.message, 'warn');
+      sound.play('deny');
+    }
     return true;
   }
 
@@ -503,10 +528,14 @@ export function createSunfarm({
     if (pointers.size > 2) return;
 
     const turning = event.pointerType === 'mouse' && event.button !== 0;
+    // A mouse paints with any building tool. A finger has to be able to move
+    // the view, so it paints only with the power line, which is drawn; with
+    // everything else a drag pans and a tap builds.
+    const drags = event.pointerType !== 'mouse' && ui.tool !== 'cable';
     const idx = stage.pick(at.x, at.y);
     stroke = {
       id: event.pointerId,
-      mode: turning ? 'orbit' : ui.tool === 'look' ? 'pan' : 'paint',
+      mode: turning ? 'orbit' : ui.tool === 'look' || drags ? 'pan' : 'paint',
       startX: at.x,
       startY: at.y,
       lastX: at.x,
@@ -517,7 +546,10 @@ export function createSunfarm({
     };
     if (stroke.mode === 'paint') {
       ui.hover = idx;
-      stroke.live = applyTool(idx, false);
+      // A mouse press builds at once. A finger might be the first of two,
+      // so its first tile waits until it moves (a stroke) or lifts (a tap).
+      if (event.pointerType === 'mouse') stroke.live = applyTool(idx, false);
+      else stroke.waiting = true;
       refreshCursor();
       publish();
     }
@@ -563,7 +595,14 @@ export function createSunfarm({
       Math.hypot(at.x - stroke.startX, at.y - stroke.startY) > TAP_SLOP
     ) {
       stroke.moved = true;
+      if (stroke.waiting) {
+        stroke.waiting = false;
+        stroke.live = applyTool(stroke.tile, false);
+        publish();
+      }
     }
+    // Still deciding what this touch is.
+    if (stroke.waiting) return;
 
     if (stroke.mode === 'orbit') stage.orbit(-dx * 0.006, dy * 0.005);
     else if (stroke.mode === 'pan') {
@@ -594,7 +633,10 @@ export function createSunfarm({
     if (pointers.size < 2) pinch = null;
     if (!stroke || stroke.id !== event.pointerId) return;
 
-    if (
+    if (stroke.waiting && at && event.type === 'pointerup') {
+      // The power line, tapped: one tile.
+      applyTool(stroke.tile, false);
+    } else if (
       stroke.mode === 'pan' &&
       !stroke.moved &&
       at &&
@@ -739,6 +781,15 @@ export function createSunfarm({
       if (events.length) {
         dirty = true;
         events.forEach(report);
+        const heard = [
+          'done',
+          'unlock',
+          'goal',
+          'upgrade',
+          'house',
+          'morning',
+        ].find((type) => events.some((event) => event.type === type));
+        if (heard) sound.play(heard);
         publish();
       }
     }
@@ -749,6 +800,13 @@ export function createSunfarm({
       publish();
     } else if (time - snapshotAt > SNAPSHOT_EVERY_MS) {
       publish();
+      sound.ambience({
+        wind: game.flow.wind,
+        generator: game.flow.dieselKw > 0.01,
+        night: isDaylight(game.time, seasonAt(game.spec, game.time)) ? 0 : 1,
+        clean: game.yesterday ? game.yesterday.clean : 0,
+        paused: ui.paused,
+      });
     }
     if (time - savedAt > SAVE_EVERY_MS || (dirty && time - savedAt > 1500))
       save();
@@ -760,11 +818,13 @@ export function createSunfarm({
     if (frame || destroyed || !onScreen || document.hidden) return;
     last = 0;
     frame = requestAnimationFrame(tick);
+    sound.hold(false);
   }
 
   function stop() {
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
+    sound.hold(true);
   }
 
   const onVisibility = () => {
@@ -798,6 +858,9 @@ export function createSunfarm({
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('contextmenu', onContextMenu);
+  host.addEventListener('pointerup', wake, true);
+  host.addEventListener('click', wake, true);
+  host.addEventListener('keydown', wake, true);
   host.addEventListener('keydown', onKeyDown);
   document.addEventListener('visibilitychange', onVisibility);
   window.addEventListener('pagehide', save);
@@ -831,11 +894,36 @@ export function createSunfarm({
       if (!SPEEDS.includes(speed)) return;
       ui.speed = speed;
       ui.paused = false;
+      sound.play('tap');
       publish();
     },
     setPaused(paused) {
       ui.paused = Boolean(paused);
       publish();
+    },
+    /** Turn the sound off or on, and remember it. */
+    setMuted(muted) {
+      sound.setMuted(muted);
+      try {
+        window.localStorage.setItem(MUTED_KEY, muted ? '1' : '0');
+      } catch {
+        // It will be asked again next time, then.
+      }
+      if (!muted) sound.play('tap');
+      publish();
+    },
+    /**
+     * The island being played as a result to share, once it is finished:
+     * `{ island, name, date, days }`, or null before then.
+     */
+    result() {
+      if (!game.done) return null;
+      return {
+        island: game.spec.id,
+        name: game.spec.name,
+        date: game.spec.date || null,
+        days: game.done.day,
+      };
     },
     /** Turn the view an eighth of the way round: -1 left, 1 right. */
     turn(direction) {
@@ -897,10 +985,14 @@ export function createSunfarm({
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('contextmenu', onContextMenu);
+      host.removeEventListener('pointerup', wake, true);
+      host.removeEventListener('click', wake, true);
+      host.removeEventListener('keydown', wake, true);
       host.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', save);
       listeners.clear();
+      sound.dispose();
       stage.dispose();
       canvas.remove();
       delete host.dataset.tool;

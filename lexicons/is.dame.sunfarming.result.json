@@ -1,0 +1,38 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.sunfarming.result",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "One player's result for one island of Sunfarming (dame.is/experimenting/sunfarming): how many island days it took to get the island off its diesel generator. Lives on the PLAYER's repo and points at the island's board through `subject`, so backlink indexers (Constellation et al.) can gather everyone's results without a central database. One result per person per board: the record key is the board's key, so posting again replaces the result that was there. Nothing verifies it; it is what the player's own game said.",
+      "record": {
+        "type": "object",
+        "required": ["subject", "island", "days", "createdAt"],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The board this result belongs to: at://<host did>/is.dame.sunfarming.island/<key>, where <key> is the island's id, or today-YYYY-MM-DD for the daily island. A name to link to, not a record: nothing is stored at that address."
+          },
+          "island": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "The island's id, e.g. tern, pines, today."
+          },
+          "date": {
+            "type": "string",
+            "maxLength": 10,
+            "description": "For the daily island, the UTC day it was the island of: YYYY-MM-DD."
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "How many island days it took. Fewer is better."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

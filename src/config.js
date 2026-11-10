@@ -91,6 +91,15 @@ export const LEGACY_GUESTBOOK_SUBJECT = `at://${ME_DID}/${LEGACY_GUESTBOOK_NSID}
 export const EXPERIMENT_NSID = 'is.dame.experiment';
 export const EXPERIMENT_REACTION_NSID = 'is.dame.experiment.reaction';
 
+// Sunfarming (experiments/sunfarming): a player who finishes an island can
+// post the result as an `is.dame.sunfarming.result` record on THEIR repo. Its
+// `subject` is an at-uri naming the island's board,
+// `at://<me>/is.dame.sunfarming.island/<key>`, which is how everyone's results
+// for one island are found again from backlinks. Nothing is ever written at
+// that address: it is a name, not a record. See lexicons/SUNFARMING.md.
+export const SUNFARMING_RESULT_NSID = 'is.dame.sunfarming.result';
+export const SUNFARMING_ISLAND_NSID = 'is.dame.sunfarming.island';
+
 // --- state / vitals ----------------------------------------------------------
 // Live iPhone-sourced physical + ambient state (heart rate, activity, battery,
 // ambient sound, calories) — an append-only log keyed by TID. The LATEST record

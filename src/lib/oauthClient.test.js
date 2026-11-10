@@ -4,15 +4,17 @@ import {
   CLIENT_SCOPE,
   GUESTBOOK_SCOPE,
   OWNER_SCOPE,
+  PLAY_SCOPE,
   REACTION_SCOPE,
   buildLoopbackClientId,
   callbackErrorMessage,
+  playScopeForAccount,
   reactionScopeForAccount,
   scopeForAccount,
   signInErrorMessage,
 } from './oauthClient.js';
-import { scopeAllowsReaction } from './experiments.js';
-import { ME_DID } from '../config.js';
+import { scopeAllowsCollection, scopeAllowsReaction } from './experiments.js';
+import { ME_DID, SUNFARMING_RESULT_NSID } from '../config.js';
 
 describe('buildLoopbackClientId', () => {
   it('names a 127.0.0.1 redirect even when the dev server was opened at localhost', () => {
@@ -34,6 +36,7 @@ describe('buildLoopbackClientId', () => {
       ...OWNER_SCOPE.split(' '),
       ...GUESTBOOK_SCOPE.split(' '),
       ...REACTION_SCOPE.split(' '),
+      ...PLAY_SCOPE.split(' '),
     ]) {
       expect(CLIENT_SCOPE.split(' ')).toContain(token);
     }
@@ -70,6 +73,28 @@ describe('reactionScopeForAccount', () => {
 
   it('is more than the guestbook grant, which cannot write a reaction', () => {
     expect(scopeAllowsReaction(GUESTBOOK_SCOPE)).toBe(false);
+  });
+});
+
+describe('playScopeForAccount', () => {
+  it('lets a visitor post a Sunfarming result, and keeps what they could already do', () => {
+    const scope = playScopeForAccount('someone.bsky.social');
+    expect(scope).toBe(PLAY_SCOPE);
+    expect(scopeAllowsCollection(scope, SUNFARMING_RESULT_NSID)).toBe(true);
+    for (const token of REACTION_SCOPE.split(' ')) {
+      expect(scope.split(' ')).toContain(token);
+    }
+    expect(scopeAllowsReaction(scope)).toBe(true);
+  });
+
+  it('never narrows the owner’s session', () => {
+    expect(playScopeForAccount('dame.is')).toBe(OWNER_SCOPE);
+    expect(playScopeForAccount(ME_DID)).toBe(OWNER_SCOPE);
+  });
+
+  it('is more than the reaction grant, which cannot write a result', () => {
+    expect(scopeAllowsCollection(REACTION_SCOPE, SUNFARMING_RESULT_NSID)).toBe(false);
+    expect(scopeAllowsCollection(OWNER_SCOPE, SUNFARMING_RESULT_NSID)).toBe(true);
   });
 });
 

@@ -135,7 +135,9 @@ because an account holds one session on this site; granting reactions alone
 would take the guestbook permission away from someone who had already signed
 the book.) The union of every scope the client may request is declared in
 `src/lib/oauthClient.js` and served by `api/client-metadata.js`; the two must
-stay in step, and a test holds them to it.
+stay in step, and a test holds them to it. (A visitor who signs in from the
+Sunfarming game to post a result is asked for those two and one more; see
+[SUNFARMING.md](SUNFARMING.md).)
 
 - **Signed out.** Picking a verdict opens a line for a handle. The reaction
   waits in `sessionStorage` across the hop to the visitor's PDS and is written

@@ -281,6 +281,34 @@ export const StormIcon = (p) => (
   </Icon>
 );
 
+export const MenuIcon = (p) => (
+  <Icon {...p}>
+    <path d="M4.5 7h15M4.5 12h15M4.5 17h15" strokeWidth="2.6" />
+  </Icon>
+);
+
+export const SoundOnIcon = (p) => (
+  <Icon {...p}>
+    <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="#fff8e7" />
+    <path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11" />
+  </Icon>
+);
+
+export const SoundOffIcon = (p) => (
+  <Icon {...p}>
+    <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="#fff8e7" />
+    <path d="m16 9.5 5 5M21 9.5l-5 5" strokeWidth="2.4" />
+  </Icon>
+);
+
+export const ResultsIcon = (p) => (
+  <Icon {...p}>
+    <path d="M7 4h10v5a5 5 0 0 1-10 0z" fill="#ffd23f" />
+    <path d="M7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5" />
+    <path d="M12 14v4M8.5 20h7M9.5 18h5" />
+  </Icon>
+);
+
 export const SKY_ICONS = {
   clear: ClearIcon,
   fair: FairIcon,
