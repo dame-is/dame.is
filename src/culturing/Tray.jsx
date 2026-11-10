@@ -101,6 +101,16 @@ function Confirm({ label, confirmLabel, onConfirm, sure = true, ...rest }) {
   );
 }
 
+/**
+ * The shelf: everything a tab has to pick from. Beside the stage it is a
+ * list read down the column. On a phone it is a strip that scrolls sideways
+ * under the picture (culturing.css), so picking from it never means losing
+ * sight of the plate.
+ */
+function Shelf({ children }) {
+  return <div className="cult-shelf">{children}</div>;
+}
+
 /** A row of the shelf: a swatch, a name, and what it is modelled on. */
 function Item({ on, disabled, swatch, name, after, tag, onClick }) {
   return (
@@ -145,7 +155,7 @@ function mediumSwatch(medium) {
 
 // ------------------------------------------------------------ cultures
 
-function CulturesPanel({ bench, snap }) {
+function CulturesPanel({ bench, snap, compact }) {
   const plate = snap.dishes[snap.selected];
   const armed =
     snap.tool?.kind === 'culture' ? cultureById(snap.tool.id) : null;
@@ -189,38 +199,44 @@ function CulturesPanel({ bench, snap }) {
           drag draws a streak. A plate holds four.
         </p>
       )}
-      {KINDS.map((group) => {
-        const members = CULTURES.filter((c) => c.kind === group.kind);
-        if (!members.length) return null;
-        return (
-          <div key={group.kind} className="cult-group">
-            <h3 className="eyebrow cult-group-head">{group.label}</h3>
-            <ul className="cult-list">
-              {members.map((c) => {
-                const here = plate.slots.includes(c.id);
-                return (
-                  <Item
-                    key={c.id}
-                    on={armed?.id === c.id}
-                    disabled={plate.full && !here}
-                    swatch={cultureSwatch(c)}
-                    name={c.name}
-                    after={c.after}
-                    tag={here ? 'on plate' : null}
-                    onClick={() =>
-                      bench.arm(
-                        armed?.id === c.id
-                          ? null
-                          : { kind: 'culture', id: c.id },
-                      )
-                    }
-                  />
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
+      <Shelf>
+        {KINDS.map((group) => {
+          const members = CULTURES.filter((c) => c.kind === group.kind);
+          if (!members.length) return null;
+          return (
+            <div key={group.kind} className="cult-group">
+              <h3 className="eyebrow cult-group-head">{group.label}</h3>
+              <ul className="cult-list">
+                {members.map((c) => {
+                  const here = plate.slots.includes(c.id);
+                  return (
+                    <Item
+                      key={c.id}
+                      on={armed?.id === c.id}
+                      disabled={plate.full && !here}
+                      swatch={cultureSwatch(c)}
+                      name={c.name}
+                      after={c.after}
+                      tag={here ? 'on plate' : null}
+                      onClick={() => {
+                        const on = armed?.id === c.id;
+                        bench.arm(on ? null : { kind: 'culture', id: c.id });
+                        // On a phone the card that says this is under the
+                        // strip, out of sight: the stage says it instead.
+                        if (!on && compact) {
+                          bench.say(
+                            `${c.name}: touch the gel to leave a drop, drag to draw a streak.`,
+                          );
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </Shelf>
     </>
   );
 }
@@ -319,19 +335,21 @@ function MediaPanel({ bench, snap }) {
         </div>
         <Notes notes={medium.notes} />
       </div>
-      <ul className="cult-list">
-        {MEDIA.map((m) => (
-          <Item
-            key={m.id}
-            on={m.id === medium.id}
-            swatch={mediumSwatch(m)}
-            name={m.name}
-            after={m.after}
-            tag={m.id === plate.medium ? 'poured' : null}
-            onClick={() => choose(m)}
-          />
-        ))}
-      </ul>
+      <Shelf>
+        <ul className="cult-list">
+          {MEDIA.map((m) => (
+            <Item
+              key={m.id}
+              on={m.id === medium.id}
+              swatch={mediumSwatch(m)}
+              name={m.name}
+              after={m.after}
+              tag={m.id === plate.medium ? 'poured' : null}
+              onClick={() => choose(m)}
+            />
+          ))}
+        </ul>
+      </Shelf>
     </>
   );
 }
@@ -351,7 +369,7 @@ function additionSwatch(item) {
   );
 }
 
-function TrayPanel({ bench, snap }) {
+function TrayPanel({ bench, snap, compact }) {
   const armed =
     snap.tool?.kind === 'addition' ? additionById(snap.tool.id) : null;
   const dragged = armed && (armed.cut || armed.scrape);
@@ -392,27 +410,35 @@ function TrayPanel({ bench, snap }) {
           up and touch the gel.
         </p>
       )}
-      {ADDITION_KINDS.map((group) => (
-        <div key={group.kind} className="cult-group">
-          <h3 className="eyebrow cult-group-head">{group.label}</h3>
-          <ul className="cult-list">
-            {ADDITIONS.filter((a) => a.kind === group.kind).map((a) => (
-              <Item
-                key={a.id}
-                on={armed?.id === a.id}
-                swatch={additionSwatch(a)}
-                name={a.name}
-                after={a.after}
-                onClick={() =>
-                  bench.arm(
-                    armed?.id === a.id ? null : { kind: 'addition', id: a.id },
-                  )
-                }
-              />
-            ))}
-          </ul>
-        </div>
-      ))}
+      <Shelf>
+        {ADDITION_KINDS.map((group) => (
+          <div key={group.kind} className="cult-group">
+            <h3 className="eyebrow cult-group-head">{group.label}</h3>
+            <ul className="cult-list">
+              {ADDITIONS.filter((a) => a.kind === group.kind).map((a) => (
+                <Item
+                  key={a.id}
+                  on={armed?.id === a.id}
+                  swatch={additionSwatch(a)}
+                  name={a.name}
+                  after={a.after}
+                  onClick={() => {
+                    const on = armed?.id === a.id;
+                    bench.arm(on ? null : { kind: 'addition', id: a.id });
+                    if (!on && compact) {
+                      bench.say(
+                        a.cut || a.scrape
+                          ? `${a.name}: drag it across the gel.`
+                          : `${a.name}: touch the gel where it should go.`,
+                      );
+                    }
+                  }}
+                />
+              ))}
+            </ul>
+          </div>
+        ))}
+      </Shelf>
     </>
   );
 }
@@ -528,15 +554,65 @@ function IncubatorPanel({ bench, snap }) {
 
 // ------------------------------------------------------------- recipes
 
-function RecipesPanel({ bench, snap }) {
+function RecipesPanel({ bench, snap, compact }) {
   const plate = snap.dishes[snap.selected];
   const used = plate.events.length > 0;
+  // On a phone one recipe is read at a time: the one this plate was grown
+  // from, until another is picked off the strip.
+  const [pick, setPick] = useState(plate.recipe || RECIPES[0].id);
+  useEffect(() => {
+    if (plate.recipe) setPick(plate.recipe);
+  }, [snap.selected, plate.recipe]);
+
+  const grow = (recipe) => (
+    <Confirm
+      sure={used && plate.recipe !== recipe.id}
+      label={
+        plate.recipe === recipe.id
+          ? 'Start it again'
+          : `Grow it on plate ${snap.selected + 1}`
+      }
+      confirmLabel="Discard what’s growing and start it"
+      onConfirm={() => bench.loadRecipe(snap.selected, recipe.id)}
+    />
+  );
+  const hint = (
+    <p className="cult-hint">
+      Plates that show one thing each. Nothing on them is drawn: it is what
+      these cultures do on that medium, started a few hours in.
+    </p>
+  );
+
+  if (compact) {
+    const recipe = RECIPES.find((r) => r.id === pick) || RECIPES[0];
+    return (
+      <>
+        <div className="cult-card">
+          <h3 className="cult-card-title">{recipe.name}</h3>
+          <p className="cult-card-blurb">{recipe.watch}</p>
+          <div className="cult-actions">{grow(recipe)}</div>
+        </div>
+        {hint}
+        <Shelf>
+          <ul className="cult-list">
+            {RECIPES.map((r) => (
+              <Item
+                key={r.id}
+                on={r.id === recipe.id}
+                name={r.name}
+                tag={plate.recipe === r.id ? 'on plate' : null}
+                onClick={() => setPick(r.id)}
+              />
+            ))}
+          </ul>
+        </Shelf>
+      </>
+    );
+  }
+
   return (
     <>
-      <p className="cult-hint">
-        Plates that show one thing each. Nothing on them is drawn: it is what
-        these cultures do on that medium, started a few hours in.
-      </p>
+      {hint}
       <ul className="cult-recipes">
         {RECIPES.map((recipe) => (
           <li
@@ -545,16 +621,7 @@ function RecipesPanel({ bench, snap }) {
           >
             <h3 className="cult-recipe-name">{recipe.name}</h3>
             <p className="cult-recipe-watch">{recipe.watch}</p>
-            <Confirm
-              sure={used && plate.recipe !== recipe.id}
-              label={
-                plate.recipe === recipe.id
-                  ? 'Start it again'
-                  : `Grow it on plate ${snap.selected + 1}`
-              }
-              confirmLabel="Discard what’s growing and start it"
-              onConfirm={() => bench.loadRecipe(snap.selected, recipe.id)}
-            />
+            {grow(recipe)}
           </li>
         ))}
       </ul>
@@ -618,12 +685,6 @@ function RecordPanel({ bench, snap }) {
         <Button size="sm" onClick={copyLink}>
           {copied ? 'Link copied' : 'Copy a link to this plate'}
         </Button>
-        <Confirm
-          sure={plate.events.length > 0}
-          label="Surprise me"
-          confirmLabel="Discard what’s growing and surprise me"
-          onConfirm={() => bench.surprise(snap.selected)}
-        />
       </div>
       <div className="cult-actions cult-actions--bench">
         <Button
@@ -660,7 +721,7 @@ const PANELS = {
   record: RecordPanel,
 };
 
-export default function Tray({ bench, snap }) {
+export default function Tray({ bench, snap, compact = false }) {
   const [tab, setTab] = useState('cultures');
   const Panel = PANELS[tab];
   return (
@@ -697,7 +758,7 @@ export default function Tray({ bench, snap }) {
         }}
       />
       <div className="cult-panel">
-        <Panel bench={bench} snap={snap} />
+        <Panel bench={bench} snap={snap} compact={compact} />
       </div>
     </div>
   );

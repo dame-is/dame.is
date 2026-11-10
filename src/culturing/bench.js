@@ -25,6 +25,7 @@ import {
   draw as drawPart,
   record,
   setEnv as setLiveEnv,
+  settle,
 } from './incubate.js';
 import {
   cleanDish,
@@ -35,9 +36,9 @@ import {
   RECIPE_VERSION,
 } from './recipe.js';
 import { OPENING_BENCH, RECIPES, recipeById } from './recipes.js';
-import { CULTURES, cultureById } from './cultures.js';
-import { MEDIA } from './media.js';
+import { cultureById } from './cultures.js';
 import { additionById } from './additions.js';
+import { randomDish } from './chance.js';
 import { FULL } from './tools.js';
 import { SLOTS } from './pack.js';
 
@@ -130,6 +131,18 @@ function openingDishes() {
   );
 }
 
+/**
+ * Whether a plate's record holds anything done to it by hand, as far as the
+ * record can say. A recipe off the shelf with nothing added is not; neither
+ * is a plate with nothing on it. Anything else might be somebody's work,
+ * and is asked after before it is thrown away.
+ */
+function workedOn(dish) {
+  if (!dish.events.length) return false;
+  const recipe = dish.recipe ? recipeById(dish.recipe) : null;
+  return !(recipe && recipe.dish.events.length === dish.events.length);
+}
+
 function loadSaved() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
@@ -149,6 +162,8 @@ function loadSaved() {
  * @param {HTMLCanvasElement} canvas
  * @param {object} [options]
  * @param {object} [options.incoming]  a dish that arrived in a link
+ * @param {boolean} [options.playing]  false to start with the incubator
+ *   stopped; plates are still grown back to where they were left
  * @returns the bench, or `{ error }` when this device can't run it
  */
 export function createBench(canvas, options = {}) {
@@ -200,7 +215,7 @@ export function createBench(canvas, options = {}) {
     ? Math.min(saved.selected | 0, saved.dishes.length - 1)
     : 0;
   let mode = 'bench'; // 'bench' (all of them) or 'plate' (one, up close)
-  let playing = true;
+  let playing = options.playing !== false;
   let tool = null;
   let notice = null;
   let noticeTimer = 0;
@@ -210,7 +225,7 @@ export function createBench(canvas, options = {}) {
   let dirty = true; // the scene needs drawing again
   let lightDirty = true; // every plate's display needs composing again
 
-  function makeEntry(dish) {
+  function makeEntry(dish, touched = false) {
     const plate = sim.createPlate();
     return {
       dish,
@@ -218,15 +233,26 @@ export function createBench(canvas, options = {}) {
       live: begin(sim, plate, dish),
       display: renderer.createDisplay(),
       centre: [0, 0],
+      // The hour it is being grown back to: where it stood when it was put
+      // on the bench. Stopping the incubator never takes it below this.
+      owed: dish.hours,
+      // Stopped part-way back to that hour, until the incubator starts.
+      waiting: false,
+      // Something on it was done by hand, and would be lost with it.
+      touched,
     };
   }
 
   function restart(entry) {
     entry.live = begin(sim, entry.plate, entry.dish);
+    entry.owed = entry.dish.hours;
+    entry.waiting = false;
     lightDirty = true;
   }
 
-  entries = (saved ? saved.dishes : openingDishes()).map(makeEntry);
+  entries = saved
+    ? saved.dishes.map((dish) => makeEntry(dish, workedOn(dish)))
+    : openingDishes().map((dish) => makeEntry(dish));
   // A plate that arrived in a link takes a place on the bench: a new one
   // if there is room, otherwise an untouched plate's. Nothing anyone has
   // grown is thrown away for it.
@@ -234,11 +260,12 @@ export function createBench(canvas, options = {}) {
   if (options.incoming) {
     const blank = entries.map((e) => e.dish.events.length).lastIndexOf(0);
     if (entries.length < MAX_DISHES) {
-      entries.push(makeEntry(options.incoming));
+      entries.push(makeEntry(options.incoming, true));
       selected = entries.length - 1;
       mode = 'plate';
     } else if (blank >= 0) {
       entries[blank].dish = options.incoming;
+      entries[blank].touched = true;
       restart(entries[blank]);
       selected = blank;
       mode = 'plate';
@@ -340,7 +367,7 @@ export function createBench(canvas, options = {}) {
       size: sim.grid.size,
       canAdd: entries.length < MAX_DISHES,
       canRemove: entries.length > 1,
-      dishes: entries.map(({ dish, live }) => ({
+      dishes: entries.map(({ dish, live, waiting, touched }) => ({
         medium: dish.medium,
         agar: live.medium.agar,
         nutrient: live.medium.nutrient,
@@ -349,7 +376,10 @@ export function createBench(canvas, options = {}) {
         goal: dish.hours,
         // Re-growing from its recipe, not being watched.
         catching: behind(live) > Math.max(1.5, view.speed),
+        // Stopped before it got back there.
+        waiting,
         held: dish.held,
+        touched,
         slots: live.slots.slice(),
         full: live.slots.length >= SLOTS,
         events: dish.events,
@@ -473,6 +503,7 @@ export function createBench(canvas, options = {}) {
     queue.forEach((index, place) => {
       if (left <= 0) return;
       const entry = entries[index];
+      if (entry.waiting) return;
       const share = place === 0 ? Math.ceil(left * 0.7) : Math.ceil(left / 2);
       left -= advance(sim, entry.live, Math.max(1, Math.min(left, share)));
     });
@@ -615,6 +646,7 @@ export function createBench(canvas, options = {}) {
     const { entry, event } = stroke;
     if (event.path.length > 1) {
       record(entry.live, event);
+      entry.touched = true;
       emit();
       return;
     }
@@ -626,6 +658,7 @@ export function createBench(canvas, options = {}) {
         : { do: 'add', addition: event.addition, x, y };
     const refused = act(sim, entry.live, single);
     if (refused) say(refused);
+    else entry.touched = true;
     emit();
   }
 
@@ -862,8 +895,24 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
+  /**
+   * Start or stop the incubator. Stopped means every plate stays as it is
+   * on screen: one that was being watched is held at the hour it has
+   * reached (its clock runs ahead of it at speed, see `settle`), and one
+   * still growing back to where it was left waits where it stands, and
+   * goes on from there when the incubator starts again.
+   */
   function setPlaying(value) {
+    if (playing === Boolean(value)) return;
     playing = Boolean(value);
+    for (const entry of entries) {
+      if (playing) {
+        entry.waiting = false;
+      } else {
+        settle(entry.live, entry.owed);
+        entry.waiting = behind(entry.live) > 0;
+      }
+    }
     emit();
   }
 
@@ -900,12 +949,18 @@ export function createBench(canvas, options = {}) {
     else emit();
   }
 
+  /** Put a different plate where one was. Nothing on it is by hand yet. */
+  function swap(entry, dish) {
+    entry.dish = dish;
+    entry.touched = false;
+    restart(entry);
+    dirty = true;
+  }
+
   function replace(index, dish) {
     const entry = entries[index];
     if (!entry) return;
-    entry.dish = dish;
-    restart(entry);
-    dirty = true;
+    swap(entry, dish);
     emit();
   }
 
@@ -938,6 +993,9 @@ export function createBench(canvas, options = {}) {
     const entry = entries[index];
     if (!entry) return;
     entry.dish.held = Boolean(held);
+    // In the fridge it stops where it is, as it does when the incubator is
+    // stopped; it still gets back to wherever it was left.
+    if (entry.dish.held) settle(entry.live, entry.owed);
     emit();
   }
 
@@ -951,6 +1009,7 @@ export function createBench(canvas, options = {}) {
       seed: (Math.random() * 1e6) | 0,
     });
     if (refused) say(refused);
+    else entry.touched = true;
     emit();
   }
 
@@ -966,6 +1025,7 @@ export function createBench(canvas, options = {}) {
       seed: (Math.random() * 1e6) | 0,
     });
     if (refused) say(refused);
+    else entry.touched = true;
     emit();
   }
 
@@ -974,6 +1034,7 @@ export function createBench(canvas, options = {}) {
     const entry = entries[index];
     if (!entry || !additionById(additionId)) return;
     act(sim, entry.live, { do: 'add', addition: additionId, x, y });
+    entry.touched = true;
     emit();
   }
 
@@ -988,6 +1049,7 @@ export function createBench(canvas, options = {}) {
     dish.hours = Math.max(dish.hours, live.plate.hours);
     delete dish.recipe;
     restart(entry);
+    entry.touched = workedOn(dish);
     dirty = true;
     emit();
   }
@@ -1012,60 +1074,21 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
-  /** Something nobody chose: a medium, a few cultures that suit it, and
-   *  perhaps a disc. */
-  function surprise(index) {
+  /** Deal a plate nobody chose (chance.js) onto one place on the bench. */
+  function randomize(index) {
     const entry = entries[index];
     if (!entry) return;
-    const pick = (list) => list[(Math.random() * list.length) | 0];
-    const medium = pick(MEDIA);
-    const suited = CULTURES.filter((c) => {
-      if (medium.salt) return Boolean(c.salt);
-      if (c.salt === 'needs') return false;
-      return !(
-        medium.selects && (c.tags || []).some((t) => medium.selects[t] < 0.5)
-      );
-    });
-    const events = [];
-    const count = 2 + ((Math.random() * 3) | 0);
-    for (let i = 0; i < count && suited.length; i += 1) {
-      const culture = pick(suited).id;
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 6 + Math.random() * 24;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-      const seed = (Math.random() * 1e6) | 0;
-      if (Math.random() < 0.3) {
-        const sweep = 0.6 + Math.random() * 1.2;
-        const path = [];
-        for (let k = 0; k <= 14; k += 1) {
-          const a = angle + (sweep * k) / 14;
-          path.push([Math.cos(a) * radius, Math.sin(a) * radius]);
-        }
-        events.push({ at: 0, do: 'streak', culture, path, seed });
-      } else {
-        events.push({ at: 0, do: 'spot', culture, x, y, seed });
-      }
-    }
-    if (Math.random() < 0.4) {
-      const addition = pick([
-        'penicillin',
-        'biocide',
-        'sugar',
-        'dye-violet',
-        'dye-blue',
-      ]);
-      const angle = Math.random() * Math.PI * 2;
-      events.push({
-        at: 0,
-        do: 'add',
-        addition,
-        x: Math.cos(angle) * 14,
-        y: Math.sin(angle) * 14,
-      });
-    }
-    replace(index, cleanDish({ medium: medium.id, events, hours: 0 }));
+    swap(entry, randomDish());
+    // Whatever it is, it is worth seeing in ordinary light first.
     if (view.light !== 0) setLight(0);
+    else emit();
+  }
+
+  /** The same, for every plate on the bench at once. */
+  function randomizeBench() {
+    for (const entry of entries) swap(entry, randomDish());
+    if (view.light !== 0) setLight(0);
+    else emit();
   }
 
   function resetBench() {
@@ -1073,7 +1096,7 @@ export function createBench(canvas, options = {}) {
       sim.disposePlate(entry.plate);
       renderer.disposeDisplay(entry.display);
     }
-    entries = openingDishes().map(makeEntry);
+    entries = openingDishes().map((dish) => makeEntry(dish));
     selected = 0;
     mode = 'bench';
     tool = null;
@@ -1170,6 +1193,8 @@ export function createBench(canvas, options = {}) {
       return () => listeners.delete(listener);
     },
     getSnapshot: () => snapshot,
+    /** A line on the stage for a few seconds, from the page around it. */
+    say,
     /** Called with each dish's place on the canvas whenever it is redrawn. */
     onFrame(listener) {
       frameListeners.add(listener);
@@ -1195,7 +1220,8 @@ export function createBench(canvas, options = {}) {
     undo,
     addDish,
     removeDish,
-    surprise,
+    randomize,
+    randomizeBench,
     resetBench,
     resetView,
     topView,
