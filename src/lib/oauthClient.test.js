@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   CLIENT_SCOPE,
   GUESTBOOK_SCOPE,
   OWNER_SCOPE,
+  REACTION_SCOPE,
   buildLoopbackClientId,
   callbackErrorMessage,
+  reactionScopeForAccount,
   scopeForAccount,
   signInErrorMessage,
 } from './oauthClient.js';
+import { scopeAllowsReaction } from './experiments.js';
 import { ME_DID } from '../config.js';
 
 describe('buildLoopbackClientId', () => {
@@ -29,9 +33,43 @@ describe('buildLoopbackClientId', () => {
     for (const token of [
       ...OWNER_SCOPE.split(' '),
       ...GUESTBOOK_SCOPE.split(' '),
+      ...REACTION_SCOPE.split(' '),
     ]) {
       expect(CLIENT_SCOPE.split(' ')).toContain(token);
     }
+  });
+
+  it('declares the same scope the production metadata serves', () => {
+    // api/client-metadata.js is a serverless function with the string written
+    // out again; an authorization server checks every sign-in against what it
+    // serves, so one that lagged behind would refuse the newer grants.
+    const served = readFileSync(
+      new URL('../../api/client-metadata.js', import.meta.url),
+      'utf8',
+    );
+    expect(served).toContain(`'${CLIENT_SCOPE}'`);
+  });
+});
+
+describe('reactionScopeForAccount', () => {
+  it('lets a visitor write reactions, and still their guestbook signature', () => {
+    const scope = reactionScopeForAccount('someone.bsky.social');
+    expect(scope).toBe(REACTION_SCOPE);
+    expect(scopeAllowsReaction(scope)).toBe(true);
+    // Everything the guestbook grant holds, so reacting never costs a signer
+    // the "remove" on their signature.
+    for (const token of GUESTBOOK_SCOPE.split(' ')) {
+      expect(scope.split(' ')).toContain(token);
+    }
+  });
+
+  it('never narrows the owner’s session', () => {
+    expect(reactionScopeForAccount('dame.is')).toBe(OWNER_SCOPE);
+    expect(reactionScopeForAccount(ME_DID)).toBe(OWNER_SCOPE);
+  });
+
+  it('is more than the guestbook grant, which cannot write a reaction', () => {
+    expect(scopeAllowsReaction(GUESTBOOK_SCOPE)).toBe(false);
   });
 });
 

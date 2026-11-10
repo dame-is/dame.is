@@ -43,6 +43,16 @@ export const PAGE_REGISTRY = {
     intro: 'New blog posts, along with updates, roundups and announcements when there’s something to share, sent to your inbox. Put your address on the To line; below it is a post the way it would arrive.',
     collection: COLLECTIONS.newsletter,
   },
+  // Quick prototypes and concepts, posted for reactions. The reactions are
+  // visitors' own records (is.dame.experiment.reaction), gathered from
+  // backlinks; this is the page's title and the line that says what to do.
+  experimenting: {
+    slug: 'experimenting',
+    label: 'Experimenting',
+    title: 'Experimenting',
+    intro: 'Quick prototypes and half-formed concepts, posted before they’re finished to find out what you make of them. Tell me which to build.',
+    collection: COLLECTIONS.experiment,
+  },
   logging: {
     slug: 'logging',
     label: 'Logging',

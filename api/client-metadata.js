@@ -45,10 +45,13 @@ export default function handler(req, res) {
     logo_uri: `${origin}/api/favicon`,
     redirect_uris: [`${origin}/oauth/callback`],
     // Union of every scope the client may request. Each sign-in narrows to one:
-    // the owner gets `transition:generic` (admin); visitors get
-    // `repo:is.dame.guestbook.entry` (guestbook write only). See
-    // src/lib/oauthClient.js → scopeForAccount.
-    scope: 'atproto transition:generic repo:is.dame.guestbook.entry',
+    // the owner gets `transition:generic` (admin); a visitor signing the
+    // guestbook gets `repo:is.dame.guestbook.entry`; a visitor reacting on
+    // /experimenting gets that plus `repo:is.dame.experiment.reaction`. See
+    // src/lib/oauthClient.js → scopeForAccount, reactionScopeForAccount. Keep
+    // in step with CLIENT_SCOPE there.
+    scope:
+      'atproto transition:generic repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction',
     grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
     token_endpoint_auth_method: 'none',

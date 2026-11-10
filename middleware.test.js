@@ -129,6 +129,8 @@ describe('404s', () => {
       '/listening/3nosuchrkey',
       '/mothing/999999',
       '/curating/no-such-channel',
+      // Not a feed verb, but its leaves are records all the same.
+      '/experimenting/3nosuchrkey',
       '/creating/no-such-work',
       '/creating/ratioed/99',
       // The verbs whose record pages used to card as the home page and never
@@ -148,6 +150,8 @@ describe('404s', () => {
     // atproto explorer, every résumé version, and the OAuth callback.
     for (const p of [
       '/available/v2',
+      // The bench itself is a page, whether or not anything is on it.
+      '/experimenting',
       '/exploring',
       '/exploring/did:plc:gq4fo3u6tqzzdkjlwzpb23tj',
       '/exploring/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/is.dame.now',

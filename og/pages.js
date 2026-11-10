@@ -72,6 +72,14 @@ export const PAGES = {
     desc: 'A portfolio of creative work — projects, experiments, and things made along the way.',
     nsid: 'is.dame.creating.work',
   },
+  // Quick prototypes and concepts, posted for reactions. The chip names the
+  // experiments; the reactions to them are visitors' own records.
+  '/experimenting': {
+    label: 'experimenting',
+    title: 'dame.is experimenting',
+    desc: 'Quick prototypes and half-formed concepts, posted before they’re finished. React with any atproto account; each reaction lives on its author’s own PDS.',
+    nsid: 'is.dame.experiment',
+  },
   '/curating': {
     label: 'curating',
     title: 'dame.is curating',
