@@ -65,8 +65,10 @@ the one it replaces, and "Take it back" deletes it.
 
 An experiment's `url` can point anywhere. When the thing to try is a page of
 this site, the page lives under the bench, in the place an experiment's record
-key would be: the first is `/experimenting/culturing`, a bench of simulated
-petri dishes ([`src/culturing/`](../src/culturing/)).
+key would be. There are two: `/experimenting/culturing`, a bench of simulated
+petri dishes ([`src/culturing/`](../src/culturing/)), and
+`/experimenting/sunfarming`, a small game about a solar farm
+([`experiments/sunfarming/`](../experiments/sunfarming/)).
 
 - The path is listed in `EXPERIMENT_PAGE_PATHS` in
   [`src/lib/experiments.js`](../src/lib/experiments.js). The router gives it
@@ -77,7 +79,26 @@ petri dishes ([`src/culturing/`](../src/culturing/)).
   `is.dame.experiment` record whose `url` is the page's full address, for
   example `https://dame.is/experimenting/culturing`, so "Try it" opens it.
 - The page finds that record by the address (`experimentForPage`) and links
-  to its reactions. Until one is posted it only links back to the bench.
+  to its reactions. Until one is posted it only links back to the bench. That
+  much is the same for every built-in experiment, so it is one component,
+  [`src/components/ExperimentPage.jsx`](../src/components/ExperimentPage.jsx),
+  which each one's page wraps itself in.
+
+The experiment itself is a package of its own under
+[`experiments/`](../experiments/), which the site imports and nothing more;
+[`experiments/README.md`](../experiments/README.md) is that arrangement. What
+the site has to be told about a new one's address is this, and the test
+"is a page to the router, the crumbs and the edge" in
+[`src/lib/experiments.test.js`](../src/lib/experiments.test.js) fails until
+the first four are done:
+
+| where                                          | what                                            |
+| ---------------------------------------------- | ----------------------------------------------- |
+| `src/lib/experiments.js`                       | the path, in `EXPERIMENT_PAGE_PATHS`            |
+| `src/App.jsx`                                  | a lazy route, above `/experimenting/:rkey`      |
+| `src/lib/breadcrumbs.js`, `og/routes.js`       | the same route, for the crumbs and the edge     |
+| `og/pages.js`                                  | its title and description, for the head and card |
+| `og/llms.js`, `scripts/prefetch.mjs`           | the path, for `llms.txt` and the sitemap        |
 
 ## How the reactions are read
 

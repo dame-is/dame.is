@@ -17,6 +17,8 @@ export default [
   {
     ignores: [
       'dist/**',
+      // An experiment's standalone build (experiments/*/dist).
+      '**/dist/**',
       'node_modules/**',
       'public/**',
       'coverage/**',

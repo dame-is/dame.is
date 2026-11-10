@@ -89,6 +89,14 @@ export const PAGES = {
     desc: 'A workbench of simulated petri dishes: pour a medium, add cultures, and watch biofilms wrinkle, branch, swarm and stain the agar. Not science, but modelled on how real plates look and grow.',
     nsid: 'is.dame.experiment',
   },
+  // The second, and the first that is a package of its own
+  // (experiments/sunfarming): a small 3D game about a solar farm.
+  '/experimenting/sunfarming': {
+    label: 'experimenting',
+    title: 'Sunfarming — dame.is experimenting',
+    desc: 'A small cel-shaded game: build a solar farm on an island grid, wire it to the village, keep the spare in batteries for the night, and watch the village grow.',
+    nsid: 'is.dame.experiment',
+  },
   '/curating': {
     label: 'curating',
     title: 'dame.is curating',

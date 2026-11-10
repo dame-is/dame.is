@@ -1,0 +1,73 @@
+// <Sunfarming />: the whole game as one React component.
+//
+// It is the only thing a host page has to render. The game itself is not
+// React (src/sunfarm.js owns the canvas, the clock and the pointer); this
+// mounts it into a div, lays the HUD over it, and takes it down again.
+//
+//   fill      take the whole window, as the standalone build does, instead
+//             of sitting in a page at the height the stylesheet gives it
+//   storage   where the island is saved: { load, save, clear }. Leave it out
+//             for localStorage; pass null to keep nothing. Keep the same
+//             object between renders, or the game restarts.
+//   onReady   called with the running game (src/sunfarm.js's API) once it is
+//             up: for a host that wants to drive it, or for the console.
+
+import { useEffect, useRef, useState } from 'react';
+import { createSunfarm } from './sunfarm.js';
+import Hud from './ui/Hud.jsx';
+import { TITLE } from './meta.js';
+import './sunfarming.css';
+
+export default function Sunfarming({
+  fill = false,
+  storage,
+  className = '',
+  onReady,
+}) {
+  const hostRef = useRef(null);
+  const [farm, setFarm] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const ready = useRef(onReady);
+  ready.current = onReady;
+
+  useEffect(() => {
+    const host = hostRef.current;
+    let made = null;
+    try {
+      made = createSunfarm({
+        host,
+        captureWheel: fill,
+        ...(storage !== undefined ? { storage } : {}),
+      });
+      setFarm(made);
+      setFailed(false);
+      ready.current?.(made);
+    } catch (error) {
+      // No WebGL (an old browser, a blocked GPU): say so instead of a blank box.
+      console.error(error);
+      setFailed(true);
+    }
+    return () => {
+      made?.destroy();
+      setFarm(null);
+    };
+  }, [fill, storage]);
+
+  return (
+    <div
+      ref={hostRef}
+      className={`sunfarm${fill ? ' sunfarm--fill' : ''}${className ? ` ${className}` : ''}`}
+      tabIndex={0}
+      role="application"
+      aria-label={TITLE}
+    >
+      {farm && <Hud farm={farm} host={hostRef.current} fill={fill} />}
+      {failed && (
+        <p className="sunfarm-failed">
+          The island is drawn with WebGL, and this browser wouldn’t start it.
+          Try another browser, or turn hardware acceleration back on.
+        </p>
+      )}
+    </div>
+  );
+}

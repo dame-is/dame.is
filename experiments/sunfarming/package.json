@@ -1,0 +1,31 @@
+{
+  "name": "@dame-is/sunfarming",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A small cel-shaded game about building a solar farm on an island grid.",
+  "exports": {
+    ".": "./src/index.js",
+    "./meta": "./src/meta.js"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^6.4.2",
+    "vitest": "^4.1.11"
+  }
+}

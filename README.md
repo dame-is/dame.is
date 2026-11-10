@@ -194,7 +194,12 @@ A `draft` is the owner's alone. The page's own title and intro are its
 `is.dame.page/experimenting` record, like every page's.
 
 An experiment's `url` can be anywhere. One that is built into this site lives
-under the bench, as [`/experimenting/culturing`](#culturing) does.
+under the bench, as [`/experimenting/culturing`](#culturing) and
+[`/experimenting/sunfarming`](#sunfarming) do. A built-in experiment is a
+project of its own in [`experiments/`](experiments/), with its own
+`package.json`, dependencies and standalone build, which the site only imports;
+[`experiments/README.md`](experiments/README.md) is how that works, how to add
+one, and how to take one out into a repository of its own.
 
 The whole design, including sign-in scopes and moderation, is in
 [`lexicons/EXPERIMENTING.md`](lexicons/EXPERIMENTING.md);
@@ -331,6 +336,30 @@ medium stays inside the schemes' stability bounds on every grid, that
 recipes survive a link and reject what isn't one, that a stopped plate takes
 no further step, and that a dealt plate is a recipe like any other.
 
+## Sunfarming
+
+`/experimenting/sunfarming` is the beginnings of a game: an island on a grid, a
+village on it, and the sun going over. Put down solar panels, wire them to the
+houses, keep the spare in batteries for the night, and the village grows by a
+house each dawn it was well powered. It is drawn in cel-shaded 3D (three.js): a
+three-step light ramp, an ink outline round everything, a banded sea with foam
+on the shore, and a sky that goes through the day.
+
+It is the second [experiment](#experimenting) built into the site and the
+first that is not part of the site's source. The whole of it is
+[`experiments/sunfarming/`](experiments/sunfarming/), a package the site
+imports as `@dame-is/sunfarming`; its
+[README](experiments/sunfarming/README.md) has the rules, the controls and how
+it is put together. What the site adds is one page
+([`src/pages/Sunfarming.jsx`](src/pages/Sunfarming.jsx)) that sets the game in
+[`ExperimentPage`](src/components/ExperimentPage.jsx), the title, pitch and
+links every built-in experiment shares. It is its own chunk and never warmed.
+
+The game looks nothing like the rest of the site, on purpose: it carries its
+own stylesheet, scoped under one class, and reads none of the site's tokens,
+so it is the same game on its own (`npm run dev -w @dame-is/sunfarming`) as it
+is in the page.
+
 ## Newsletter
 
 The blog ("dame.is blogging", `BLOG_PUBLICATION`) doubles as an email
@@ -423,6 +452,12 @@ npm run dev               # Vite dev server on http://localhost:5173
 `npm run build` runs the prefetch script, then `vite build`. `npm run build:offline`
 skips the prefetch (useful when a snapshot already exists).
 
+The repo is an npm workspace: each folder under [`experiments/`](experiments/)
+is a package of its own, installed and linked by the same `npm install`. Any of
+them runs by itself with `npm run dev -w @dame-is/<name>` (see
+[`experiments/README.md`](experiments/README.md)); `npm test` and
+`npm run lint` at the root cover them too.
+
 ### The `sharp` override
 
 `package.json` pins `sharp` to `^0.35.4` through `overrides`, and that pin is
@@ -455,6 +490,7 @@ written down here. Removing `sharp` from `devDependencies` would not help either
 | Day-of-life math | [`src/lib/dayOfLife.js`](src/lib/dayOfLife.js) |
 | Albums, derived from plays | [`src/lib/albums.js`](src/lib/albums.js) |
 | Edge middleware (404s, meta, negotiation) | [`middleware.js`](middleware.js) |
+| Experiments, each a package of its own | [`experiments/`](experiments/) |
 
 ## Machines reading the site
 

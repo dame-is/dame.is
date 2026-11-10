@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CULTURING_PATH,
+  SUNFARMING_PATH,
   EXPERIMENT_PAGE_PATHS,
   REACTIONS,
   experimentDate,
@@ -313,6 +314,10 @@ describe('an experiment that is a page of this site', () => {
     expect(isExperimentPagePath('/experimenting/3mz4bbmjphc2l')).toBe(false);
     expect(isExperimentPagePath('/culturing')).toBe(false);
     expect(isExperimentPagePath(null)).toBe(false);
+    // The second one, which is a package of its own (experiments/sunfarming).
+    expect(SUNFARMING_PATH).toBe('/experimenting/sunfarming');
+    expect(isExperimentPagePath('/experimenting/sunfarming')).toBe(true);
+    expect(isExperimentPagePath('/sunfarming')).toBe(false);
   });
 
   it('is a page to the router, the crumbs and the edge, and never a record', () => {

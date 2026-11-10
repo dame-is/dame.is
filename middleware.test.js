@@ -758,6 +758,17 @@ describe('pages with no record behind them', () => {
     expect((await html('/culturing')).res.status).toBe(404);
   });
 
+  it('does the same for an experiment that is a package of its own', async () => {
+    worldFetch();
+    const page = await html('/experimenting/sunfarming');
+    expect(page.res.status).toBe(200);
+    expect(page.body).toContain('<title>Sunfarming — dame.is experimenting</title>');
+    expect(page.body).not.toContain('content="noindex"');
+    const image = page.body.match(/<meta property="og:image" content="([^"]+)"/)?.[1] || '';
+    const params = new URL(image.replace(/&amp;/g, '&')).searchParams;
+    expect(params.get('page')).toBe('/experimenting/sunfarming');
+  });
+
   it('draws the guestbook as its signers, with the page’s plain card behind it', async () => {
     worldFetch();
     const page = await html('/welcoming');

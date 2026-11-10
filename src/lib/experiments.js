@@ -32,9 +32,15 @@ export function experimentPath(rkey) {
  *
  * The first is /experimenting/culturing, a bench of simulated petri dishes
  * (src/culturing). Its experiment record points its "Try it" here.
+ *
+ * The second is /experimenting/sunfarming, a small game about building a
+ * solar farm on an island. It is the first to live in a folder of its own
+ * (experiments/sunfarming), as a package the site only imports; see
+ * experiments/README.md for that arrangement.
  */
 export const CULTURING_PATH = `${EXPERIMENTING_PATH}/culturing`;
-export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH]);
+export const SUNFARMING_PATH = `${EXPERIMENTING_PATH}/sunfarming`;
+export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH, SUNFARMING_PATH]);
 
 export function isExperimentPagePath(pathname) {
   return EXPERIMENT_PAGE_PATHS.includes(String(pathname || '').replace(/\/+$/, ''));
