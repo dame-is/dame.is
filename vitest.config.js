@@ -38,6 +38,11 @@ export default defineConfig({
       // The droplet consumer. Its session recovery is the part worth pinning:
       // without it, one refused token refresh took DMs down for eight hours.
       'services/mod-consumer/src/**/*.test.js',
+      // The unblock tracker's consumer. What it publishes is a claim about
+      // two named people, so the rules that decide when a deleted block
+      // counts as an unblock are held here. The SQLite half needs node:sqlite
+      // (Node 22.5+) and skips itself where that is missing.
+      'services/unblock-consumer/src/**/*.test.js',
       'middleware.test.js',
     ],
   },

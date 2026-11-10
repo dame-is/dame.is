@@ -106,6 +106,8 @@ const Overlay = lazy(recoverable(() => import('./pages/Overlay.jsx')));
 // Lazy and never warmed: the workbench carries a WebGL simulation and its
 // shaders, which nobody who came for the feed should fetch behind it.
 const Culturing = lazy(recoverable(() => import('./pages/Culturing.jsx')));
+// Lazy and never warmed, like the experiment above it.
+const Unblocking = lazy(recoverable(() => import('./pages/Unblocking.jsx')));
 // Lazy: the quick-edit sheet and the edit-mode bar are the owner's alone. See
 // OwnerTools.
 const EditSheet = lazy(() => import('./components/EditSheet.jsx'));
@@ -447,6 +449,10 @@ export default function App() {
                       an experiment's record key would, and a plate travels
                       in the query (?plate=…), not in the path. */}
                   <Route path="/experimenting/culturing" element={<Culturing />} />
+                  {/* Another: who has been unblocked on Bluesky, and by whom.
+                      The account being looked up travels in the query
+                      (?who=…). */}
+                  <Route path="/experimenting/unblocking" element={<Unblocking />} />
                   <Route path="/experimenting/:rkey" element={<Experiment />} />
                   {/* The roster is Ratioed's, and lives under Ratioed. This is
                       the short address for it, the way /guestbook above is the

@@ -66,7 +66,10 @@ the one it replaces, and "Take it back" deletes it.
 An experiment's `url` can point anywhere. When the thing to try is a page of
 this site, the page lives under the bench, in the place an experiment's record
 key would be: the first is `/experimenting/culturing`, a bench of simulated
-petri dishes ([`src/culturing/`](../src/culturing/)).
+petri dishes ([`src/culturing/`](../src/culturing/)). The second is
+`/experimenting/unblocking`, who has been unblocked on Bluesky and by whom
+([`src/pages/Unblocking.jsx`](../src/pages/Unblocking.jsx)), which reads from
+a consumer on the droplet rather than from anyone's PDS.
 
 - The path is listed in `EXPERIMENT_PAGE_PATHS` in
   [`src/lib/experiments.js`](../src/lib/experiments.js). The router gives it

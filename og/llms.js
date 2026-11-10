@@ -37,6 +37,7 @@ export const LLMS_SURFACES = [
   '/creating',
   '/experimenting',
   '/experimenting/culturing',
+  '/experimenting/unblocking',
   '/curating',
   '/posting',
   '/logging',

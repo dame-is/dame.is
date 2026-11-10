@@ -1,0 +1,19 @@
+{
+  "name": "unblock-consumer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Watches every app.bsky.graph.block record on the network over Jetstream, keeps who each one blocked in a SQLite file on the droplet, and when one is deleted sends the unblock on to Supabase for /experimenting/unblocking. Runs on the DigitalOcean droplet alongside the anisota, tracker, turtle and mod consumers.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --experimental-sqlite src/index.js",
+    "dry-run": "PUBLISH=false LOG_LEVEL=debug STATS_INTERVAL_MS=30000 node --experimental-sqlite src/index.js",
+    "dev": "PUBLISH=false LOG_LEVEL=debug node --experimental-sqlite --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "comments": {
+    "dependencies": "There are none, as with the mod-consumer. WebSocket and SQLite are both built into Node 22 (node:sqlite from 22.5; the --experimental-sqlite flag is needed before 22.13 and accepted after), and systemd's EnvironmentFile reads .env. The one module it shares with the site, api/_lib/unblockDb.js, has no dependencies either, so unlike the mod-consumer this needs no npm install at all: a checkout is enough."
+  }
+}

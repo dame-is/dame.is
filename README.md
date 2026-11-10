@@ -194,7 +194,8 @@ A `draft` is the owner's alone. The page's own title and intro are its
 `is.dame.page/experimenting` record, like every page's.
 
 An experiment's `url` can be anywhere. One that is built into this site lives
-under the bench, as [`/experimenting/culturing`](#culturing) does.
+under the bench, as [`/experimenting/culturing`](#culturing) and
+[`/experimenting/unblocking`](#unblocking) do.
 
 The whole design, including sign-in scopes and moderation, is in
 [`lexicons/EXPERIMENTING.md`](lexicons/EXPERIMENTING.md);
@@ -330,6 +331,44 @@ that every uniform a shader declares is supplied, that every culture on every
 medium stays inside the schemes' stability bounds on every grid, that
 recipes survive a link and reject what isn't one, that a stopped plate takes
 no further step, and that a dealt plate is a recipe like any other.
+
+## Unblocking
+
+`/experimenting/unblocking` is about blocks being taken away. Plenty of tools
+show who blocks you on Bluesky; this shows who has stopped. Look an account up
+to see who has unblocked it and when, or read the ranking of the accounts the
+most people have unblocked.
+
+It is the second [experiment](#experimenting) built into the site, and the
+first with a machine behind it:
+
+- **The consumer** ([`services/unblock-consumer/`](services/unblock-consumer/))
+  runs on the droplet. It reads every `app.bsky.graph.block` record the
+  network makes over Jetstream and keeps who each one blocked in a SQLite file,
+  because a deleted record does not say what it was: the only way to name who
+  was unblocked is to have been holding the block. When a block it knows is
+  deleted, that is an unblock, and it is sent on to Supabase. Its
+  [README](services/unblock-consumer/README.md) has the rules for what counts,
+  the disk it needs, and how to set it up.
+- **The schema** ([`docs/sql/unblock.sql`](docs/sql/unblock.sql)) is two small
+  tables and three functions on the atpota.to project, closed to everything
+  but the service role.
+- **The endpoint** ([`api/unblocked.js`](api/unblocked.js)) reads it for the
+  page and lets the CDN hold the answers.
+- **The page** ([`src/pages/Unblocking.jsx`](src/pages/Unblocking.jsx), with
+  [`src/lib/unblocking.js`](src/lib/unblocking.js) for what an answer looks
+  like and how to say it).
+
+Two things about what it shows. It can only name an unblock if it saw the
+block being made, so it knows very little at first and more the longer it
+runs; the page says what share of the deleted blocks it has seen it could put
+a name to. And a block undone within five minutes is listed but not counted,
+since blocking and unblocking straight away is a way of removing a follower.
+Five minutes is a guess that wants checking against real data.
+
+Like Culturing, the page has no record of its own. An `is.dame.experiment`
+record whose `url` is `https://dame.is/experimenting/unblocking` puts it on
+the bench.
 
 ## Newsletter
 

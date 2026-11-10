@@ -1,0 +1,55 @@
+[Unit]
+Description=Unblock tracker consumer (Jetstream block records to a local index, unblocks to Supabase)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+
+# Inside the dame.is checkout, like the mod-consumer: it imports
+# api/_lib/unblockDb.js, the same client the site's own function reads with.
+# The index (unblock-index.db, and SQLite's -wal and -shm beside it) is written
+# here unless DB_FILE says otherwise.
+WorkingDirectory=/root/dame.is/services/unblock-consumer
+
+# Node 22, the one /opt/node22 was added for. node:sqlite needs 22.5 or later.
+# --experimental-sqlite is required before 22.13 and accepted from then on, so
+# it is passed either way. If the service exits at once saying node:sqlite is
+# not available, /opt/node22 is older than 22.5.
+ExecStart=/opt/node22/bin/node --experimental-sqlite /root/dame.is/services/unblock-consumer/src/index.js
+
+# It exits on purpose when it can't write a batch, so that the restart resumes
+# from the last one that was written instead of skipping past the failure.
+Restart=always
+RestartSec=10
+
+# Copy .env.template -> .env here and fill it in before enabling.
+EnvironmentFile=/root/dame.is/services/unblock-consumer/.env
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=unblock-consumer
+Environment=NODE_ENV=production
+Environment=LOG_LEVEL=info
+# Node prints one line at startup saying SQLite is experimental. Once is fine;
+# this keeps it to that.
+Environment=NODE_NO_WARNINGS=1
+
+# Measured in test runs, not on this box: 123 MB at the peak of swallowing a
+# 500,000-block replay (the first run does about that), and 70 to 90 MB while
+# following a stream. The heap is capped below the limits so a leak is Node's
+# problem to report before it is the kernel's to solve. If the journal shows
+# the service being killed for memory, raise these two and say so in the
+# README: the measurements were wrong for this box.
+Environment=NODE_OPTIONS=--max-old-space-size=96
+MemoryHigh=160M
+MemoryMax=200M
+CPUQuota=50%
+
+# The shutdown path writes what it holds, makes one last send, and closes the
+# database cleanly. None of that is slow.
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

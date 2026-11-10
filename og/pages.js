@@ -89,6 +89,15 @@ export const PAGES = {
     desc: 'A workbench of simulated petri dishes: pour a medium, add cultures, and watch biofilms wrinkle, branch, swarm and stain the agar. Not science, but modelled on how real plates look and grow.',
     nsid: 'is.dame.experiment',
   },
+  // Another: who has been unblocked on Bluesky, and by whom. Its data is not
+  // on anyone's PDS as such (it is what deleted block records add up to), so
+  // the chip names the experiment, as the one above does.
+  '/experimenting/unblocking': {
+    label: 'experimenting',
+    title: 'Unblocking — dame.is experimenting',
+    desc: 'Plenty of tools show who blocks you on Bluesky. This one watches for a block being taken away: look up an account to see who has unblocked it and when, and see who has been unblocked by the most people.',
+    nsid: 'is.dame.experiment',
+  },
   '/curating': {
     label: 'curating',
     title: 'dame.is curating',

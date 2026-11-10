@@ -27,3 +27,9 @@ public/llms.txt
 # written next to the code because that is the service working directory.
 services/mod-consumer/mod-consumer-cursor.txt
 services/mod-consumer/mod-consumer-answered.json
+
+# Runtime state for services/unblock-consumer: the index of live blocks, and
+# SQLite's write-ahead log beside it. Gigabytes, and nobody's to commit.
+services/unblock-consumer/*.db
+services/unblock-consumer/*.db-wal
+services/unblock-consumer/*.db-shm

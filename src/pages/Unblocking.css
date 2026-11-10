@@ -1,0 +1,244 @@
+/* Unblocking — an experiment built into the site: a lookup, a ranking, and
+   the notes on what the tracker can see. A person's row borrows the
+   reaction's from Experimenting.css. */
+
+.unblocking {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.unblocking-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.unblocking-section .section-head {
+  margin-bottom: var(--space-1);
+}
+
+.unblocking-section p {
+  margin: 0;
+  text-indent: 0;
+}
+
+/* --- looking an account up ---------------------------------------------- */
+
+/* The label, a handle on a ruled line, and the page's one filled button: the
+   line a reaction is signed on, asking a different question. */
+.unblocking-lookup {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  max-width: var(--measure);
+}
+
+.unblocking-lookup-label {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.unblocking-lookup-input {
+  min-width: 0;
+  width: 100%;
+  padding: 0.2em 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  outline: none;
+}
+
+/* The ruled line is the field's focus indicator, as on the guestbook's pen:
+   the site's ring would box it a second time. */
+.unblocking-lookup-input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+
+.unblocking-lookup-input::placeholder {
+  font-style: italic;
+  color: var(--ink-muted);
+  opacity: 1;
+}
+
+.unblocking-lookup-self {
+  grid-column: 2 / -1;
+  font-size: var(--text-sm);
+}
+
+/* On a phone the button takes a line of its own under the handle. */
+@media (max-width: 380px) {
+  .unblocking-lookup {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .unblocking-lookup > .btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .unblocking-lookup-self {
+    grid-column: 1 / -1;
+  }
+}
+
+/* One line of status: looking, not found, can't be reached. */
+.unblocking-line {
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+/* Arrived at from the ranking, the lookup lands under the running head. */
+.unblocking-lookup-section {
+  scroll-margin-top: calc(var(--chrome-h) + var(--space-5));
+}
+
+.unblocking-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+}
+
+/* The answer, in the size a question is asked in. */
+.unblocking-headline {
+  max-width: var(--measure);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* What qualifies the answer, set under it. */
+.unblocking-aside {
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+.unblocking-list {
+  max-width: var(--measure);
+}
+
+/* A quick one is on the list but not in the count, and reads as set back. */
+.unblocking-quick {
+  opacity: 0.7;
+}
+
+/* --- the ranking -------------------------------------------------------- */
+
+/* Under a section head, which is already a rule, an empty note needs no
+   second one above it. */
+.unblocking-section .empty-note {
+  margin-top: 0;
+  border-top: 0;
+}
+
+.unblocking-board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: var(--measure);
+}
+
+/* A place, a portrait, who, and how many: one line of a ledger. */
+.unblocking-board-row {
+  display: grid;
+  grid-template-columns: 1.75rem 2.5rem minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.unblocking-board-row:first-child {
+  border-top: 0;
+}
+
+/* Proportional figures: set to the right of its own column, a place needs
+   no tabular width, which only spreads "10" into "1 0". */
+.unblocking-rank {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  text-align: right;
+  color: var(--ink-muted);
+}
+
+.unblocking-who {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.unblocking-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
+}
+
+.unblocking-handle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.unblocking-handle a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* A DID standing in for a handle is long; it wraps where a handle is cut. */
+.unblocking-handle .ident {
+  white-space: normal;
+}
+
+@media (hover: hover) {
+  .unblocking-handle a:hover {
+    color: var(--accent);
+  }
+}
+
+/* How many, and the way to who: a text button at the end of the line. */
+.unblocking-count {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+
+/* --- the notes ---------------------------------------------------------- */
+
+/* Each is a short paragraph of its own, set flush and apart from the next. */
+.unblocking-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: var(--measure);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  line-height: var(--leading-ui);
+  color: var(--ink-soft);
+}

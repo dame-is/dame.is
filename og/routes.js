@@ -65,6 +65,7 @@ export const STATIC_ROUTE_PATTERNS = [
   // An experiment that is a page of this site. A literal segment, so it
   // outranks `/experimenting/:rkey` below — see matchRoute.
   '/experimenting/culturing',
+  '/experimenting/unblocking',
   '/experimenting/:rkey',
   '/participants',
   '/colophon',

@@ -32,9 +32,13 @@ export function experimentPath(rkey) {
  *
  * The first is /experimenting/culturing, a bench of simulated petri dishes
  * (src/culturing). Its experiment record points its "Try it" here.
+ *
+ * The second is /experimenting/unblocking: who has been unblocked on Bluesky,
+ * and by whom (src/pages/Unblocking.jsx, fed by services/unblock-consumer).
  */
 export const CULTURING_PATH = `${EXPERIMENTING_PATH}/culturing`;
-export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH]);
+export const UNBLOCKING_PATH = `${EXPERIMENTING_PATH}/unblocking`;
+export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH, UNBLOCKING_PATH]);
 
 export function isExperimentPagePath(pathname) {
   return EXPERIMENT_PAGE_PATHS.includes(String(pathname || '').replace(/\/+$/, ''));

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CULTURING_PATH,
+  UNBLOCKING_PATH,
   EXPERIMENT_PAGE_PATHS,
   REACTIONS,
   experimentDate,
@@ -307,6 +308,9 @@ describe('a reaction waiting on a sign-in', () => {
 describe('an experiment that is a page of this site', () => {
   it('sits under the bench, where a record key would be', () => {
     expect(CULTURING_PATH).toBe('/experimenting/culturing');
+    expect(UNBLOCKING_PATH).toBe('/experimenting/unblocking');
+    expect(EXPERIMENT_PAGE_PATHS).toEqual([CULTURING_PATH, UNBLOCKING_PATH]);
+    expect(isExperimentPagePath('/experimenting/unblocking')).toBe(true);
     expect(isExperimentPagePath('/experimenting/culturing')).toBe(true);
     expect(isExperimentPagePath('/experimenting/culturing/')).toBe(true);
     expect(isExperimentPagePath('/experimenting')).toBe(false);
