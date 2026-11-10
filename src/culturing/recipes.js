@@ -100,7 +100,7 @@ export const RECIPES = [
     id: 'bullseye',
     name: 'Bull’s-eye',
     watch:
-      'A swarm that moves and rests by turns. Each rest leaves a step in the film; count them and you have counted the hours.',
+      'A swarm that moves and rests by turns. Each rest leaves a ring in the film, so the colony keeps a record of its own stops and starts.',
     dish: {
       medium: 'broth',
       env: { temperature: 34 },
@@ -157,7 +157,7 @@ export const RECIPES = [
       medium: 'broth',
       events: [lawn('listener'), spot('violet', 0, 0, { size: 2.2 })],
     },
-    start: 14,
+    start: 18,
   },
   {
     id: 'fingers',
@@ -169,7 +169,7 @@ export const RECIPES = [
       env: { temperature: 36 },
       events: [spot('verdigris', 0, 0, { size: 2.2 })],
     },
-    start: 10,
+    start: 18,
   },
   {
     id: 'feathers',
@@ -184,7 +184,7 @@ export const RECIPES = [
         spot('feather', 0, 17),
       ],
     },
-    start: 24,
+    start: 60,
   },
   {
     id: 'rings',
@@ -259,13 +259,13 @@ export const RECIPES = [
       env: { temperature: 24 },
       events: [spot('opal', -8, 4, { size: 2.2 }), spot('opal', 14, -10)],
     },
-    start: 26,
+    start: 40,
   },
   {
     id: 'moat',
     name: 'Moat',
     watch:
-      'A ring cut out of the gel round a swarmer. Nothing crosses a cut: not the swarm, and not the food on the far side.',
+      'A ring cut out of the gel round a swarmer, with one gap left in it. Nothing crosses a cut, not the swarm and not the food on the far side: it fills its island and leaves by the gap.',
     dish: {
       medium: 'swarm',
       env: { temperature: 34 },
