@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Copy, PenLine, ExternalLink, MoreHorizontal, Plus } from 'lucide-react';
 import { AdminRecordListSkeleton } from '../Skeleton.jsx';
 import Button from '../Button.jsx';
+import OutArrow from '../OutArrow.jsx';
 import SectionHead from '../SectionHead.jsx';
 import Tag from '../Tag.jsx';
 import { rkeyFromUri } from '../RecordEditor.jsx';
@@ -704,7 +705,9 @@ function VersionsSection({
                 )}`}
                 onClick={closeMenu}
               >
-                <span className="wb-sheet-row-label">View on the site ↗</span>
+                <span className="wb-sheet-row-label">
+                  View on the site <OutArrow />
+                </span>
               </Link>
             </li>
           )}

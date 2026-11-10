@@ -128,10 +128,39 @@ describe('reading an experiment', () => {
     expect(experimentLink({ url: 'https://www.example.com/try?x=1' })).toEqual({
       href: 'https://www.example.com/try?x=1',
       host: 'example.com',
+      local: false,
+      path: null,
     });
     expect(experimentLink({ url: 'javascript:alert(1)' })).toBeNull();
     expect(experimentLink({ url: 'not a url' })).toBeNull();
     expect(experimentLink({})).toBeNull();
+  });
+
+  it('knows a link to this site from one that leaves it', () => {
+    // The site's own host, with or without www: a page here, at its path.
+    for (const url of [
+      'https://dame.is/experimenting/culturing?plate=abc#top',
+      'https://www.dame.is/experimenting/culturing?plate=abc#top',
+    ]) {
+      const link = experimentLink({ url });
+      expect(link.local).toBe(true);
+      expect(link.path).toBe('/experimenting/culturing?plate=abc#top');
+      expect(link.host).toBe('dame.is');
+    }
+    // Wherever the page is being read (a preview deployment, a dev server)
+    // is here too.
+    const preview = experimentLink(
+      { url: 'https://dame-is-git-x.vercel.app/experimenting/culturing' },
+      { here: 'dame-is-git-x.vercel.app' },
+    );
+    expect(preview.local).toBe(true);
+    expect(preview.path).toBe('/experimenting/culturing');
+    // Anywhere else leaves, and has no path on this site.
+    for (const url of ['https://example.com/', 'https://notdame.is/x', 'https://dame.is.example.com/x']) {
+      const link = experimentLink({ url }, { here: 'dame.is' });
+      expect(link.local).toBe(false);
+      expect(link.path).toBeNull();
+    }
   });
 
   it('shows a picture only once its blob has an address', () => {

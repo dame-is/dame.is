@@ -11,6 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useLinkPreviews } from '../hooks/useLinkPreviews.js';
+import OutArrow from './OutArrow.jsx';
 import { monthLabel, previewCounts, previewLabel } from '../lib/linkPreviews.js';
 import { avatarThumb } from '../lib/avatarThumb.js';
 import { formatDateShort } from '../lib/time.js';
@@ -440,7 +441,15 @@ function PreviewCard({ preview, icon }) {
             </>
           )}
         </span>
-        <span className="link-preview-go">{p.local ? 'Opens here' : 'Opens in a new tab ↗'}</span>
+        <span className="link-preview-go">
+          {p.local ? (
+            'Opens here'
+          ) : (
+            <>
+              Opens in a new tab <OutArrow />
+            </>
+          )}
+        </span>
       </div>
     </div>
   );

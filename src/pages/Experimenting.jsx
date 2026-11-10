@@ -5,6 +5,7 @@ import Time from '../components/Time.jsx';
 import SectionHead from '../components/SectionHead.jsx';
 import { FlatLedgerSkeleton } from '../components/Skeleton.jsx';
 import { ReactionBar } from '../components/ExperimentReactions.jsx';
+import OutArrow from '../components/OutArrow.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useExperimentReactions } from '../hooks/useExperimentReactions.js';
@@ -197,11 +198,17 @@ function ExperimentEntry({ record, number, view, reactions }) {
         )}
         {(link || hasWriteUp(v)) && (
           <p className="experiment-links">
-            {link && (
-              <a href={link.href} target="_blank" rel="noreferrer noopener">
-                Try it at {link.host} <span aria-hidden="true">↗</span>
-              </a>
-            )}
+            {link &&
+              (link.local ? (
+                // A page of this site: it opens here, and isn't "at" anywhere.
+                <Link to={link.path}>
+                  Try it <span aria-hidden="true">→</span>
+                </Link>
+              ) : (
+                <a href={link.href} target="_blank" rel="noreferrer noopener">
+                  Try it at {link.host} <OutArrow />
+                </a>
+              ))}
             {hasWriteUp(v) && (
               <Link to={href}>
                 Read the write-up <span aria-hidden="true">→</span>

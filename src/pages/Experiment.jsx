@@ -7,6 +7,7 @@ import Time from '../components/Time.jsx';
 import { DocumentSkeleton } from '../components/Skeleton.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import { ReactionBar, ReactionList } from '../components/ExperimentReactions.jsx';
+import OutArrow from '../components/OutArrow.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useExperimentReactions } from '../hooks/useExperimentReactions.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
@@ -163,10 +164,19 @@ export default function Experiment() {
         )}
         {link && (
           <p className="experiment-try">
-            <a className="btn" href={link.href} target="_blank" rel="noreferrer noopener">
-              Try it <span aria-hidden="true">↗</span>
-            </a>
-            <span className="experiment-try-host">{link.host}</span>
+            {link.local ? (
+              // A page of this site: it opens here, with no host to name.
+              <Link className="btn" to={link.path}>
+                Try it
+              </Link>
+            ) : (
+              <>
+                <a className="btn" href={link.href} target="_blank" rel="noreferrer noopener">
+                  Try it <OutArrow />
+                </a>
+                <span className="experiment-try-host">{link.host}</span>
+              </>
+            )}
           </p>
         )}
         {hasWriteUp(v) && (
