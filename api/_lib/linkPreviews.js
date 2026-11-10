@@ -275,6 +275,13 @@ export async function resolveLinks(
   const iconByHost = new Map(); // host -> Promise<string>
   const deadline = AbortSignal.timeout(deadlineMs);
   const queue = [...new Set(urls)];
+  // Each link's own timeout signal, held here until that link is done. On
+  // Node 20 a timeout signal that nothing but AbortSignal.any() refers to can
+  // be garbage-collected before it fires, and the signal made from it then
+  // never aborts: the per-link bound would stop bounding anything, whenever a
+  // collection happened to land inside it. (src/lib/atproto.js keeps its own
+  // request timeouts alive for the same reason.)
+  const bounds = new Set();
 
   const iconFor = (host, candidates) => {
     if (!iconByHost.has(host)) {
@@ -287,7 +294,9 @@ export async function resolveLinks(
   };
 
   const one = async (url) => {
-    const signal = AbortSignal.any([deadline, AbortSignal.timeout(perLinkMs)]);
+    const bound = AbortSignal.timeout(perLinkMs);
+    bounds.add(bound);
+    const signal = AbortSignal.any([deadline, bound]);
     try {
       const found = await whileOpen(lookUpLink(url, { signal }), signal);
       const preview = found?.preview;
@@ -310,6 +319,8 @@ export async function resolveLinks(
     } catch (err) {
       failed.push(url);
       log(`link preview: ${url} — ${err?.name === 'TimeoutError' ? 'timed out' : err?.message || err}`);
+    } finally {
+      bounds.delete(bound);
     }
   };
 

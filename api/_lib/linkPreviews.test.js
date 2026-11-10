@@ -3,6 +3,8 @@
 // pass-through; its own cases are about addresses, not about this.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import v8 from 'node:v8';
+import vm from 'node:vm';
 
 vi.mock('./ssrfGuard.js', async (importOriginal) => {
   const real = await importOriginal();
@@ -143,6 +145,13 @@ describe('resolveLinks', () => {
     new Response(body, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, ...init });
   const json = (body) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 
+  /** A full garbage collection, now. V8 only hands the hook out behind a
+   *  flag, which can be set after startup. */
+  function collectGarbage() {
+    v8.setFlagsFromString('--expose-gc');
+    vm.runInNewContext('gc')();
+  }
+
   function serve(routes) {
     const fetch = vi.fn(async (input) => {
       const url = String(input);
@@ -266,6 +275,12 @@ describe('resolveLinks', () => {
         'https://slow.example/',
         (url) =>
           new Promise((resolve) => {
+            // A garbage collection while the link is still waiting. On Node
+            // 20 one used to take the per-link timeout signal with it, since
+            // only AbortSignal.any() referred to it, and the bound never
+            // fired. Whether a collection landed in those 50 ms was luck, so
+            // this failed now and then; forcing one makes it every time.
+            setTimeout(collectGarbage, 5);
             setTimeout(() => resolve(html(page('<title>Late</title>'))), 500);
             void url;
           }),
