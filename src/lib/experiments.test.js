@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CULTURING_PATH,
+  EXPERIMENT_PAGE_PATHS,
   REACTIONS,
   experimentDate,
   experimentFacts,
+  experimentForPage,
   experimentImage,
   experimentLink,
   experimentNumbers,
@@ -11,6 +14,7 @@ import {
   experimentUri,
   findExperiment,
   hasWriteUp,
+  isExperimentPagePath,
   latestPerPerson,
   listExperiments,
   parsePendingReaction,
@@ -24,6 +28,10 @@ import {
   tallyReactions,
 } from './experiments.js';
 import { ME_DID, EXPERIMENT_NSID } from '../config.js';
+import { matchRoute } from '../../og/routes.js';
+import { isRecordRoute } from '../../og/records.js';
+import { PAGES } from '../../og/pages.js';
+import { isDeclaredRoute } from './breadcrumbs.js';
 
 const uri = (rkey) => `at://${ME_DID}/${EXPERIMENT_NSID}/${rkey}`;
 const experiment = (rkey, value) => ({ uri: uri(rkey), cid: `cid-${rkey}`, value });
@@ -264,5 +272,78 @@ describe('a reaction waiting on a sign-in', () => {
     expect(parsePendingReaction(stored({ reaction: '' }), now)).toBeNull();
     expect(parsePendingReaction('not json', now)).toBeNull();
     expect(parsePendingReaction('null', now)).toBeNull();
+  });
+});
+
+describe('an experiment that is a page of this site', () => {
+  it('sits under the bench, where a record key would be', () => {
+    expect(CULTURING_PATH).toBe('/experimenting/culturing');
+    expect(isExperimentPagePath('/experimenting/culturing')).toBe(true);
+    expect(isExperimentPagePath('/experimenting/culturing/')).toBe(true);
+    expect(isExperimentPagePath('/experimenting')).toBe(false);
+    expect(isExperimentPagePath('/experimenting/3mz4bbmjphc2l')).toBe(false);
+    expect(isExperimentPagePath('/culturing')).toBe(false);
+    expect(isExperimentPagePath(null)).toBe(false);
+  });
+
+  it('is a page to the router, the crumbs and the edge, and never a record', () => {
+    for (const path of EXPERIMENT_PAGE_PATHS) {
+      // Its own route, which a literal segment wins over `:rkey`.
+      expect(matchRoute(path)).toBe(path);
+      expect(isDeclaredRoute(path)).toBe(true);
+      // Asked for as an experiment's record it would 404.
+      expect(isRecordRoute(path)).toBe(false);
+      // And it has copy of its own for the head and the card.
+      expect(PAGES[path]?.title).toBeTruthy();
+      expect(PAGES[path]?.desc).toBeTruthy();
+    }
+    expect(isRecordRoute('/experimenting/3mz4bbmjphc2l')).toBe(true);
+    // The address it had before it was an experiment is gone.
+    expect(matchRoute('/culturing')).toBeNull();
+  });
+
+  it('finds the record whose "Try it" leads to it, whatever host it was written with', () => {
+    const records = [
+      experiment('3aaa', { title: 'Elsewhere', url: 'https://example.com/experimenting/other' }),
+      experiment('3bbb', { title: 'Culturing', url: 'https://dame.is/experimenting/culturing' }),
+    ];
+    expect(experimentForPage(records, CULTURING_PATH)?.uri).toBe(uri('3bbb'));
+    // A preview deployment's address, a trailing slash, a query: the same page.
+    for (const url of [
+      'https://dame-is-git-branch.vercel.app/experimenting/culturing',
+      'https://dame.is/experimenting/culturing/',
+      'https://dame.is/experimenting/culturing?plate=abc',
+    ]) {
+      expect(experimentForPage([experiment('3ccc', { title: 'C', url })], CULTURING_PATH)?.uri).toBe(
+        uri('3ccc'),
+      );
+    }
+  });
+
+  it('finds nothing until one points at it, and never a draft', () => {
+    expect(experimentForPage(null, CULTURING_PATH)).toBeNull();
+    expect(experimentForPage([], CULTURING_PATH)).toBeNull();
+    expect(
+      experimentForPage([experiment('3aaa', { title: 'No link' })], CULTURING_PATH),
+    ).toBeNull();
+    expect(
+      experimentForPage(
+        [experiment('3aaa', { title: 'Not a link', url: 'javascript:alert(1)' })],
+        CULTURING_PATH,
+      ),
+    ).toBeNull();
+    expect(
+      experimentForPage(
+        [
+          experiment('3aaa', {
+            title: 'Draft',
+            draft: true,
+            url: 'https://dame.is/experimenting/culturing',
+          }),
+        ],
+        CULTURING_PATH,
+      ),
+    ).toBeNull();
+    expect(experimentForPage([experiment('3aaa', { title: 'T', url: 'https://dame.is/' })], '')).toBeNull();
   });
 });

@@ -55,7 +55,6 @@ export const STATIC_ROUTE_PATTERNS = [
   '/for-hire',
   '/for-hire/:slug',
   '/sharing',
-  '/culturing',
   '/mothing',
   '/mothing/:rkey',
   '/welcoming',
@@ -63,6 +62,9 @@ export const STATIC_ROUTE_PATTERNS = [
   // The bench and its experiments. Hand-written: experimenting is a page of
   // its own, not a feed verb, so nothing generates these.
   '/experimenting',
+  // An experiment that is a page of this site. A literal segment, so it
+  // outranks `/experimenting/:rkey` below — see matchRoute.
+  '/experimenting/culturing',
   '/experimenting/:rkey',
   '/participants',
   '/colophon',

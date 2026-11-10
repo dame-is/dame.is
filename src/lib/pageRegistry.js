@@ -81,15 +81,6 @@ export const PAGE_REGISTRY = {
     intro: 'Galleries of images I’ve been collecting.',
     collection: COLLECTIONS.arenaChannel,
   },
-  // A workbench, not a feed: nothing on it is a record. The title and intro
-  // can still move to the PDS like any page's.
-  culturing: {
-    slug: 'culturing',
-    label: 'Culturing',
-    title: 'Culturing',
-    intro: 'A bench of petri dishes that aren’t real. Pour a medium, put a culture on it, leave it in the incubator and watch what comes up. None of it is science; all of it is modelled on how real colonies and biofilms look and grow.',
-    collection: null,
-  },
   sharing: {
     slug: 'sharing',
     label: 'Sharing',

@@ -58,7 +58,6 @@ const STATIC_PAGES = new Set([
   '/themself',
   '/available',
   '/sharing',
-  '/culturing',
   '/exploring',
   '/listening/albums',
 ]);

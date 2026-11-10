@@ -193,6 +193,9 @@ takes reactions, `pursuing` and `shelved` close them and say how it came out.
 A `draft` is the owner's alone. The page's own title and intro are its
 `is.dame.page/experimenting` record, like every page's.
 
+An experiment's `url` can be anywhere. One that is built into this site lives
+under the bench, as [`/experimenting/culturing`](#culturing) does.
+
 The whole design, including sign-in scopes and moderation, is in
 [`lexicons/EXPERIMENTING.md`](lexicons/EXPERIMENTING.md);
 [`src/lib/experiments.js`](src/lib/experiments.js) is what an experiment and
@@ -257,12 +260,20 @@ when the cheap signature says something actually changed.
 
 ## Culturing
 
-`/culturing` is a workbench of petri dishes that aren't real: pour a medium,
-put cultures on it, add a disc or a drop of dye, and leave it in the incubator.
-It is the one page with no record behind it. Nothing on it is science, and
-everything on it is modelled on how real colonies and biofilms look and grow;
-the page says which parts are borrowed from where, in the notes on each
-culture and medium and in "What is real here" at its foot.
+`/experimenting/culturing` is a workbench of petri dishes that aren't real:
+pour a medium, put cultures on it, add a disc or a drop of dye, and leave it
+in the incubator. Nothing on it is science, and everything on it is modelled
+on how real colonies and biofilms look and grow; the page says which parts are
+borrowed from where, in the notes on each culture and medium and in "What is
+real here" at its foot.
+
+It is the first [experiment](#experimenting), and the first that is a page of
+this site rather than a link away from it. The page is built in and has no
+record of its own; what puts it on the bench is an `is.dame.experiment` record
+whose `url` is its address. The page finds that record by the address and
+links to its reactions ("Say what you make of it"). See
+[Experiments built into the site](lexicons/EXPERIMENTING.md#experiments-built-into-the-site)
+for the convention.
 
 It lives in [`src/culturing/`](src/culturing/), and is its own chunk that is
 never warmed (it carries a WebGL2 simulation and its shaders).

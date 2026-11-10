@@ -80,6 +80,15 @@ export const PAGES = {
     desc: 'Quick prototypes and half-formed concepts, posted before they’re finished. React with any atproto account; each reaction lives on its author’s own PDS.',
     nsid: 'is.dame.experiment',
   },
+  // An experiment built into the site (src/culturing): a bench of simulated
+  // petri dishes. The page is not a record; the experiment that points at it
+  // is, and the chip names that.
+  '/experimenting/culturing': {
+    label: 'experimenting',
+    title: 'Culturing — dame.is experimenting',
+    desc: 'A workbench of simulated petri dishes: pour a medium, add cultures, and watch biofilms wrinkle, branch, swarm and stain the agar. Not science, but modelled on how real plates look and grow.',
+    nsid: 'is.dame.experiment',
+  },
   '/curating': {
     label: 'curating',
     title: 'dame.is curating',
@@ -127,14 +136,6 @@ export const PAGES = {
     title: 'dame.is welcoming',
     desc: 'Sign in with any atproto account and leave a note that you were here. Every signature lives on the signer’s own PDS and reaches this page as a backlink.',
     nsid: 'is.dame.guestbook.entry',
-  },
-  // The workbench (src/culturing): simulated petri dishes. Nothing on it is
-  // a record; the chip names the page record its title and intro can live in.
-  '/culturing': {
-    label: 'culturing',
-    title: 'dame.is culturing',
-    desc: 'A workbench of simulated petri dishes: pour a medium, add cultures, and watch biofilms wrinkle, branch, swarm and stain the agar. Not science, but modelled on how real plates look and grow.',
-    nsid: 'is.dame.page',
   },
   '/sharing': {
     label: 'sharing',

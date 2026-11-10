@@ -744,6 +744,20 @@ describe('pages with no record behind them', () => {
     expect(params.get('page')).toBe('/blogging/subscribe');
   });
 
+  it('serves an experiment built into the site as a page rather than 404ing it as a record', async () => {
+    worldFetch();
+    const page = await html('/experimenting/culturing');
+    expect(page.res.status).toBe(200);
+    expect(page.body).toContain('<title>Culturing — dame.is experimenting</title>');
+    expect(page.body).not.toContain('content="noindex"');
+    // Its own card, not the bench's and not the site-wide default.
+    const image = page.body.match(/<meta property="og:image" content="([^"]+)"/)?.[1] || '';
+    const params = new URL(image.replace(/&amp;/g, '&')).searchParams;
+    expect(params.get('page')).toBe('/experimenting/culturing');
+    // The address it had before it was an experiment is no page at all.
+    expect((await html('/culturing')).res.status).toBe(404);
+  });
+
   it('draws the guestbook as its signers, with the page’s plain card behind it', async () => {
     worldFetch();
     const page = await html('/welcoming');

@@ -30,6 +30,7 @@ import {
   albumMeta,
   isAlbumPath,
   isSubscribePath,
+  isExperimentPagePath,
   pieceMeta,
   participantMeta,
   participantsMeta,
@@ -411,8 +412,15 @@ export default async function middleware(request) {
     // /blogging/subscribe is a page of its own (the newsletter's form), in the
     // place an essay's rkey would be. Asked for as an essay it would 404.
     const onSubscribe = isSubscribePath(path);
+    // An experiment built into the site (/experimenting/culturing) is a page
+    // too, where an experiment's record key would be.
+    const onExperimentPage = isExperimentPagePath(path);
     const isRecordRoute =
-      (segs.length === 2 && RECORD_SECTIONS.has(sectionSeg) && !onAlbums && !onSubscribe) ||
+      (segs.length === 2 &&
+        RECORD_SECTIONS.has(sectionSeg) &&
+        !onAlbums &&
+        !onSubscribe &&
+        !onExperimentPage) ||
       isOneAlbum ||
       (segs.length >= 3 && segs.length <= 4 && sectionSeg === 'creating');
     if (isRecordRoute) {

@@ -429,10 +429,6 @@ export default function App() {
                   <Route path="/for-hire" element={<ForHireRedirect />} />
                   <Route path="/for-hire/:slug" element={<ForHireRedirect />} />
                   <Route path="/sharing" element={<Sharing />} />
-                  {/* A bench of simulated petri dishes. No records behind
-                      it, so no leaf routes: a plate travels in the query
-                      (?plate=…), not in the path. */}
-                  <Route path="/culturing" element={<Culturing />} />
                   <Route path="/mothing" element={<Mothing />} />
                   <Route path="/mothing/:rkey" element={<MothingLeaf />} />
                   <Route path="/welcoming" element={<Guestbook />} />
@@ -446,6 +442,11 @@ export default function App() {
                       record key. Not a feed verb, so neither route is
                       generated. */}
                   <Route path="/experimenting" element={<Experimenting />} />
+                  {/* An experiment that is a page of this site: a bench of
+                      simulated petri dishes (src/culturing). It sits where
+                      an experiment's record key would, and a plate travels
+                      in the query (?plate=…), not in the path. */}
+                  <Route path="/experimenting/culturing" element={<Culturing />} />
                   <Route path="/experimenting/:rkey" element={<Experiment />} />
                   {/* The roster is Ratioed's, and lives under Ratioed. This is
                       the short address for it, the way /guestbook above is the
