@@ -1,11 +1,13 @@
 // What a Jetstream frame means to this service.
 //
-// Three things matter here and everything else on the stream is dropped:
+// Four things matter here and everything else on the stream is dropped:
 //
 //   put      a block record was created, or rewritten in place
 //   delete   a block record was deleted. This is the unblock, and it arrives
 //            with no record in it: only whose repo and which key. Who had
 //            been blocked is something the index has to already know.
+//   void     a block record was written that blocks nobody (its subject is
+//            not an account, or is its own author)
 //   gone     an account was deleted outright, and its records with it
 //
 // Two wire formats are read, because Bluesky runs two generations of
@@ -85,8 +87,9 @@ function eventOf(e) {
   if (operation === 'create' || operation === 'update') {
     const subject = record?.subject;
     // The subject is whatever the author typed. One that is not a DID blocks
-    // nobody, and a block of oneself is nothing to undo.
-    if (!isDid(subject) || subject === e.did) return null;
+    // nobody, and neither does a block of oneself. That is still worth
+    // saying: if this key used to hold a real block, it no longer does.
+    if (!isDid(subject) || subject === e.did) return { type: 'void', ...base, rkey };
     return { type: 'put', ...base, rkey, subject };
   }
   return null;
@@ -98,7 +101,7 @@ function eventOf(e) {
  * @returns {{
  *   cursor: number|string|null,
  *   event: null | {
- *     type: 'put' | 'delete' | 'gone',
+ *     type: 'put' | 'delete' | 'void' | 'gone',
  *     did: string, at: number, rkey?: string, subject?: string,
  *   },
  * }}

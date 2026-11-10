@@ -14,6 +14,7 @@ import {
   readLookup,
   readStatus,
   shareWords,
+  usableHandle,
 } from './unblocking.js';
 import { isDid as storeIsDid } from '../../services/unblock-consumer/src/dids.js';
 
@@ -45,6 +46,22 @@ describe('what was typed into the lookup', () => {
     for (const input of ['', '   ', '@', null, undefined, 'two words', 'did:', 'did:plc:', 'na/me', 'emoji😀.test']) {
       expect(cleanActor(input)).toBe('');
     }
+  });
+
+  it('reads a link with a broken escape in it as nobody, without throwing', () => {
+    // This is called while the page renders, from whatever is in the address.
+    expect(cleanActor('https://bsky.app/profile/%zz')).toBe('');
+    expect(cleanActor('https://bsky.app/profile/%E0%A4%A')).toBe('');
+  });
+});
+
+describe('a handle worth showing', () => {
+  it('is the profile’s, unless it is the placeholder for one that no longer verifies', () => {
+    expect(usableHandle({ handle: 'dame.is' })).toBe('dame.is');
+    expect(usableHandle({ handle: 'handle.invalid' })).toBeNull();
+    expect(usableHandle({ handle: '' })).toBeNull();
+    expect(usableHandle({})).toBeNull();
+    expect(usableHandle(undefined)).toBeNull();
   });
 });
 

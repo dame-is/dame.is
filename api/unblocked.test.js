@@ -83,6 +83,15 @@ describe('/api/unblocked', () => {
     expect(res.headers['cache-control']).toBe('no-store');
   });
 
+  it('takes no parameter but did, so a made-up one can’t get past the CDN to the database', async () => {
+    for (const query of [{ x: '1' }, { did: DID, cachebust: 'abc' }, { who: 'dame.is' }, { did: [DID, DID] }]) {
+      const res = await call(query);
+      expect(res.statusCode).toBe(400);
+      expect(res.headers['cache-control']).toBe('no-store');
+    }
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('only reads', async () => {
     for (const method of ['POST', 'PUT', 'DELETE', 'PATCH']) {
       const res = await call({}, method);

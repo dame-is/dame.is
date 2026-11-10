@@ -31,8 +31,14 @@ describe('where it connects', () => {
   });
 });
 
-/** A WebSocket that does what the test tells it to. */
-function fakeSockets() {
+/**
+ * A WebSocket that does what the test tells it to.
+ *
+ * `answersClose: false` is a peer that has stopped answering: asked to close,
+ * the socket never says it has. That is what a hung server looks like, and
+ * the real WebSocket behaves the same way.
+ */
+function fakeSockets({ answersClose = true } = {}) {
   const made = [];
   class FakeSocket {
     constructor(url, protocols) {
@@ -51,7 +57,7 @@ function fakeSockets() {
     close() {
       if (this.closed) return;
       this.closed = true;
-      this.emit('close');
+      if (answersClose) this.emit('close');
     }
   }
   return { FakeSocket, made };
@@ -155,6 +161,104 @@ describe('staying connected', () => {
     vi.advanceTimersByTime(1000);
     expect(made).toHaveLength(2);
     stream.close();
+  });
+
+  it('reconnects when a silent peer never answers the close', () => {
+    // The watchdog used to ask the socket to close and wait for it to say it
+    // had. A server that has stopped answering never does.
+    const { FakeSocket, made } = fakeSockets({ answersClose: false });
+    const frames = [];
+    const stream = connectJetstream({
+      config,
+      logger: quiet,
+      getCursor: () => 7,
+      onFrame: (frame) => frames.push(frame),
+      WebSocketImpl: FakeSocket,
+    });
+    made[0].emit('open');
+    vi.advanceTimersByTime(121_000);
+    expect(made[0].closed).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(made).toHaveLength(2);
+
+    // Whatever the abandoned socket says afterwards is not listened to: its
+    // frames are behind the cursor the new one resumed from, and its close
+    // must not start a third connection.
+    made[0].emit('message', { data: '{"late":true}' });
+    made[0].emit('close');
+    vi.advanceTimersByTime(60_000);
+    expect(frames).toEqual([]);
+    expect(made).toHaveLength(2);
+    stream.close();
+  });
+
+  it('tries again when a connection can’t be made at all', () => {
+    // Node's WebSocket fires `error` and no `close` when it can't connect.
+    const { FakeSocket, made } = fakeSockets({ answersClose: false });
+    const stream = connectJetstream({
+      config,
+      logger: quiet,
+      getCursor: () => 7,
+      onFrame: () => {},
+      WebSocketImpl: FakeSocket,
+    });
+    made[0].emit('error', { message: 'connect ECONNREFUSED' });
+    vi.advanceTimersByTime(1000);
+    expect(made).toHaveLength(2);
+    // And again, waiting longer.
+    made[1].emit('error', { message: 'connect ECONNREFUSED' });
+    vi.advanceTimersByTime(1999);
+    expect(made).toHaveLength(2);
+    vi.advanceTimersByTime(1);
+    expect(made).toHaveLength(3);
+    // An error and then a close from the same socket is one failure, not two.
+    made[2].emit('error', { message: 'reset' });
+    made[2].emit('close');
+    vi.advanceTimersByTime(4000);
+    expect(made).toHaveLength(4);
+    vi.advanceTimersByTime(60_000);
+    expect(made).toHaveLength(4);
+    stream.close();
+  });
+
+  it('gives up on a connection that neither opens nor fails', () => {
+    const { FakeSocket, made } = fakeSockets({ answersClose: false });
+    const stream = connectJetstream({
+      config,
+      logger: quiet,
+      getCursor: () => 7,
+      onFrame: () => {},
+      WebSocketImpl: FakeSocket,
+    });
+    // Never opened. Silence is counted from the attempt.
+    vi.advanceTimersByTime(121_000);
+    expect(made[0].closed).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(made).toHaveLength(2);
+    stream.close();
+  });
+
+  it('tries again when a socket can’t even be constructed', () => {
+    let attempts = 0;
+    class Throws {
+      constructor() {
+        attempts += 1;
+        throw new Error('bad address');
+      }
+    }
+    const stream = connectJetstream({
+      config,
+      logger: quiet,
+      getCursor: () => 7,
+      onFrame: () => {},
+      WebSocketImpl: Throws,
+    });
+    expect(attempts).toBe(1);
+    vi.advanceTimersByTime(1000);
+    expect(attempts).toBe(2);
+    stream.close();
+    vi.advanceTimersByTime(60_000);
+    expect(attempts).toBe(2);
   });
 
   it('stays closed once it has been told to stop', () => {

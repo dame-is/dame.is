@@ -31,7 +31,17 @@ export default async function handler(req, res) {
     return;
   }
 
-  const did = String((req.query && req.query.did) || '').trim();
+  // `did` and nothing else. The CDN keys its copy on the whole address, so a
+  // made-up parameter would be a new address every time, and each one would
+  // have Postgres read the whole table for the ranking again.
+  const query = req.query || {};
+  if (Object.keys(query).some((name) => name !== 'did') || Array.isArray(query.did)) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(400).json({ error: 'the only parameter is did' });
+    return;
+  }
+
+  const did = String(query.did || '').trim();
   if (did && !isDid(did)) {
     res.setHeader('Cache-Control', 'no-store');
     res.status(400).json({ error: 'did must be a DID' });

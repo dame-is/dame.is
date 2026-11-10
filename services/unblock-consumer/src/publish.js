@@ -25,8 +25,9 @@ export function statusBody(state) {
     blocksHeld: state.live,
     deletesSeen: state.counters.deletes,
     // Every delete the index knew the subject of, including the few that
-    // undid nothing because a second record still blocked the same person.
-    deletesPlaced: state.counters.placed + state.counters.duplicate,
+    // came to nothing: a second record still blocked the same person, or the
+    // person had deleted their account.
+    deletesPlaced: state.counters.placed + state.counters.duplicate + (state.counters.moot || 0),
   };
 }
 

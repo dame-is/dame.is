@@ -21,6 +21,16 @@
 // couldn't. So the knob is disk, and what it buys is how old a block can be
 // and still have its unblock noticed. README.md has the measured exchange
 // rate.
+//
+// THE CEILING IS KEPT IN BLOCKS, NOT BYTES. Dropping old blocks empties very
+// few pages: an old block shares its page with newer ones from other
+// accounts, so the page stays in use, lighter. Steering by bytes therefore
+// drops blocks, sees the size has not moved, and drops more; measured, it
+// threw away 18% of the index to get 2% under. So the first time the size
+// reaches the ceiling, the number of blocks that fit is worked out once, and
+// from then on that number is what is held to. It is nudged by a few percent
+// at the end of a sweep if the size has drifted well past the ceiling or well
+// under it. The file can therefore sit around 10% over the number given.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -58,6 +68,11 @@ const SCHEMA = `
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     op TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS gone (
+    did NOT NULL PRIMARY KEY,
+    at  INTEGER NOT NULL
+  ) WITHOUT ROWID;
 
   CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
@@ -103,6 +118,10 @@ function freshState() {
     // A sweep in progress: { cutoff, next } or null.
     sweep: null,
     pruned: 0,
+    // How many blocks fit under the ceiling, once that has been measured, and
+    // the ceiling it was measured for. Null while the index is still under.
+    rowCeiling: null,
+    ceilingFor: null,
   };
 }
 
@@ -160,6 +179,11 @@ export async function openStore({
     deleteUnblock: db.prepare('DELETE FROM unblock WHERE subject = ? AND blocker = ?'),
     forgetAsSubject: db.prepare('DELETE FROM unblock WHERE subject = ?'),
     forgetAsBlocker: db.prepare('DELETE FROM unblock WHERE blocker = ?'),
+    markGone: db.prepare(
+      'INSERT INTO gone (did, at) VALUES (?, ?) ON CONFLICT (did) DO UPDATE SET at = max(at, excluded.at)',
+    ),
+    isGone: db.prepare('SELECT 1 AS hit FROM gone WHERE did = ?'),
+    forgetGone: db.prepare('DELETE FROM gone WHERE at < ?'),
     emit: db.prepare('INSERT INTO outbox (op) VALUES (?)'),
     outbox: db.prepare('SELECT id, op FROM outbox ORDER BY id LIMIT ?'),
     ack: db.prepare('DELETE FROM outbox WHERE id <= ?'),
@@ -169,8 +193,11 @@ export async function openStore({
     setMeta: db.prepare(
       'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
     ),
-    // One slice of the key space. TEXT sorts before every BLOB, so the same
-    // statement serves both kinds of key.
+    // One slice of the key space. Every TEXT sorts before every BLOB, so
+    // "before the empty blob" is every DID kept as text. The empty blob is
+    // written into the statement: bound as a parameter, a zero-length buffer
+    // can arrive as NULL, and a comparison with NULL matches nothing.
+    sweepText: db.prepare("DELETE FROM block WHERE blocker < x'' AND seen < ?"),
     sweepSlice: db.prepare('DELETE FROM block WHERE blocker >= ? AND blocker < ? AND seen < ?'),
     sweepLast: db.prepare('DELETE FROM block WHERE blocker >= ? AND seen < ?'),
     pageCount: db.prepare('PRAGMA page_count'),
@@ -232,6 +259,12 @@ export async function openStore({
         Number(q.forgetAsSubject.run(packed).changes) + Number(q.forgetAsBlocker.run(packed).changes)
       );
     },
+    markGone(did, at) {
+      q.markGone.run(packDid(did), at);
+    },
+    isGone(did) {
+      return Boolean(q.isGone.get(packDid(did)));
+    },
     emit(op) {
       q.emit.run(JSON.stringify(op));
     },
@@ -275,13 +308,40 @@ export async function openStore({
     });
   }
 
-  /** The bounds of slice `i`: [from, to), with `to` null for the last. */
-  function sliceBounds(i) {
-    // Slice 0 is every DID stored as text: from the empty string up to the
-    // first possible BLOB.
-    if (i === 0) return { from: '', to: new Uint8Array(0) };
+  /** Drop slice `i`'s blocks older than `cutoff`; how many went. */
+  function sweepOne(i, cutoff) {
+    // Slice 0 is every DID kept as text. Slices 1 to 256 are the packed ones
+    // by their first byte, the last of them open-ended.
+    if (i === 0) return Number(q.sweepText.run(cutoff).changes);
     const from = new Uint8Array([i - 1]);
-    return { from, to: i === 256 ? null : new Uint8Array([i]) };
+    if (i === 256) return Number(q.sweepLast.run(from, cutoff).changes);
+    return Number(q.sweepSlice.run(from, new Uint8Array([i]), cutoff).changes);
+  }
+
+  /**
+   * How many blocks the index may hold, or null while it has no ceiling or
+   * has not reached it yet.
+   */
+  function rowLimit() {
+    if (!(maxBytes > 0)) return null;
+    if (state.rowCeiling != null && state.ceilingFor !== maxBytes) {
+      // The ceiling was changed since this was worked out. Hold the same
+      // density to the new one.
+      state.rowCeiling = Math.max(1, Math.floor(state.rowCeiling * (maxBytes / state.ceilingFor)));
+      state.ceilingFor = maxBytes;
+    }
+    if (state.rowCeiling == null) {
+      if (state.live <= 0) return null;
+      const { usedBytes } = size();
+      if (usedBytes < maxBytes) return null;
+      // Measured once, here, at the density the index has grown to. Usually
+      // that is the moment it first touches the ceiling and the answer is
+      // "as many as it holds now"; with a ceiling set below its present size,
+      // it is the share of them that would fit.
+      state.rowCeiling = Math.max(1, Math.floor(state.live * (maxBytes / usedBytes)));
+      state.ceilingFor = maxBytes;
+    }
+    return state.rowCeiling;
   }
 
   /** The cutoff a new sweep should run to, or null when none is due. */
@@ -292,17 +352,15 @@ export async function openStore({
 
     if (retentionDays > 0) cutoff = Math.max(cutoff, now - retentionDays * 86_400);
 
-    if (maxBytes > 0) {
-      const { usedBytes } = size();
-      if (usedBytes > maxBytes) {
-        // How far forward the horizon has to move to get back under, taking
-        // blocks to have arrived at an even rate. They don't quite, and the
-        // next sweep corrects for whatever this one got wrong. The extra 2%
-        // is so the ceiling is not grazed again within the hour.
-        const excess = (usedBytes - maxBytes + maxBytes * 0.02) / usedBytes;
-        const span = Math.max(0, now - horizon);
-        cutoff = Math.max(cutoff, horizon + Math.max(3600, Math.ceil(span * excess)));
-      }
+    const limit = rowLimit();
+    if (limit != null && state.live > limit) {
+      // How far forward the horizon has to move to get back under, taking
+      // blocks to have arrived at an even rate. They don't quite, and the
+      // next sweep corrects for whatever this one got wrong. It aims 2%
+      // under, so the limit is not grazed again within the hour.
+      const excess = (state.live - limit * 0.98) / state.live;
+      const span = Math.max(0, now - horizon);
+      cutoff = Math.max(cutoff, horizon + Math.max(3600, Math.ceil(span * excess)));
     }
 
     // Whatever the settings say, the last hour is kept. A ceiling too small
@@ -340,16 +398,24 @@ export async function openStore({
 
     const { cutoff, next } = state.sweep;
     return transact(() => {
-      const { from, to } = sliceBounds(next);
-      const removed = Number(
-        (to ? q.sweepSlice.run(from, to, cutoff) : q.sweepLast.run(from, cutoff)).changes,
-      );
+      const removed = sweepOne(next, cutoff);
       state.live -= removed;
       state.pruned += removed;
       const finished = next + 1 >= SLICES;
       if (finished) {
         state.horizon = cutoff;
         state.sweep = null;
+        // An account deleted before the horizon has no blocks left here to
+        // be mistaken for unblocks, so it need not be remembered.
+        q.forgetGone.run(cutoff);
+        // The count of blocks that fit was measured once. If the size has
+        // since drifted well away from the ceiling, move the count a little:
+        // 3% a sweep, so that a size which is slow to follow is never chased.
+        if (state.rowCeiling != null && maxBytes > 0) {
+          const { usedBytes } = size();
+          if (usedBytes > maxBytes * 1.1) state.rowCeiling = Math.max(1, Math.floor(state.rowCeiling * 0.97));
+          else if (usedBytes < maxBytes * 0.9) state.rowCeiling = Math.ceil(state.rowCeiling * 1.03);
+        }
       } else {
         state.sweep = { cutoff, next: next + 1 };
       }

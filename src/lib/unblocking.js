@@ -47,13 +47,30 @@ export function cleanActor(input) {
   let text = String(input || '').trim();
   if (!text) return '';
   const profile = /^https?:\/\/[^/]+\/profile\/([^/?#]+)/i.exec(text);
-  if (profile) text = decodeURIComponent(profile[1]);
+  if (profile) {
+    try {
+      text = decodeURIComponent(profile[1]);
+    } catch {
+      // A link with a broken escape in it ("%zz") names nobody.
+      return '';
+    }
+  }
   text = text.replace(/^@+/, '').trim();
   if (!text || /\s/.test(text)) return '';
   if (text.startsWith('did:')) return isDid(text) ? text : '';
   text = text.toLowerCase().replace(/\.$/, '');
   if (!/^[a-z0-9.-]+$/.test(text)) return '';
   return text.includes('.') ? text : `${text}.bsky.social`;
+}
+
+/**
+ * A profile's handle, when it is one to show or link. The AppView hands back
+ * the placeholder `handle.invalid` for an account whose handle no longer
+ * verifies; that is not a name, and looking it up finds nobody.
+ */
+export function usableHandle(person) {
+  const handle = person?.handle;
+  return typeof handle === 'string' && handle && handle !== 'handle.invalid' ? handle : null;
 }
 
 /* ── reading an answer ────────────────────────────────────────────────────── */

@@ -53,7 +53,8 @@ All of this is [`src/fold.js`](src/fold.js), and
   blocks, so that an account undoing a hundred thousand of them does not read
   all hundred thousand for each. Past that bound a second record can be
   missed.)
-- A block record **rewritten in place** to name somebody else ends the block
+- A block record **rewritten in place** to name somebody else, or to name
+  nobody (something that isn't an account, or its own author), ends the block
   on whoever it named before.
 - An unblock **stands until the same account blocks the same person again**,
   and is then withdrawn. What is published is the set of unblocks that still
@@ -61,7 +62,9 @@ All of this is [`src/fold.js`](src/fold.js), and
   times is one row and not ten.
 - An account **deleting itself** does not unblock anybody. Its blocks leave
   the index quietly, and anything published about it, on either side of a
-  pair, is removed.
+  pair, is removed. It is then remembered as deleted for as long as the index
+  reaches back that far, so that other people's blocks on it being tidied away
+  later are not published as unblocks of an account that no longer exists.
 - Events are timed by Jetstream's clock. A record's own `createdAt` is its
   author's claim, and one seen while this was being built was an hour ahead of
   its own arrival.
@@ -69,6 +72,16 @@ All of this is [`src/fold.js`](src/fold.js), and
 Not watched: `app.bsky.graph.listblock`. Blocking a list is a different
 record, and an account coming off a blocked list is a change to the list, not
 a record of its own.
+
+**One way it can be wrong.** If an account holds two block records on the same
+person and the older one is outside the index (made before tracking began, or
+since dropped), deleting the newer one is published as an unblock while the
+older record still blocks. The index cannot see what it never held. It needs
+a duplicate to happen at all, and those are rare: of the 5,928 accounts
+blocking one well-blocked account when this was written, 4 held two records
+on it. Checking the network before publishing (Constellation can say whether
+an account still has a block record on someone) would close it, and was not
+built.
 
 ## Quick ones
 
@@ -116,13 +129,26 @@ These are arithmetic from one week's rate and one synthetic measurement. The
 `Stats` line in the journal has the real numbers (`held`, `usedMb`, `horizon`)
 once it has run.
 
+**Expect the file to settle a little over the number you give it.** Dropping
+old blocks empties very few pages (an old block shares its page with newer
+ones from other accounts), so the size barely moves when blocks are dropped.
+A ceiling steered by bytes drops, sees no change, and drops again: measured,
+it threw away 18% of the index to get 2% under. So the ceiling is held as a
+count of blocks instead. The first time the size reaches `MAX_DB_MB` the
+number of blocks that fit is worked out once, and that number is what is kept
+to from then on, nudged by 3% at the end of a sweep if the size has drifted
+more than 10% either way. In a 150-day simulation that kept a constant reach
+back, with one sweep a day, and the file sat between 4% and 10% over the
+ceiling. Leave that much room, plus a few MB for SQLite's write-ahead log.
+
 The default is deliberately modest, because this box has gone down to a full
 disk before. Check `df -h` and raise it as far as you are comfortable: disk is
 the only thing standing between this and a longer memory.
 
 Dropping is done a slice at a time (257 slices of the key space, one every few
 seconds), so it never holds the process for long, and it picks up where it
-left off after a restart. Lowering the ceiling later works too: the excess is
+left off after a restart. Changing the ceiling later works in both
+directions: raised, the index simply grows into it; lowered, the excess is
 dropped and the file is shrunk in place, without a `VACUUM`.
 
 Memory, measured in test runs and not on this box: 123 MB at the peak of
@@ -186,13 +212,15 @@ One line every half hour:
 
 ```
 [INFO] Stats { frames=…, events=…, held=…, unblocks=…, deletes=…, placed=…,
-               unplaced=…, duplicate=…, reblocked=…, waiting=…, usedMb=…,
-               fileMb=…, horizon=…, rssMb=… }
+               unplaced=…, duplicate=…, moot=…, reblocked=…, waiting=…,
+               usedMb=…, fileMb=…, horizon=…, rssMb=… }
 ```
 
 - `held`: blocks in the index. `unblocks`: unblocks that stand.
-- `deletes` = `placed` + `unplaced` + `duplicate`. `placed / deletes` is the
-  share it can name, and should climb week over week.
+- `deletes` = `placed` + `unplaced` + `duplicate` + `moot`. `placed` became
+  unblocks; `duplicate` undid nothing (a second record still blocks); `moot`
+  were blocks on an account that has since been deleted. `unplaced / deletes`
+  is the share it could not name, and should fall week over week.
 - `waiting`: the outbox. It should be 0, or briefly small. If it grows,
   Supabase is refusing; the reason is in a `Could not publish` warning.
 - `horizon`: how far back the index reaches.
@@ -208,6 +236,11 @@ sqlite3 unblock-index.db "select value from meta where key = 'state'"
 
 - **Supabase is down, or the schema is not there yet.** Nothing is lost. The
   outbox holds every conclusion in order and is sent when Supabase answers.
+- **Jetstream goes away.** A refused connection, a closed one, or 90 seconds
+  of silence (this stream is never quiet) all end the same way: the socket is
+  given up on and another is tried, a second later at first and up to every
+  30 seconds, from the saved cursor. It does not wait for the old socket to
+  finish closing, because a peer that has stopped answering never lets it.
 - **The process dies or the box reboots.** It resumes from its cursor, which
   is saved in the same transaction as the events themselves, so the index and
   the cursor cannot disagree.
@@ -235,7 +268,10 @@ Built in a sandbox that cannot open a WebSocket to the internet, so:
   Postgres engine (PGlite), including that only the service role can use it.
   The whole path from a stream of v1 frames to what the page's endpoint
   returns, by running this process against a local stand-in for Jetstream and
-  for Supabase, including a restart and a Supabase outage in the middle.
+  for Supabase, including a restart and a Supabase outage in the middle. And
+  the two ways a real socket fails, with this process and Node's own
+  WebSocket: a peer that shakes hands and then goes mute, and a host that
+  refuses the connection and later comes back.
 - **Not verified:** a connection to the real Jetstream. The v1 frame shape and
   the default host are the ones the mod-consumer already runs against, so that
   is the low-risk part, but the first real run is the first real test. Watch

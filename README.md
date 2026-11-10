@@ -349,7 +349,7 @@ first with a machine behind it:
   was unblocked is to have been holding the block. When a block it knows is
   deleted, that is an unblock, and it is sent on to Supabase. Its
   [README](services/unblock-consumer/README.md) has the rules for what counts,
-  the disk it needs, and how to set it up.
+  the one way it can be wrong, the disk it needs, and how to set it up.
 - **The schema** ([`docs/sql/unblock.sql`](docs/sql/unblock.sql)) is two small
   tables and three functions on the atpota.to project, closed to everything
   but the service role.

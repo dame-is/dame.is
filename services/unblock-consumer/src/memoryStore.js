@@ -12,6 +12,7 @@ const key = (a, b) => `${a}\n${b}`;
 export function memoryStore() {
   const blocks = new Map(); // key(blocker, rkey) -> { blocker, rkey, subject, seen }
   const unblocks = new Map(); // key(subject, blocker) -> { subject, blocker, blockedAt, unblockedAt }
+  const gone = new Map(); // did -> when it was deleted
   let outbox = [];
   let nextId = 1;
   const state = {
@@ -72,6 +73,12 @@ export function memoryStore() {
         }
       }
       return n;
+    },
+    markGone(did, at) {
+      gone.set(did, Math.max(at, gone.get(did) ?? at));
+    },
+    isGone(did) {
+      return gone.has(did);
     },
     emit(op) {
       outbox.push({ id: nextId, op });

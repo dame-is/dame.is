@@ -43,6 +43,7 @@ import {
   isStale,
   placedShare,
   shareWords,
+  usableHandle,
 } from '../lib/unblocking.js';
 // A person here is set the way a reaction is on an experiment's page: a
 // portrait, then who and what on one line.
@@ -253,7 +254,7 @@ function LookupForm({ initial, onLookUp, myDid, asked }) {
 
 /** "@handle" once the profile has answered; the name as typed until then. */
 function nameFor(did, profiles, fallback = '') {
-  const handle = profiles[did]?.handle;
+  const handle = usableHandle(profiles[did]);
   if (handle) return `@${handle}`;
   if (fallback && !fallback.startsWith('did:')) return `@${fallback}`;
   return 'this account';
@@ -364,15 +365,16 @@ function Portrait({ person }) {
 
 /** An account by its handle, linked to its profile; its DID until that is known. */
 function Handle({ did, person }) {
-  if (!person?.handle) return <span className="ident">{did}</span>;
+  const handle = usableHandle(person);
+  if (!handle) return <span className="ident">{did}</span>;
   return (
     <a
-      href={`https://bsky.app/profile/${person.handle}`}
+      href={`https://bsky.app/profile/${handle}`}
       target="_blank"
       rel="noreferrer noopener"
-      title={person.displayName ? `${person.displayName} · @${person.handle}` : `@${person.handle}`}
+      title={person.displayName ? `${person.displayName} · @${handle}` : `@${handle}`}
     >
-      @{person.handle}
+      @{handle}
     </a>
   );
 }
@@ -441,7 +443,7 @@ function Board({ phase, board, profiles, onPick }) {
               <button
                 type="button"
                 className="btn btn--text unblocking-count"
-                onClick={() => onPick(person?.handle || row.did)}
+                onClick={() => onPick(usableHandle(person) || row.did)}
                 title="See who"
               >
                 {countPeople(row.count)}

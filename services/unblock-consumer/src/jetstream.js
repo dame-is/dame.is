@@ -52,24 +52,49 @@ function streamPath({ api, cursor }) {
  * @param {typeof WebSocket} [opts.WebSocketImpl]
  */
 export function connectJetstream({ config, logger, getCursor, onFrame, WebSocketImpl = WebSocket }) {
-  let ws = null;
+  // The socket in use, or null between one and the next.
+  let current = null;
   let backoff = config.reconnectBaseMs;
   let watchdog = null;
   let retry = null;
   let lastFrameAt = 0;
   let closedByUs = false;
 
-  function drop() {
+  function stopWatchdog() {
     if (watchdog) clearInterval(watchdog);
     watchdog = null;
+  }
+
+  function retryLater() {
+    retry = setTimeout(connect, backoff);
+    backoff = Math.min(backoff * 2, config.reconnectMaxMs);
+  }
+
+  /**
+   * Give up on `socket` and arrange the next attempt.
+   *
+   * THE RECONNECT IS NEVER LEFT TO THE SOCKET. A WebSocket that can't connect
+   * fires `error` and no `close` (Node 22, checked), and one whose peer has
+   * stopped answering never finishes closing, so waiting on `close` to
+   * reconnect is waiting on the thing that has failed. Whichever sign of
+   * trouble comes first (an error, a close, silence) lands here, the socket
+   * stops being the one in use, and anything it says afterwards is ignored.
+   */
+  function giveUp(socket, why) {
+    if (closedByUs || current !== socket) return;
+    current = null;
+    stopWatchdog();
     try {
-      ws?.close();
+      socket.close();
     } catch {
       /* already gone */
     }
+    logger.warn('Jetstream connection lost; reconnecting', { why, inMs: backoff });
+    retryLater();
   }
 
   function connect() {
+    retry = null;
     if (closedByUs) return;
     const cursor = getCursor();
     const url = streamUrl({ host: config.jetstreamHost, api: config.jetstreamApi, cursor });
@@ -78,29 +103,42 @@ export function connectJetstream({ config, logger, getCursor, onFrame, WebSocket
       api: config.jetstreamApi,
       resumingFrom: cursor ?? '(live tail)',
     });
-    // The v2 endpoint is an XRPC subscription and names its framing as a
-    // subprotocol; v1 has none.
-    const socket = config.jetstreamApi === 'v2' ? new WebSocketImpl(url, 'xrpc.v1.json') : new WebSocketImpl(url);
-    ws = socket;
+
+    let socket;
+    try {
+      // The v2 endpoint is an XRPC subscription and names its framing as a
+      // subprotocol; v1 has none.
+      socket = config.jetstreamApi === 'v2' ? new WebSocketImpl(url, 'xrpc.v1.json') : new WebSocketImpl(url);
+    } catch (err) {
+      logger.warn('Could not open a socket to Jetstream', { err, inMs: backoff });
+      retryLater();
+      return;
+    }
+    current = socket;
+
+    // The watchdog starts with the attempt, not with its success: a
+    // connection that never opens and never fails is silence too. This
+    // stream is never quiet once it is open, so silence always means dead.
+    lastFrameAt = Date.now();
+    watchdog = setInterval(
+      () => {
+        const silentMs = Date.now() - lastFrameAt;
+        if (silentMs >= config.silenceMs) giveUp(socket, `silent for ${Math.round(silentMs / 1000)}s`);
+      },
+      Math.max(1000, Math.floor(config.silenceMs / 3)),
+    );
 
     socket.addEventListener('open', () => {
+      if (current !== socket) return;
       backoff = config.reconnectBaseMs;
       lastFrameAt = Date.now();
       logger.info('Connected to Jetstream', { host: config.jetstreamHost });
-      // A socket that dies without a close frame looks like a quiet one, and
-      // this stream is never quiet.
-      watchdog = setInterval(
-        () => {
-          if (Date.now() - lastFrameAt < config.silenceMs) return;
-          logger.warn('Jetstream has gone silent; reconnecting', { silentMs: Date.now() - lastFrameAt });
-          drop();
-        },
-        Math.max(1000, Math.floor(config.silenceMs / 3)),
-      );
-      if (watchdog.unref) watchdog.unref();
     });
 
     socket.addEventListener('message', (ev) => {
+      // A socket that was given up on may still have frames in flight. They
+      // are behind the cursor the next one resumes from.
+      if (current !== socket) return;
       lastFrameAt = Date.now();
       let frame;
       try {
@@ -112,19 +150,8 @@ export function connectJetstream({ config, logger, getCursor, onFrame, WebSocket
       onFrame(frame);
     });
 
-    socket.addEventListener('error', (ev) => {
-      logger.warn('WebSocket error', { err: ev?.message || 'unknown' });
-    });
-
-    socket.addEventListener('close', () => {
-      if (watchdog) clearInterval(watchdog);
-      watchdog = null;
-      // A socket that was replaced has nothing to say about the one in use.
-      if (closedByUs || ws !== socket) return;
-      logger.warn('Jetstream closed; reconnecting', { inMs: backoff });
-      retry = setTimeout(connect, backoff);
-      backoff = Math.min(backoff * 2, config.reconnectMaxMs);
-    });
+    socket.addEventListener('error', (ev) => giveUp(socket, `error: ${ev?.message || 'unknown'}`));
+    socket.addEventListener('close', () => giveUp(socket, 'closed'));
   }
 
   connect();
@@ -133,7 +160,15 @@ export function connectJetstream({ config, logger, getCursor, onFrame, WebSocket
     close() {
       closedByUs = true;
       if (retry) clearTimeout(retry);
-      drop();
+      retry = null;
+      stopWatchdog();
+      const socket = current;
+      current = null;
+      try {
+        socket?.close();
+      } catch {
+        /* already gone */
+      }
     },
   };
 }

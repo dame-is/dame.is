@@ -42,10 +42,12 @@ const stats = { frames: 0, events: 0, batches: 0, sweeps: 0 };
 let sweepRemoved = 0;
 let lastCeilingWarning = 0;
 
+// These hold the process open, on purpose. With every timer unref'd, a moment
+// with no socket and no retry pending (a connection attempt that failed) left
+// the event loop empty and the process exited 0, as if it had been asked to.
+// It stops when it is told to (shutdown) or when it can't go on (die).
 function every(ms, fn) {
-  const timer = setInterval(fn, ms);
-  if (timer.unref) timer.unref();
-  timers.push(timer);
+  timers.push(setInterval(fn, ms));
 }
 
 function die(what, err) {
@@ -130,6 +132,7 @@ function logStats() {
     placed: counters.placed,
     unplaced: counters.unplaced,
     duplicate: counters.duplicate,
+    moot: counters.moot,
     reblocked: counters.reblocked,
     waiting: store.outboxDepth(),
     usedMb: Math.round(size.usedBytes / 1e6),

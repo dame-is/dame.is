@@ -82,7 +82,9 @@ describe('reading a v1 frame', () => {
     for (const frame of others) expect(readFrame(frame)).toEqual({ cursor: TIME_US, event: null });
   });
 
-  it('drops a block that blocks nobody', () => {
+  it('reads a block that blocks nobody as its key no longer holding one', () => {
+    // Never a block on anyone: but if this key held a real block before, it
+    // has just stopped being one, and that has to be said.
     const subjects = [
       undefined,
       null,
@@ -94,10 +96,14 @@ describe('reading a v1 frame', () => {
       // A block of oneself.
       BLOCKER,
     ];
+    const nobody = { type: 'void', did: BLOCKER, at: AT, rkey: RKEY };
     for (const subject of subjects) {
-      expect(readFrame(v1({ ...create, record: { ...create.record, subject } })).event).toBeNull();
+      expect(readFrame(v1({ ...create, record: { ...create.record, subject } })).event).toEqual(nobody);
+      expect(
+        readFrame(v1({ ...create, operation: 'update', record: { ...create.record, subject } })).event,
+      ).toEqual(nobody);
     }
-    expect(readFrame(v1({ ...create, record: undefined })).event).toBeNull();
+    expect(readFrame(v1({ ...create, record: undefined })).event).toEqual(nobody);
   });
 
   it('drops a frame it can’t make sense of rather than throwing on it', () => {
