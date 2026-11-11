@@ -39,7 +39,15 @@ import { OPENING_BENCH, RECIPES, recipeById } from './recipes.js';
 import { cultureById } from './cultures.js';
 import { additionById } from './additions.js';
 import { randomDish } from './chance.js';
-import { FULL } from './tools.js';
+import {
+  DEFAULT_DROP,
+  DROPS,
+  dropRadius,
+  FULL,
+  SPOT_RADIUS,
+  unmixed,
+  wetDropsUnder,
+} from './tools.js';
 import { SLOTS } from './pack.js';
 
 export const STORAGE_KEY = 'dame.culturing.bench';
@@ -79,6 +87,7 @@ const DEFAULT_VIEW = {
   stretch: 3,
   lampAz: 215,
   lampEl: 36,
+  drop: DEFAULT_DROP,
 };
 
 /** The bench top: matte black, like the epoxy of a real one. */
@@ -207,6 +216,9 @@ export function createBench(canvas, options = {}) {
           lampEl: Number.isFinite(saved.lampEl)
             ? saved.lampEl
             : DEFAULT_VIEW.lampEl,
+          drop: DROPS.some((d) => d.value === saved.drop)
+            ? saved.drop
+            : DEFAULT_VIEW.drop,
         }
       : null),
   };
@@ -361,6 +373,7 @@ export function createBench(canvas, options = {}) {
       stretch: view.stretch,
       lampAz: view.lampAz,
       lampEl: view.lampEl,
+      drop: view.drop,
       tool,
       notice,
       lost,
@@ -423,6 +436,7 @@ export function createBench(canvas, options = {}) {
           stretch: view.stretch,
           lampAz: view.lampAz,
           lampEl: view.lampEl,
+          drop: view.drop,
           dishes: entries.map(({ dish }) => packDish(dish)),
         }),
       );
@@ -642,6 +656,42 @@ export function createBench(canvas, options = {}) {
     else stroke.segments = result.segments;
   }
 
+  /** A drop of a culture, the size the hand is set to leave. */
+  function dropOf(cultureId, x, y, seed = (Math.random() * 1e6) | 0) {
+    const event = { do: 'spot', culture: cultureId, seed, x, y };
+    const radius = dropRadius(view.drop);
+    if (radius !== SPOT_RADIUS) event.size = radius;
+    return event;
+  }
+
+  /**
+   * Put a drop on a plate. One that lands in another culture's drop while
+   * that is still wet mixes with it (tools.js): both are written down as
+   * one mixed drop, and since the first was put down whole, the plate is
+   * grown again from its record, which is the work of a moment that early.
+   * Returns the reason if it was refused.
+   */
+  function putDrop(entry, event) {
+    const { dish, live } = entry;
+    const at = Math.floor(live.plate.hours * 1000) / 1000;
+    const under = wetDropsUnder(dish.events.slice(0, live.cursor), {
+      ...event,
+      at,
+    });
+    if (!under.length) return act(sim, live, event);
+    if (!live.slots.includes(event.culture) && live.slots.length >= SLOTS) {
+      return FULL;
+    }
+    const whole = under.filter((i) => !dish.events[i].mixed);
+    if (!whole.length) return act(sim, live, { ...event, mixed: true });
+    for (const i of whole) dish.events[i] = { ...dish.events[i], mixed: true };
+    dish.events.splice(live.cursor, 0, { ...event, mixed: true, at });
+    dish.hours = Math.max(dish.hours, live.plate.hours);
+    restart(entry);
+    dirty = true;
+    return null;
+  }
+
   function endStroke(stroke, mm) {
     const { entry, event } = stroke;
     if (event.path.length > 1) {
@@ -652,11 +702,10 @@ export function createBench(canvas, options = {}) {
     }
     // Never dragged: a single touch of the loop, or something set down.
     const [x, y] = stroke.draws ? event.path[0] : mm;
-    const single =
+    const refused =
       event.do === 'streak'
-        ? { do: 'spot', culture: event.culture, seed: event.seed, x, y }
-        : { do: 'add', addition: event.addition, x, y };
-    const refused = act(sim, entry.live, single);
+        ? putDrop(entry, dropOf(event.culture, x, y, event.seed))
+        : act(sim, entry.live, { do: 'add', addition: event.addition, x, y });
     if (refused) say(refused);
     else entry.touched = true;
     emit();
@@ -945,6 +994,9 @@ export function createBench(canvas, options = {}) {
   function arm(next) {
     tool =
       next && (cultureById(next.id) || additionById(next.id)) ? next : null;
+    // The page marks the middle of the plate while something is in hand,
+    // and is told where that is with each drawing.
+    dirty = true;
     if (tool && mode !== 'plate') enter(selected);
     else emit();
   }
@@ -1017,15 +1069,16 @@ export function createBench(canvas, options = {}) {
   function spot(index, cultureId, x, y) {
     const entry = entries[index];
     if (!entry || !cultureById(cultureId)) return;
-    const refused = act(sim, entry.live, {
-      do: 'spot',
-      culture: cultureId,
-      x,
-      y,
-      seed: (Math.random() * 1e6) | 0,
-    });
+    const refused = putDrop(entry, dropOf(cultureId, x, y));
     if (refused) say(refused);
     else entry.touched = true;
+    emit();
+  }
+
+  /** How big a drop the hand leaves from now on (tools.js DROPS). */
+  function setDrop(value) {
+    if (!DROPS.some((d) => d.value === value)) return;
+    view.drop = value;
     emit();
   }
 
@@ -1046,6 +1099,8 @@ export function createBench(canvas, options = {}) {
     // The last thing that has actually happened, not one still to come.
     const at = Math.max(0, live.cursor - 1);
     dish.events.splice(at, 1);
+    // What it was mixed with, if anything, is a drop of its own again.
+    dish.events = unmixed(dish.events);
     dish.hours = Math.max(dish.hours, live.plate.hours);
     delete dish.recipe;
     restart(entry);
@@ -1216,6 +1271,7 @@ export function createBench(canvas, options = {}) {
     setHeld,
     spread,
     spot,
+    setDrop,
     put,
     undo,
     addDish,

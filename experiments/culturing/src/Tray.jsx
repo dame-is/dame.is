@@ -7,6 +7,7 @@ import { ADDITIONS, ADDITION_KINDS, additionById } from './additions.js';
 import { RECIPES } from './recipes.js';
 import { HUMIDITY_RANGE, TEMPERATURE_RANGE } from './recipe.js';
 import { MEDIUM_LOOK_DEFAULTS, resolveCulture } from './pack.js';
+import { DROPS } from './tools.js';
 import { temperatureFactor } from './units.js';
 import { describeEvent, describePour, formatHours } from './format.js';
 
@@ -153,10 +154,19 @@ function mediumSwatch(medium) {
 
 // ------------------------------------------------------------ cultures
 
+/** The three drops, as keys. */
+const DROP_KEYS = DROPS.map((d) => ({
+  value: d.value,
+  label: d.label,
+  title: d.hint,
+}));
+
 function CulturesPanel({ bench, snap, compact }) {
   const plate = snap.dishes[snap.selected];
   const armed =
     snap.tool?.kind === 'culture' ? cultureById(snap.tool.id) : null;
+  const drop = DROPS.find((d) => d.value === snap.drop) || DROPS[0];
+  const across = drop.radius * 2;
   return (
     <>
       {armed ? (
@@ -165,10 +175,40 @@ function CulturesPanel({ bench, snap, compact }) {
           <p className="cult-card-after">after {armed.after}</p>
           <p className="cult-card-blurb">{armed.blurb}</p>
           <p className="cult-hint">
-            Touch the gel to leave a drop of it. Drag to draw a streak, which
-            thins out as the loop empties.
+            Touch the gel to leave a drop of it, or drag to draw a streak, which
+            thins out as the loop empties. The mark shows the middle of the
+            plate. A drop put into another culture’s while that is still wet
+            mixes with it, and the two grow out from one place.
           </p>
+          <div className="cult-field">
+            <span className="cult-field-label" id="cult-drop-label">
+              Drop
+            </span>
+            <output className="cult-field-value">
+              {Number.isInteger(across) ? across : across.toFixed(1)} mm across
+            </output>
+            <Segmented
+              label="How big a drop to leave"
+              options={DROP_KEYS}
+              value={drop.value}
+              onChange={(value) => {
+                bench.setDrop(value);
+                const next = DROPS.find((d) => d.value === value);
+                if (compact && next) bench.say(next.hint);
+              }}
+            />
+            <p className="cult-field-hint">{drop.hint}</p>
+          </div>
           <div className="cult-actions">
+            <Button
+              size="sm"
+              onClick={() => {
+                bench.enter(snap.selected);
+                bench.spot(snap.selected, armed.id, 0, 0);
+              }}
+            >
+              Drop it in the middle
+            </Button>
             <Button
               size="sm"
               onClick={() => {
@@ -194,7 +234,8 @@ function CulturesPanel({ bench, snap, compact }) {
       ) : (
         <p className="cult-hint">
           Pick a culture up, then touch the gel with it: a tap leaves a drop, a
-          drag draws a streak. A plate holds four.
+          drag draws a streak. Put two in the middle and they grow out from it
+          together. A plate holds four.
         </p>
       )}
       <Shelf>

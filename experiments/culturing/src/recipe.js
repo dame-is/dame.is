@@ -12,8 +12,11 @@ import { additionById } from './additions.js';
 import { SLOTS } from './pack.js';
 
 /** The newest shape of a saved bench. Bump it when a recipe's meaning
- *  changes; anything older is dropped rather than misread. */
-export const RECIPE_VERSION = 1;
+ *  changes; anything older is dropped rather than misread.
+ *
+ *  2: films spread and fold differently, and cultures hold their ground
+ *     against each other, so a plate saved before grows into another one. */
+export const RECIPE_VERSION = 2;
 
 export const DEFAULT_ENV = {
   temperature: 30, // °C

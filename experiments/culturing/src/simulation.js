@@ -161,6 +161,7 @@ export function createSimulation(gl, caps, size) {
       uFeather: stamp.feather ?? Math.min(stamp.radius * 0.5, 0.6),
       uRing: stamp.ring || 0,
       uSpeckle: stamp.speckle ?? 1,
+      uClump: stamp.clump || 0,
       uSeed: stamp.seed >>> 0,
       uNeedsAgar: stamp.needsAgar !== false,
       uClear0: stamp.clearB || ZERO,
@@ -194,6 +195,7 @@ export function createSimulation(gl, caps, size) {
       uFeather: stamp.feather ?? Math.min(stamp.radius * 0.5, 0.8),
       uRing: 0,
       uSpeckle: 1,
+      uClump: 0,
       uSeed: 0,
       uNeedsAgar: stamp.needsAgar !== false,
       uClear0: stamp.clear0 || ZERO,
@@ -292,6 +294,7 @@ export function createSimulation(gl, caps, size) {
           uD: plate.surface.D,
         });
         programs.wrinkleA.set(u);
+        programs.wrinkleA.set({ uWrHours: grid.dt / WRINKLE_SUBSTEPS });
         fullscreen.draw();
 
         begin(plate.wrinkle.target, N);

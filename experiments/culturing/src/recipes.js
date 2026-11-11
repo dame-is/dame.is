@@ -63,17 +63,70 @@ const add = (addition, x, y, extra = {}) => ({
   ...extra,
 });
 
+/** The big drop a colony biofilm is grown from, mm across its radius. */
+const POOL = 6;
+
+/** Cultures in one drop in the middle: each lands in about half of it. */
+const shared = (cultures, size = POOL) =>
+  cultures.map((culture, i) =>
+    spot(culture, 0, 0, { size, mixed: true, seed: 3 + i * 5 }),
+  );
+
 export const RECIPES = [
+  {
+    id: 'rosette',
+    name: 'Rosette',
+    watch:
+      'One big drop, left for days. The drop stays as a flat disc in the middle; veins start at its rim, heavy at the root, and fork as they run out to the edge. Pick the plate up and tilt it to see how tall they stand.',
+    dish: {
+      medium: 'congo',
+      events: [spot('rosette', 0, 0, { size: POOL })],
+    },
+    start: 60,
+  },
   {
     id: 'wrinkles',
     name: 'Wrinkles',
     watch:
-      'A film buckling as it grows: a maze in the middle first, then ridges running out to the rim as spokes. The dye in the plate shows every fold.',
+      'A film buckling behind a pale, scalloped edge: fine ridges near the rim that run together into heavy veins toward the middle. The dye in the plate shows every fold.',
     dish: {
       medium: 'congo',
-      events: [spot('hay', 0, 0, { size: 2.2 })],
+      events: [spot('hay', 0, 0, { size: POOL })],
     },
-    start: 44,
+    start: 48,
+  },
+  {
+    id: 'amethyst',
+    name: 'Amethyst',
+    watch:
+      'Two dyes in the gel and a compact film that takes up both: violet in the floors of its folds, pale along their crests. It hardly spreads. It folds instead, and the folds knot together in the middle.',
+    dish: {
+      medium: 'morphology',
+      events: [spot('corrugated', 0, 0, { size: POOL })],
+    },
+    start: 60,
+  },
+  {
+    id: 'shared',
+    name: 'One drop, two films',
+    watch:
+      'Two wrinklers mixed in one drop. Neither will grow where the other already is, so the middle stays a patchwork of the two. Past it the faster spreader takes the edge and closes round the other, and the pockets it has to go round are what shape its lobes.',
+    dish: {
+      medium: 'congo',
+      events: shared(['hay', 'rosette']),
+    },
+    start: 48,
+  },
+  {
+    id: 'pinwheel',
+    name: 'Pinwheel',
+    watch:
+      'Two pigments from one drop. They come up cream together; then the red shows, and the violet once it is crowded enough, and you can see which ground each one took. A sector widens where its culture keeps pace and pinches out where it can’t.',
+    dish: {
+      medium: 'broth',
+      events: shared(['crimson', 'violet']),
+    },
+    start: 48,
   },
   {
     id: 'palette',
@@ -293,10 +346,10 @@ export function recipeById(id) {
 /** What is on the bench the first time it is opened: four plates already
  *  growing, and two poured and waiting. */
 export const OPENING_BENCH = [
+  { recipe: 'rosette' },
   { recipe: 'wrinkles' },
+  { recipe: 'shared' },
   { recipe: 'palette' },
-  { recipe: 'bullseye' },
-  { recipe: 'zone' },
+  { medium: 'morphology' },
   { medium: 'swarm' },
-  { medium: 'litmus' },
 ];

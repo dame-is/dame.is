@@ -55,10 +55,11 @@ should be its own chunk, loaded only by the page that shows it.
   has reached. One that was still re-growing from its recipe waits where it
   stands and goes on when the incubator starts again.
 - **Randomize** ([`chance.js`](src/chance.js)) deals a plate nobody
-  chose: a medium, a few cultures that can live on it, and now and then
-  something off the tray. Across the bench it deals every plate; with one
-  picked up, that one. It only asks first when a plate holds something done by
-  hand.
+  chose: a medium, a few cultures that can live on it, one of a handful of
+  ways to lay them out (one big drop in the middle, two or three mixed in it,
+  a ring, a pair facing each other, a scatter), and now and then something
+  off the tray. Across the bench it deals every plate; with one picked up,
+  that one. It only asks first when a plate holds something done by hand.
 - **On a phone** ([`useCompact.js`](src/useCompact.js), and the last section
   of [`culturing.css`](src/culturing.css))
   the shelf lies on its side: each tab is a strip of chips that scrolls
@@ -71,7 +72,8 @@ should be its own chunk, loaded only by the page that shows it.
 that every uniform a shader declares is supplied, that every culture on every
 medium stays inside the schemes' stability bounds on every grid, that
 recipes survive a link and reject what isn't one, that a stopped plate takes
-no further step, and that a dealt plate is a recipe like any other.
+no further step, that a drop mixes with a wet one of another culture and
+with nothing else, and that a dealt plate is a recipe like any other.
 
 ## What it borrows from the site
 

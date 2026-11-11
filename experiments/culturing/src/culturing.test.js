@@ -42,7 +42,19 @@ import {
   resolveMedium,
   slotsOf,
 } from './recipe.js';
-import { FULL, slotFor, stampsFor } from './tools.js';
+import {
+  CLUMP,
+  DEFAULT_DROP,
+  dropRadius,
+  DROPS,
+  FULL,
+  slotFor,
+  SPOT_RADIUS,
+  stampsFor,
+  unmixed,
+  WET_HOURS,
+  wetDropsUnder,
+} from './tools.js';
 import {
   act,
   advance,
@@ -158,7 +170,7 @@ describe('shaders are given every number they wait on', () => {
     ),
     // Set by the simulation itself for each step (simulation.js).
     ...['uB', 'uD', 'uAux', 'uC0', 'uC1', 'uC2', 'uWr', 'uWrA'],
-    ...['uHours', 'uStep', 'uChemSize', 'uWrDt'],
+    ...['uHours', 'uStep', 'uChemSize', 'uWrDt', 'uWrHours'],
   ]);
 
   it.each([
@@ -337,6 +349,51 @@ describe('packing', () => {
         seed: 1,
       }).u.uCreep[0];
     expect(flat(0.6)).toBeCloseTo(flat(1.5), 9);
+  });
+
+  it('broadens a fold with age only for a culture that says so, and never narrows one', () => {
+    const grid = createGrid(384);
+    const pack = (id) =>
+      packPlate({
+        slots: [cultureById(id)],
+        medium: mediumById('congo'),
+        env: ENV,
+        grid,
+        seed: 1,
+      }).u;
+    // A plain colony has no folds to broaden.
+    expect(pack('crimson').uWrCoarsen[0]).toBe(0);
+    expect(pack('rosette').uWrCoarsen[0]).toBeGreaterThan(1);
+    for (const culture of CULTURES) {
+      const u = pack(culture.id);
+      expect(u.uWrCoarsen[0], culture.id).toBeGreaterThanOrEqual(0);
+      // Hours to divide by.
+      expect(u.uWrAgeing[0], culture.id).toBeGreaterThanOrEqual(1);
+      expect(u.uWrCore[0], culture.id).toBeGreaterThanOrEqual(0);
+      expect(u.uWrCore[0], culture.id).toBeLessThanOrEqual(1);
+      // An empty slot buckles like anything else would, and divides by one.
+      expect(u.uWrAgeing.slice(1)).toEqual([1, 1, 1]);
+      expect(u.uWrCore.slice(1)).toEqual([1, 1, 1]);
+    }
+    // Rosette keeps the drop it grew from flat.
+    expect(pack('rosette').uWrCore[0]).toBe(0);
+  });
+
+  it('lets no culture share its ground for nothing', () => {
+    const grid = createGrid(384);
+    for (const culture of CULTURES) {
+      const { u } = packPlate({
+        slots: [culture],
+        medium: mediumById('broth'),
+        env: ENV,
+        grid,
+        seed: 1,
+      });
+      // Two cultures in one patch each slow the other: it is what sorts a
+      // mixed drop into sectors, so none may opt out of it.
+      expect(u.uKin[0], culture.id).toBeGreaterThan(0);
+      expect(u.uKin[0], culture.id).toBeLessThanOrEqual(1);
+    }
   });
 
   it('refills the surface in hours for a sugar and hardly at all on a lean plate', () => {
@@ -786,6 +843,28 @@ describe('a plate nobody chose', () => {
     }
   });
 
+  it('deals some plates whose cultures share a middle, and mixes them there', () => {
+    const middle = (e) => e.do === 'spot' && e.x === 0 && e.y === 0;
+    const sharing = dealt.filter(
+      (dish) => dish.events.filter((e) => middle(e) && e.mixed).length > 1,
+    );
+    expect(sharing.length).toBeGreaterThan(dealt.length / 10);
+    for (const dish of dealt) {
+      const mixed = dish.events.filter((e) => e.mixed);
+      // A mixed drop is a drop of more than one thing, all in one place.
+      if (mixed.length) {
+        expect(mixed.length).toBeGreaterThan(1);
+        expect(new Set(mixed.map((e) => e.culture)).size).toBe(mixed.length);
+        expect(new Set(mixed.map((e) => `${e.x},${e.y}`)).size).toBe(1);
+      }
+    }
+    // And some that give one culture the middle to itself.
+    const alone = dealt.filter(
+      (dish) => dish.events.filter(middle).length === 1,
+    );
+    expect(alone.length).toBeGreaterThan(dealt.length / 10);
+  });
+
   it('is not the same plate twice, and is the same plate from the same numbers', () => {
     expect(new Set(dealt.map((d) => d.medium)).size).toBeGreaterThan(
       MEDIA.length / 2,
@@ -831,6 +910,116 @@ describe('stamps', () => {
     expect(surface.addB).toBeUndefined();
     // More at the rim: the drop dried from its edge.
     expect(surface.ring).toBeGreaterThan(0);
+  });
+
+  it('leaves drops of three sizes, the middle one by default', () => {
+    const radii = DROPS.map((d) => d.radius);
+    expect(radii[0]).toBe(SPOT_RADIUS);
+    for (let i = 1; i < radii.length; i += 1) {
+      expect(radii[i]).toBeGreaterThan(radii[i - 1]);
+    }
+    expect(DROPS.map((d) => d.value)).toContain(DEFAULT_DROP);
+    expect(dropRadius('nothing of the kind')).toBe(SPOT_RADIUS);
+    for (const drop of DROPS) {
+      expect(drop.label).toBeTruthy();
+      expect(drop.hint.length).toBeGreaterThan(10);
+      // A recipe keeps the size it is given: none is clamped on the way in.
+      const [event] = cleanDish({
+        medium: 'broth',
+        events: [
+          { at: 0, do: 'spot', culture: 'hay', x: 0, y: 0, size: drop.radius },
+        ],
+      }).events;
+      expect(event.size).toBe(drop.radius);
+      const { surface } = stampsFor(event, []).stamps[0];
+      expect(surface.radius).toBe(drop.radius);
+    }
+  });
+
+  it('sorts a mixed drop into clumps, and leaves a plain one whole', () => {
+    const drop = (extra) =>
+      stampsFor(
+        { do: 'spot', culture: 'crimson', x: 0, y: 0, seed: 4, ...extra },
+        [],
+      ).stamps[0].surface;
+    expect(drop({}).speckle).toBe(1);
+    expect(drop({}).clump).toBe(0);
+    const mixed = drop({ mixed: true });
+    expect(mixed.speckle).toBe(0.5);
+    expect(mixed.clump).toBe(CLUMP);
+    // Patches big enough for a grid to hold and small enough that a drop
+    // holds several.
+    expect(CLUMP).toBeGreaterThan(2 * createGrid(256).dx);
+    expect(CLUMP).toBeLessThan(DROPS[1].radius);
+  });
+
+  it('finds the wet drops a new one would run into', () => {
+    const first = { at: 2, do: 'spot', culture: 'hay', x: 0, y: 0, size: 6 };
+    const far = { at: 2, do: 'spot', culture: 'lemon', x: 20, y: 0 };
+    const events = [first, far];
+    const landing = (extra) =>
+      wetDropsUnder(events, {
+        at: 2.2,
+        do: 'spot',
+        culture: 'crimson',
+        x: 1,
+        y: 1,
+        ...extra,
+      });
+    expect(landing({})).toEqual([0]);
+    // More of the same is only more of it.
+    expect(landing({ culture: 'hay' })).toEqual([]);
+    // Off to one side of the drop the two just sit side by side.
+    expect(landing({ x: 5, y: 0 })).toEqual([]);
+    // A drop that has dried is a colony, not a drop.
+    expect(landing({ at: 2 + WET_HOURS + 0.1 })).toEqual([]);
+    // Only drops mix: not a streak through one, and not a disc.
+    expect(landing({ do: 'streak' })).toEqual([]);
+    expect(
+      wetDropsUnder([{ at: 2, do: 'add', addition: 'sugar', x: 0, y: 0 }], {
+        at: 2,
+        do: 'spot',
+        culture: 'crimson',
+        x: 0,
+        y: 0,
+      }),
+    ).toEqual([]);
+    // A big drop over a small one counts as well as the other way round.
+    expect(
+      wetDropsUnder([{ at: 0, do: 'spot', culture: 'lemon', x: 2, y: 0 }], {
+        at: 0,
+        do: 'spot',
+        culture: 'hay',
+        x: 0,
+        y: 0,
+        size: 6,
+      }),
+    ).toEqual([0]);
+  });
+
+  it('makes a drop whole again when what it was mixed with is taken back', () => {
+    const hay = {
+      at: 0,
+      do: 'spot',
+      culture: 'hay',
+      x: 0,
+      y: 0,
+      size: 6,
+      mixed: true,
+    };
+    const rosette = { ...hay, culture: 'rosette' };
+    const apart = { ...hay, culture: 'crimson', x: 20 };
+    // Together they stay as they are, and nothing is changed in place.
+    const pair = [hay, rosette];
+    expect(unmixed(pair)).toEqual(pair);
+    // One alone is a drop; so is one whose partner is across the plate.
+    expect(unmixed([hay])).toEqual([{ ...hay, mixed: undefined }]);
+    expect(unmixed([hay])[0]).not.toHaveProperty('mixed');
+    expect(hay.mixed).toBe(true);
+    expect(unmixed([hay, apart]).some((e) => e.mixed)).toBe(false);
+    // Nothing else in a record is touched.
+    const lawn = { at: 0, do: 'lawn', culture: 'gold', seed: 1 };
+    expect(unmixed([lawn, hay, rosette])).toEqual([lawn, hay, rosette]);
   });
 
   it('puts a swarmer down in both its states, unless it makes its own swarmers', () => {

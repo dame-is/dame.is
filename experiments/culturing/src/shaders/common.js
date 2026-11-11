@@ -11,6 +11,7 @@
 //                   b  1 where a variant ("sport") founded this patch
 //                   a  1 where there is agar, 0 outside the dish or in a cut
 //   uWr   surface   r  the wrinkle field, signed, about -1 to 1
+//                   g  the hours the film here has been thick enough to buckle
 //   uC0   agar      nutrient near the surface, surfactant, toxin X, signal
 //   uC1   agar      pH shift (+ acid, - alkali), enzyme, deep nutrient, toxin Y
 //   uC2   agar      pigment dissolved in the agar, as RGB absorbance

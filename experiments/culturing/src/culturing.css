@@ -126,6 +126,37 @@
   will-change: transform;
 }
 
+/* The middle of the plate in hand: a small ring and its point, drawn only
+   while a culture is held over the gel. It is placed like the numbers. */
+.cult-centre {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 1px solid var(--stage-ink-muted);
+  border-radius: 50%;
+  pointer-events: none;
+  visibility: hidden;
+  will-change: transform;
+}
+
+.cult-centre::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  background: var(--stage-ink);
+}
+
+.cult[data-mode='plate'][data-armed='culture'] .cult-centre {
+  visibility: visible;
+}
+
 .cult-notice,
 .cult-loading {
   position: absolute;

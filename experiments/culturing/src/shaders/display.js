@@ -43,6 +43,9 @@ uniform vec4 uHeightD;   // mm of biofilm at density 1
 uniform vec4 uHeightB;   // mm of motile layer at density 1
 uniform vec4 uWrHeight;  // mm, ridge crest above the film
 uniform vec4 uWrSport;
+uniform vec4 uWrCoarsen; // as the wrinkle pass has them: a fold's width with age
+uniform vec4 uWrAgeing;
+uniform vec4 uCrest;     // how much paler a fold's crest is than its floor
 uniform vec4 uGloss;
 uniform vec4 uRough;
 uniform vec4 uFuzz;
@@ -115,7 +118,8 @@ void main() {
 
   vec4 b = texelFetch(uB, p, 0);
   vec4 d = texelFetch(uD, p, 0);
-  float wr = texelFetch(uWr, p, 0).r;
+  vec4 wrinkle = texelFetch(uWr, p, 0);
+  float wr = wrinkle.r;
   vec2 xy = gl_FragCoord.xy;
   vec4 c0 = agarAt(uC0, xy);
   vec4 c1 = agarAt(uC1, xy);
@@ -140,6 +144,12 @@ void main() {
   float crest = pow(max(v, 0.0), 1.5);
   float trough = max(-v, 0.0);
   float fold = dot(shareD, uWrHeight * mix(ONE, uWrSport, sport));
+  // A broad fold is a tall one: both follow the thickness of the film, which
+  // is why the old veins near the middle stand over the young ridges at the
+  // rim (see wrinkle.js for the width).
+  float old = 1.0 - exp(-wrinkle.g / max(dot(shareD, uWrAgeing), 1.0));
+  fold *= pow(1.0 + dot(shareD, uWrCoarsen) * old, 0.6);
+  float ridge = film * crest;
   height += film * fold * (crest - 0.12 * trough);
 
   // ---- Colony ---------------------------------------------------------
@@ -149,10 +159,17 @@ void main() {
   vec3 colour = mix(young, mix(mature, sported, sport), pig);
   // A dye in the medium is taken up by the matrix: the film goes the
   // dye's colour, most where it is thickest.
+  // It pools between the folds and thins over them, so the floors come
+  // up saturated and the crests pale.
   float stained = dot(share, uStain) * uDye * smoothstep(0.05, 0.6, rhoD);
-  colour = mix(colour, colour * uDyeColor * 1.6, stained);
-  // The floors of the folds are older, wetter and a shade darker.
-  colour *= 1.0 - 0.18 * film * trough;
+  stained *= 1.0 - 0.45 * ridge + 0.25 * film * trough;
+  colour = mix(colour, colour * uDyeColor * 1.6, clamp(stained, 0.0, 1.0));
+  // The floors of the folds are older, wetter and a shade darker; the
+  // crests are where the film is thickest and driest, and scatter the most
+  // light back.
+  colour *= 1.0 - 0.22 * film * trough;
+  float pale = dot(share, uCrest) * ridge;
+  colour = mix(colour, mix(colour, vec3(0.97, 0.94, 0.9), 0.75), clamp(pale, 0.0, 1.0));
 
   float coverage = 1.0 - exp(-dot(mass, uOpacity));
   // A paper disc sits on top of whatever is there.

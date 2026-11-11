@@ -21,11 +21,51 @@ import { additionById } from './additions.js';
 
 /** A drop from a pipette: about 3 µl spreads to this radius, mm. */
 export const SPOT_RADIUS = 1.7;
+/**
+ * The drops the hand can leave, by how far each spreads before it dries.
+ * The size of the drop is the size of the colony's middle: everything in it
+ * arrives at once, so it keeps a character of its own (a disc, a ring where
+ * the drop dried, a maze) while the growth round it is drawn out into
+ * spokes. Colony biofilms are photographed from a few microlitres spotted
+ * and left for days, and it is the big drop that gives them their core.
+ */
+export const DROPS = [
+  {
+    value: 'touch',
+    label: 'Touch',
+    radius: SPOT_RADIUS,
+    hint: 'A touch of the loop: a colony from a point.',
+  },
+  {
+    value: 'drop',
+    label: 'Drop',
+    radius: 3.5,
+    hint: 'A drop from a pipette, a few millimetres across.',
+  },
+  {
+    value: 'pool',
+    label: 'Pool',
+    radius: 6,
+    hint: 'A big drop left to dry: the colony keeps it as a core.',
+  },
+];
+export const DEFAULT_DROP = 'drop';
+
+/** A drop's radius by name, mm; the loop's touch for a name it doesn't know. */
+export function dropRadius(value) {
+  const drop = DROPS.find((d) => d.value === value);
+  return drop ? drop.radius : SPOT_RADIUS;
+}
+
+/** How long a drop stays wet enough for another to run into it, hours. */
+export const WET_HOURS = 1;
 /** Half the width of the line a loop draws, mm. */
 export const STREAK_RADIUS = 0.75;
 /** The share of the surface a spread plate's cells land on: all of it,
  *  which is a lawn. */
 export const LAWN_DENSITY = 1;
+/** How big the patches are that a mixed drop's strains settle out in, mm. */
+export const CLUMP = 1.1;
 /** How far along a streak the loop still carries half its load, mm. */
 const STREAK_HALF = 30;
 
@@ -118,8 +158,8 @@ function inoculation(event, slot) {
 
   // A spot: a drop left to dry. It dries from its edge and the flow carries
   // cells there, so more land at the rim than in the middle. A drop of a
-  // mixed culture leaves each strain in about half the places, which is
-  // the speckled "homeland" sectors grow out of.
+  // mixed culture leaves each strain in about half the places, in patches:
+  // the "homeland" sectors grow out of.
   const radius = event.size ?? SPOT_RADIUS;
   return [
     {
@@ -129,6 +169,7 @@ function inoculation(event, slot) {
         feather: Math.min(0.5, radius * 0.4),
         ring: 0.7,
         speckle: event.mixed ? 0.5 : 1,
+        clump: event.mixed ? CLUMP : 0,
         seed,
         ...deposit(culture, slot, 1),
       },
@@ -208,6 +249,50 @@ function addition(event) {
     });
   }
   return stamps;
+}
+
+/**
+ * The drops on a plate that a new one would run into: another culture's,
+ * put down within the hour, with one of the two centres well inside the
+ * other drop. Returns their indexes in `events`.
+ *
+ * Two drops that meet while both are wet are one drop of a mixed culture:
+ * each strain lands in about half the places, and what grows out of it is
+ * the two sharing a middle and contesting an edge. (A drop put onto a
+ * colony that has already dried and grown is only a drop on a colony.)
+ */
+export function wetDropsUnder(events, event) {
+  const found = [];
+  if (event.do !== 'spot') return found;
+  const radius = event.size ?? SPOT_RADIUS;
+  events.forEach((other, index) => {
+    if (other.do !== 'spot' || other.culture === event.culture) return;
+    if (Math.abs((event.at ?? 0) - other.at) > WET_HOURS) return;
+    const reach = 0.5 * Math.max(radius, other.size ?? SPOT_RADIUS);
+    if (Math.hypot(event.x - other.x, event.y - other.y) <= reach) {
+      found.push(index);
+    }
+  });
+  return found;
+}
+
+/**
+ * A record with the mixed drops that have nothing left to be mixed with put
+ * back as drops. Taking back one half of a mixed drop leaves the other
+ * written down as half a drop; this is what makes it whole again.
+ */
+export function unmixed(events) {
+  return events.map((event, index) => {
+    if (!event.mixed || event.do !== 'spot') return event;
+    const partnered = events.some(
+      (other, at) =>
+        at !== index && other.mixed && wetDropsUnder([other], event).length > 0,
+    );
+    if (partnered) return event;
+    const whole = { ...event };
+    delete whole.mixed;
+    return whole;
+  });
 }
 
 /** What a plate says when a fifth culture is offered to it. */

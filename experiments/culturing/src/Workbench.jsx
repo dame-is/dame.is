@@ -323,6 +323,8 @@ function Randomize({ bench, snap, compact }) {
 export default function Workbench() {
   const stageRef = useRef(null);
   const labelsRef = useRef([]);
+  const centreRef = useRef(null);
+  const selectedRef = useRef(0);
   const incoming = useIncomingPlate();
   const reduceMotion = usePrefersReducedMotion();
   const compact = useCompact();
@@ -335,9 +337,11 @@ export default function Workbench() {
     () => (bench ? bench.getSnapshot() : null),
   );
 
-  // The numbers under the dishes follow the camera. They are moved by
-  // hand, a style at a time, so sixty redraws a second don't go through
-  // React.
+  selectedRef.current = snap?.selected ?? 0;
+
+  // The numbers under the dishes follow the camera, and so does the mark
+  // on the middle of the plate in hand. They are moved by hand, a style at
+  // a time, so sixty redraws a second don't go through React.
   useEffect(() => {
     if (!bench) return undefined;
     return bench.onFrame((places) => {
@@ -350,6 +354,10 @@ export default function Workbench() {
           el.style.transform = `translate(${p.x.toFixed(1)}px, ${Math.min(p.y, floor).toFixed(1)}px) translate(-50%, 0.5em)`;
         }
       });
+      const middle = places[selectedRef.current];
+      if (centreRef.current && middle) {
+        centreRef.current.style.transform = `translate(${middle.x.toFixed(1)}px, ${middle.cy.toFixed(1)}px) translate(-50%, -50%)`;
+      }
     });
   }, [bench]);
 
@@ -411,6 +419,17 @@ export default function Workbench() {
                     </li>
                   ))}
                 </ol>
+              )}
+              {/* The middle of the plate in hand, while something is held
+                  over it: where "in the middle" is, to aim at or away from.
+                  Always there and moved with the camera; shown only then
+                  (culturing.css). */}
+              {snap && (
+                <span
+                  className="cult-centre"
+                  ref={centreRef}
+                  aria-hidden="true"
+                />
               )}
               {/* On a phone the camera's controls and its shutter sit on the
                   picture, where a map keeps its own, and leave the bar a
