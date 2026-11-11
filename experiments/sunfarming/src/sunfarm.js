@@ -27,6 +27,7 @@ import {
   ISLANDS,
   TUTORIAL,
   dateKey,
+  homeIsland,
   isOpen,
   markDone,
   nextIsland,
@@ -58,6 +59,9 @@ const BOOK_VERSION = 2;
 const SAVE_EVERY_MS = 8000;
 const SNAPSHOT_EVERY_MS = 180;
 const TOAST_MS = 4600;
+// The HUD covers the picture for about this long (seconds) after an island
+// is put on the stage, so the camera waits that long before coming in.
+const ARRIVE_AFTER = 0.55;
 // A press that travels less than this is a tap, not a drag.
 const TAP_SLOP = 7;
 
@@ -129,7 +133,8 @@ export function createSunfarm({
     const data = storage?.load();
     const ok = data && typeof data === 'object' && data.v === BOOK_VERSION;
     return {
-      // Somebody who has never played starts on the tutorial island.
+      // Somebody who has never played starts on the tutorial island (as
+      // does anybody who hasn't finished it: see gameFor).
       current:
         ok && typeof data.current === 'string' ? data.current : TUTORIAL.id,
       progress: readProgress(ok ? data.progress : null),
@@ -142,8 +147,10 @@ export function createSunfarm({
 
   // An island's game: its save if there is a good one, or a fresh start.
   function gameFor(id) {
-    // Anything that isn't an island that can be played yet is the first one.
-    const spec = (isOpen(book.progress, id) && specById(id)) || ISLANDS[0];
+    // Anything that isn't an island that can be played yet is the tutorial,
+    // or the first island once the tutorial is done.
+    const spec =
+      (isOpen(book.progress, id) && specById(id)) || homeIsland(book.progress);
     const saved = deserialize(book.saves[spec.id]);
     // Yesterday's "today's island" is not today's.
     if (saved && (!spec.daily || saved.spec.date === spec.date)) return saved;
@@ -162,6 +169,8 @@ export function createSunfarm({
     throw error;
   }
 
+  stage.arrive(ARRIVE_AFTER);
+
   const ui = {
     tool: 'look',
     speed: 1,
@@ -175,6 +184,9 @@ export function createSunfarm({
     // Whether the view has been moved by hand on this island: the first
     // thing the tutorial asks for.
     looked: false,
+    // Whether the HUD has the picture covered (the crossing between
+    // islands): the clock doesn't run on an island nobody can see.
+    covered: false,
   };
   // Sound: off until the first press inside the game, and off for good if
   // the player has said so before. A browser only lets sound start from the
@@ -761,7 +773,7 @@ export function createSunfarm({
     // Keys work anywhere in the game, but not under an open card, never in
     // a field, and a button keeps the keys that press it.
     const target = event.target;
-    if (host.querySelector('.sunfarm-veil')) return;
+    if (host.querySelector('.sunfarm-veil, .sunfarm-sail')) return;
     if (target.matches?.('input, textarea, select, [contenteditable]')) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     if (
@@ -868,8 +880,9 @@ export function createSunfarm({
     // The view moved, something was looked at: the lesson may have moved on.
     if (learn()) publish();
 
-    // The clock waits while the tutorial has the player build.
-    if (!ui.paused && !lessonHolds(game) && dt > 0) {
+    // The clock waits while the tutorial has the player build, and while
+    // the picture is covered.
+    if (!ui.paused && !ui.covered && !lessonHolds(game) && dt > 0) {
       const events = step(game, dt * HOURS_PER_SECOND * ui.speed);
       if (events.length) {
         dirty = true;
@@ -964,10 +977,13 @@ export function createSunfarm({
     game = next;
     book.current = game.spec.id;
     stage.setGame(game);
+    stage.arrive(ARRIVE_AFTER);
     ui.hover = -1;
     ui.selected = -1;
     ui.tool = 'look';
     ui.paused = false;
+    // A new island is met at walking pace, whatever the last one was left at.
+    ui.speed = 1;
     ui.toasts = [];
     ui.finished = null;
     ui.looked = false;
@@ -1043,6 +1059,20 @@ export function createSunfarm({
       save();
       show(gameFor(id));
       return true;
+    },
+    /**
+     * The HUD has the picture covered, or has uncovered it. The island's
+     * clock waits while it is: nothing should happen where nobody can see.
+     */
+    cover(on) {
+      ui.covered = Boolean(on);
+    },
+    /**
+     * Play a sound for something the HUD is doing that the game doesn't
+     * know about: `sail`, as the curtain comes up between islands.
+     */
+    cue(name) {
+      if (name === 'sail') sound.play('sail');
     },
     /** Go to the tutorial island and start its lesson from the beginning. */
     startTutorial() {

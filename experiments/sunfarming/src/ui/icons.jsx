@@ -287,6 +287,15 @@ export const BackIcon = (p) => (
   </Icon>
 );
 
+export const BoatIcon = (p) => (
+  <Icon {...p}>
+    <path d="M12 3v12" />
+    <path d="M12 4.5 18.5 14H12z" fill="#fff" />
+    <path d="M12 7 7 14h5z" fill="#ffd23f" />
+    <path d="M3.5 16h17l-2.4 4H6z" fill="#f25f4c" />
+  </Icon>
+);
+
 export const MenuIcon = (p) => (
   <Icon {...p}>
     <path d="M4.5 7h15M4.5 12h15M4.5 17h15" strokeWidth="2.6" />

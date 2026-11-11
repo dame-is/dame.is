@@ -174,6 +174,18 @@ export function createSound({ muted = false } = {}) {
       tone({ freq: 160, type: 'triangle', at: 0.1, dur: 0.09, gain: 0.1 });
     },
     goal: () => tune([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6]),
+    // Setting off for another island: water going by, and a few notes for
+    // the one coming up.
+    sail: () => {
+      hiss({ dur: 1.1, gain: 0.07, band: 420, to: 1500, q: 0.7 });
+      tune([NOTE.G4, NOTE.C5, NOTE.E5], {
+        at: 0.55,
+        step: 0.13,
+        dur: 0.4,
+        gain: 0.06,
+        type: 'sine',
+      });
+    },
     // A step of the tutorial done: lighter than a goal, there are eight.
     lesson: () =>
       tune([NOTE.E5, NOTE.A5], { step: 0.08, dur: 0.2, gain: 0.07 }),
