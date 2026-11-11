@@ -20,7 +20,7 @@ Each place Claude runs reads its standing instructions from somewhere different,
 | Claude chat (web, desktop app, phone) | Paste `core.md` into the personal preferences field in Settings. Anthropic's help article calls it "Instructions for Claude". |
 | Claude Code in the cloud (claude.ai/code, or the Claude app) | In a cloud session on 2026-11-11, Claude could see the old preference text from claude.ai in its instructions. The Claude Code docs don't say this happens, so it may change. The documented routes are a repo's `CLAUDE.md`, or an environment setup script that writes `~/.claude/CLAUDE.md`. |
 | Claude Code on the Mac (terminal, or the desktop app's Code tab) | The docs don't say the claude.ai preferences reach it, so assume they don't. Put an import in `~/.claude/CLAUDE.md` (example below). |
-| A repo's own `CLAUDE.md` | In this repo, `@agents/core.md`. Elsewhere, a link to this folder. My life repo's `CLAUDE.md` links here. |
+| A repo's own `CLAUDE.md` | This repo's `CLAUDE.md` imports it with `@agents/core.md`. Elsewhere, a link to this folder. My life repo's `CLAUDE.md` links here. |
 
 For the Mac, assuming this repo is cloned to `~/code/dame.is` (adjust the path to wherever it is):
 
@@ -45,13 +45,13 @@ Sources, read 2026-11-11: Claude Code's docs on memory (https://code.claude.com/
 
 ## Open questions
 
-- Should this repo get a `CLAUDE.md` that imports `core.md`, so every Claude Code session here starts with it?
 - Should `writing.md` and `design.md` become skills?
 - Does a public folder suit this, or should it move to its own repo, public or private?
 
 ## Changes
 
 - 2026-11-11: First version. `core.md` rewrites the preference text I'd been pasting into claude.ai, quoted below, and adds collaboration, privacy, "less is more" and checking work. The three guides are new drafts. `design.md` builds on my Bluesky post of 2026-11-06 and its replies.
+- 2026-11-11: Added a `CLAUDE.md` at the root of this repo that imports `core.md`, so every Claude Code session here starts with it.
 
 The original preference text:
 
