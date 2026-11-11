@@ -65,8 +65,10 @@ the one it replaces, and "Take it back" deletes it.
 
 An experiment's `url` can point anywhere. When the thing to try is a page of
 this site, the page lives under the bench, in the place an experiment's record
-key would be: the first is `/experimenting/culturing`, a bench of simulated
-petri dishes ([`src/culturing/`](../src/culturing/)).
+key would be. There are two: `/experimenting/culturing`, a bench of simulated
+petri dishes ([`experiments/culturing/`](../experiments/culturing/)), and
+`/experimenting/sunfarming`, a small game about a solar farm
+([`experiments/sunfarming/`](../experiments/sunfarming/)).
 
 - The path is listed in `EXPERIMENT_PAGE_PATHS` in
   [`src/lib/experiments.js`](../src/lib/experiments.js). The router gives it
@@ -77,7 +79,38 @@ petri dishes ([`src/culturing/`](../src/culturing/)).
   `is.dame.experiment` record whose `url` is the page's full address, for
   example `https://dame.is/experimenting/culturing`, so "Try it" opens it.
 - The page finds that record by the address (`experimentForPage`) and links
-  to its reactions. Until one is posted it only links back to the bench.
+  to its reactions. Until one is posted it only links back to the bench. That
+  much is the same for every built-in experiment, so it is one component,
+  [`src/components/ExperimentPage.jsx`](../src/components/ExperimentPage.jsx),
+  which each one's page wraps itself in.
+- A game is the exception. It takes the whole window, so it has no page round
+  it: its path is also in `IMMERSIVE_EXPERIMENT_PATHS`, and on such a path
+  `App.jsx` draws none of the site's interface (the bars, the dock, the
+  inspect layer, the owner's tools) and the site's single-key shortcuts stand
+  down. The game is handed a way back out instead, which goes to its record's
+  page (found the same way, `useExperimentForPage`) so that leaving the game
+  lands on its reactions, or to the bench until there is a record.
+  [`src/pages/Sunfarming.jsx`](../src/pages/Sunfarming.jsx) is the one there
+  is.
+
+The experiment itself is a package of its own under
+[`experiments/`](../experiments/), which the site imports and nothing more;
+[`experiments/README.md`](../experiments/README.md) is that arrangement. What
+the site has to be told about a new one's address is this, and the test
+"is a page to the router, the crumbs and the edge" in
+[`src/lib/experiments.test.js`](../src/lib/experiments.test.js) fails until
+the first four are done:
+
+| where                                          | what                                            |
+| ---------------------------------------------- | ----------------------------------------------- |
+| `src/lib/experiments.js`                       | the path, in `EXPERIMENT_PAGE_PATHS`            |
+| `src/App.jsx`                                  | a lazy route, above `/experimenting/:rkey`      |
+| `src/lib/breadcrumbs.js`, `og/routes.js`       | the same route, for the crumbs and the edge     |
+| `og/pages.js`                                  | its title and description, for the head and card |
+| `og/llms.js`, `scripts/prefetch.mjs`           | the path, for `llms.txt` and the sitemap        |
+
+And, for one that takes the whole window, the path in
+`IMMERSIVE_EXPERIMENT_PATHS` beside the first.
 
 ## How the reactions are read
 
@@ -114,7 +147,9 @@ because an account holds one session on this site; granting reactions alone
 would take the guestbook permission away from someone who had already signed
 the book.) The union of every scope the client may request is declared in
 `src/lib/oauthClient.js` and served by `api/client-metadata.js`; the two must
-stay in step, and a test holds them to it.
+stay in step, and a test holds them to it. (A visitor who signs in from the
+Sunfarming game to post a result is asked for those two and one more; see
+[SUNFARMING.md](SUNFARMING.md).)
 
 - **Signed out.** Picking a verdict opens a line for a handle. The reaction
   waits in `sessionStorage` across the hop to the visitor's PDS and is written

@@ -64,6 +64,11 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   `subject` backlinks to it, gathered the way the guestbook's signatures are.
   See [Experimenting](#experimenting) and
   [`lexicons/EXPERIMENTING.md`](lexicons/EXPERIMENTING.md).
+- `is.dame.sunfarming.result` — a finished island of
+  [Sunfarming](#sunfarming), posted by the player: how many days it took. On
+  **the player's own PDS**, pointing at a name for the island's board, so a
+  board is gathered from backlinks like the reactions are. See
+  [`lexicons/SUNFARMING.md`](lexicons/SUNFARMING.md).
 - `is.dame.state` — live iPhone-sourced physical + ambient state (heart rate,
   activity, battery, ambient sound, calories). An append-only log keyed by TID:
   the **latest** record is the current "right now" rendered by the atmosphere-bar
@@ -194,7 +199,12 @@ A `draft` is the owner's alone. The page's own title and intro are its
 `is.dame.page/experimenting` record, like every page's.
 
 An experiment's `url` can be anywhere. One that is built into this site lives
-under the bench, as [`/experimenting/culturing`](#culturing) does.
+under the bench, as [`/experimenting/culturing`](#culturing) and
+[`/experimenting/sunfarming`](#sunfarming) do. A built-in experiment is a
+project of its own in [`experiments/`](experiments/), with its own
+`package.json`, dependencies and standalone build, which the site only imports;
+[`experiments/README.md`](experiments/README.md) is how that works, how to add
+one, and how to take one out into a repository of its own.
 
 The whole design, including sign-in scopes and moderation, is in
 [`lexicons/EXPERIMENTING.md`](lexicons/EXPERIMENTING.md);
@@ -275,61 +285,64 @@ links to its reactions ("Say what you make of it"). See
 [Experiments built into the site](lexicons/EXPERIMENTING.md#experiments-built-into-the-site)
 for the convention.
 
-It lives in [`src/culturing/`](src/culturing/), and is its own chunk that is
-never warmed (it carries a WebGL2 simulation and its shaders).
+The workbench is a package of its own,
+[`experiments/culturing/`](experiments/culturing/), which the site imports as
+`@dame-is/culturing` into one page
+([`src/pages/Culturing.jsx`](src/pages/Culturing.jsx)). It is its own chunk
+and never warmed: it carries a WebGL2 simulation and its shaders. How the
+model, the units, the recipes, the drawing and the bench work is in its
+[README](experiments/culturing/README.md), along with what it can be tested
+for without a GPU. It is dressed in the site's kit, and borrows that through
+one file ([`src/host.js`](experiments/culturing/src/host.js)), which is what
+would have to travel with it if it left.
 
-- **The model** ([`shaders/culture.js`](src/culturing/shaders/culture.js),
-  [`agar.js`](src/culturing/shaders/agar.js),
-  [`wrinkle.js`](src/culturing/shaders/wrinkle.js)). A plate is a handful of
-  float textures. Each of up to four cultures is a thin layer that travels and
-  a film that stays; growth eats a nutrient that diffuses through the gel; a
-  film buckles into wrinkles past a thickness (Swift–Hohenberg); toxins,
-  quorum signals, acid, enzymes and pigments spread through the agar at half
-  the surface's resolution. No pattern is drawn. Branches, rings, spokes,
-  sectors, halos and standoffs are what those rules do when they meet, which
-  is why the cultures are only parameter sets
-  ([`cultures.js`](src/culturing/cultures.js)).
-- **Units.** Every number in the libraries is in millimetres and hours
-  ([`units.js`](src/culturing/units.js) converts), so the same recipe grows
-  the same plate at 256 texels (phones) or 384, and a culture's numbers can be
-  read against a paper's. [`pack.js`](src/culturing/pack.js) turns a recipe
-  into uniforms and clamps anything that would break the explicit schemes.
-- **A plate is its recipe** ([`recipe.js`](src/culturing/recipe.js),
-  [`incubate.js`](src/culturing/incubate.js)): the medium, the incubator, and
-  everything done to it with the hour it was done. The picture is not kept.
-  The bench is saved to `localStorage` as recipes and re-grown on return, and
-  a plate travels in a link as `?plate=…`. Grown twice, a plate comes out
-  alike but not the same.
-- **Drawing** ([`renderer.js`](src/culturing/renderer.js),
-  [`shaders/scene.js`](src/culturing/shaders/scene.js)). The surface is one
-  displaced sheet per plate, lit four ways a microbiologist would recognise:
-  a raking lamp over a black bench, a light table from underneath, a 365 nm
-  lamp, and the dark. Heights are true and the vertical is stretched, by an
-  amount the page states.
-- **The bench** ([`bench.js`](src/culturing/bench.js)) owns the canvas, the
-  clock and the pointer, and knows nothing about React; the page reads a
-  snapshot of it. A plate's clock runs ahead of its simulation by as much as
-  the incubator's speed allows, so stopping the incubator (or putting a plate
-  in the fridge) hands that lead back: a stopped plate stays at the hour it
-  has reached. One that was still re-growing from its recipe waits where it
-  stands and goes on when the incubator starts again.
-- **Randomize** ([`chance.js`](src/culturing/chance.js)) deals a plate nobody
-  chose: a medium, a few cultures that can live on it, and now and then
-  something off the tray. Across the bench it deals every plate; with one
-  picked up, that one. It only asks first when a plate holds something done by
-  hand.
-- **On a phone** (`useCompact.js`, and the last section of `culturing.css`)
-  the shelf lies on its side: each tab is a strip of chips that scrolls
-  sideways with the card for what is picked under it, the bar is one row with
-  the system's pickers for speed and light, and the camera's controls sit on
-  the picture. The stage takes the height the rest leaves, so picking
-  something up and putting it on a plate fits one screen.
+## Sunfarming
 
-`src/culturing/culturing.test.js` covers what can be checked without a GPU:
-that every uniform a shader declares is supplied, that every culture on every
-medium stays inside the schemes' stability bounds on every grid, that
-recipes survive a link and reject what isn't one, that a stopped plate takes
-no further step, and that a dealt plate is a recipe like any other.
+`/experimenting/sunfarming` is a small game. Each island starts on a diesel
+generator; put down solar panels where the shade allows, keep the spare in
+batteries, add wind for the night, and the village grows at dawn after a well
+powered day, its homes moving up through three tiers that each want power at
+a harder hour. An island is finished when every home is at its best and a
+whole day has passed with the generator silent, and that opens the next of
+six, each with its own weather, woods and seasons. It is drawn in cel-shaded
+3D (three.js): a three-step light ramp, an ink outline round everything, a
+banded sea with foam on the shore, and a sky that goes through the day.
+
+A first visit starts on a tutorial island, First Light, whose lesson points
+at each thing in turn (an arrow on the button to press, an arrow on the tile
+to build on) and moves on when it has been done. It takes a couple of
+minutes and can be skipped.
+
+It is the second [experiment](#experimenting) built into the site. The whole
+of it is [`experiments/sunfarming/`](experiments/sunfarming/), a package the
+site imports as `@dame-is/sunfarming`; its
+[README](experiments/sunfarming/README.md) has the rules, the controls and how
+it is put together. It is its own chunk and never warmed.
+
+A game wants the whole window, so its page
+([`src/pages/Sunfarming.jsx`](src/pages/Sunfarming.jsx)) is the game and
+nothing else. On that address the site draws none of its own interface: no
+bars, no dock, no inspect layer, and its single-key shortcuts stand down
+(`isImmersiveExperimentPath` in
+[`src/lib/experiments.js`](src/lib/experiments.js), asked by `App.jsx`). The
+way back out is a button in the game's top corner, and in its menu on a
+phone, which the page hands it: it goes to the experiment's own page, where
+the reactions are, or to the bench until a record has been posted for it. The
+game's full screen button asks the browser for real full screen where there
+is such a thing.
+
+A player who finishes an island can post the result with an atproto account:
+an `is.dame.sunfarming.result` record on their own PDS, and each island has a
+board of them, read from backlinks. The game knows nothing of atproto; the
+page hands it a way to post
+([`src/hooks/useSunfarmingSocial.js`](src/hooks/useSunfarmingSocial.js)), and
+without one it only offers a line to copy.
+[`lexicons/SUNFARMING.md`](lexicons/SUNFARMING.md) is the whole of it.
+
+The game looks nothing like the rest of the site, on purpose: it carries its
+own stylesheet, scoped under one class, and reads none of the site's tokens,
+so it is the same game on its own (`npm run dev -w @dame-is/sunfarming`) as it
+is in the page.
 
 ## Newsletter
 
@@ -423,6 +436,12 @@ npm run dev               # Vite dev server on http://localhost:5173
 `npm run build` runs the prefetch script, then `vite build`. `npm run build:offline`
 skips the prefetch (useful when a snapshot already exists).
 
+The repo is an npm workspace: each folder under [`experiments/`](experiments/)
+is a package of its own, installed and linked by the same `npm install`. Any of
+them runs by itself with `npm run dev -w @dame-is/<name>` (see
+[`experiments/README.md`](experiments/README.md)); `npm test` and
+`npm run lint` at the root cover them too.
+
 ### The `sharp` override
 
 `package.json` pins `sharp` to `^0.35.4` through `overrides`, and that pin is
@@ -455,6 +474,7 @@ written down here. Removing `sharp` from `devDependencies` would not help either
 | Day-of-life math | [`src/lib/dayOfLife.js`](src/lib/dayOfLife.js) |
 | Albums, derived from plays | [`src/lib/albums.js`](src/lib/albums.js) |
 | Edge middleware (404s, meta, negotiation) | [`middleware.js`](middleware.js) |
+| Experiments, each a package of its own | [`experiments/`](experiments/) |
 
 ## Machines reading the site
 

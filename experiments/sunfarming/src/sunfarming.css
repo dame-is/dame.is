@@ -1,0 +1,1699 @@
+/* Sunfarming: the frame the island sits in, and the HUD laid over it.
+
+   The game brings its whole look with it. Nothing here reads a variable or a
+   font from the page around it, and every rule is scoped under .sunfarm, so
+   it looks the same embedded in a site as it does on its own. The HUD is
+   cut-out paper: cream cards with a heavy ink line and a hard drop shadow,
+   in the same ink the 3D models are outlined in.
+
+   A host can set two things from outside:
+     --sunfarm-height   how tall the game is when embedded
+     --sunfarm-font     the HUD's typeface                                    */
+
+.sunfarm {
+  --sf-ink: #2a2440;
+  --sf-paper: #fff8e7;
+  --sf-paper-deep: #f3e6c4;
+  --sf-sun: #ffd23f;
+  --sf-sea: #2f9be0;
+  --sf-leaf: #58c063;
+  --sf-coral: #f25f4c;
+  --sf-muted: #6d6585;
+  --sf-line: 2px;
+  --sf-shadow: 0 3px 0 var(--sf-ink);
+  --sf-pad: 10px;
+
+  /* `size`, not `inline-size`: the layout turns on how tall the game is as
+     well as how wide (a phone on its side). The height is always given
+     (below, or by `fill`), so nothing here is sized by its contents. */
+  container: sunfarm / size;
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--sunfarm-height, clamp(27rem, 80svh, 54rem));
+  overflow: hidden;
+  isolation: isolate;
+  background: #6cc6f4;
+  color: var(--sf-ink);
+  font: 700 15px/1.25
+    var(
+      --sunfarm-font,
+      ui-rounded,
+      'SF Pro Rounded',
+      'Hiragino Maru Gothic ProN',
+      'Nunito',
+      'Quicksand',
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      sans-serif
+    );
+  letter-spacing: 0;
+  text-align: left;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.sunfarm *,
+.sunfarm *::before,
+.sunfarm *::after {
+  box-sizing: border-box;
+}
+
+/* A page that sets its own prose (a measure, a first-line indent on a
+   paragraph that follows another) doesn't get to set the game's. */
+.sunfarm p {
+  max-width: none;
+  text-indent: 0;
+}
+
+/* The whole window: the standalone build, and "full screen" on a browser
+   that has no such thing for an element (an iPhone). */
+.sunfarm--fill,
+.sunfarm--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  width: auto;
+  height: auto;
+}
+
+.sunfarm:fullscreen {
+  width: 100%;
+  height: 100%;
+}
+
+/* Reached with the keyboard, the game says so: its keys only work while it
+   has the focus. */
+.sunfarm:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border: 3px solid var(--sf-sun);
+  pointer-events: none;
+}
+
+/* With the whole window, keep clear of a phone's notch and home bar. */
+.sunfarm--fill .sunfarm-hud,
+.sunfarm--expanded .sunfarm-hud {
+  padding: max(var(--sf-pad), env(safe-area-inset-top))
+    max(var(--sf-pad), env(safe-area-inset-right))
+    max(var(--sf-pad), env(safe-area-inset-bottom))
+    max(var(--sf-pad), env(safe-area-inset-left));
+}
+
+.sunfarm .sunfarm-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Every drag on the island is the game's: moving the view, or building. */
+  touch-action: none;
+  cursor: grab;
+}
+
+.sunfarm[data-tool='build'] .sunfarm-canvas {
+  cursor: crosshair;
+}
+
+.sunfarm .sunfarm-failed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 2rem;
+  text-align: center;
+  background: var(--sf-paper);
+}
+
+.sunfarm .sunfarm-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sunfarm .sunfarm-icon {
+  flex: none;
+  display: block;
+}
+
+/* ------------------------------------------------------------------ */
+/* The HUD: a grid laid over the picture                                */
+/* ------------------------------------------------------------------ */
+
+/* The grid itself is not there to the pointer; only the pieces on it are,
+   so a click between them lands on the island. */
+.sunfarm .sunfarm-hud {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-areas:
+    'top    top    menu'
+    'meters meters meters'
+    'goal   goal   goal'
+    'mid    mid    mid'
+    'speed  tools  camera';
+  gap: 8px;
+  padding: var(--sf-pad);
+  pointer-events: none;
+}
+
+.sunfarm .sunfarm-hud > * {
+  min-width: 0;
+}
+
+.sunfarm .sunfarm-top {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sunfarm .sunfarm-top-end {
+  grid-area: menu;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.sunfarm .sunfarm-pill,
+.sunfarm .sunfarm-group,
+.sunfarm .sunfarm-meters,
+.sunfarm .sunfarm-info,
+.sunfarm .sunfarm-toast,
+.sunfarm .sunfarm-card {
+  background: var(--sf-paper);
+  border: var(--sf-line) solid var(--sf-ink);
+  box-shadow: var(--sf-shadow);
+  pointer-events: auto;
+}
+
+.sunfarm .sunfarm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px 0 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sunfarm .sunfarm-pill--coins {
+  font-size: 1.15em;
+}
+
+.sunfarm .sunfarm-pill-number {
+  min-width: 2.2ch;
+}
+
+/* ------------------------------------------------------------------ */
+/* Buttons                                                              */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font: inherit;
+  color: var(--sf-ink);
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    background-color 0.12s ease;
+}
+
+.sunfarm .sunfarm-btn:focus-visible {
+  outline: 3px solid var(--sf-sea);
+  outline-offset: 2px;
+}
+
+.sunfarm .sunfarm-btn--round,
+.sunfarm .sunfarm-btn--primary,
+.sunfarm .sunfarm-btn--plain {
+  background: var(--sf-paper);
+  border: var(--sf-line) solid var(--sf-ink);
+  box-shadow: var(--sf-shadow);
+}
+
+.sunfarm .sunfarm-btn--round {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.sunfarm .sunfarm-btn--primary,
+.sunfarm .sunfarm-btn--plain {
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+}
+
+.sunfarm .sunfarm-btn--primary {
+  background: var(--sf-sun);
+}
+
+.sunfarm .sunfarm-btn--round:hover,
+.sunfarm .sunfarm-btn--plain:hover {
+  background: #fff;
+}
+
+.sunfarm .sunfarm-btn--primary:hover {
+  background: #ffdd66;
+}
+
+.sunfarm .sunfarm-btn--round:active,
+.sunfarm .sunfarm-btn--primary:active,
+.sunfarm .sunfarm-btn--plain:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--sf-ink);
+}
+
+/* A row of buttons sharing one card: the speeds, the tools, the camera. */
+.sunfarm .sunfarm-group {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+}
+
+.sunfarm .sunfarm-btn--seg {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sunfarm .sunfarm-btn--seg:hover,
+.sunfarm .sunfarm-tool:hover {
+  background: var(--sf-paper-deep);
+}
+
+.sunfarm .sunfarm-btn--seg[aria-pressed='true'],
+.sunfarm .sunfarm-tool[aria-pressed='true'] {
+  background: var(--sf-sun);
+  box-shadow: inset 0 0 0 var(--sf-line) var(--sf-ink);
+}
+
+.sunfarm .sunfarm-speed {
+  grid-area: speed;
+  align-self: end;
+  justify-self: start;
+}
+
+.sunfarm .sunfarm-camera {
+  grid-area: camera;
+  align-self: end;
+  justify-self: end;
+}
+
+.sunfarm .sunfarm-bottom {
+  display: contents;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tools                                                                */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-tools {
+  grid-area: tools;
+  align-self: end;
+  justify-self: center;
+}
+
+.sunfarm .sunfarm-tool {
+  flex-direction: column;
+  gap: 1px;
+  width: 68px;
+  padding: 6px 2px 5px;
+  border-radius: 12px;
+}
+
+.sunfarm .sunfarm-tool-label {
+  font-size: 0.8em;
+  line-height: 1.1;
+}
+
+.sunfarm .sunfarm-tool-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.75em;
+  line-height: 1.1;
+  color: var(--sf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sunfarm .sunfarm-tool-cost--key {
+  opacity: 0.7;
+}
+
+.sunfarm .sunfarm-tool[aria-pressed='true'] .sunfarm-tool-cost {
+  color: var(--sf-ink);
+}
+
+/* Can't afford it right now: still pressable (the game will say why). */
+.sunfarm .sunfarm-tool--short .sunfarm-tool-cost {
+  color: var(--sf-coral);
+}
+
+.sunfarm .sunfarm-tool--short .sunfarm-icon {
+  opacity: 0.45;
+}
+
+/* ------------------------------------------------------------------ */
+/* Meters                                                               */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-meters {
+  grid-area: meters;
+  justify-self: start;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(6.2rem, auto);
+  gap: 4px 16px;
+  max-width: 100%;
+  padding: 7px 12px 8px;
+  border-radius: 14px;
+}
+
+.sunfarm .sunfarm-meter {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'icon text'
+    'bar  bar';
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
+.sunfarm .sunfarm-meter-icon {
+  grid-area: icon;
+  display: inline-flex;
+}
+
+.sunfarm .sunfarm-meter-text {
+  grid-area: text;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.sunfarm .sunfarm-meter-label {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-meter-value {
+  font-size: 0.87em;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sunfarm .sunfarm-meter-bar {
+  grid-area: bar;
+  display: block;
+  height: 8px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 999px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.sunfarm .sunfarm-meter-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--sf-sun);
+  transition: width 0.25s linear;
+}
+
+.sunfarm .sunfarm-meter--village .sunfarm-meter-bar > span {
+  background: var(--sf-coral);
+}
+
+.sunfarm .sunfarm-meter--battery .sunfarm-meter-bar > span {
+  background: var(--sf-leaf);
+}
+
+.sunfarm .sunfarm-meter--none {
+  opacity: 0.6;
+}
+
+/* ------------------------------------------------------------------ */
+/* The goal                                                             */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-goal {
+  all: unset;
+  box-sizing: border-box;
+  grid-area: goal;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(100%, 27rem);
+  padding: 6px 10px 6px 9px;
+  font: inherit;
+  color: var(--sf-ink);
+  background: var(--sf-paper);
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 14px;
+  box-shadow: var(--sf-shadow);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.sunfarm .sunfarm-goal:hover {
+  background: #fff;
+}
+
+.sunfarm .sunfarm-goal:focus-visible {
+  outline: 3px solid var(--sf-sea);
+  outline-offset: 2px;
+}
+
+.sunfarm .sunfarm-goal-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sunfarm .sunfarm-goal-title {
+  font-size: 0.93em;
+}
+
+.sunfarm .sunfarm-goal-hint {
+  font-size: 0.78em;
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-goal-reward,
+.sunfarm .sunfarm-goals-reward {
+  flex: none;
+  padding: 2px 7px;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+  background: var(--sf-sun);
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 999px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Things that come and go over the island                              */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-toasts {
+  grid-area: mid;
+  align-self: start;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(100%, 30rem);
+}
+
+.sunfarm .sunfarm-toast {
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 14px;
+  font-size: 0.93em;
+  text-align: center;
+  animation: sunfarm-drop 0.22s ease-out both;
+}
+
+.sunfarm .sunfarm-toast--good {
+  background: #c9f2b8;
+}
+
+.sunfarm .sunfarm-toast--warn {
+  background: #ffd9d2;
+}
+
+@keyframes sunfarm-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+
+.sunfarm .sunfarm-info {
+  grid-area: mid;
+  align-self: end;
+  justify-self: start;
+  max-width: 16rem;
+  padding: 8px 12px 9px;
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.sunfarm .sunfarm-info p {
+  margin: 0;
+}
+
+.sunfarm .sunfarm-info-line {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-info-action {
+  margin-top: 4px;
+  font-size: 0.85em;
+}
+
+/* ------------------------------------------------------------------ */
+/* Cards: how to play, the goals, starting over                         */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(42, 36, 64, 0.38);
+  pointer-events: auto;
+}
+
+.sunfarm .sunfarm-card {
+  width: min(100%, 23rem);
+  max-height: 100%;
+  overflow: auto;
+  padding: 16px 18px 18px;
+  border-radius: 20px;
+  box-shadow: 0 6px 0 var(--sf-ink);
+  animation: sunfarm-drop 0.2s ease-out both;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.sunfarm .sunfarm-card--wide {
+  width: min(100%, 29rem);
+}
+
+.sunfarm .sunfarm-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.sunfarm .sunfarm-card-title {
+  margin: 0;
+  font: inherit;
+  font-size: 1.5em;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: var(--sf-ink);
+}
+
+.sunfarm .sunfarm-card p {
+  margin: 0;
+}
+
+.sunfarm .sunfarm-card-lede {
+  font-weight: 600;
+}
+
+.sunfarm .sunfarm-card-small {
+  margin-top: 12px;
+  font-size: 0.83em;
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-card .sunfarm-card-small {
+  margin-top: 12px;
+}
+
+.sunfarm .sunfarm-card-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.sunfarm .sunfarm-steps,
+.sunfarm .sunfarm-goals {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sunfarm .sunfarm-steps li,
+.sunfarm .sunfarm-goals li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  font-weight: 600;
+}
+
+.sunfarm .sunfarm-steps li::before,
+.sunfarm .sunfarm-goals li::before {
+  content: none;
+}
+
+.sunfarm .sunfarm-steps strong {
+  font-weight: 800;
+}
+
+.sunfarm .sunfarm-goals li {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  font-weight: 700;
+}
+
+.sunfarm .sunfarm-goals-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.sunfarm .sunfarm-goals .is-done .sunfarm-goals-mark {
+  background: var(--sf-leaf);
+}
+
+.sunfarm .sunfarm-goals .is-done .sunfarm-goals-title {
+  color: var(--sf-muted);
+  text-decoration: line-through;
+}
+
+.sunfarm .sunfarm-goals .is-done .sunfarm-goals-reward {
+  background: var(--sf-paper-deep);
+}
+
+/* ------------------------------------------------------------------ */
+/* The island's name, the forecast, the fifth and sixth meters          */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-top {
+  flex-wrap: wrap;
+}
+
+.sunfarm .sunfarm-btn.sunfarm-pill--exit,
+.sunfarm .sunfarm-btn.sunfarm-pill--isle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px 0 9px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 999px;
+  background: var(--sf-paper);
+  box-shadow: var(--sf-shadow);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sunfarm .sunfarm-btn.sunfarm-pill--exit:active,
+.sunfarm .sunfarm-btn.sunfarm-pill--isle:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--sf-ink);
+}
+
+.sunfarm .sunfarm-btn.sunfarm-pill--exit:hover,
+.sunfarm .sunfarm-btn.sunfarm-pill--isle:hover {
+  background: #fff;
+}
+
+.sunfarm .sunfarm-pill-name {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sunfarm .sunfarm-forecast {
+  gap: 4px;
+  padding: 0 10px;
+}
+
+.sunfarm .sunfarm-forecast > span {
+  display: inline-flex;
+  opacity: 0.55;
+}
+
+.sunfarm .sunfarm-forecast > .is-today {
+  margin-right: 5px;
+  padding-right: 8px;
+  border-right: var(--sf-line) solid var(--sf-paper-deep);
+  opacity: 1;
+}
+
+.sunfarm .sunfarm-meter--share .sunfarm-meter-bar > span {
+  background: linear-gradient(90deg, var(--sf-sun), #ffb13b);
+}
+
+.sunfarm .sunfarm-meter--share .sunfarm-meter-value {
+  font-size: 0.95em;
+}
+
+.sunfarm .sunfarm-meter--diesel .sunfarm-meter-bar > span {
+  background: #6b6478;
+}
+
+/* ------------------------------------------------------------------ */
+/* Locked tools                                                         */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-tool-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.sunfarm .sunfarm-tool-lock {
+  position: absolute;
+  right: -9px;
+  bottom: -4px;
+  display: inline-flex;
+}
+
+.sunfarm .sunfarm-tool--locked .sunfarm-tool-icon > .sunfarm-icon:first-child,
+.sunfarm .sunfarm-tool--locked .sunfarm-tool-label {
+  opacity: 0.38;
+}
+
+/* ------------------------------------------------------------------ */
+/* The chart of islands                                                 */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-btn--small {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.9em;
+}
+
+.sunfarm .sunfarm-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+.sunfarm .sunfarm-isles {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sunfarm .sunfarm-isles--extra {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: var(--sf-line) dashed var(--sf-paper-deep);
+}
+
+.sunfarm .sunfarm-isle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.sunfarm .sunfarm-isle::before {
+  content: none;
+}
+
+.sunfarm .sunfarm-isle.is-current {
+  background: #fff3c2;
+}
+
+.sunfarm .sunfarm-isle.is-locked {
+  border-style: dashed;
+  background: transparent;
+}
+
+.sunfarm .sunfarm-isle.is-locked .sunfarm-isle-text {
+  opacity: 0.6;
+}
+
+.sunfarm .sunfarm-isle-mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 50%;
+  background: var(--sf-paper);
+}
+
+.sunfarm .sunfarm-isle:not(.is-locked) .sunfarm-isle-mark:not(:empty) {
+  background: var(--sf-leaf);
+}
+
+.sunfarm .sunfarm-isle-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sunfarm .sunfarm-isle-blurb {
+  font-size: 0.83em;
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-isle-status {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-isle-here {
+  padding: 3px 10px;
+  font-size: 0.8em;
+  background: var(--sf-sun);
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 999px;
+}
+
+/* ------------------------------------------------------------------ */
+/* The tutorial                                                         */
+/* ------------------------------------------------------------------ */
+
+/* The coach: the one thing the lesson is saying, where the goal would be.
+   A line of dots for how far along it is, then the line itself. */
+.sunfarm .sunfarm-coach {
+  grid-area: goal;
+  justify-self: start;
+  box-sizing: border-box;
+  width: min(100%, 25rem);
+  padding: 8px 12px 10px;
+  background: var(--sf-paper);
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 14px;
+  box-shadow: var(--sf-shadow);
+  pointer-events: auto;
+}
+
+.sunfarm .sunfarm-coach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 20px;
+}
+
+.sunfarm .sunfarm-coach-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.sunfarm .sunfarm-coach-dots span {
+  width: 9px;
+  height: 9px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.sunfarm .sunfarm-coach-dots .is-done {
+  background: var(--sf-ink);
+}
+
+.sunfarm .sunfarm-coach-dots .is-now {
+  background: var(--sf-sun);
+}
+
+.sunfarm .sunfarm-btn.sunfarm-coach-skip {
+  padding: 2px 4px;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--sf-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sunfarm .sunfarm-btn.sunfarm-coach-skip:hover {
+  color: var(--sf-ink);
+}
+
+.sunfarm .sunfarm-coach-step {
+  animation: sunfarm-drop 0.25s ease-out both;
+}
+
+.sunfarm .sunfarm-coach-say {
+  margin: 5px 0 0;
+  font-size: 1.07em;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.sunfarm .sunfarm-coach-more {
+  margin: 3px 0 0;
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--sf-muted);
+}
+
+/* The button the lesson is pointing at: a ring that breathes, and an arrow
+   standing on it. */
+.sunfarm .sunfarm-btn.is-pointed {
+  position: relative;
+  z-index: 2;
+  outline: 3px solid var(--sf-coral);
+  outline-offset: 2px;
+  animation: sunfarm-point 1.1s ease-in-out infinite;
+}
+
+.sunfarm .sunfarm-btn.is-pointed::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  width: 0;
+  height: 0;
+  margin-left: -11px;
+  border: 11px solid transparent;
+  border-top: 15px solid var(--sf-coral);
+  border-bottom-width: 0;
+  filter: drop-shadow(0 2px 0 var(--sf-ink));
+  animation: sunfarm-bob 0.7s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes sunfarm-point {
+  50% {
+    outline-offset: 6px;
+  }
+}
+
+@keyframes sunfarm-bob {
+  to {
+    transform: translateY(-7px);
+  }
+}
+
+/* The clock waiting on the lesson: the speeds are there, and not yet. */
+.sunfarm .sunfarm-speed.is-held .sunfarm-btn--seg {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sunfarm .sunfarm-speed.is-held .sunfarm-btn--seg[aria-pressed='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.sunfarm .sunfarm-isles--first {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: var(--sf-line) dashed var(--sf-paper-deep);
+}
+
+/* ------------------------------------------------------------------ */
+/* Pieces that only one layout shows                                    */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-narrow,
+.sunfarm .sunfarm-meter-short,
+.sunfarm .sunfarm-hint {
+  display: none;
+}
+
+.sunfarm .sunfarm-card-foot--wrap {
+  flex-wrap: wrap;
+}
+
+.sunfarm a.sunfarm-btn {
+  text-decoration: none;
+}
+
+.sunfarm .sunfarm-link {
+  all: unset;
+  color: var(--sf-ink);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sunfarm .sunfarm-link:focus-visible {
+  outline: 3px solid var(--sf-sea);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* The menu, the power readings and the outlook                         */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-menu {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sunfarm .sunfarm-menu-item {
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.sunfarm .sunfarm-menu-item:active {
+  background: var(--sf-paper-deep);
+}
+
+.sunfarm .sunfarm-readings {
+  display: grid;
+  gap: 2px;
+  margin: 10px 0 0;
+}
+
+.sunfarm .sunfarm-readings > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: var(--sf-line) dashed var(--sf-paper-deep);
+}
+
+.sunfarm .sunfarm-readings dt {
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-readings dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sunfarm .sunfarm-outlook {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sunfarm .sunfarm-outlook li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 8px 2px;
+  border-radius: 12px;
+  background: var(--sf-paper-deep);
+  text-align: center;
+}
+
+.sunfarm .sunfarm-outlook li::before {
+  content: none;
+}
+
+.sunfarm .sunfarm-outlook-when {
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-outlook-sky {
+  font-size: 0.87em;
+}
+
+/* ------------------------------------------------------------------ */
+/* The results board                                                    */
+/* ------------------------------------------------------------------ */
+
+.sunfarm .sunfarm-board p {
+  margin: 0;
+}
+
+.sunfarm .sunfarm-board-note {
+  margin-top: 10px;
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-board .sunfarm-board-note,
+.sunfarm .sunfarm-board .sunfarm-board-error {
+  margin-top: 10px;
+}
+
+.sunfarm .sunfarm-board-list {
+  display: grid;
+  gap: 6px;
+  max-height: 15.5rem;
+  margin: 12px 0 0;
+  padding: 0 2px 4px 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.sunfarm .sunfarm-board-list li {
+  display: grid;
+  grid-template-columns: 1.6rem auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.sunfarm .sunfarm-board-list li::before {
+  content: none;
+}
+
+.sunfarm .sunfarm-board-list .is-me {
+  background: #fff3c2;
+}
+
+.sunfarm .sunfarm-board-rank {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-board-face {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 50%;
+  background: var(--sf-paper-deep);
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-board-face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sunfarm .sunfarm-board-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.sunfarm .sunfarm-board-name,
+.sunfarm .sunfarm-board-handle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sunfarm .sunfarm-board-handle {
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-board-days {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sunfarm .sunfarm-board-mine {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: var(--sf-line) dashed var(--sf-paper-deep);
+}
+
+.sunfarm .sunfarm-board-form {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.sunfarm .sunfarm-board-field {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  font-size: 0.85em;
+  color: var(--sf-muted);
+}
+
+.sunfarm .sunfarm-board-field input {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  /* 16px at least, or a phone zooms the page when the field is tapped. */
+  font-size: max(16px, 1em);
+  font-weight: 600;
+  color: var(--sf-ink);
+  background: #fff;
+  border: var(--sf-line) solid var(--sf-ink);
+  border-radius: 12px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.sunfarm .sunfarm-board-field input:focus-visible {
+  outline: 3px solid var(--sf-sea);
+  outline-offset: 2px;
+}
+
+.sunfarm .sunfarm-board-posted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sunfarm .sunfarm-board-error {
+  color: #b3261e;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ */
+/* Without room to spare                                                */
+/* ------------------------------------------------------------------ */
+
+/* The layout above wants about a thousand pixels across and a fair height.
+   Anything less (a phone either way up, a tablet held upright, a small
+   window) gets this one. The picture is the game, so the HUD keeps to the
+   edges: one row across the top, the meters as a row of chips, the goal on
+   a line, the tools as icons, and everything else behind the menu.
+
+   Three blocks: what every such size shares, then what a phone held upright
+   does with it (everything stacked), then what the sizes in between do
+   (meters beside the goal, the whole bottom on one row, which is what a
+   phone on its side has the width for and not the height to do without).
+
+   These are queries on the game's own box, not the window's, so it lays
+   out the same embedded in a column as it does with the window to itself.
+   COMPACT_WIDTH and COMPACT_HEIGHT in ui/Hud.jsx are the same two numbers. */
+@container sunfarm (max-width: 1000px) or (max-height: 520px) {
+  .sunfarm .sunfarm-wide {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-narrow {
+    display: revert;
+  }
+
+  .sunfarm span.sunfarm-narrow {
+    display: inline;
+  }
+
+  .sunfarm .sunfarm-btn.sunfarm-narrow,
+  .sunfarm .sunfarm-pill-sky {
+    display: inline-flex;
+  }
+
+  .sunfarm .sunfarm-hud {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .sunfarm .sunfarm-top {
+    flex-wrap: nowrap;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .sunfarm .sunfarm-top-end {
+    gap: 5px;
+  }
+
+  .sunfarm .sunfarm-pill,
+  .sunfarm .sunfarm-btn.sunfarm-pill--exit,
+  .sunfarm .sunfarm-btn.sunfarm-pill--isle {
+    height: 38px;
+    padding: 0 10px 0 7px;
+    gap: 5px;
+    font-size: 0.93em;
+  }
+
+  .sunfarm .sunfarm-pill--clock {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .sunfarm .sunfarm-pill-sky {
+    margin-left: 2px;
+  }
+
+  .sunfarm .sunfarm-btn--round {
+    width: 38px;
+    height: 38px;
+  }
+
+  /* The meters become chips: an icon and a number each, in one row, and a
+     tap on the row opens the readings in full. */
+  .sunfarm .sunfarm-meters {
+    justify-self: stretch;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-columns: none;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .sunfarm .sunfarm-meter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 34px;
+    padding: 0 4px;
+    border-left: var(--sf-line) solid var(--sf-paper-deep);
+  }
+
+  .sunfarm .sunfarm-meter:first-child {
+    border-left: 0;
+    background: #fff3c2;
+  }
+
+  .sunfarm .sunfarm-meter--none {
+    opacity: 1;
+  }
+
+  .sunfarm .sunfarm-meter--none .sunfarm-meter-icon,
+  .sunfarm .sunfarm-meter--none .sunfarm-meter-short {
+    opacity: 0.5;
+  }
+
+  .sunfarm .sunfarm-meter-label,
+  .sunfarm .sunfarm-meter-value,
+  .sunfarm .sunfarm-meter-bar {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-meter-short {
+    display: inline;
+    font-size: 0.9em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .sunfarm .sunfarm-meter-text {
+    flex-direction: row;
+  }
+
+  .sunfarm .sunfarm-goal {
+    justify-self: stretch;
+    max-width: none;
+    padding: 5px 8px;
+  }
+
+  .sunfarm .sunfarm-goal-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sunfarm .sunfarm-goal-text {
+    flex: 1;
+  }
+
+  .sunfarm .sunfarm-goal-hint {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-coach {
+    justify-self: stretch;
+    width: auto;
+    padding: 6px 10px 8px;
+  }
+
+  .sunfarm .sunfarm-coach-say {
+    margin-top: 3px;
+    font-size: 1em;
+  }
+
+  /* One toast at a time, the newest. */
+  .sunfarm .sunfarm-toast {
+    padding: 6px 12px;
+    font-size: 0.87em;
+  }
+
+  .sunfarm .sunfarm-toast:not(:last-child) {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-info {
+    max-width: 13rem;
+    padding: 6px 10px 7px;
+  }
+
+  /* The bottom is its own grid, so the width of the speeds and the camera
+     buttons can't set the width of anything above them. */
+  .sunfarm .sunfarm-bottom {
+    grid-area: bottom;
+    display: grid;
+    gap: 6px;
+  }
+
+  /* Nothing can be hovered on a touch screen, so the tool in hand says what
+     it is and what it does, just above the tools. */
+  .sunfarm .sunfarm-hint {
+    grid-area: hint;
+    display: block;
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1.25;
+    background: var(--sf-paper);
+    border: var(--sf-line) solid var(--sf-ink);
+    border-radius: 12px;
+    box-shadow: var(--sf-shadow);
+    pointer-events: none;
+  }
+
+  .sunfarm .sunfarm-hint strong {
+    font-weight: 800;
+  }
+
+  .sunfarm .sunfarm-hint span {
+    color: var(--sf-muted);
+  }
+
+  /* A pinch zooms, and so does a wheel; the two buttons left are for
+     turning, which a finger has no obvious way to do. */
+  .sunfarm .sunfarm-camera .sunfarm-btn--seg:nth-child(n + 3) {
+    display: none;
+  }
+
+  /* Eight tools as an icon and a price each. The name of the one in hand
+     is in the hint above. */
+  .sunfarm .sunfarm-tools {
+    justify-self: stretch;
+    gap: 2px;
+  }
+
+  .sunfarm .sunfarm-tool {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    min-height: 50px;
+    padding: 6px 0 5px;
+  }
+
+  .sunfarm .sunfarm-tool-label,
+  .sunfarm .sunfarm-tool-cost--locked,
+  .sunfarm .sunfarm-tool-cost--key {
+    display: none;
+  }
+}
+
+/* A phone held upright: everything in one column. */
+@container sunfarm (max-width: 640px) {
+  .sunfarm .sunfarm-hud {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-areas:
+      'top    menu'
+      'meters meters'
+      'goal   goal'
+      'mid    mid'
+      'bottom bottom';
+  }
+
+  .sunfarm .sunfarm-btn.sunfarm-pill--exit,
+  .sunfarm .sunfarm-btn.sunfarm-pill--isle {
+    padding: 0 8px;
+  }
+
+  /* With a way out to show, there isn't room for the islands button as
+     well: the way out takes its place, and the islands are in the menu. */
+  .sunfarm .sunfarm-top.has-exit .sunfarm-pill--isle {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-pill-name {
+    display: none;
+  }
+
+  .sunfarm .sunfarm-bottom {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'hint  hint  hint'
+      'speed .     camera'
+      'tools tools tools';
+  }
+
+  /* Cards come up from the bottom, where a thumb is. */
+  .sunfarm .sunfarm-veil {
+    place-items: end stretch;
+    padding: 0;
+  }
+
+  .sunfarm .sunfarm-card,
+  .sunfarm .sunfarm-card--wide {
+    width: 100%;
+    max-height: 88%;
+    padding: 14px 14px max(16px, env(safe-area-inset-bottom));
+    border-width: var(--sf-line) 0 0;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 0 var(--sf-ink);
+    animation-name: sunfarm-rise;
+  }
+
+  .sunfarm .sunfarm-card-foot {
+    flex-wrap: wrap;
+  }
+
+  .sunfarm .sunfarm-card-foot .sunfarm-btn {
+    flex: 1 1 auto;
+  }
+
+  .sunfarm .sunfarm-isle-blurb {
+    font-size: 0.8em;
+  }
+}
+
+/* In between: a phone on its side, a tablet held upright, a small window.
+   There is width here but often very little height, so nothing gets a row
+   to itself that can share one: the chips sit beside the goal, and the
+   speeds, the tools and the camera are one row along the bottom. */
+@container sunfarm (min-width: 641px) and ((max-width: 1000px) or (max-height: 520px)) {
+  .sunfarm .sunfarm-hud {
+    grid-template-columns: minmax(0, 21rem) minmax(0, 1fr) auto;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      'top    top    menu'
+      'meters goal   goal'
+      'mid    mid    mid'
+      'bottom bottom bottom';
+  }
+
+  .sunfarm .sunfarm-goal,
+  .sunfarm .sunfarm-coach {
+    justify-self: start;
+    width: min(100%, 27rem);
+  }
+
+  /* The coach is taller than the chips beside it; they keep their height. */
+  .sunfarm .sunfarm-meters,
+  .sunfarm .sunfarm-goal {
+    align-self: start;
+  }
+
+  .sunfarm .sunfarm-bottom {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'hint  hint  hint'
+      'speed tools camera';
+    align-items: end;
+  }
+
+  .sunfarm .sunfarm-hint {
+    justify-self: center;
+    max-width: 100%;
+  }
+
+  .sunfarm .sunfarm-tools {
+    justify-self: center;
+    width: min(100%, 30rem);
+  }
+}
+
+@keyframes sunfarm-rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+/* Fingers want a bigger target. */
+@media (pointer: coarse) {
+  .sunfarm .sunfarm-btn--seg {
+    min-width: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sunfarm .sunfarm-btn,
+  .sunfarm .sunfarm-meter-bar > span {
+    transition: none;
+  }
+
+  .sunfarm .sunfarm-toast,
+  .sunfarm .sunfarm-card,
+  .sunfarm .sunfarm-coach-step,
+  .sunfarm .sunfarm-btn.is-pointed,
+  .sunfarm .sunfarm-btn.is-pointed::after {
+    animation: none;
+  }
+}

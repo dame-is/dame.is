@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import Button from '../components/Button.jsx';
-import Segmented from '../components/Segmented.jsx';
-import Tag from '../components/Tag.jsx';
+import { Button, Segmented, Tag } from './host.js';
 import { CULTURES, KINDS, cultureById } from './cultures.js';
 import { AGAR_RANGE, MEDIA, NUTRIENT_RANGE, mediumById } from './media.js';
 import { ADDITIONS, ADDITION_KINDS, additionById } from './additions.js';

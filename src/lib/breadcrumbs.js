@@ -52,6 +52,7 @@ export const DECLARED_ROUTES = [
   '/guestbook',
   '/experimenting',
   '/experimenting/culturing',
+  '/experimenting/sunfarming',
   '/experimenting/:rkey',
   '/participants',
   '/colophon',

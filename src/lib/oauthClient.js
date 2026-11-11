@@ -26,7 +26,8 @@ export function getOauthEvents() {
   return _events;
 }
 
-// Three grants, chosen per sign-in (see scopeForAccount, reactionScopeForAccount):
+// Four grants, chosen per sign-in (see scopeForAccount, reactionScopeForAccount,
+// playScopeForAccount):
 //   - The owner (dame.is) signs in to administer the whole site, so they get
 //     the broad transitional scope.
 //   - A visitor signing the guestbook gets a granular scope that grants write
@@ -35,16 +36,21 @@ export function getOauthEvents() {
 //     collection. Both, because an account holds one session here: granting
 //     reactions alone would take the guestbook permission away from someone
 //     who had signed the book, and with it the "remove" on their signature.
+//   - A visitor posting a Sunfarming result gets those two plus the result
+//     collection, for the same reason: one session, so it carries everything
+//     a visitor has been able to do so far.
 const OWNER_SCOPE = 'atproto transition:generic';
 const GUESTBOOK_SCOPE = 'atproto repo:is.dame.guestbook.entry';
 const REACTION_SCOPE =
   'atproto repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction';
+const PLAY_SCOPE =
+  'atproto repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction repo:is.dame.sunfarming.result';
 // Client metadata must advertise every scope the client may ever request — the
 // authorization server validates each authorization request against it — so it
-// declares the union of all three. A single sign-in then narrows to one. Keep
+// declares the union of them all. A single sign-in then narrows to one. Keep
 // in step with api/client-metadata.js, which serves the same string.
 const CLIENT_SCOPE =
-  'atproto transition:generic repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction';
+  'atproto transition:generic repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction repo:is.dame.sunfarming.result';
 
 function isLoopbackHost(hostname) {
   return (
@@ -60,7 +66,7 @@ function isLoopbackHost(hostname) {
  * query params naming its redirect URI and scope, which the authorization
  * server parses instead of fetching a document. The scope has to be declared
  * here for the same reason it is in the production metadata — every sign-in
- * narrows to one of OWNER_SCOPE / GUESTBOOK_SCOPE / REACTION_SCOPE, and a
+ * narrows to one of OWNER_SCOPE / GUESTBOOK_SCOPE / REACTION_SCOPE / PLAY_SCOPE, and a
  * server checks the request against what the client declared.
  */
 export function buildLoopbackClientId(origin, redirectPath) {
@@ -159,6 +165,15 @@ export function reactionScopeForAccount(input) {
 }
 
 /**
+ * The scope for a sign-in started from the Sunfarming page, to post a result.
+ * It carries the reaction and guestbook grants too, so signing in here takes
+ * nothing away from a visitor who has used either.
+ */
+export function playScopeForAccount(input) {
+  return scopeForAccount(input) === OWNER_SCOPE ? OWNER_SCOPE : PLAY_SCOPE;
+}
+
+/**
  * A sign-in that couldn't start (the handle didn't resolve, the PDS's
  * authorization server didn't answer), in words a visitor can act on. The
  * library's own messages are written for developers — an unresolvable handle
@@ -195,4 +210,4 @@ export function callbackErrorMessage(err) {
   return 'Sign-in didn’t finish, so you’re not signed in. Nothing was changed.';
 }
 
-export { OWNER_SCOPE, GUESTBOOK_SCOPE, REACTION_SCOPE, CLIENT_SCOPE };
+export { OWNER_SCOPE, GUESTBOOK_SCOPE, REACTION_SCOPE, PLAY_SCOPE, CLIENT_SCOPE };

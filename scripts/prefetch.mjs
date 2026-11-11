@@ -561,6 +561,7 @@ const SITEMAP_SURFACES = [
   '/creating',
   '/experimenting',
   '/experimenting/culturing',
+  '/experimenting/sunfarming',
   '/curating',
   '/posting',
   '/logging',

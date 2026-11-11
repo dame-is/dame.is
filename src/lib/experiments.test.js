@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   CULTURING_PATH,
+  SUNFARMING_PATH,
   EXPERIMENT_PAGE_PATHS,
+  IMMERSIVE_EXPERIMENT_PATHS,
   REACTIONS,
   experimentDate,
   experimentFacts,
@@ -15,6 +17,7 @@ import {
   findExperiment,
   hasWriteUp,
   isExperimentPagePath,
+  isImmersiveExperimentPath,
   latestPerPerson,
   listExperiments,
   parsePendingReaction,
@@ -313,6 +316,26 @@ describe('an experiment that is a page of this site', () => {
     expect(isExperimentPagePath('/experimenting/3mz4bbmjphc2l')).toBe(false);
     expect(isExperimentPagePath('/culturing')).toBe(false);
     expect(isExperimentPagePath(null)).toBe(false);
+    // The second one, which is a package of its own (experiments/sunfarming).
+    expect(SUNFARMING_PATH).toBe('/experimenting/sunfarming');
+    expect(isExperimentPagePath('/experimenting/sunfarming')).toBe(true);
+    expect(isExperimentPagePath('/sunfarming')).toBe(false);
+  });
+
+  it('takes the whole window when it is a game, and only then', () => {
+    expect(isImmersiveExperimentPath('/experimenting/sunfarming')).toBe(true);
+    expect(isImmersiveExperimentPath('/experimenting/sunfarming/')).toBe(true);
+    // The bench, a record's page and the other built-in experiment all keep
+    // the site round them.
+    expect(isImmersiveExperimentPath('/experimenting')).toBe(false);
+    expect(isImmersiveExperimentPath('/experimenting/culturing')).toBe(false);
+    expect(isImmersiveExperimentPath('/experimenting/3mz4bbmjphc2l')).toBe(false);
+    expect(isImmersiveExperimentPath('/experimenting/sunfarming/more')).toBe(false);
+    expect(isImmersiveExperimentPath(null)).toBe(false);
+    // Only a page of this site can be handed the window.
+    for (const path of IMMERSIVE_EXPERIMENT_PATHS) {
+      expect(isExperimentPagePath(path)).toBe(true);
+    }
   });
 
   it('is a page to the router, the crumbs and the edge, and never a record', () => {

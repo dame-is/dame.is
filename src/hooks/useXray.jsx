@@ -11,6 +11,7 @@ import { useChromePanel } from './useChromePanel.jsx';
 import { useEditMode } from './useEditMode.jsx';
 import { escapeWentToOverlay, hasOpenOverlay } from './useEscapeLayer.js';
 import { shortcutBlocked } from '../lib/shortcuts.js';
+import { isImmersiveExperimentPath } from '../lib/experiments.js';
 
 const XrayContext = createContext(null);
 
@@ -85,14 +86,17 @@ export function XrayProvider({ children }) {
   // the bare toggle left the owner in both modes at once. It stays out of the
   // way of typing, chords, auto-repeat and an open modal (shortcutBlocked), and
   // off /admin, where the button is withheld because there's no public record
-  // markup to inspect.
+  // markup to inspect. Off a game that has the whole window too (see
+  // isImmersiveExperimentPath): the keys there are the game's.
   //
   // Esc pops a focused element back to the full-page view — unless an overlay
   // is open, in which case the press is the overlay's and closes only that.
   // Never preventDefaults.
   const { closePanel } = useChromePanel();
   const { active: editActive, exit: exitEdit } = useEditMode();
-  const inAdmin = location.pathname === '/admin';
+  const inAdmin =
+    location.pathname === '/admin' ||
+    isImmersiveExperimentPath(location.pathname);
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') {

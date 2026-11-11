@@ -39,6 +39,11 @@ export default defineConfig({
       // without it, one refused token refresh took DMs down for eight hours.
       'services/mod-consumer/src/**/*.test.js',
       'middleware.test.js',
+      // Each experiment is a package of its own under experiments/, with its
+      // own tests beside its code. They run here too, so one `npm test`
+      // covers the site and everything it embeds; each can also be run from
+      // inside its own folder.
+      'experiments/*/src/**/*.test.js',
     ],
   },
 });

@@ -47,11 +47,13 @@ export default function handler(req, res) {
     // Union of every scope the client may request. Each sign-in narrows to one:
     // the owner gets `transition:generic` (admin); a visitor signing the
     // guestbook gets `repo:is.dame.guestbook.entry`; a visitor reacting on
-    // /experimenting gets that plus `repo:is.dame.experiment.reaction`. See
-    // src/lib/oauthClient.js → scopeForAccount, reactionScopeForAccount. Keep
-    // in step with CLIENT_SCOPE there.
+    // /experimenting gets that plus `repo:is.dame.experiment.reaction`; one
+    // posting a Sunfarming result gets those plus
+    // `repo:is.dame.sunfarming.result`. See src/lib/oauthClient.js →
+    // scopeForAccount, reactionScopeForAccount, playScopeForAccount. Keep in
+    // step with CLIENT_SCOPE there.
     scope:
-      'atproto transition:generic repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction',
+      'atproto transition:generic repo:is.dame.guestbook.entry repo:is.dame.experiment.reaction repo:is.dame.sunfarming.result',
     grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
     token_endpoint_auth_method: 'none',

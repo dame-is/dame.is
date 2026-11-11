@@ -30,14 +30,35 @@ export function experimentPath(rkey) {
  * before treating such a path as a record: asked for as one it would 404. A
  * record key is a TID, and none of these is one.
  *
- * The first is /experimenting/culturing, a bench of simulated petri dishes
- * (src/culturing). Its experiment record points its "Try it" here.
+ * The first is /experimenting/culturing, a bench of simulated petri dishes.
+ * Its experiment record points its "Try it" here. The second is
+ * /experimenting/sunfarming, a small game about building a solar farm on an
+ * island.
+ *
+ * Each is a package of its own under experiments/ (experiments/culturing,
+ * experiments/sunfarming) that the site only imports; see
+ * experiments/README.md for that arrangement.
  */
 export const CULTURING_PATH = `${EXPERIMENTING_PATH}/culturing`;
-export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH]);
+export const SUNFARMING_PATH = `${EXPERIMENTING_PATH}/sunfarming`;
+export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH, SUNFARMING_PATH]);
+
+const withoutTrailingSlash = (pathname) => String(pathname || '').replace(/\/+$/, '');
 
 export function isExperimentPagePath(pathname) {
-  return EXPERIMENT_PAGE_PATHS.includes(String(pathname || '').replace(/\/+$/, ''));
+  return EXPERIMENT_PAGE_PATHS.includes(withoutTrailingSlash(pathname));
+}
+
+/**
+ * The built-in experiments that take the whole window: a game, rather than a
+ * page with something to look at on it. On one of these none of the site's
+ * own interface is drawn (no bars, no dock, no inspect layer; App.jsx asks
+ * this to decide), and the experiment carries the way back out itself.
+ */
+export const IMMERSIVE_EXPERIMENT_PATHS = Object.freeze([SUNFARMING_PATH]);
+
+export function isImmersiveExperimentPath(pathname) {
+  return IMMERSIVE_EXPERIMENT_PATHS.includes(withoutTrailingSlash(pathname));
 }
 
 /** The at-uri reactions point at: the experiment record on my repo. */
@@ -351,6 +372,14 @@ export function reactionNotes(standing) {
  * write refused and reading it as the site being broken.
  */
 export function scopeAllowsReaction(scope) {
+  return scopeAllowsCollection(scope, EXPERIMENT_REACTION_NSID);
+}
+
+/**
+ * The same question for any collection: does this grant let its holder write
+ * records of `nsid` to their own repo?
+ */
+export function scopeAllowsCollection(scope, nsid) {
   const tokens = String(scope || '').split(/\s+/).filter(Boolean);
   return tokens.some((t) => {
     if (t === 'transition:generic') return true;
@@ -361,7 +390,7 @@ export function scopeAllowsReaction(scope) {
       ...(named ? [named] : []),
       ...new URLSearchParams(query).getAll('collection'),
     ];
-    return collections.some((c) => c === '*' || c === EXPERIMENT_REACTION_NSID);
+    return collections.some((c) => c === '*' || c === nsid);
   });
 }
 
