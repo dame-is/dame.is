@@ -308,10 +308,12 @@ six, each with its own weather, woods and seasons. It is drawn in cel-shaded
 3D (three.js): a three-step light ramp, an ink outline round everything, a
 banded sea with foam on the shore, and a sky that goes through the day.
 
-A first visit starts on a tutorial island, First Light, whose lesson points
-at each thing in turn (an arrow on the button to press, an arrow on the tile
-to build on) and moves on when it has been done. It takes a couple of
-minutes and can be skipped.
+Everybody starts on a tutorial island, First Light, whose lesson points at
+each thing in turn (an arrow on the button to press, an arrow on the tile to
+build on) and moves on when it has been done. It takes a couple of minutes,
+and the rest of the game opens when it is finished. Going from one island to
+the next happens behind a crossing: the sea comes up over the picture, says
+where the boat is bound, and lifts on the new island.
 
 It is the second [experiment](#experimenting) built into the site. The whole
 of it is [`experiments/sunfarming/`](experiments/sunfarming/), a package the

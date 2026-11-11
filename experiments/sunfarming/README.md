@@ -59,8 +59,9 @@ turn up as the sun takes over.
 
 ### The tutorial
 
-Somebody who has never played starts on **First Light**: two cottages, a
-generator, and a lesson of eight steps that takes a couple of minutes. It
+Everybody starts on **First Light**: two cottages, a generator, and a lesson
+of eight steps that takes a couple of minutes. Nothing else is open until it
+has been finished: not Tern Rock, not today's island, not free build. It
 shows more than it says. Each step is one short line, an arrow on the button
 to press, and an arrow on the tile to build on, and it is over the moment
 the thing has been done:
@@ -80,13 +81,36 @@ the thing has been done:
 The island's clock is held through the first seven, so the sun stays where
 the lesson needs it and nothing is burned while the player reads. A step
 asks for a state, not a deed: a panel put somewhere else still counts, and a
-step whose work is already done is passed over. "Skip tutorial" goes
-straight to Tern Rock, and the tutorial can be played again from **How to
-play** or from the chart of islands.
+step whose work is already done is passed over. There is no way round it,
+and once it is done it can be played again from **How to play** or from the
+chart of islands. Somebody who played before there was a tutorial is sent
+through it once, and finds everything they had finished and unlocked still
+there on the other side.
 
-The first visit opens with two sentences and two buttons (show me how, or
-skip it), not a manual. **How to play**, behind the question mark, is five
-lines to come back to.
+The first visit opens with two sentences and a button, not a manual. **How
+to play**, behind the question mark, is five lines to come back to.
+
+### Getting from one thing to the next
+
+Nothing in the game appears or disappears without getting there.
+
+- **Between islands** there is a crossing. The sea comes up over the picture
+  with its foam ahead of it, a sign on it says where the boat is bound, and
+  it carries on up and away with the foam behind. The island is changed
+  while it is covered, and its clock waits until it can be seen. The game
+  opens the same way, and so does starting an island over.
+- **Arriving**, the camera starts high and off to one side and comes down to
+  the island as the sea clears, and the HUD settles into place a piece at a
+  time: the top comes down, the bottom comes up. A new island is always met
+  at 1× speed, whatever the last one was left at.
+- **Cards** pop in, and leave before the next one arrives. On a phone a
+  sheet comes up from the bottom and goes back down.
+- **The tutorial's arrows** land with a small bounce when they move to a new
+  tile, and each line the coach says arrives as the last one goes.
+
+Anybody who has asked their device for less motion gets none of the
+travelling: the sea fades over and fades away, and everything else is simply
+there.
 
 ### The islands
 

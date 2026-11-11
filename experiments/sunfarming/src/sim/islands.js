@@ -223,13 +223,20 @@ export function readProgress(data) {
   return progress;
 }
 
+/** Whether the tutorial island has been finished. */
+export function isTaught(progress) {
+  return Boolean(progress.done[TUTORIAL.id]);
+}
+
 /**
- * Whether an island can be played yet: the tutorial and the first always
- * can, each of the others once the one before it is done. Free build opens
- * with the second island, so the first is always met with a purse.
+ * Whether an island can be played yet. The tutorial always can, and nothing
+ * else can until it has been finished. After that the first island is open
+ * and each of the others opens once the one before it is done. Free build
+ * opens with the second island, so the first is always met with a purse.
  */
 export function isOpen(progress, id) {
   if (id === TUTORIAL.id) return true;
+  if (!isTaught(progress)) return false;
   if (id === 'today') return Boolean(progress.done[ISLANDS[0].id]);
   if (id === 'free') return Boolean(progress.done[ISLANDS[0].id]);
   const i = ISLANDS.findIndex((spec) => spec.id === id);
@@ -261,6 +268,15 @@ export function withUnlocked(progress, kinds) {
   );
   if (all.length === progress.unlocked.length) return progress;
   return { ...progress, unlocked: all };
+}
+
+/**
+ * Where somebody starts, and where they are put if the island they ask for
+ * isn't open: the tutorial until it has been finished, the first island
+ * after.
+ */
+export function homeIsland(progress) {
+  return isTaught(progress) ? ISLANDS[0] : TUTORIAL;
 }
 
 /** The island to sail to when `id` is finished, or null. */

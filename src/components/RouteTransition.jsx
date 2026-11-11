@@ -7,7 +7,12 @@ import {
   useState,
 } from 'react';
 import { useLocation, useNavigationType, Routes } from 'react-router-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import {
+  AnimatePresence,
+  PresenceContext,
+  motion,
+  useReducedMotion,
+} from 'motion/react';
 import {
   createScrollMemory,
   entryKey,
@@ -85,13 +90,26 @@ function RouteFrame({ location, navType, children }) {
         ease: [0.4, 0, 0.2, 1],
       }}
     >
-      <RoutePendingContext.Provider value={setPending}>
-        <Suspense fallback={<RoutePending />}>
-          <Routes location={location}>{children}</Routes>
-          <RouteSettled location={location} />
-        </Suspense>
-      </RoutePendingContext.Provider>
-      <RouteScroll location={location} navType={navType} />
+      {/* The page's own animated pieces are not part of the route's exit.
+          Left in the frame's presence, each one with an `exit` of its own (a
+          loading skeleton, say) signs on as something the frame has to wait
+          for, and AnimatePresence only counts them off as each finishes
+          leaving. One that is simply unmounted part way through, because its
+          data landed during the fade, is struck off without the count being
+          taken again, and the frame is never removed: the old page sits at
+          opacity 0 for ever and the new one never mounts. Cutting the
+          presence off here leaves the frame's own fade as the only thing the
+          route waits on. An AnimatePresence inside a page still provides for
+          its own children. */}
+      <PresenceContext.Provider value={null}>
+        <RoutePendingContext.Provider value={setPending}>
+          <Suspense fallback={<RoutePending />}>
+            <Routes location={location}>{children}</Routes>
+            <RouteSettled location={location} />
+          </Suspense>
+        </RoutePendingContext.Provider>
+        <RouteScroll location={location} navType={navType} />
+      </PresenceContext.Provider>
     </motion.div>
   );
 }

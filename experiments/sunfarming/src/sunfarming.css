@@ -565,6 +565,19 @@
   }
 }
 
+/* A card arriving: up from a little small, and a touch past its size. */
+@keyframes sunfarm-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.015);
+  }
+}
+
 .sunfarm .sunfarm-info {
   grid-area: mid;
   align-self: end;
@@ -603,6 +616,37 @@
   padding: 14px;
   background: rgba(42, 36, 64, 0.38);
   pointer-events: auto;
+  animation: sunfarm-dim 0.2s ease-out both;
+}
+
+/* A card that has been closed leaves before the next thing arrives: the
+   HUD holds it on screen for as long as this takes (LEAVE_MS in Hud.jsx). */
+.sunfarm .sunfarm-veil.is-leaving {
+  animation: sunfarm-undim 0.15s ease-in both;
+  pointer-events: none;
+}
+
+.sunfarm .sunfarm-veil.is-leaving .sunfarm-card {
+  animation: sunfarm-lift 0.15s ease-in both;
+}
+
+@keyframes sunfarm-dim {
+  from {
+    background-color: rgba(42, 36, 64, 0);
+  }
+}
+
+@keyframes sunfarm-undim {
+  to {
+    background-color: rgba(42, 36, 64, 0);
+  }
+}
+
+@keyframes sunfarm-lift {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
 }
 
 .sunfarm .sunfarm-card {
@@ -612,7 +656,7 @@
   padding: 16px 18px 18px;
   border-radius: 20px;
   box-shadow: 0 6px 0 var(--sf-ink);
-  animation: sunfarm-drop 0.2s ease-out both;
+  animation: sunfarm-pop 0.28s ease-out both;
   -webkit-user-select: text;
   user-select: text;
 }
@@ -960,21 +1004,6 @@
   background: var(--sf-sun);
 }
 
-.sunfarm .sunfarm-btn.sunfarm-coach-skip {
-  padding: 2px 4px;
-  font-size: 0.78em;
-  font-weight: 700;
-  color: var(--sf-muted);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.sunfarm .sunfarm-btn.sunfarm-coach-skip:hover {
-  color: var(--sf-ink);
-}
-
 .sunfarm .sunfarm-coach-step {
   animation: sunfarm-drop 0.25s ease-out both;
 }
@@ -1047,6 +1076,253 @@
   margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: var(--sf-line) dashed var(--sf-paper-deep);
+}
+
+/* ------------------------------------------------------------------ */
+/* Getting from one thing to the next                                   */
+/* ------------------------------------------------------------------ */
+
+/* The crossing: going to another island (and opening the game) happens
+   behind the sea. It comes up from the bottom with its foam ahead of it,
+   says where it is bound, and carries on up and off the top with the foam
+   behind. The island is changed while it covers the picture. The three
+   phases are CROSSING in Hud.jsx, and the lengths here are the same. */
+.sunfarm .sunfarm-sail {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  /* Nothing underneath can be pressed part way across. */
+  pointer-events: auto;
+  cursor: progress;
+}
+
+.sunfarm .sunfarm-sail-water {
+  position: absolute;
+  top: -56px;
+  right: 0;
+  bottom: -56px;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--sf-sea);
+  transform: translateY(100%);
+}
+
+.sunfarm .sunfarm-sail-water--foam {
+  color: #e6f6fd;
+}
+
+.sunfarm .sunfarm-sail-water i {
+  flex: 1;
+  background: currentColor;
+}
+
+/* Twice as wide as the picture and sliding half its width, so the swell
+   drifts sideways without a seam. */
+.sunfarm .sunfarm-sail-swell {
+  flex: none;
+  display: block;
+  width: 200%;
+  height: 56px;
+  /* The swell is drawn a pixel past its box, over the join with the water
+     below it, so no line of the picture shows through between the two. */
+  overflow: visible;
+  fill: currentColor;
+  animation: sunfarm-drift 2.6s linear infinite;
+}
+
+.sunfarm .sunfarm-sail-edge {
+  fill: none;
+  stroke: var(--sf-ink);
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+}
+
+.sunfarm .sunfarm-sail-swell:last-child {
+  scale: 1 -1;
+  animation-direction: reverse;
+}
+
+.sunfarm .sunfarm-sail.is-in .sunfarm-sail-water {
+  animation: sunfarm-tide-in 0.52s cubic-bezier(0.25, 0.7, 0.3, 1) both;
+}
+
+/* The foam gets there first... */
+.sunfarm .sunfarm-sail.is-in .sunfarm-sail-water--foam {
+  animation-duration: 0.4s;
+}
+
+.sunfarm .sunfarm-sail.is-hold .sunfarm-sail-water {
+  transform: none;
+}
+
+.sunfarm .sunfarm-sail.is-out .sunfarm-sail-water {
+  animation: sunfarm-tide-out 0.52s cubic-bezier(0.6, 0, 0.75, 0.4) both;
+}
+
+/* ...and is the last to go. */
+.sunfarm .sunfarm-sail.is-out .sunfarm-sail-water--foam {
+  animation-delay: 0.12s;
+}
+
+@keyframes sunfarm-tide-in {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@keyframes sunfarm-tide-out {
+  from {
+    transform: none;
+  }
+
+  to {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes sunfarm-drift {
+  to {
+    translate: -50% 0;
+  }
+}
+
+/* The sign: where the crossing is bound, in white with the ink round it. */
+.sunfarm .sunfarm-sail-sign {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 0 24px;
+  color: #fff;
+  text-align: center;
+  --sf-rim:
+    2px 0 0 var(--sf-ink), -2px 0 0 var(--sf-ink), 0 2px 0 var(--sf-ink),
+    0 -2px 0 var(--sf-ink), 2px 2px 0 var(--sf-ink), -2px -2px 0 var(--sf-ink),
+    2px -2px 0 var(--sf-ink), -2px 2px 0 var(--sf-ink);
+}
+
+.sunfarm .sunfarm-sail.is-in .sunfarm-sail-sign {
+  animation: sunfarm-sign-in 0.52s ease-out both;
+}
+
+.sunfarm .sunfarm-sail.is-out .sunfarm-sail-sign {
+  animation: sunfarm-sign-out 0.26s ease-in both;
+}
+
+@keyframes sunfarm-sign-in {
+  0%,
+  55% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+@keyframes sunfarm-sign-out {
+  to {
+    opacity: 0;
+    transform: translateY(-22px);
+  }
+}
+
+.sunfarm .sunfarm-sail-sign .sunfarm-icon {
+  filter: drop-shadow(0 3px 0 var(--sf-ink));
+  animation: sunfarm-rock 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes sunfarm-rock {
+  from {
+    transform: rotate(-7deg) translateY(1px);
+  }
+
+  to {
+    transform: rotate(6deg) translateY(-3px);
+  }
+}
+
+.sunfarm .sunfarm-sail-kicker {
+  margin: 8px 0 2px;
+  font-size: 1em;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  text-shadow: var(--sf-rim);
+}
+
+.sunfarm .sunfarm-sail-name {
+  margin: 0;
+  font-size: clamp(2.1rem, 9cqw, 4.2rem);
+  font-weight: 900;
+  line-height: 1.05;
+  text-shadow:
+    var(--sf-rim),
+    0 6px 0 var(--sf-ink);
+}
+
+.sunfarm .sunfarm-sail-blurb {
+  max-width: 26rem;
+  margin: 14px 0 0;
+  font-size: 1.12em;
+  font-weight: 700;
+  line-height: 1.3;
+  text-shadow: var(--sf-rim);
+}
+
+/* Arriving: the HUD isn't simply there. The top comes down into place and
+   the bottom comes up, one piece after another, as the sea clears. The HUD
+   is made afresh on each island (it is keyed by arrival in Hud.jsx), which
+   is what sets these going again. */
+.sunfarm .sunfarm-top,
+.sunfarm .sunfarm-top-end,
+.sunfarm .sunfarm-meters,
+.sunfarm .sunfarm-goal,
+.sunfarm .sunfarm-coach {
+  animation: sunfarm-settle-down 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+  animation-delay: calc(0.95s + var(--sf-turn, 0) * 0.07s);
+}
+
+.sunfarm .sunfarm-speed,
+.sunfarm .sunfarm-tools,
+.sunfarm .sunfarm-camera {
+  animation: sunfarm-settle-up 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+  animation-delay: calc(1.05s + var(--sf-turn, 0) * 0.07s);
+}
+
+.sunfarm .sunfarm-top-end,
+.sunfarm .sunfarm-tools {
+  --sf-turn: 1;
+}
+
+.sunfarm .sunfarm-meters,
+.sunfarm .sunfarm-camera {
+  --sf-turn: 2;
+}
+
+.sunfarm .sunfarm-goal,
+.sunfarm .sunfarm-coach {
+  --sf-turn: 3;
+}
+
+@keyframes sunfarm-settle-down {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes sunfarm-settle-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1609,6 +1885,10 @@
     animation-name: sunfarm-rise;
   }
 
+  .sunfarm .sunfarm-veil.is-leaving .sunfarm-card {
+    animation-name: sunfarm-sink;
+  }
+
   .sunfarm .sunfarm-card-foot {
     flex-wrap: wrap;
   }
@@ -1675,6 +1955,13 @@
   }
 }
 
+@keyframes sunfarm-sink {
+  to {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+
 /* Fingers want a bigger target. */
 @media (pointer: coarse) {
   .sunfarm .sunfarm-btn--seg {
@@ -1691,9 +1978,53 @@
 
   .sunfarm .sunfarm-toast,
   .sunfarm .sunfarm-card,
+  .sunfarm .sunfarm-veil,
+  .sunfarm .sunfarm-veil.is-leaving,
+  .sunfarm .sunfarm-veil.is-leaving .sunfarm-card,
   .sunfarm .sunfarm-coach-step,
   .sunfarm .sunfarm-btn.is-pointed,
-  .sunfarm .sunfarm-btn.is-pointed::after {
+  .sunfarm .sunfarm-btn.is-pointed::after,
+  .sunfarm .sunfarm-top,
+  .sunfarm .sunfarm-top-end,
+  .sunfarm .sunfarm-meters,
+  .sunfarm .sunfarm-goal,
+  .sunfarm .sunfarm-coach,
+  .sunfarm .sunfarm-speed,
+  .sunfarm .sunfarm-tools,
+  .sunfarm .sunfarm-camera,
+  .sunfarm .sunfarm-sail-swell,
+  .sunfarm .sunfarm-sail-sign,
+  .sunfarm .sunfarm-sail-sign .sunfarm-icon {
     animation: none;
+  }
+
+  /* The crossing still covers the picture while the island is changed, but
+     nothing travels: the sea fades over and fades away. */
+  .sunfarm .sunfarm-sail-water,
+  .sunfarm .sunfarm-sail.is-in .sunfarm-sail-water,
+  .sunfarm .sunfarm-sail.is-out .sunfarm-sail-water {
+    transform: none;
+    animation: sunfarm-fade-in 0.3s ease-out both;
+  }
+
+  .sunfarm .sunfarm-sail.is-hold .sunfarm-sail-water {
+    animation: none;
+  }
+
+  .sunfarm .sunfarm-sail.is-out .sunfarm-sail-water,
+  .sunfarm .sunfarm-sail.is-out .sunfarm-sail-sign {
+    animation: sunfarm-fade-out 0.3s ease-in both;
+  }
+}
+
+@keyframes sunfarm-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sunfarm-fade-out {
+  to {
+    opacity: 0;
   }
 }

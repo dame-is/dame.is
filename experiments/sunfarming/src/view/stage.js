@@ -44,6 +44,8 @@ const CURSOR_COLORS = {
 };
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+// 0 to 1, overshooting a little on the way: something landing, not sliding.
+const backOut = (t) => 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2;
 
 export function createStage(canvas, game) {
   const renderer = new WebGLRenderer({
@@ -98,6 +100,11 @@ export function createStage(canvas, game) {
   let fitted = true;
   let width = 1;
   let height = 1;
+  // Arriving at an island: the camera starts high and off to one side, waits
+  // (`waiting`, seconds) for whatever is covering the picture to lift, then
+  // comes down slowly (`settling`, seconds) to where it would have been.
+  let waiting = 0;
+  let settling = 0;
 
   // Far enough back to see the whole island at this pitch and this shape of
   // window: a phone held upright has to stand a long way off.
@@ -130,8 +137,11 @@ export function createStage(canvas, game) {
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     if (fitted) {
+      // Part way through arriving, keep as far out as it had got.
+      const out =
+        waiting > 0 || settling > 0 ? now.distance / goal.distance : 1;
       goal.distance = fitDistance();
-      now.distance = goal.distance;
+      now.distance = goal.distance * out;
     } else {
       goal.distance = clamp(goal.distance, DISTANCE_MIN, distanceMax());
     }
@@ -139,8 +149,29 @@ export function createStage(canvas, game) {
 
   const limit = () => land.game.size / 2 + 2;
 
+  /**
+   * Come in to land: the next frames show the island from high up and round
+   * to one side, and after `delay` seconds the camera eases down to its usual
+   * place. Anything the player does to the view ends it there and then.
+   */
+  function arrive(delay = 0) {
+    now.x = goal.x;
+    now.z = goal.z;
+    now.distance = goal.distance * 1.75;
+    now.pitch = clamp(goal.pitch + 0.32, PITCH_MIN, PITCH_MAX);
+    now.yaw = goal.yaw - 0.6;
+    waiting = Math.max(0, delay);
+    settling = 2.4;
+  }
+
+  const landed = () => {
+    waiting = 0;
+    settling = 0;
+  };
+
   /** Slide the view by a drag of this many pixels, as if pulling the ground. */
   function pan(dxPixels, dyPixels) {
+    landed();
     const perPixel =
       (2 * now.distance * Math.tan((FOV * Math.PI) / 360)) / height;
     const right = dxPixels * perPixel;
@@ -159,6 +190,7 @@ export function createStage(canvas, game) {
 
   /** Step the view across the ground, in tiles, relative to the screen. */
   function nudge(rightTiles, forwardTiles) {
+    landed();
     goal.x = clamp(
       goal.x +
         Math.cos(goal.yaw) * rightTiles -
@@ -176,12 +208,14 @@ export function createStage(canvas, game) {
   }
 
   function orbit(yaw, pitch = 0) {
+    landed();
     goal.yaw += yaw;
     goal.pitch = clamp(goal.pitch + pitch, PITCH_MIN, PITCH_MAX);
   }
 
   /** Multiply the camera's distance: below 1 moves in, above 1 moves out. */
   function zoom(factor) {
+    landed();
     fitted = false;
     goal.distance = clamp(goal.distance * factor, DISTANCE_MIN, distanceMax());
   }
@@ -385,7 +419,7 @@ export function createStage(canvas, game) {
     arrow.renderOrder = 9;
     // Not inside the group: the group breathes, and the arrow shouldn't.
     scene.add(group, arrow);
-    return { group, arrow, lift: 0 };
+    return { group, arrow, lift: 0, idx: -1, age: 0 };
   }
 
   /** Mark these tiles as the ones to look at; an empty list clears them. */
@@ -396,7 +430,13 @@ export function createStage(canvas, game) {
       const idx = tiles[i];
       mark.group.visible = idx !== undefined && idx >= 0;
       mark.arrow.visible = mark.group.visible;
-      if (!mark.group.visible) return;
+      if (!mark.group.visible) {
+        mark.idx = -1;
+        return;
+      }
+      // A mark that has moved arrives: it pops, it doesn't just appear.
+      if (mark.idx !== idx) mark.age = 0;
+      mark.idx = idx;
       mark.group.position.set(
         tileX(idx, size),
         tileY(terrain, idx),
@@ -426,7 +466,17 @@ export function createStage(canvas, game) {
   /* ── drawing a frame ──────────────────────────────────────────────────── */
 
   function render(elapsed, dt) {
-    const ease = 1 - Math.exp(-Math.min(0.1, dt) * 14);
+    const step = Math.min(0.1, dt);
+    // Quick to follow a hand; slow and wide when arriving.
+    let rate = 14;
+    if (waiting > 0) {
+      waiting -= step;
+      rate = 0;
+    } else if (settling > 0) {
+      settling -= step;
+      rate = 2.6;
+    }
+    const ease = 1 - Math.exp(-step * rate);
     now.x += (goal.x - now.x) * ease;
     now.z += (goal.z - now.z) * ease;
     now.yaw += (goal.yaw - now.yaw) * ease;
@@ -459,9 +509,12 @@ export function createStage(canvas, game) {
     }
     marks.forEach((mark, i) => {
       if (!mark.group.visible) return;
+      mark.age += step;
+      const pop = backOut(Math.min(1, mark.age / 0.38));
       const beat = elapsed * 4.2 + i * 0.9;
-      const pulse = 1 + Math.sin(beat) * 0.06;
+      const pulse = (1 + Math.sin(beat) * 0.06) * pop;
       mark.group.scale.set(pulse, 1, pulse);
+      mark.arrow.scale.set(0.85 * pop, 0.85 * pop, 1);
       mark.arrow.position.y = mark.lift + Math.abs(Math.sin(beat * 0.75)) * 0.3;
     });
     renderer.render(scene, camera);
@@ -481,6 +534,7 @@ export function createStage(canvas, game) {
     },
     resize,
     render,
+    arrive,
     pick,
     locate,
     pan,

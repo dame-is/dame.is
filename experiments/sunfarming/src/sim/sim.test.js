@@ -36,7 +36,9 @@ import {
   FREE_BUILD,
   ISLANDS,
   TUTORIAL,
+  homeIsland,
   isOpen,
+  isTaught,
   markDone,
   newProgress,
   nextIsland,
@@ -1435,8 +1437,31 @@ describe('saving', () => {
 /* ── the archipelago ──────────────────────────────────────────────────────── */
 
 describe('the archipelago', () => {
-  it('opens one island after another', () => {
+  it('opens nothing but the tutorial until the tutorial is done', () => {
     let progress = newProgress();
+    expect(isTaught(progress)).toBe(false);
+    expect(homeIsland(progress)).toBe(TUTORIAL);
+    expect(isOpen(progress, TUTORIAL.id)).toBe(true);
+    for (const id of [...ISLANDS.map((spec) => spec.id), 'free', 'today'])
+      expect(isOpen(progress, id), id).toBe(false);
+    // Not even for somebody who finished an island before there was one.
+    const veteran = markDone(newProgress(), ISLANDS[0], 9);
+    for (const id of [...ISLANDS.map((spec) => spec.id), 'free', 'today'])
+      expect(isOpen(veteran, id), id).toBe(false);
+    expect(homeIsland(veteran)).toBe(TUTORIAL);
+    // What they did is kept, and is there again once the tutorial is done.
+    const taught = markDone(veteran, TUTORIAL, 1);
+    expect(isOpen(taught, ISLANDS[1].id)).toBe(true);
+    expect(isOpen(taught, 'free')).toBe(true);
+
+    progress = markDone(progress, TUTORIAL, 1);
+    expect(isTaught(progress)).toBe(true);
+    expect(homeIsland(progress)).toBe(ISLANDS[0]);
+    expect(isOpen(progress, TUTORIAL.id)).toBe(true);
+  });
+
+  it('opens one island after another', () => {
+    let progress = markDone(newProgress(), TUTORIAL, 1);
     expect(ISLANDS.map((spec) => isOpen(progress, spec.id))).toEqual([
       true,
       false,
@@ -1647,11 +1672,12 @@ describe('the tutorial island', () => {
     expect(game.coins).toBeLessThan(TUTORIAL.coins + 10);
     expect(specById('first')).toBe(TUTORIAL);
     expect(isOpen(newProgress(), 'first')).toBe(true);
-    // Finishing it leads to the first island, which was open all along.
+    // Finishing it is what opens the first island, and leads to it.
     expect(nextIsland('first')).toBe(ISLANDS[0]);
-    expect(isOpen(markDone(newProgress(), TUTORIAL, 1), ISLANDS[1].id)).toBe(
-      false,
-    );
+    expect(isOpen(newProgress(), ISLANDS[0].id)).toBe(false);
+    const taught = markDone(newProgress(), TUTORIAL, 1);
+    expect(isOpen(taught, ISLANDS[0].id)).toBe(true);
+    expect(isOpen(taught, ISLANDS[1].id)).toBe(false);
   });
 });
 
