@@ -11,7 +11,7 @@
 // from the centre of the dish, so one gesture lands the same on the surface
 // textures and on the half-resolution agar and reagent ones.
 
-import { HEADER, HASH, LATTICE } from './common.js';
+import { HEADER, HASH, LATTICE, VESSEL } from './common.js';
 
 function stampFragment({ samplers, hardThird }) {
   const each = (fn) => samplers.map((_, i) => fn(i)).join('\n');
@@ -106,7 +106,7 @@ export const STAMP_SURFACE_FRAGMENT = stampFragment({
 });
 
 export const STAMP_AGAR_FRAGMENT = stampFragment({
-  samplers: ['uC0', 'uC1', 'uC2'],
+  samplers: ['uC0', 'uC1', 'uC2', 'uC3'],
   hardThird: false,
 });
 
@@ -129,6 +129,9 @@ uniform float uTexels;
 uniform float uSpan;
 uniform float uRadius;
 uniform uint uSeed;
+uniform int uVessel;
+uniform float uDivider;
+uniform vec3 uWells[6];
 
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
@@ -136,13 +139,15 @@ layout(location = 2) out vec4 o2;
 
 ${HASH}
 ${LATTICE}
+${VESSEL}
 void main() {
   vec2 mm = (gl_FragCoord.xy / uTexels - 0.5) * uSpan;
   // In or out is decided for each 2×2 block of texels together, from the
   // block's centre: the agar pass has one texel under each block, and the
   // two have to agree about where the gel ends.
   vec2 blockMm = ((floor(gl_FragCoord.xy * 0.5) * 2.0 + 1.0) / uTexels - 0.5) * uSpan;
-  float inside = step(length(blockMm), uRadius);
+  int part;
+  float inside = step(0.0, insideVessel(blockMm, part));
   // Offset well away from the lattice origin, and rotated between octaves,
   // so no axis of the noise lines up with the grid's.
   vec2 q = mm + 517.3;
@@ -153,5 +158,40 @@ void main() {
   o0 = vec4(0.0);
   o1 = vec4(0.0);
   o2 = vec4(-1.0, 0.0, 0.0, inside * (1.0 + 0.4 * clamp(g, -1.0, 1.0)));
+}
+`;
+
+/**
+ * Pouring a plate, as far as the agar is concerned: each compartment filled
+ * with its own medium's food and pH, and told which it is. Every texel gets
+ * a compartment, the nearest, so that one just outside the gel still says
+ * whose edge it is.
+ */
+export const POUR_AGAR_FRAGMENT = `${HEADER}
+uniform float uTexels;
+uniform float uSpan;
+uniform float uRadius;
+uniform int uVessel;
+uniform float uDivider;
+uniform vec3 uWells[6];
+uniform float uNutrient[6];
+uniform float uPh[6];
+
+layout(location = 0) out vec4 o0;
+layout(location = 1) out vec4 o1;
+layout(location = 2) out vec4 o2;
+layout(location = 3) out vec4 o3;
+
+${VESSEL}
+void main() {
+  vec2 mm = (gl_FragCoord.xy / uTexels - 0.5) * uSpan;
+  int part;
+  insideVessel(mm, part);
+  float n = uNutrient[part];
+  float ph = uPh[part];
+  o0 = vec4(n, 0.0, 0.0, 0.0);
+  o1 = vec4(ph, 0.0, n, 0.0);
+  o2 = vec4(0.0);
+  o3 = vec4(float(part), ph, 0.0, 0.0);
 }
 `;

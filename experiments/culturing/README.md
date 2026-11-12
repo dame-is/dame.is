@@ -46,6 +46,15 @@ should be its own chunk, loaded only by the page that shows it.
   on 384 texels across (256 on a phone). The Incubator tab can ask for one
   size finer, which is about three times the work for every hour grown; the
   plates are let go and grown again from their records on the new grid.
+- **Vessels** ([`vessels.js`](src/vessels.js)). A plate is poured into a
+  dish, a bi-plate or a six-well plate, with a medium for each compartment.
+  The pour writes which compartment each point of the agar is in, beside the
+  pH its gel is buffered to, and the passes look up that compartment's food,
+  buffer, selectivity and colour; nothing crosses from one to the next. All
+  of a vessel is poured from one gel, so its firmness is the plate's. The
+  six-well plate is two thirds of real size, to fit the grid a dish is worked
+  out on. A gradient (antibiotic, sugar or pH) is poured as a ramp across the
+  whole vessel.
 - **A plate is its recipe** ([`recipe.js`](src/recipe.js),
   [`incubate.js`](src/incubate.js)): the medium, the incubator, and
   everything done to it with the hour it was done. The picture is not kept.

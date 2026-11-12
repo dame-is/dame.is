@@ -22,7 +22,9 @@ import {
 } from './units.js';
 import {
   clockUniforms,
+  COMPARTMENTS,
   CULTURE_DEFAULTS,
+  PER_COMPARTMENT,
   lightAt,
   packLook,
   packPlate,
@@ -31,7 +33,15 @@ import {
   SLOTS,
 } from './pack.js';
 import { CULTURES, KINDS, cultureById } from './cultures.js';
-import { MEDIA, mediumById } from './media.js';
+import { GRADIENT_PEAK, GRADIENTS, MEDIA, mediumById } from './media.js';
+import {
+  compartmentAt,
+  middleOf,
+  somewhereIn,
+  VESSELS,
+  WELL_RADIUS,
+  WELLS,
+} from './vessels.js';
 import { ADDITIONS, ADDITION_KINDS, additionById } from './additions.js';
 import { OPENING_BENCH, RECIPES, recipeById } from './recipes.js';
 import {
@@ -41,6 +51,7 @@ import {
   encodeDish,
   MAX_HOURS,
   packDish,
+  resolveMedia,
   resolveMedium,
   slotsOf,
 } from './recipe.js';
@@ -50,6 +61,7 @@ import {
   dropRadius,
   DROPS,
   FULL,
+  gradientStamps,
   slotFor,
   SPOT_RADIUS,
   stampsFor,
@@ -79,7 +91,12 @@ import {
   pickPlane,
   project,
 } from './camera.js';
-import { describeEvent, describePour, formatHours } from './format.js';
+import {
+  describeEvent,
+  describeMedia,
+  describePour,
+  formatHours,
+} from './format.js';
 import { CULTURE_FRAGMENT } from './shaders/culture.js';
 import { AGAR_FRAGMENT } from './shaders/agar.js';
 import { REAGENT_FRAGMENT } from './shaders/reagents.js';
@@ -193,7 +210,7 @@ describe('shaders are given every number they wait on', () => {
       clockUniforms({ softness: packed.softness, medium, env: ENV, hours: 3 }),
     ),
     // Set by the simulation itself for each step (simulation.js).
-    ...['uB', 'uD', 'uAux', 'uC0', 'uC1', 'uC2', 'uR0', 'uR1', 'uR2'],
+    ...['uB', 'uD', 'uAux', 'uC0', 'uC1', 'uC2', 'uC3', 'uR0', 'uR1', 'uR2'],
     ...['uWr', 'uWrA'],
     ...['uHours', 'uStep', 'uChemSize', 'uWrDt', 'uWrHours', 'uMmPerTexel'],
   ]);
@@ -220,6 +237,7 @@ describe('shaders are given every number they wait on', () => {
         'uC0',
         'uC1',
         'uC2',
+        'uC3',
         'uR0',
         'uR1',
         'uR2',
@@ -246,10 +264,12 @@ describe('packing', () => {
       seed: 7,
     });
     for (const [name, value] of Object.entries(u)) {
-      if (
+      if (PER_COMPARTMENT.includes(name)) {
+        expect(value.length % COMPARTMENTS, name).toBe(0);
+      } else if (
         Array.isArray(value) &&
         name.startsWith('u') &&
-        !/^uDiff|^uDecay/.test(name)
+        !/^uDiff|^uDecay|^uRDiff/.test(name)
       ) {
         expect(value, name).toHaveLength(SLOTS);
       }
@@ -322,14 +342,18 @@ describe('packing', () => {
 
   it('holds a culture back on a medium that selects against it', () => {
     const grid = createGrid(384);
-    const grow = (cultureId, mediumId) =>
+    const packed = (cultureId, mediumId) =>
       packPlate({
         slots: [cultureById(cultureId)],
         medium: mediumById(mediumId),
         env: ENV,
         grid,
         seed: 1,
-      }).u.uGrowD[0];
+      }).u;
+    const grow = (cultureId, mediumId) => {
+      const u = packed(cultureId, mediumId);
+      return u.uGrowD[0] * u.uSuit[0];
+    };
     // Bile salts and the Gram-positives.
     expect(grow('gold', 'bile')).toBeLessThan(0.1 * grow('gold', 'broth'));
     expect(grow('crimson', 'bile')).toBeCloseTo(grow('crimson', 'broth'), 9);
@@ -572,9 +596,14 @@ describe('packing', () => {
     // is left as it is.
     expect(chromo.look.uChromo).toEqual([1, 0, 0, 0]);
     expect(chromo.look.uChromoB[0]).toBeGreaterThan(chromo.look.uChromoR[0]);
-    expect(chromo.look.uSheen[0]).toBeGreaterThan(plain.look.uSheen[0]);
-    expect(plain.u.uPigR[1]).toBe(0);
-    expect(chromo.u.uPigB[1]).toBeGreaterThan(0);
+    expect(chromo.look.uChromogenic[0]).toBe(1);
+    expect(plain.look.uChromogenic[0]).toBe(0);
+    expect(chromo.look.uChromoSheen[0]).toBeGreaterThan(0);
+    // Proteus's halo is in the gel only where the medium is chromogenic.
+    expect(chromo.u.uChromogenic[0]).toBe(1);
+    expect(plain.u.uChromogenic[0]).toBe(0);
+    expect(chromo.u.uHaloB[1]).toBeGreaterThan(0);
+    expect(chromo.u.uHaloB[0]).toBe(0);
     for (const culture of CULTURES) {
       const c = resolveCulture(culture).look.chromo;
       if (c?.color) expect(c.color, culture.id).toMatch(HEX);
@@ -611,14 +640,16 @@ describe('packing', () => {
         'uClearColor',
         'uDyeColor',
       ]) {
-        expect(look[name], name).toHaveLength(3);
+        expect(look[name], name).toHaveLength(3 * COMPARTMENTS);
         expect(
           look[name].every((x) => x >= 0 && x <= 1),
           name,
         ).toBe(true);
       }
-      expect(look.uAgarOpacity).toBeGreaterThan(0);
-      expect(look.uAgarOpacity).toBeLessThanOrEqual(1);
+      for (const opacity of look.uAgarOpacity) {
+        expect(opacity).toBeGreaterThan(0);
+        expect(opacity).toBeLessThanOrEqual(1);
+      }
     }
   });
 });
@@ -721,7 +752,7 @@ describe('the shelf', () => {
         ...MEDIA.map(
           (medium) =>
             packPlate({ slots: [culture], medium, env: ENV, grid, seed: 1 }).u
-              .uGrowD[0] / grid.rate(resolveCulture(culture).growth),
+              .uSuit[0],
         ),
       );
       expect(best, culture.id).toBeGreaterThanOrEqual(1);
@@ -885,6 +916,145 @@ describe('recipes', () => {
   });
 });
 
+describe('vessels', () => {
+  it('puts each point in one compartment, and none on a wall or between wells', () => {
+    expect(compartmentAt('dish', 0, 0)).toBe(0);
+    expect(compartmentAt('dish', DISH.radius + 1, 0)).toBe(-1);
+    expect(compartmentAt('split', -10, 5)).toBe(0);
+    expect(compartmentAt('split', 10, 5)).toBe(1);
+    expect(compartmentAt('split', 0, 5)).toBe(-1);
+    WELLS.forEach(([x, y], i) => {
+      expect(compartmentAt('wells', x, y)).toBe(i);
+      expect(compartmentAt('wells', x + WELL_RADIUS + 0.5, y)).toBe(-1);
+    });
+    // The wells are numbered as they are read: the far row first.
+    expect(WELLS[0][1]).toBeGreaterThan(0);
+    expect(WELLS[0][0]).toBeLessThan(WELLS[1][0]);
+    // ...and all of them lie on the grid a dish is worked out on.
+    const grid = createGrid(256);
+    for (const [x, y] of WELLS) {
+      expect(Math.abs(x) + WELL_RADIUS).toBeLessThan(grid.span / 2 - grid.dx);
+      expect(Math.abs(y) + WELL_RADIUS).toBeLessThan(grid.span / 2 - grid.dx);
+    }
+  });
+
+  it('finds somewhere inside the compartment asked for', () => {
+    let seed = 7;
+    const random = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    for (const vessel of VESSELS) {
+      for (let part = 0; part < vessel.compartments; part += 1) {
+        for (let k = 0; k < 20; k += 1) {
+          const { x, y } = somewhereIn(vessel.id, part, random);
+          expect(
+            compartmentAt(vessel.id, x, y, 1),
+            `${vessel.id} ${part}`,
+          ).toBe(part);
+        }
+        const middle = middleOf(vessel.id, part);
+        expect(compartmentAt(vessel.id, middle.x, middle.y)).toBe(part);
+      }
+    }
+  });
+
+  it('remembers a medium for every compartment, and survives a link', () => {
+    const dish = cleanDish({
+      medium: 'litmus',
+      vessel: 'wells',
+      media: ['broth', 'blood', 'nothing', 'congo', 'chromogenic', 'milk', 'x'],
+      gradient: 'ph',
+    });
+    expect(dish.vessel).toBe('wells');
+    // The first is always the plate's own medium, and an unknown one is
+    // poured with it.
+    expect(dish.media).toEqual([
+      'litmus',
+      'blood',
+      'litmus',
+      'congo',
+      'chromogenic',
+      'milk',
+    ]);
+    expect(dish.gradient).toBe('ph');
+    const back = decodeDish(encodeDish(dish));
+    expect(back.vessel).toBe('wells');
+    expect(back.media).toEqual(dish.media);
+    expect(back.gradient).toBe('ph');
+    // Poured from one gel: every compartment is as firm as the first.
+    const media = resolveMedia({ ...dish, agar: 0.6 });
+    expect(media.map((m) => m.id)).toEqual(dish.media);
+    expect(media.every((m) => m.agar === 0.6)).toBe(true);
+    // A dish says none of this.
+    const plain = packDish(createDish('broth'));
+    expect(plain.vessel).toBeUndefined();
+    expect(plain.media).toBeUndefined();
+    expect(plain.gradient).toBeUndefined();
+    expect(cleanDish({ medium: 'broth', vessel: 'bowl' }).vessel).toBe('dish');
+    expect(cleanDish({ medium: 'broth', gradient: 'salt' }).gradient).toBe(
+      null,
+    );
+  });
+
+  it('packs each compartment’s medium where its texels will find it', () => {
+    const grid = createGrid(256);
+    const dish = cleanDish({
+      medium: 'broth',
+      vessel: 'split',
+      media: ['broth', 'bile'],
+    });
+    const media = resolveMedia(dish);
+    const { u, cultures } = packPlate({
+      slots: [cultureById('gold')],
+      medium: media[0],
+      media,
+      env: ENV,
+      grid,
+      seed: 1,
+    });
+    // Gold grows on the left and is held back by the bile on the right.
+    expect(u.uSuit[0]).toBe(1);
+    expect(u.uSuit[4]).toBeLessThan(0.1);
+    const look = packLook({ cultures, medium: media[0], media });
+    expect(look.uAgarColor.slice(0, 3)).not.toEqual(
+      look.uAgarColor.slice(3, 6),
+    );
+    // The lean plate's slow nutrient goes with it into its compartment.
+    const lean = resolveMedia(
+      cleanDish({ medium: 'broth', vessel: 'split', media: ['broth', 'lean'] }),
+    );
+    const v = packPlate({
+      slots: [],
+      medium: lean[0],
+      media: lean,
+      env: ENV,
+      grid,
+      seed: 1,
+    }).u;
+    expect(v.uNutD[1]).toBeLessThan(v.uNutD[0]);
+  });
+
+  it('pours a gradient as a ramp from left to right, and buffers a pH one there', () => {
+    const antibiotic = gradientStamps('antibiotic', GRADIENT_PEAK);
+    expect(antibiotic).toHaveLength(1);
+    expect(antibiotic[0].agar.ramp).toBe(true);
+    expect(antibiotic[0].agar.from[0]).toBeLessThan(antibiotic[0].agar.to[0]);
+    expect(antibiotic[0].agar.add0[2]).toBe(GRADIENT_PEAK.antibiotic);
+    const sugar = gradientStamps('sugar', GRADIENT_PEAK)[0].agar;
+    expect(sugar.add0[0]).toBe(sugar.add1[2]);
+    // pH: from -peak to +peak, in the gel and in what it is buffered to.
+    const [base, ramp] = gradientStamps('ph', GRADIENT_PEAK).map((x) => x.agar);
+    expect(base.add1[0]).toBe(-GRADIENT_PEAK.ph);
+    expect(base.add3[1]).toBe(-GRADIENT_PEAK.ph);
+    expect(ramp.add1[0]).toBe(2 * GRADIENT_PEAK.ph);
+    expect(ramp.add3[1]).toBe(2 * GRADIENT_PEAK.ph);
+    for (const g of GRADIENTS) {
+      expect(gradientStamps(g.value, GRADIENT_PEAK).length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('the recipes on the shelf', () => {
   it('name things that exist, and keep to four cultures', () => {
     const ids = RECIPES.map((r) => r.id);
@@ -937,7 +1107,7 @@ describe('the recipes on the shelf', () => {
         const best = grid.rate(resolveCulture(cultureById(id)).growth);
         // At least a fifth of its best: enough to see within the hour count.
         expect(
-          u.uGrowD[0] * u.uTemp[0],
+          u.uGrowD[0] * u.uSuit[0] * u.uTemp[0],
           `${id} in ${recipe.id}`,
         ).toBeGreaterThan(0.2 * best);
       }
@@ -1786,5 +1956,26 @@ describe('words', () => {
     expect(describePour({ medium: 'swarm', agar: 0.5 })).toBe(
       'Poured: Swarm agar, 0.5 % agar',
     );
+    expect(
+      describePour({
+        medium: 'litmus',
+        vessel: 'split',
+        media: ['litmus', 'bile'],
+        agar: 1.5,
+        gradient: 'ph',
+      }),
+    ).toBe(
+      'Poured: a bi-plate of Indicator agar and Bile & lactose, 1.5 % agar, with a pH gradient',
+    );
+    expect(
+      describeMedia({
+        medium: 'broth',
+        vessel: 'wells',
+        media: ['broth', 'broth', 'blood', 'broth', 'milk', 'broth'],
+      }),
+    ).toBe('six wells of 3 media');
+    expect(
+      describePour({ medium: 'broth', agar: 1.5, gradient: 'antibiotic' }),
+    ).toBe('Poured: Broth agar, 1.5 % agar, with an antibiotic gradient');
   });
 });

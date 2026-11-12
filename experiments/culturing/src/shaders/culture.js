@@ -37,6 +37,7 @@ uniform sampler2D uD;
 uniform sampler2D uAux;
 uniform sampler2D uC0;
 uniform sampler2D uC1;
+uniform sampler2D uC3;     // which compartment of the vessel (vessels.js)
 
 uniform float uChemSize;
 uniform float uHours;
@@ -52,6 +53,7 @@ uniform bool uHasTaxis;
 // One component per culture on the plate.
 uniform vec4 uGrowB;        // motile growth, per step
 uniform vec4 uGrowD;        // settled growth, per step
+uniform vec4 uSuit[6];      // how well each grows on each compartment's medium
 uniform vec4 uKn;           // nutrient at half the best growth
 uniform vec4 uCapB;         // how dense the motile layer gets
 uniform vec4 uCutoff;       // the least of it that can grow at all
@@ -315,7 +317,8 @@ void main() {
   vec4 share = (b + d) / max(rho, 1e-6);
   vec4 harm = max(vec4(dot(uKin, share)) - uKin * share, 0.0);
 
-  vec4 gmod = uTemp * phF * (1.0 - inhib)
+  int part = clamp(int(texelFetch(uC3, p >> 1, 0).r + 0.5), 0, 5);
+  vec4 gmod = uTemp * uSuit[part] * phF * (1.0 - inhib)
     * (1.0 + uMutAdv * aux.b)
     * max(1.0 - harm, 0.0)
     * max(1.0 + uNoise * jitter, 0.0);

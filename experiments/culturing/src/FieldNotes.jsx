@@ -118,6 +118,21 @@ export default function FieldNotes() {
           the same diffusion, read by something different.
         </li>
         <li>
+          <strong>Vessels and gradients.</strong> A{' '}
+          <Ref href="https://www.thermofisher.com/order/catalog/product/R02066">
+            bi-plate
+          </Ref>{' '}
+          is a dish walled in two, with a medium each side, so that two can be
+          read against each other on one plate. A{' '}
+          <Ref href="https://fgsc.net/neurosporaprotocols/How%20to%20prepare%20and%20use%20gradient%20plates.pdf">
+            gradient plate
+          </Ref>{' '}
+          is poured as a wedge and then level with something added to the top
+          layer, which spreads down through the wedge until there is more of it
+          toward one side. Szybalski described it in 1952, for finding which
+          bacteria could stand how much of a drug.
+        </li>
+        <li>
           <strong>Stains that are taken up.</strong> A dye from the tray spreads
           through the gel, under colonies as freely as anywhere, and the cells
           it reaches take it up and keep it. So a colony stains from the side
@@ -161,6 +176,12 @@ export default function FieldNotes() {
           for calcofluor to stick to is guessed from what kind of thing it is: a
           mould or a yeast has plenty, a film less, a plain colony very little.
           Real tetrazolium also holds some bacteria back, and here it doesn’t.
+        </li>
+        <li>
+          The six-well plate is two thirds the size of a real one, so that it
+          can be worked out on the same grid as a dish. Every compartment of a
+          vessel is poured from one gel: the media differ in what is dissolved
+          in them, not in how firm they are.
         </li>
         <li>
           On the chromogenic plate only the cultures the maker’s chart names

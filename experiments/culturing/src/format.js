@@ -2,7 +2,8 @@
 
 import { cultureById } from './cultures.js';
 import { additionById } from './additions.js';
-import { mediumById } from './media.js';
+import { GRADIENTS, mediumById } from './media.js';
+import { vesselById } from './vessels.js';
 
 /** "41 h" up to two days, then "3 d 4 h". */
 export function formatHours(hours) {
@@ -52,8 +53,30 @@ export function describeEvent(event) {
   return event.mixed ? `${name}, in a mixed drop` : `${name}, as a drop`;
 }
 
+/** "Broth agar", or for a vessel of several, what is in it: "a bi-plate of
+ *  Indicator agar and Bile & lactose", "six wells of 4 media". */
+export function describeMedia(dish) {
+  const names = (dish.media || [dish.medium]).map(
+    (id) => mediumById(id)?.name || 'agar',
+  );
+  const vessel = vesselById(dish.vessel);
+  if (!vessel || vessel.compartments === 1) return names[0];
+  const kinds = [...new Set(names)];
+  if (vessel.id === 'split') {
+    return kinds.length === 1
+      ? `a bi-plate of ${kinds[0]}`
+      : `a bi-plate of ${names[0]} and ${names[1]}`;
+  }
+  return kinds.length === 1
+    ? `six wells of ${kinds[0]}`
+    : `six wells of ${kinds.length} media`;
+}
+
 /** The first line of every record: what the plate was poured from. */
 export function describePour(dish) {
-  const medium = mediumById(dish.medium);
-  return `Poured: ${medium ? medium.name : 'agar'}, ${dish.agar} % agar`;
+  const gradient = GRADIENTS.find((g) => g.value === dish.gradient);
+  const what = gradient?.value === 'ph' ? 'pH' : gradient?.label.toLowerCase();
+  const article = /^[aeiou]/i.test(what || '') ? 'an' : 'a';
+  const across = gradient ? `, with ${article} ${what} gradient` : '';
+  return `Poured: ${describeMedia(dish)}, ${dish.agar} % agar${across}`;
 }

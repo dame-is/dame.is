@@ -2,7 +2,20 @@ import { useEffect, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { Button, Segmented, Tag } from './host.js';
 import { CULTURES, KINDS, cultureById } from './cultures.js';
-import { AGAR_RANGE, MEDIA, NUTRIENT_RANGE, mediumById } from './media.js';
+import {
+  AGAR_RANGE,
+  GRADIENTS,
+  MEDIA,
+  NUTRIENT_RANGE,
+  mediumById,
+} from './media.js';
+import {
+  compartmentNames,
+  middleOf,
+  somewhereIn,
+  VESSELS,
+  vesselById,
+} from './vessels.js';
 import { ADDITIONS, ADDITION_KINDS, additionById } from './additions.js';
 import { RECIPES } from './recipes.js';
 import { HUMIDITY_RANGE, TEMPERATURE_RANGE } from './recipe.js';
@@ -26,12 +39,11 @@ const LIGHT_OPTIONS = [
   { value: 'dark', label: 'Dark' },
 ];
 
-/** A point somewhere on the gel, clear of the wall, for things put down
- *  without a pointer. */
-function somewhere() {
-  const angle = Math.random() * Math.PI * 2;
-  const radius = Math.sqrt(Math.random()) * 28;
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+/** A point somewhere on a plate's gel, clear of its walls, for things put
+ *  down without a pointer: in any of its compartments. */
+function somewhere(plate) {
+  const count = vesselById(plate.vessel)?.compartments || 1;
+  return somewhereIn(plate.vessel, Math.floor(Math.random() * count));
 }
 
 /** What is known to be true of a thing, each with where to read it. */
@@ -204,15 +216,24 @@ function CulturesPanel({ bench, snap, compact }) {
               size="sm"
               onClick={() => {
                 bench.enter(snap.selected);
-                bench.spot(snap.selected, armed.id, 0, 0);
+                // On a plate of several, one in the middle of each.
+                const count = vesselById(plate.vessel)?.compartments || 1;
+                for (let i = 0; i < count; i += 1) {
+                  const { x, y } = middleOf(plate.vessel, i);
+                  bench.spot(snap.selected, armed.id, x, y);
+                }
               }}
             >
-              Drop it in the middle
+              {plate.vessel === 'wells'
+                ? 'Drop one in each well'
+                : plate.vessel === 'split'
+                  ? 'Drop one in each half'
+                  : 'Drop it in the middle'}
             </Button>
             <Button
               size="sm"
               onClick={() => {
-                const { x, y } = somewhere();
+                const { x, y } = somewhere(plate);
                 bench.enter(snap.selected);
                 bench.spot(snap.selected, armed.id, x, y);
               }}
@@ -317,29 +338,116 @@ function agarHint(percent) {
   return 'Hard and dry: fine wrinkles, and nothing moves.';
 }
 
+const VESSEL_KEYS = VESSELS.map((v) => ({
+  value: v.id,
+  label: v.name,
+  title: v.hint,
+}));
+
+const GRADIENT_KEYS = [
+  { value: 'none', label: 'None', title: 'The same all over.' },
+  ...GRADIENTS.map((g) => ({ value: g.value, label: g.label, title: g.hint })),
+];
+
+/** A plate's media, one per compartment of a vessel, as far as they go. */
+function fill(media, count) {
+  return Array.from({ length: count }, (_, i) => media[i] || media[0]);
+}
+
 function MediaPanel({ bench, snap }) {
   const plate = snap.dishes[snap.selected];
-  const [pick, setPick] = useState(plate.medium);
+  const [vessel, setVessel] = useState(plate.vessel);
+  const [parts, setParts] = useState(plate.media);
+  const [part, setPart] = useState(0);
   const [agar, setAgar] = useState(plate.agar);
   const [nutrient, setNutrient] = useState(plate.nutrient);
-  // Looking at another plate shows that plate's medium.
+  const [gradient, setGradient] = useState(plate.gradient || 'none');
+  // Looking at another plate shows that plate's media.
   useEffect(() => {
-    setPick(plate.medium);
+    setVessel(plate.vessel);
+    setParts(plate.media);
+    setPart(0);
     setAgar(plate.agar);
     setNutrient(plate.nutrient);
+    setGradient(plate.gradient || 'none');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on which plate, not on its every tick
-  }, [snap.selected, plate.medium]);
+  }, [snap.selected, plate.medium, plate.vessel, plate.gradient]);
 
-  const medium = mediumById(pick) || MEDIA[0];
+  const shape = vesselById(vessel) || VESSELS[0];
+  const several = shape.compartments > 1;
+  const names = compartmentNames(shape.id);
+  const wells = shape.id === 'wells';
+  const here = Math.min(part, shape.compartments - 1);
+  const medium = mediumById(parts[here]) || MEDIA[0];
   const choose = (m) => {
-    setPick(m.id);
-    setAgar(m.agar);
-    setNutrient(m.nutrient);
+    setParts(
+      fill(parts, shape.compartments).map((id, i) => (i === here ? m.id : id)),
+    );
+    // The vessel is poured from the first compartment's gel.
+    if (here === 0) {
+      setAgar(m.agar);
+      setNutrient(m.nutrient);
+    }
   };
   const used = plate.events.length > 0;
+  const gradientHint = GRADIENTS.find((g) => g.value === gradient)?.hint;
   return (
     <>
       <div className="cult-card">
+        <div className="cult-field">
+          <span className="cult-field-label">Poured into</span>
+          <Segmented
+            label="What to pour it into"
+            options={VESSEL_KEYS}
+            value={shape.id}
+            onChange={(value) => {
+              const next = vesselById(value);
+              if (!next) return;
+              setVessel(next.id);
+              setParts(fill(parts, next.compartments));
+              setPart(0);
+            }}
+          />
+          <p className="cult-field-hint">{shape.hint}</p>
+        </div>
+        {several && (
+          <div className="cult-field">
+            <span className="cult-field-label">
+              {wells ? 'Wells' : 'Sides'}
+            </span>
+            <div
+              className="cult-plates"
+              role="group"
+              aria-label={wells ? 'Wells' : 'Sides'}
+            >
+              {fill(parts, shape.compartments).map((id, i) => {
+                const m = mediumById(id) || MEDIA[0];
+                const name = wells ? `Well ${names[i]}` : `${names[i]} side`;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`cult-plate${i === here ? ' is-on' : ''}`}
+                    aria-pressed={i === here}
+                    aria-label={`${name}: ${m.name}`}
+                    title={m.name}
+                    onClick={() => setPart(i)}
+                  >
+                    {mediumSwatch(m)}
+                    {names[i]}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="cult-field-hint">
+              Pick a medium below for{' '}
+              {wells
+                ? `well ${names[here]}`
+                : `the ${names[here].toLowerCase()} side`}
+              . The agar is the same throughout.
+            </p>
+          </div>
+        )}
         <h3 className="cult-card-title">{medium.name}</h3>
         <p className="cult-card-after">after {medium.after}</p>
         <p className="cult-card-blurb">{medium.blurb}</p>
@@ -351,25 +459,46 @@ function MediaPanel({ bench, snap }) {
           onChange={setAgar}
           hint={agarHint(agar)}
         />
-        <Slider
-          label="Strength"
-          value={nutrient}
-          range={NUTRIENT_RANGE}
-          format={(v) => `${Math.round(v * 100)} %`}
-          onChange={setNutrient}
-          hint="How much there is to eat, against a full-strength broth."
-        />
+        {!several && (
+          <Slider
+            label="Strength"
+            value={nutrient}
+            range={NUTRIENT_RANGE}
+            format={(v) => `${Math.round(v * 100)} %`}
+            onChange={setNutrient}
+            hint="How much there is to eat, against a full-strength broth."
+          />
+        )}
+        <div className="cult-field">
+          <span className="cult-field-label">Gradient</span>
+          <Segmented
+            label="A gradient across the plate"
+            options={GRADIENT_KEYS}
+            value={gradient}
+            onChange={setGradient}
+          />
+          <p className="cult-field-hint">
+            {gradientHint ||
+              'Poured as a wedge, a gradient puts more of something toward one side.'}
+          </p>
+        </div>
         <div className="cult-actions">
           <Confirm
             sure={used}
-            label={`Pour plate ${snap.selected + 1} with it`}
+            label={`Pour plate ${snap.selected + 1}`}
             confirmLabel="Discard what’s growing and pour"
-            onConfirm={() =>
-              bench.pour(snap.selected, medium.id, {
-                agar: agar === medium.agar ? null : agar,
-                nutrient: nutrient === medium.nutrient ? null : nutrient,
-              })
-            }
+            onConfirm={() => {
+              const media = fill(parts, shape.compartments);
+              const first = mediumById(media[0]) || MEDIA[0];
+              bench.pour(snap.selected, first.id, {
+                agar: agar === first.agar ? null : agar,
+                nutrient:
+                  several || nutrient === first.nutrient ? null : nutrient,
+                vessel: shape.id,
+                media: several ? media : null,
+                gradient: gradient === 'none' ? null : gradient,
+              });
+            }}
           />
         </div>
         <Notes notes={medium.notes} />
@@ -383,7 +512,7 @@ function MediaPanel({ bench, snap }) {
               swatch={mediumSwatch(m)}
               name={m.name}
               after={m.after}
-              tag={m.id === plate.medium ? 'poured' : null}
+              tag={plate.media.includes(m.id) ? 'poured' : null}
               onClick={() => choose(m)}
             />
           ))}
@@ -437,7 +566,7 @@ function TrayPanel({ bench, snap, compact }) {
               <Button
                 size="sm"
                 onClick={() => {
-                  const { x, y } = somewhere();
+                  const { x, y } = somewhere(snap.dishes[snap.selected]);
                   bench.enter(snap.selected);
                   bench.put(snap.selected, armed.id, x, y);
                 }}

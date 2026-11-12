@@ -8,8 +8,9 @@
 
 import { detectCapabilities } from './gl.js';
 import { createSimulation } from './simulation.js';
-import { createRenderer, GEL_Y, OUTER_RADIUS } from './renderer.js';
-import { DETAILS, DISH, gridSize, hexToLinear } from './units.js';
+import { createRenderer, footprint, GEL_Y } from './renderer.js';
+import { DETAILS, gridSize, hexToLinear } from './units.js';
+import { compartmentAt } from './vessels.js';
 import {
   benchLayout,
   fitDistance,
@@ -341,13 +342,12 @@ export function createBench(canvas, options = {}) {
     const aspect = width / height;
     if (mode === 'plate' && entries[selected]) {
       const [x, z] = entries[selected].centre;
+      const { halfW, halfD } = footprint(entries[selected].dish.vessel);
       return {
         target: [x, GEL_Y, z],
         az: user.az,
         el: user.el,
-        dist:
-          fitDistance(OUTER_RADIUS, OUTER_RADIUS, user.el, aspect, 1.1) *
-          user.zoom,
+        dist: fitDistance(halfW, halfD, user.el, aspect, 1.1) * user.zoom,
       };
     }
     return {
@@ -414,6 +414,10 @@ export function createBench(canvas, options = {}) {
         medium: dish.medium,
         agar: live.medium.agar,
         nutrient: live.medium.nutrient,
+        vessel: dish.vessel || 'dish',
+        // One per compartment, the first being `medium`.
+        media: live.media.map((m) => m.id),
+        gradient: dish.gradient || null,
         env: live.env,
         hours: live.plate.hours,
         goal: replay ? replay.goal : dish.hours,
@@ -604,12 +608,15 @@ export function createBench(canvas, options = {}) {
         dishes: entries.map((entry, i) => ({
           centre: entry.centre,
           display: entry.display,
+          vessel: entry.dish.vessel,
           close: mode === 'plate' && i === selected,
         })),
       });
       dirty = false;
       if (frameListeners.size) {
-        const places = entries.map((entry) => place(entry.centre));
+        const places = entries.map((entry) =>
+          place(entry.centre, entry.dish.vessel),
+        );
         for (const listener of frameListeners) listener(places);
       }
     }
@@ -619,9 +626,10 @@ export function createBench(canvas, options = {}) {
   }
 
   /** Where a dish is on the canvas, in CSS pixels: its near edge. */
-  function place(centre) {
+  function place(centre, vessel) {
     const rect = { w: canvas.clientWidth, h: canvas.clientHeight };
-    const front = project(camera, [centre[0], 0, centre[1] + OUTER_RADIUS]);
+    const { halfD } = footprint(vessel);
+    const front = project(camera, [centre[0], 0, centre[1] + halfD]);
     const middle = project(camera, [centre[0], GEL_Y, centre[1]]);
     return {
       x: ((middle[0] + 1) / 2) * rect.w,
@@ -645,9 +653,16 @@ export function createBench(canvas, options = {}) {
       const dx = at[0] - entry.centre[0];
       const dz = at[1] - entry.centre[1];
       const r = Math.hypot(dx, dz);
-      if (r <= OUTER_RADIUS + 3 && (!best || r < best.r)) {
+      const { vessel } = entry.dish;
+      const { halfW, halfD } = footprint(vessel);
+      const over =
+        vessel === 'wells'
+          ? Math.abs(dx) <= halfW + 3 && Math.abs(dz) <= halfD + 3
+          : r <= halfW + 3;
+      if (over && (!best || r < best.r)) {
         // Plate space: x to the right, y away from the viewer.
-        best = { index, r, mm: [dx, -dz], onGel: r <= DISH.radius - 0.4 };
+        const onGel = compartmentAt(vessel, dx, -dz, 0.4) >= 0;
+        best = { index, r, mm: [dx, -dz], onGel };
       }
     });
     return best;
@@ -1091,13 +1106,26 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
-  /** Throw a plate's contents away and pour it again. */
-  function pour(index, mediumId, { agar = null, nutrient = null } = {}) {
+  /**
+   * Throw a plate's contents away and pour it again: into a vessel
+   * (vessels.js), with a medium for each of its compartments, and a
+   * gradient across it if one is asked for.
+   */
+  function pour(
+    index,
+    mediumId,
+    { agar = null, nutrient = null, vessel, media, gradient } = {},
+  ) {
     const entry = entries[index];
     if (!entry) return;
     replace(
       index,
-      createDish(mediumId, { agar, nutrient, env: { ...entry.live.env } }),
+      cleanDish({
+        ...createDish(mediumId, { agar, nutrient, env: { ...entry.live.env } }),
+        vessel,
+        media,
+        gradient,
+      }),
     );
   }
 

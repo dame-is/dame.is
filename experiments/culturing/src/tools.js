@@ -412,3 +412,28 @@ export function applyStamps(sim, plate, stamps) {
     if (stamp.reagents) sim.stampReagents(plate, stamp.reagents);
   }
 }
+
+/**
+ * The stamps that pour a gradient (media.js GRADIENTS) into a plate that
+ * has just been poured: a ramp across the dish, from nothing at its left
+ * edge to `peak` at its right. A pH gradient runs from alkaline to acid
+ * through the medium's own, and moves the pH the gel is buffered to with
+ * it, so it keeps its gradient.
+ */
+export function gradientStamps(kind, peak) {
+  const ramp = { from: [-DISH.radius, 0], to: [DISH.radius, 0], ramp: true };
+  const all = { from: [0, 0], radius: DISH.radius * 2, feather: 0.01 };
+  const p = peak[kind] ?? 0;
+  if (kind === 'antibiotic') return [{ agar: { ...ramp, add0: [0, 0, p, 0] } }];
+  if (kind === 'sugar') {
+    return [{ agar: { ...ramp, add0: [p, 0, 0, 0], add1: [0, 0, p, 0] } }];
+  }
+  if (kind === 'ph') {
+    const shift = (x) => ({ add1: [x, 0, 0, 0], add3: [0, x, 0, 0] });
+    return [
+      { agar: { ...all, ...shift(-p) } },
+      { agar: { ...ramp, ...shift(2 * p) } },
+    ];
+  }
+  return [];
+}

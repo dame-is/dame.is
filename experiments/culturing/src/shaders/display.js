@@ -25,6 +25,7 @@ uniform sampler2D uWr;
 uniform sampler2D uC0;
 uniform sampler2D uC1;
 uniform sampler2D uC2;
+uniform sampler2D uC3;
 uniform sampler2D uR0;
 uniform sampler2D uR1;
 uniform sampler2D uR2;
@@ -62,6 +63,7 @@ uniform vec4 uChromoR;   // the colour it turns a chromogenic medium's substrate
 uniform vec4 uChromoG;
 uniform vec4 uChromoB;
 uniform vec4 uChromo;    // 1 where that is to be shown
+uniform vec4 uChromoSheen; // the sheen it comes up with there
 uniform vec4 uFluorR;
 uniform vec4 uFluorG;
 uniform vec4 uFluorB;
@@ -73,19 +75,20 @@ uniform vec4 uKn;
 uniform float uWrOnset;
 uniform float uWrFull;
 
-// The medium.
-uniform vec3 uAgarColor;
-uniform float uAgarOpacity;
-uniform vec3 uAcidColor;
-uniform vec3 uAlkaliColor;
-uniform float uIndicator;  // 1 where the medium carries a pH indicator
-uniform float uPhRange;
-uniform vec3 uClearColor;
-uniform float uClearOpacity;
-uniform float uClearGain;
-uniform vec3 uDyeColor;
-uniform float uDye;
-uniform vec3 uAgarFluor;   // the gel's own glow under ultraviolet
+// The medium, one per compartment of the vessel (vessels.js).
+uniform vec3 uAgarColor[6];
+uniform float uAgarOpacity[6];
+uniform vec3 uAcidColor[6];
+uniform vec3 uAlkaliColor[6];
+uniform float uIndicator[6];  // 1 where the medium carries a pH indicator
+uniform float uPhRange[6];
+uniform vec3 uClearColor[6];
+uniform float uClearOpacity[6];
+uniform float uClearGain[6];
+uniform vec3 uDyeColor[6];
+uniform float uDye[6];
+uniform vec3 uAgarFluor[6];   // the gel's own glow under ultraviolet
+uniform float uChromogenic[6];
 uniform vec3 uHaloFluor;   // the glow of whatever pigment has left the colony
 
 // What was put on from the tray (shaders/reagents.js).
@@ -152,13 +155,14 @@ vec3 pick(vec4 w, vec4 r, vec4 g, vec4 b) {
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
   vec4 aux = texelFetch(uAux, p, 0);
+  int part = clamp(int(texelFetch(uC3, p >> 1, 0).r + 0.5), 0, 5);
   if (aux.a < 0.5) {
     // No gel: outside the dish, or cut away down to the plastic. It keeps
     // the medium's colour with no opacity, so that the gel beside a cut
     // isn't darkened by being read together with nothing.
     oRelief = vec4(0.0);
     oColony = vec4(0.0);
-    oAgar = vec4(uAgarColor, 0.0);
+    oAgar = vec4(uAgarColor[part], 0.0);
     oGlow = vec4(0.0);
     return;
   }
@@ -253,16 +257,16 @@ void main() {
   // On a chromogenic plate the colour is made by the colony's enzymes from
   // what is in the gel, so it comes up as the colony thickens and is the
   // same at any age.
-  float chromo = dot(share, uChromo) * smoothstep(0.04, 0.4, rhoD);
+  float chromo = uChromogenic[part] * dot(share, uChromo) * smoothstep(0.04, 0.4, rhoD);
   colour = mix(colour, pick(share * uChromo, uChromoR, uChromoG, uChromoB)
     / max(dot(share, uChromo), 1e-4), 0.9 * chromo);
   // A dye in the medium is taken up by the matrix: the film goes the
   // dye's colour, most where it is thickest.
   // It pools between the folds and thins over them, so the floors come
   // up saturated and the crests pale.
-  float stained = dot(share, uStain) * uDye * smoothstep(0.05, 0.6, rhoD);
+  float stained = dot(share, uStain) * uDye[part] * smoothstep(0.05, 0.6, rhoD);
   stained *= 1.0 - 0.45 * ridge + 0.25 * film * trough;
-  colour = mix(colour, colour * uDyeColor * 1.6, clamp(stained, 0.0, 1.0));
+  colour = mix(colour, colour * uDyeColor[part] * 1.6, clamp(stained, 0.0, 1.0));
   // A dye from the tray that the cells have taken up: the colony takes its
   // colour, deepest where the most has gathered, and in the floors of its
   // folds more than on the crests.
@@ -299,17 +303,17 @@ void main() {
   float gloss = mix(mix(dot(share, uGloss), 0.92, wetFilm), 0.05, lid);
   float rough = mix(mix(dot(share, uRough), 0.12, wetFilm), 0.9, lid);
   float fuzz = dot(share, uFuzz + uFuzzLate * pig) * smoothstep(0.03, 0.25, rhoD);
-  float sheen = dot(share, uSheen) * pig * coverage;
+  float sheen = dot(share, uSheen + uChromoSheen * uChromogenic[part]) * pig * coverage;
 
   // ---- Agar -----------------------------------------------------------
-  vec3 gel = uAgarColor;
-  float opacity = uAgarOpacity;
-  float turn = c1.r / uPhRange;
-  gel = mix(gel, uAcidColor, uIndicator * smoothstep(0.0, 1.0, turn));
-  gel = mix(gel, uAlkaliColor, uIndicator * smoothstep(0.0, 1.0, -turn));
-  float cleared = 1.0 - exp(-uClearGain * c1.g);
-  gel = mix(gel, uClearColor, cleared);
-  opacity = mix(opacity, uClearOpacity, cleared);
+  vec3 gel = uAgarColor[part];
+  float opacity = uAgarOpacity[part];
+  float turn = c1.r / uPhRange[part];
+  gel = mix(gel, uAcidColor[part], uIndicator[part] * smoothstep(0.0, 1.0, turn));
+  gel = mix(gel, uAlkaliColor[part], uIndicator[part] * smoothstep(0.0, 1.0, -turn));
+  float cleared = 1.0 - exp(-uClearGain[part] * c1.g);
+  gel = mix(gel, uClearColor[part], cleared);
+  opacity = mix(opacity, uClearOpacity[part], cleared);
   // A universal indicator dropped on the gel: a run of colours from red
   // at pH 4 to violet at 10, so each colony draws its own map of what it
   // is doing to the gel. A shift of one on the plate's scale is taken as
@@ -340,7 +344,7 @@ void main() {
     // 365 nm: some pigments glow, in the colony and out in the gel.
     light = pick(share, uFluorR, uFluorG, uFluorB) * coverage * (0.35 + 0.65 * pig)
       + uHaloFluor * dissolved
-      + uAgarFluor;
+      + uAgarFluor[part];
     // Calcofluor glows blue where it has stuck to something, and faintly
     // where it is still loose in the gel.
     light += uCalcofluor * ((1.0 - exp(-0.5 * r2.a)) * coverage

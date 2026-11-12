@@ -298,3 +298,36 @@ export function mediumById(id) {
 export const AGAR_RANGE = { min: 0.3, max: 2.5, step: 0.1 };
 /** The leanest and richest. */
 export const NUTRIENT_RANGE = { min: 0.1, max: 1.5, step: 0.05 };
+
+/**
+ * A gradient plate (Szybalski 1952): poured first as a wedge with the dish
+ * tilted, then level with something added, so that once it has diffused
+ * down through the wedge there is more of it toward one side. Here it runs
+ * from none on the left to the most on the right, across every
+ * compartment.
+ *
+ *   antibiotic  toxin X, up to about what a disc gives a few mm out
+ *   sugar       food, on top of what the medium has
+ *   ph          from alkaline on the left to acid on the right, and buffered
+ *               there: the gel keeps its gradient
+ */
+export const GRADIENTS = [
+  {
+    value: 'antibiotic',
+    label: 'Antibiotic',
+    hint: 'None on the left, more and more to the right: each culture stops where it can’t take any more.',
+  },
+  {
+    value: 'sugar',
+    label: 'Sugar',
+    hint: 'The medium as it is on the left, twice as rich on the right.',
+  },
+  {
+    value: 'ph',
+    label: 'pH',
+    hint: 'Alkaline on the left, acid on the right. Put it in an indicator medium to see it.',
+  },
+];
+
+/** The extra a gradient puts in at its strong side. */
+export const GRADIENT_PEAK = { antibiotic: 5, sugar: 1, ph: 1.6 };

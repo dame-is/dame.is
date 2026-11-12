@@ -633,7 +633,8 @@
 }
 
 .cult-field input[type='range'],
-.cult-field .segmented {
+.cult-field .segmented,
+.cult-field .cult-plates {
   grid-column: 1 / -1;
 }
 

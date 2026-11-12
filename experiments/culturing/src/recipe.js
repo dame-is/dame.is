@@ -7,7 +7,8 @@
 // stored in a few hundred bytes, or sent to someone as a link.
 
 import { cultureById } from './cultures.js';
-import { mediumById } from './media.js';
+import { GRADIENTS, mediumById } from './media.js';
+import { vesselById } from './vessels.js';
 import { additionById } from './additions.js';
 import { SLOTS } from './pack.js';
 
@@ -43,6 +44,11 @@ export function createDish(mediumId = 'broth', overrides = {}) {
     medium: mediumById(mediumId) ? mediumId : 'broth',
     agar: null, // percent, when the pour departs from the medium's own
     nutrient: null,
+    vessel: 'dish', // vessels.js
+    // One medium id per compartment, for a vessel with more than one; the
+    // first is always `medium`. null for a dish.
+    media: null,
+    gradient: null, // a media.js GRADIENTS value, or none
     env: { ...DEFAULT_ENV },
     seed: freshSeed(),
     events: [],
@@ -61,6 +67,23 @@ export function resolveMedium(dish) {
     agar: dish.agar ?? base.agar,
     nutrient: dish.nutrient ?? base.nutrient,
   };
+}
+
+/**
+ * Every compartment's medium as poured, one per compartment of the vessel.
+ * They are poured from one gel, so all are as firm as the first; each keeps
+ * its own food, pH and look. The strength slider is for a plate of one
+ * medium, and is set aside for more.
+ */
+export function resolveMedia(dish) {
+  const first = resolveMedium(dish);
+  const vessel = vesselById(dish.vessel) || vesselById('dish');
+  if (vessel.compartments === 1 || !dish.media) return [first];
+  return Array.from({ length: vessel.compartments }, (_, i) => {
+    if (i === 0) return first;
+    const base = mediumById(dish.media[i]) || first;
+    return { ...base, agar: first.agar };
+  });
 }
 
 /** The cultures on a plate, in the order they arrived: its four slots. */
@@ -149,6 +172,17 @@ export function cleanDish(raw) {
   if (!raw || typeof raw !== 'object') return createDish();
   const dish = createDish(raw.medium);
   if (finite(raw.agar)) dish.agar = Math.min(Math.max(raw.agar, 0.3), 2.5);
+  const vessel = vesselById(raw.vessel);
+  if (vessel && vessel.compartments > 1) {
+    dish.vessel = vessel.id;
+    const listed = Array.isArray(raw.media) ? raw.media : [];
+    dish.media = Array.from({ length: vessel.compartments }, (_, i) =>
+      i === 0 ? dish.medium : mediumById(listed[i]) ? listed[i] : dish.medium,
+    );
+  }
+  if (GRADIENTS.some((g) => g.value === raw.gradient)) {
+    dish.gradient = raw.gradient;
+  }
   if (finite(raw.nutrient)) {
     dish.nutrient = Math.min(Math.max(raw.nutrient, 0.1), 1.5);
   }
@@ -177,6 +211,11 @@ export function packDish(dish) {
   };
   if (dish.agar != null) out.agar = dish.agar;
   if (dish.nutrient != null) out.nutrient = dish.nutrient;
+  if (dish.vessel && dish.vessel !== 'dish') {
+    out.vessel = dish.vessel;
+    out.media = dish.media;
+  }
+  if (dish.gradient) out.gradient = dish.gradient;
   const env = {};
   for (const key of Object.keys(DEFAULT_ENV)) {
     if (dish.env[key] !== DEFAULT_ENV[key]) env[key] = dish.env[key];

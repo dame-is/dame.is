@@ -13,6 +13,13 @@ import {
   FULLSCREEN_VERTEX,
 } from './gl.js';
 import { DISH } from './units.js';
+import {
+  BLOCK,
+  DIVIDER,
+  vesselUniforms,
+  WELL_RADIUS,
+  WELLS,
+} from './vessels.js';
 import { COMPOSE_FRAGMENT, SHADE_FRAGMENT } from './shaders/display.js';
 import {
   BENCH_FRAGMENT,
@@ -30,6 +37,12 @@ export const FLOOR_Y = 1;
 export const GEL_Y = FLOOR_Y + DISH.agarDepth;
 /** The dish's outer radius: what its footprint on the bench is. */
 export const OUTER_RADIUS = DISH.radius + DISH.wallThickness;
+
+/** How far a vessel reaches from its middle, across and in depth, mm. */
+export function footprint(vessel) {
+  if (vessel === 'wells') return { halfW: BLOCK.halfW, halfD: BLOCK.halfD };
+  return { halfW: OUTER_RADIUS, halfD: OUTER_RADIUS };
+}
 
 /**
  * Quads along a side of a plate's sheet. Up close it is one to a texel, as
@@ -97,13 +110,106 @@ function gridMesh(gl, quads) {
   };
 }
 
+/** Positions and normals, interleaved, as a mesh to draw as triangles. */
+function trianglesMesh(gl, data) {
+  const array = new Float32Array(data);
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const vbo = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+  gl.bindVertexArray(null);
+  const count = array.length / 6;
+  return {
+    draw() {
+      gl.bindVertexArray(vao);
+      gl.drawArrays(gl.TRIANGLES, 0, count);
+    },
+    dispose() {
+      gl.deleteVertexArray(vao);
+      gl.deleteBuffer(vbo);
+    },
+  };
+}
+
+/**
+ * A box, as a mesh: a bi-plate's dividing wall, or the six-well plate's
+ * block. Positions are relative to the vessel's centre on the bench.
+ */
+function boxMesh(gl, halfX, halfZ, y0, y1, faces = 'all') {
+  const data = [];
+  const quad = (a, b, c, d, n) => {
+    for (const p of [a, b, c, a, c, d]) data.push(...p, ...n);
+  };
+  const x = [-halfX, halfX];
+  const z = [-halfZ, halfZ];
+  if (faces === 'all') {
+    quad(
+      [x[0], y1, z[0]],
+      [x[1], y1, z[0]],
+      [x[1], y1, z[1]],
+      [x[0], y1, z[1]],
+      [0, 1, 0],
+    );
+  }
+  quad(
+    [x[1], y0, z[0]],
+    [x[1], y1, z[0]],
+    [x[1], y1, z[1]],
+    [x[1], y0, z[1]],
+    [1, 0, 0],
+  );
+  quad(
+    [x[0], y0, z[1]],
+    [x[0], y1, z[1]],
+    [x[0], y1, z[0]],
+    [x[0], y0, z[0]],
+    [-1, 0, 0],
+  );
+  quad(
+    [x[0], y0, z[0]],
+    [x[0], y1, z[0]],
+    [x[1], y1, z[0]],
+    [x[1], y0, z[0]],
+    [0, 0, -1],
+  );
+  quad(
+    [x[1], y0, z[1]],
+    [x[1], y1, z[1]],
+    [x[0], y1, z[1]],
+    [x[0], y0, z[1]],
+    [0, 0, 1],
+  );
+  return trianglesMesh(gl, data);
+}
+
+/** A flat rectangle facing up: the six-well plate's deck. */
+function deckMesh(gl, halfX, halfZ, y) {
+  const data = [];
+  const n = [0, 1, 0];
+  for (const p of [
+    [-halfX, y, -halfZ],
+    [halfX, y, -halfZ],
+    [halfX, y, halfZ],
+    [-halfX, y, -halfZ],
+    [halfX, y, halfZ],
+    [-halfX, y, halfZ],
+  ]) {
+    data.push(...p, ...n);
+  }
+  return trianglesMesh(gl, data);
+}
+
 /**
  * The dish wall: an inner and an outer cylinder and the flat rim between
- * them. Positions are relative to the dish's centre on the bench.
+ * them. Positions are relative to the dish's centre on the bench. A well's
+ * wall is the same, smaller, with no rim of its own: the deck is its rim.
  */
-function wallMesh(gl) {
-  const inner = DISH.radius;
-  const outer = OUTER_RADIUS;
+function wallMesh(gl, inner = DISH.radius, outer = OUTER_RADIUS, rim = true) {
   const top = DISH.wallHeight;
   const data = [];
   const quad = (a, b, c, d, n) => {
@@ -137,36 +243,17 @@ function wallMesh(gl) {
       at(inner, t0, top),
       radial(-1),
     );
-    quad(
-      at(inner, t0, top),
-      at(inner, t1, top),
-      at(outer, t1, top),
-      at(outer, t0, top),
-      () => [0, 1, 0],
-    );
+    if (rim) {
+      quad(
+        at(inner, t0, top),
+        at(inner, t1, top),
+        at(outer, t1, top),
+        at(outer, t0, top),
+        () => [0, 1, 0],
+      );
+    }
   }
-  const array = new Float32Array(data);
-  const vao = gl.createVertexArray();
-  gl.bindVertexArray(vao);
-  const vbo = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-  gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(0);
-  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
-  gl.enableVertexAttribArray(1);
-  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
-  gl.bindVertexArray(null);
-  const count = array.length / 6;
-  return {
-    draw() {
-      gl.bindVertexArray(vao);
-      gl.drawArrays(gl.TRIANGLES, 0, count);
-    },
-    dispose() {
-      gl.deleteVertexArray(vao);
-      gl.deleteBuffer(vbo);
-    },
-  };
+  return trianglesMesh(gl, data);
 }
 
 /**
@@ -240,6 +327,23 @@ export function createRenderer(gl, sim) {
   const far = gridMesh(gl, MESH_FAR);
   const wall = wallMesh(gl);
   const slab = slabMesh(gl);
+  const divider = boxMesh(
+    gl,
+    DIVIDER,
+    Math.sqrt(DISH.radius ** 2 - DIVIDER ** 2),
+    FLOOR_Y,
+    DISH.wallHeight,
+  );
+  const well = wallMesh(gl, WELL_RADIUS, WELL_RADIUS + 0.9, false);
+  const block = boxMesh(
+    gl,
+    BLOCK.halfW,
+    BLOCK.halfD,
+    0,
+    DISH.wallHeight,
+    'sides',
+  );
+  const deck = deckMesh(gl, BLOCK.halfW, BLOCK.halfD, DISH.wallHeight);
 
   /** The display textures for one plate. Half floats: these are for the
    *  eye, and the hardware will interpolate them. */
@@ -298,6 +402,7 @@ export function createRenderer(gl, sim) {
       uC0: plate.agar.C0,
       uC1: plate.agar.C1,
       uC2: plate.agar.C2,
+      uC3: plate.agar.C3,
       uR0: plate.reagents.R0,
       uR1: plate.reagents.R1,
       uR2: plate.reagents.R2,
@@ -353,9 +458,12 @@ export function createRenderer(gl, sim) {
 
     const dishes = new Float32Array(32);
     scene.dishes.slice(0, 8).forEach((dish, i) => {
+      // The bench's shading is round; a block is shaded as the circle
+      // that fits inside it lengthways.
+      const { halfW, halfD } = footprint(dish.vessel);
       dishes[i * 4] = dish.centre[0];
       dishes[i * 4 + 1] = dish.centre[1];
-      dishes[i * 4 + 2] = OUTER_RADIUS;
+      dishes[i * 4 + 2] = (halfW + halfD) / 2;
       dishes[i * 4 + 3] = DISH.wallHeight;
     });
     const shared = {
@@ -394,6 +502,7 @@ export function createRenderer(gl, sim) {
         uShade: dish.display.shade,
       });
       programs.surface.set({
+        ...vesselUniforms(dish.vessel),
         uCentre: [dish.centre[0], 0, dish.centre[1]],
         uDetail: dish.close ? 1 : 0,
       });
@@ -407,7 +516,17 @@ export function createRenderer(gl, sim) {
       if (!dish.display) continue;
       programs.slab.textures({ uAgar: dish.display.agar });
       programs.slab.set({ uCentre: [dish.centre[0], 0, dish.centre[1]] });
-      slab.draw();
+      if (dish.vessel === 'wells') {
+        programs.slab.set({ uRadius: WELL_RADIUS });
+        for (const offset of WELLS) {
+          programs.slab.set({ uOffset: offset });
+          slab.draw();
+        }
+        programs.slab.set({ uRadius: DISH.radius });
+      } else {
+        programs.slab.set({ uOffset: [0, 0] });
+        slab.draw();
+      }
     }
 
     // The walls are clear, so they go last, furthest first, back faces
@@ -432,12 +551,38 @@ export function createRenderer(gl, sim) {
     gl.enable(gl.CULL_FACE);
     programs.glass.use();
     programs.glass.set(shared);
-    for (const { dish } of byDistance) {
-      programs.glass.set({ uCentre: [dish.centre[0], 0, dish.centre[1]] });
+    programs.glass.set({ uRadius: DISH.radius, uHoled: 0, uRimScatter: 1 });
+    const both = (mesh) => {
       gl.cullFace(gl.FRONT);
-      wall.draw();
+      mesh.draw();
       gl.cullFace(gl.BACK);
-      wall.draw();
+      mesh.draw();
+    };
+    for (const { dish } of byDistance) {
+      const [x, z] = dish.centre;
+      programs.glass.set({
+        ...vesselUniforms(dish.vessel),
+        uCentre: [x, 0, z],
+      });
+      if (dish.vessel === 'wells') {
+        // The block: its sides, a wall round each well, and the deck over
+        // them all, open where the wells are.
+        both(block);
+        for (const [wx, wy] of WELLS) {
+          programs.glass.set({ uCentre: [x + wx, 0, z - wy] });
+          both(well);
+        }
+        programs.glass.set({
+          uCentre: [x, 0, z],
+          uHoled: 1,
+          uRimScatter: 0.35,
+        });
+        both(deck);
+        programs.glass.set({ uHoled: 0, uRimScatter: 1 });
+        continue;
+      }
+      both(wall);
+      if (dish.vessel === 'split') both(divider);
     }
     gl.depthMask(true);
     gl.disable(gl.CULL_FACE);
@@ -451,6 +596,10 @@ export function createRenderer(gl, sim) {
     far.dispose();
     wall.dispose();
     slab.dispose();
+    divider.dispose();
+    well.dispose();
+    block.dispose();
+    deck.dispose();
   }
 
   return { createDisplay, disposeDisplay, compose, draw, dispose };

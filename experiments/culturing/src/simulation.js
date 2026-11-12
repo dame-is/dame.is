@@ -20,11 +20,13 @@ import {
   FULLSCREEN_VERTEX,
 } from './gl.js';
 import { createGrid, DISH } from './units.js';
+import { vesselUniforms } from './vessels.js';
 import { CULTURE_FRAGMENT } from './shaders/culture.js';
 import { AGAR_FRAGMENT } from './shaders/agar.js';
 import { REAGENT_FRAGMENT } from './shaders/reagents.js';
 import { WRINKLE_A_FRAGMENT, WRINKLE_B_FRAGMENT } from './shaders/wrinkle.js';
 import {
+  POUR_AGAR_FRAGMENT,
   POUR_SURFACE_FRAGMENT,
   STAMP_AGAR_FRAGMENT,
   STAMP_REAGENT_FRAGMENT,
@@ -38,7 +40,6 @@ const WRINKLE_DT = 0.06;
 const WRINKLE_SUBSTEPS = 2;
 
 const ZERO = [0, 0, 0, 0];
-const ONES = [1, 1, 1, 1];
 
 export function createSimulation(gl, caps, size) {
   const grid = createGrid(size);
@@ -90,6 +91,12 @@ export function createSimulation(gl, caps, size) {
       POUR_SURFACE_FRAGMENT,
       'pourSurface',
     ),
+    pourAgar: createProgram(
+      gl,
+      FULLSCREEN_VERTEX,
+      POUR_AGAR_FRAGMENT,
+      'pourAgar',
+    ),
   };
 
   // Every pass reads state texel by texel. The one place it is wanted
@@ -112,7 +119,8 @@ export function createSimulation(gl, caps, size) {
     const C0 = stateTexture(NC);
     const C1 = stateTexture(NC);
     const C2 = stateTexture(NC);
-    return { C0, C1, C2, target: createTarget(gl, [C0, C1, C2]) };
+    const C3 = stateTexture(NC);
+    return { C0, C1, C2, C3, target: createTarget(gl, [C0, C1, C2, C3]) };
   }
   function createReagents() {
     const R0 = stateTexture(NC);
@@ -227,6 +235,8 @@ export function createSimulation(gl, caps, size) {
       uAdd1: stamp.add1 || ZERO,
       uClear2: stamp.clear2 || ZERO,
       uAdd2: stamp.add2 || ZERO,
+      uClear3: stamp.clear3 || ZERO,
+      uAdd3: stamp.add3 || ZERO,
     };
   }
 
@@ -238,6 +248,7 @@ export function createSimulation(gl, caps, size) {
       uC0: plate.agar.C0,
       uC1: plate.agar.C1,
       uC2: plate.agar.C2,
+      uC3: plate.agar.C3,
       uMask: plate.surface.AUX,
     });
     program.set(chemStamp(stamp));
@@ -278,32 +289,36 @@ export function createSimulation(gl, caps, size) {
 
   /**
    * Pour a plate: fresh agar to the wall, nothing growing, the clock at
-   * zero. `medium` is `{ nutrient, ph }` in the libraries' units; the seed
-   * decides where the gel is a little uneven.
+   * zero. `vessel` is a vessels.js id and `media` one `{ nutrient, ph }` per
+   * compartment, in the libraries' units; the seed decides where the gel is
+   * a little uneven.
    */
-  function pour(plate, medium, seed = 1) {
+  function pour(plate, { vessel = 'dish', media }, seed = 1) {
+    const shape = { ...vesselUniforms(vessel), uRadius: DISH.radius };
     begin(scratch.surface.target, N);
     programs.pourSurface.use();
     programs.pourSurface.set({
+      ...shape,
       uTexels: N,
       uSpan: grid.span,
-      uRadius: DISH.radius,
       uSeed: seed >>> 0,
     });
     fullscreen.draw();
     swap(plate, 'surface');
 
-    stampAgar(plate, {
-      from: [0, 0],
-      radius: DISH.radius + 2 * grid.dx,
-      feather: 0.001,
-      needsAgar: false,
-      clear0: ONES,
-      add0: [medium.nutrient, 0, 0, 0],
-      clear1: ONES,
-      add1: [medium.ph || 0, 0, medium.nutrient, 0],
-      clear2: ONES,
+    const each = (fn) =>
+      Array.from({ length: 6 }, (_, i) => fn(media[i] || media[0]));
+    begin(scratch.agar.target, NC);
+    programs.pourAgar.use();
+    programs.pourAgar.set({
+      ...shape,
+      uTexels: NC,
+      uSpan: grid.span,
+      uNutrient: each((m) => m.nutrient),
+      uPh: each((m) => m.ph || 0),
     });
+    fullscreen.draw();
+    swap(plate, 'agar');
     clearReagents(plate);
     clearWrinkle(plate);
     plate.steps = 0;
@@ -325,6 +340,7 @@ export function createSimulation(gl, caps, size) {
       uAux: plate.surface.AUX,
       uC0: plate.agar.C0,
       uC1: plate.agar.C1,
+      uC3: plate.agar.C3,
     });
     programs.culture.set(u);
     programs.culture.set({ ...clock, uChemSize: NC });
@@ -340,6 +356,7 @@ export function createSimulation(gl, caps, size) {
       uC0: plate.agar.C0,
       uC1: plate.agar.C1,
       uC2: plate.agar.C2,
+      uC3: plate.agar.C3,
     });
     programs.agar.set(u);
     fullscreen.draw();
