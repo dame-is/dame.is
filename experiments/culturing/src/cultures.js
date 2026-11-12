@@ -570,6 +570,11 @@ export const CULTURES = [
     surfactant: 3,
     taxis: { surfactant: 60 },
     swarmSpeed: 1.6,
+    // Even all round. Each swarm sets off from wherever the last one
+    // stopped, so anything uneven in one ring is handed on to the next, and
+    // a few rings out the terraces have broken up into blotches.
+    noise: 0.05,
+    patchy: 0.05,
     kin: 0.9,
     kinKill: 0.6,
     alkali: 0.12,
