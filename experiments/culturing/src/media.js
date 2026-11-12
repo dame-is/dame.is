@@ -141,7 +141,7 @@ export const MEDIA = [
   {
     id: 'congo',
     name: 'Congo red',
-    after: 'Congo red and Coomassie biofilm plates',
+    after: 'Congo red biofilm plates',
     blurb:
       'A brick-orange plate whose dye sticks to biofilm matrix. Films that build one come up red and every fold shows.',
     notes: [
@@ -157,6 +157,22 @@ export const MEDIA = [
     nutrient: 0.8,
     agar: 1.0,
     look: { color: '#c7714c', opacity: 0.24, dye: '#a3121f' },
+  },
+  {
+    id: 'morphology',
+    name: 'Morphology agar',
+    after: 'Congo red and Coomassie blue colony-morphology plates',
+    blurb:
+      'The same dye with a blue one beside it, in a softer, leaner gel. What takes them up comes out violet, and a film spreads wide enough on it to show everything it does.',
+    notes: [
+      {
+        text: 'Colony biofilms are grown for days on 1 % tryptone and 1 % agar carrying both dyes, and photographed as they wrinkle: the standard assay for what a mutation does to a colony’s shape.',
+        href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3624522',
+      },
+    ],
+    nutrient: 0.7,
+    agar: 0.9,
+    look: { color: '#7e6a8c', opacity: 0.26, dye: '#7a2a9e' },
   },
   {
     id: 'potato',

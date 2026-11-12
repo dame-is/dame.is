@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   Pause,
   Play,
+  Rewind,
   RotateCcw,
   ZoomIn,
   ZoomOut,
@@ -132,7 +133,9 @@ function Caption({ snap, compact }) {
   ];
   const stopped = compact ? 'stopped' : 'incubator stopped';
   let age = formatHours(plate.hours);
-  if (plate.catching) {
+  if (plate.replaying) {
+    age = `${compact ? 'replaying' : 'replaying from the pour'}, ${formatHours(plate.hours)} of ${formatHours(plate.goal)}`;
+  } else if (plate.catching) {
     age = `${compact ? 're-growing' : 're-growing from its recipe'}, ${formatHours(plate.hours)} of ${formatHours(plate.goal)}`;
     if (plate.waiting) age = `${age}, ${stopped}`;
   } else if (plate.held) {
@@ -246,6 +249,34 @@ function ViewTools({ bench, inPlate, compact }) {
   );
 }
 
+/**
+ * Watch the plate in hand grow again from the pour (bench.js replay). While
+ * it does, the same button goes straight to the end.
+ */
+function Replay({ bench, snap, compact }) {
+  const plate = snap.dishes[snap.selected];
+  if (snap.mode !== 'plate' || !plate) return null;
+  const hint = plate.replaying
+    ? 'Skip to the end of the replay'
+    : 'Watch this plate grow again from the start';
+  return (
+    <Button
+      size="sm"
+      variant={compact ? 'icon' : undefined}
+      on={plate.replaying}
+      className="cult-replay"
+      aria-pressed={plate.replaying}
+      aria-label={hint}
+      title={hint}
+      disabled={!plate.replaying && !plate.events.length}
+      onClick={() => bench.replay(snap.selected)}
+    >
+      <Rewind size={14} aria-hidden="true" />
+      {!compact && (plate.replaying ? 'Replaying' : 'Replay')}
+    </Button>
+  );
+}
+
 /** The shutter. On a phone it is a square on the picture it takes. */
 function Photograph({ inPlate, compact, onClick }) {
   return (
@@ -323,6 +354,8 @@ function Randomize({ bench, snap, compact }) {
 export default function Workbench() {
   const stageRef = useRef(null);
   const labelsRef = useRef([]);
+  const centreRef = useRef(null);
+  const selectedRef = useRef(0);
   const incoming = useIncomingPlate();
   const reduceMotion = usePrefersReducedMotion();
   const compact = useCompact();
@@ -335,9 +368,11 @@ export default function Workbench() {
     () => (bench ? bench.getSnapshot() : null),
   );
 
-  // The numbers under the dishes follow the camera. They are moved by
-  // hand, a style at a time, so sixty redraws a second don't go through
-  // React.
+  selectedRef.current = snap?.selected ?? 0;
+
+  // The numbers under the dishes follow the camera, and so does the mark
+  // on the middle of the plate in hand. They are moved by hand, a style at
+  // a time, so sixty redraws a second don't go through React.
   useEffect(() => {
     if (!bench) return undefined;
     return bench.onFrame((places) => {
@@ -350,6 +385,10 @@ export default function Workbench() {
           el.style.transform = `translate(${p.x.toFixed(1)}px, ${Math.min(p.y, floor).toFixed(1)}px) translate(-50%, 0.5em)`;
         }
       });
+      const middle = places[selectedRef.current];
+      if (centreRef.current && middle) {
+        centreRef.current.style.transform = `translate(${middle.x.toFixed(1)}px, ${middle.cy.toFixed(1)}px) translate(-50%, -50%)`;
+      }
     });
   }, [bench]);
 
@@ -403,14 +442,27 @@ export default function Workbench() {
                       }}
                     >
                       {i + 1}
-                      {dish.catching
-                        ? ' · re-growing'
-                        : dish.held
-                          ? ' · fridge'
-                          : ''}
+                      {dish.replaying
+                        ? ' · replaying'
+                        : dish.catching
+                          ? ' · re-growing'
+                          : dish.held
+                            ? ' · fridge'
+                            : ''}
                     </li>
                   ))}
                 </ol>
+              )}
+              {/* The middle of the plate in hand, while something is held
+                  over it: where "in the middle" is, to aim at or away from.
+                  Always there and moved with the camera; shown only then
+                  (culturing.css). */}
+              {snap && (
+                <span
+                  className="cult-centre"
+                  ref={centreRef}
+                  aria-hidden="true"
+                />
               )}
               {/* On a phone the camera's controls and its shutter sit on the
                   picture, where a map keeps its own, and leave the bar a
@@ -422,6 +474,7 @@ export default function Workbench() {
                   aria-label="View"
                 >
                   <ViewTools bench={bench} inPlate={inPlate} compact />
+                  <Replay bench={bench} snap={snap} compact />
                   <Photograph inPlate={inPlate} compact onClick={takePhoto} />
                 </div>
               )}
@@ -479,6 +532,7 @@ export default function Workbench() {
                   onChange={bench.setSpeed}
                   compact={compact}
                 />
+                {!compact && <Replay bench={bench} snap={snap} />}
               </div>
               <div className="cult-bar-group">
                 <Pick

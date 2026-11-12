@@ -9,7 +9,7 @@
 import { detectCapabilities } from './gl.js';
 import { createSimulation } from './simulation.js';
 import { createRenderer, GEL_Y, OUTER_RADIUS } from './renderer.js';
-import { DISH, hexToLinear } from './units.js';
+import { DETAILS, DISH, gridSize, hexToLinear } from './units.js';
 import {
   benchLayout,
   fitDistance,
@@ -24,8 +24,10 @@ import {
   behind,
   draw as drawPart,
   record,
+  replayOf,
   setEnv as setLiveEnv,
   settle,
+  tickReplay,
 } from './incubate.js';
 import {
   cleanDish,
@@ -39,7 +41,15 @@ import { OPENING_BENCH, RECIPES, recipeById } from './recipes.js';
 import { cultureById } from './cultures.js';
 import { additionById } from './additions.js';
 import { randomDish } from './chance.js';
-import { FULL } from './tools.js';
+import {
+  DEFAULT_DROP,
+  DROPS,
+  dropRadius,
+  FULL,
+  SPOT_RADIUS,
+  unmixed,
+  wetDropsUnder,
+} from './tools.js';
 import { SLOTS } from './pack.js';
 
 export const STORAGE_KEY = 'dame.culturing.bench';
@@ -79,6 +89,8 @@ const DEFAULT_VIEW = {
   stretch: 3,
   lampAz: 215,
   lampEl: 36,
+  drop: DEFAULT_DROP,
+  detail: 'standard',
 };
 
 /** The bench top: matte black, like the epoxy of a real one. */
@@ -98,18 +110,14 @@ const STROKE_SPACING = 0.7;
 /** The most simulation steps one frame may spend, across every plate. */
 const MAX_BUDGET = 40;
 
-/**
- * The grid a device gets. A phone grows its plates at 256 texels across,
- * which is a sixth of the work per incubator hour of 384 and looks nearly
- * the same on a small screen.
- */
-function pickSize() {
+/** Whether this is a device to go easy on: a phone, or little memory. */
+function modestDevice() {
   const coarse =
     typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const small =
     Math.min(window.screen?.width || 1e4, window.screen?.height || 1e4) < 720;
   const lowMemory = (navigator.deviceMemory || 8) <= 4;
-  return coarse || small || lowMemory ? 256 : 384;
+  return coarse || small || lowMemory;
 }
 
 function dishFromRecipe(id) {
@@ -178,19 +186,38 @@ export function createBench(canvas, options = {}) {
   const caps = detectCapabilities(gl);
   if (!caps.ok) return { error: 'float' };
 
+  const saved = loadSaved();
+  const modest = modestDevice();
+  const known = (detail) => DETAILS.some((d) => d.value === detail);
+
   let sim;
   let renderer;
-  try {
-    sim = createSimulation(gl, caps, pickSize());
+  /** The simulation and what draws it, at a level of detail. */
+  function build(detail) {
+    sim = createSimulation(gl, caps, gridSize(detail, modest));
     renderer = createRenderer(gl, sim);
+  }
+  let startDetail = known(saved?.detail) ? saved.detail : DEFAULT_VIEW.detail;
+  try {
+    build(startDetail);
   } catch (err) {
-    console.error('[culturing] could not start', err);
-    return { error: 'shader' };
+    // The finer grid asks more of a device than the standard one, and it
+    // was this device that was asked for it: try once more without.
+    if (startDetail === DEFAULT_VIEW.detail) {
+      console.error('[culturing] could not start', err);
+      return { error: 'shader' };
+    }
+    startDetail = DEFAULT_VIEW.detail;
+    try {
+      build(startDetail);
+    } catch (again) {
+      console.error('[culturing] could not start', again);
+      return { error: 'shader' };
+    }
   }
 
   // ------------------------------------------------------------ state
 
-  const saved = loadSaved();
   const view = {
     ...DEFAULT_VIEW,
     ...(saved
@@ -207,8 +234,12 @@ export function createBench(canvas, options = {}) {
           lampEl: Number.isFinite(saved.lampEl)
             ? saved.lampEl
             : DEFAULT_VIEW.lampEl,
+          drop: DROPS.some((d) => d.value === saved.drop)
+            ? saved.drop
+            : DEFAULT_VIEW.drop,
         }
       : null),
+    detail: startDetail,
   };
   let entries = [];
   let selected = saved
@@ -240,13 +271,21 @@ export function createBench(canvas, options = {}) {
       waiting: false,
       // Something on it was done by hand, and would be lost with it.
       touched,
+      // Being watched again from the pour (incubate.js replayOf), or null.
+      replay: null,
     };
   }
 
   function restart(entry) {
+    // A replay cut short by something else being done to the plate: the
+    // plate goes back to being as old as it was.
+    if (entry.replay) {
+      entry.dish.hours = Math.max(entry.dish.hours, entry.replay.goal);
+    }
     entry.live = begin(sim, entry.plate, entry.dish);
     entry.owed = entry.dish.hours;
     entry.waiting = false;
+    entry.replay = null;
     lightDirty = true;
   }
 
@@ -361,21 +400,25 @@ export function createBench(canvas, options = {}) {
       stretch: view.stretch,
       lampAz: view.lampAz,
       lampEl: view.lampEl,
+      drop: view.drop,
+      detail: view.detail,
       tool,
       notice,
       lost,
       size: sim.grid.size,
       canAdd: entries.length < MAX_DISHES,
       canRemove: entries.length > 1,
-      dishes: entries.map(({ dish, live, waiting, touched }) => ({
+      dishes: entries.map(({ dish, live, waiting, touched, replay }) => ({
         medium: dish.medium,
         agar: live.medium.agar,
         nutrient: live.medium.nutrient,
         env: live.env,
         hours: live.plate.hours,
-        goal: dish.hours,
+        goal: replay ? replay.goal : dish.hours,
+        // Being watched again from the pour.
+        replaying: Boolean(replay),
         // Re-growing from its recipe, not being watched.
-        catching: behind(live) > Math.max(1.5, view.speed),
+        catching: !replay && behind(live) > Math.max(1.5, view.speed),
         // Stopped before it got back there.
         waiting,
         held: dish.held,
@@ -423,13 +466,21 @@ export function createBench(canvas, options = {}) {
           stretch: view.stretch,
           lampAz: view.lampAz,
           lampEl: view.lampEl,
-          dishes: entries.map(({ dish }) => packDish(dish)),
+          detail: view.detail,
+          drop: view.drop,
+          dishes: entries.map((entry) => packDish(asRecorded(entry))),
         }),
       );
     } catch {
       // Private mode, or full: the bench just isn't remembered.
     }
   }
+  /** A plate's record at its true age: a replay in progress winds the
+   *  clock back, and that is not something to write down or send. */
+  function asRecorded({ dish, replay }) {
+    return replay ? { ...dish, hours: replay.goal } : dish;
+  }
+
   function scheduleSave() {
     if (!saveTimer) saveTimer = setTimeout(save, 1200);
   }
@@ -488,9 +539,19 @@ export function createBench(canvas, options = {}) {
     // that is behind its recipe (just restored) is left to catch up.
     const lead = Math.max(0.3, view.speed * 0.6);
     if (playing) {
-      for (const { dish, live } of entries) {
-        if (dish.held || behind(live) > lead) continue;
+      for (const { dish, live, replay } of entries) {
+        if (replay || dish.held || behind(live) > lead) continue;
         dish.hours = Math.min(MAX_HOURS, dish.hours + seconds * view.speed);
+      }
+    }
+    // A plate being replayed keeps its own time, incubator or no incubator,
+    // until it is back at the hour it stood at.
+    for (const entry of entries) {
+      if (!entry.replay) continue;
+      if (tickReplay(entry.live, entry.replay, seconds)) {
+        entry.replay = null;
+        entry.waiting = false;
+        emit();
       }
     }
 
@@ -503,7 +564,7 @@ export function createBench(canvas, options = {}) {
     queue.forEach((index, place) => {
       if (left <= 0) return;
       const entry = entries[index];
-      if (entry.waiting) return;
+      if (entry.waiting && !entry.replay) return;
       const share = place === 0 ? Math.ceil(left * 0.7) : Math.ceil(left / 2);
       left -= advance(sim, entry.live, Math.max(1, Math.min(left, share)));
     });
@@ -642,6 +703,42 @@ export function createBench(canvas, options = {}) {
     else stroke.segments = result.segments;
   }
 
+  /** A drop of a culture, the size the hand is set to leave. */
+  function dropOf(cultureId, x, y, seed = (Math.random() * 1e6) | 0) {
+    const event = { do: 'spot', culture: cultureId, seed, x, y };
+    const radius = dropRadius(view.drop);
+    if (radius !== SPOT_RADIUS) event.size = radius;
+    return event;
+  }
+
+  /**
+   * Put a drop on a plate. One that lands in another culture's drop while
+   * that is still wet mixes with it (tools.js): both are written down as
+   * one mixed drop, and since the first was put down whole, the plate is
+   * grown again from its record, which is the work of a moment that early.
+   * Returns the reason if it was refused.
+   */
+  function putDrop(entry, event) {
+    const { dish, live } = entry;
+    const at = Math.floor(live.plate.hours * 1000) / 1000;
+    const under = wetDropsUnder(dish.events.slice(0, live.cursor), {
+      ...event,
+      at,
+    });
+    if (!under.length) return act(sim, live, event);
+    if (!live.slots.includes(event.culture) && live.slots.length >= SLOTS) {
+      return FULL;
+    }
+    const whole = under.filter((i) => !dish.events[i].mixed);
+    if (!whole.length) return act(sim, live, { ...event, mixed: true });
+    for (const i of whole) dish.events[i] = { ...dish.events[i], mixed: true };
+    dish.events.splice(live.cursor, 0, { ...event, mixed: true, at });
+    dish.hours = Math.max(dish.hours, live.plate.hours);
+    restart(entry);
+    dirty = true;
+    return null;
+  }
+
   function endStroke(stroke, mm) {
     const { entry, event } = stroke;
     if (event.path.length > 1) {
@@ -652,11 +749,10 @@ export function createBench(canvas, options = {}) {
     }
     // Never dragged: a single touch of the loop, or something set down.
     const [x, y] = stroke.draws ? event.path[0] : mm;
-    const single =
+    const refused =
       event.do === 'streak'
-        ? { do: 'spot', culture: event.culture, seed: event.seed, x, y }
-        : { do: 'add', addition: event.addition, x, y };
-    const refused = act(sim, entry.live, single);
+        ? putDrop(entry, dropOf(event.culture, x, y, event.seed))
+        : act(sim, entry.live, { do: 'add', addition: event.addition, x, y });
     if (refused) say(refused);
     else entry.touched = true;
     emit();
@@ -945,12 +1041,16 @@ export function createBench(canvas, options = {}) {
   function arm(next) {
     tool =
       next && (cultureById(next.id) || additionById(next.id)) ? next : null;
+    // The page marks the middle of the plate while something is in hand,
+    // and is told where that is with each drawing.
+    dirty = true;
     if (tool && mode !== 'plate') enter(selected);
     else emit();
   }
 
   /** Put a different plate where one was. Nothing on it is by hand yet. */
   function swap(entry, dish) {
+    entry.replay = null;
     entry.dish = dish;
     entry.touched = false;
     restart(entry);
@@ -1017,15 +1117,51 @@ export function createBench(canvas, options = {}) {
   function spot(index, cultureId, x, y) {
     const entry = entries[index];
     if (!entry || !cultureById(cultureId)) return;
-    const refused = act(sim, entry.live, {
-      do: 'spot',
-      culture: cultureId,
-      x,
-      y,
-      seed: (Math.random() * 1e6) | 0,
-    });
+    const refused = putDrop(entry, dropOf(cultureId, x, y));
     if (refused) say(refused);
     else entry.touched = true;
+    emit();
+  }
+
+  /**
+   * Work every plate out on a finer or a coarser grid (units.js gridSize).
+   * The grid is what a plate's state is kept on, so there is nothing to
+   * convert: the old plates are let go and every one is grown again from
+   * its record. If the device can't hold the finer grid, it goes back to
+   * the one it had and says so.
+   */
+  function setDetail(value) {
+    if (!known(value) || value === view.detail) return;
+    const kept = entries.map((entry) => ({
+      dish: asRecorded(entry),
+      touched: entry.touched,
+    }));
+    for (const entry of entries) {
+      sim.disposePlate(entry.plate);
+      renderer.disposeDisplay(entry.display);
+    }
+    renderer.dispose();
+    sim.dispose();
+    gesture = null;
+    try {
+      build(value);
+      view.detail = value;
+    } catch (err) {
+      console.error('[culturing] could not change the grid', err);
+      build(view.detail);
+      say('This device couldn’t take the finer grid.');
+    }
+    entries = kept.map(({ dish, touched }) => makeEntry(dish, touched));
+    relayout();
+    lightDirty = true;
+    dirty = true;
+    emit();
+  }
+
+  /** How big a drop the hand leaves from now on (tools.js DROPS). */
+  function setDrop(value) {
+    if (!DROPS.some((d) => d.value === value)) return;
+    view.drop = value;
     emit();
   }
 
@@ -1046,10 +1182,42 @@ export function createBench(canvas, options = {}) {
     // The last thing that has actually happened, not one still to come.
     const at = Math.max(0, live.cursor - 1);
     dish.events.splice(at, 1);
+    // What it was mixed with, if anything, is a drop of its own again.
+    dish.events = unmixed(dish.events);
     dish.hours = Math.max(dish.hours, live.plate.hours);
     delete dish.recipe;
     restart(entry);
     entry.touched = workedOn(dish);
+    dirty = true;
+    emit();
+  }
+
+  /**
+   * Watch a plate grow again from the pour to the hour it stands at, in
+   * about twelve seconds whatever its age. Nothing in its record changes:
+   * it is the same recipe grown once more, at a pace that can be followed.
+   * Asked again while it is replaying, it goes straight to the end.
+   */
+  function replay(index) {
+    const entry = entries[index];
+    if (!entry) return;
+    if (entry.replay) {
+      entry.dish.hours = entry.replay.goal;
+      entry.replay = null;
+      entry.waiting = false;
+      emit();
+      return;
+    }
+    const goal = Math.max(entry.dish.hours, entry.live.plate.hours);
+    if (!entry.dish.events.length || goal < 1) {
+      say('Nothing has grown on this plate yet.');
+      return;
+    }
+    entry.dish.hours = 0;
+    restart(entry);
+    // Stopping the incubator part-way never leaves it short of where it was.
+    entry.owed = goal;
+    entry.replay = replayOf(goal);
     dirty = true;
     emit();
   }
@@ -1100,7 +1268,8 @@ export function createBench(canvas, options = {}) {
     selected = 0;
     mode = 'bench';
     tool = null;
-    Object.assign(view, DEFAULT_VIEW);
+    // Everything about the view but the grid, which is the plates' own.
+    Object.assign(view, DEFAULT_VIEW, { detail: view.detail });
     lightDirty = true;
     relayout();
     dirty = true;
@@ -1142,7 +1311,7 @@ export function createBench(canvas, options = {}) {
     const url = new URL(window.location.href);
     url.search = '';
     url.hash = '';
-    url.searchParams.set('plate', encodeDish(entry.dish));
+    url.searchParams.set('plate', encodeDish(asRecorded(entry)));
     return url.toString();
   }
 
@@ -1216,8 +1385,11 @@ export function createBench(canvas, options = {}) {
     setHeld,
     spread,
     spot,
+    setDrop,
+    setDetail,
     put,
     undo,
+    replay,
     addDish,
     removeDish,
     randomize,

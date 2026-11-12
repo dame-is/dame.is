@@ -15,7 +15,7 @@
 // dish 86 mm across. The renderer stretches the vertical, as a raking light
 // does in a photograph, and says by how much.
 
-import { HEADER, STENCIL } from './common.js';
+import { HEADER, HASH, LATTICE, STENCIL } from './common.js';
 
 export const COMPOSE_FRAGMENT = `${HEADER}
 uniform sampler2D uB;
@@ -43,10 +43,16 @@ uniform vec4 uHeightD;   // mm of biofilm at density 1
 uniform vec4 uHeightB;   // mm of motile layer at density 1
 uniform vec4 uWrHeight;  // mm, ridge crest above the film
 uniform vec4 uWrSport;
+uniform vec4 uWrCoarsen; // as the wrinkle pass has them: a fold's width with age
+uniform vec4 uWrAgeing;
+uniform vec4 uCrest;     // how much paler a fold's crest is than its floor
 uniform vec4 uGloss;
 uniform vec4 uRough;
 uniform vec4 uFuzz;
 uniform vec4 uFuzzLate;
+uniform vec4 uTufts;     // how far ripe growth stands up in tufts
+uniform float uMmPerTexel;
+uniform uint uSeed;
 uniform vec4 uSheen;
 uniform vec4 uStain;
 uniform vec4 uFluorR;
@@ -75,12 +81,14 @@ uniform float uDye;
 uniform vec3 uAgarFluor;   // the gel's own glow under ultraviolet
 uniform vec3 uHaloFluor;   // the glow of whatever pigment has left the colony
 
-layout(location = 0) out vec4 oRelief; // height mm, coverage, gloss, roughness
+layout(location = 0) out vec4 oRelief; // height mm, optical depth, gloss, roughness
 layout(location = 1) out vec4 oColony; // colour, fuzz
 layout(location = 2) out vec4 oAgar;   // colour, opacity (0 = no gel here)
 layout(location = 3) out vec4 oGlow;   // light given off, sheen
 
 ${STENCIL}
+${HASH}
+${LATTICE}
 
 // The agar textures are half this resolution; read between their texels.
 vec4 agarAt(sampler2D t, vec2 xy) {
@@ -97,6 +105,31 @@ vec4 agarAt(sampler2D t, vec2 xy) {
   );
 }
 
+// The same, through a cubic B-spline over sixteen texels. For what is
+// about to be given a hard edge (a paper disc): read between texels with
+// straight lines, a disc four texels across comes out an octagon.
+vec4 agarSmoothAt(sampler2D t, vec2 xy) {
+  vec2 c = xy * 0.5 - 0.5;
+  vec2 f = fract(c);
+  ivec2 i = ivec2(floor(c));
+  ivec2 hi = ivec2(int(uChemSize) - 1);
+  vec2 f2 = f * f;
+  vec2 f3 = f2 * f;
+  vec2 w[4];
+  w[0] = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+  w[1] = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+  w[2] = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+  w[3] = f3 / 6.0;
+  vec4 sum = vec4(0.0);
+  for (int y = 0; y < 4; y++) {
+    for (int x = 0; x < 4; x++) {
+      ivec2 q = clamp(i + ivec2(x - 1, y - 1), ivec2(0), hi);
+      sum += w[x].x * w[y].y * texelFetch(t, q, 0);
+    }
+  }
+  return sum;
+}
+
 vec3 pick(vec4 w, vec4 r, vec4 g, vec4 b) {
   return vec3(dot(w, r), dot(w, g), dot(w, b));
 }
@@ -105,21 +138,24 @@ void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
   vec4 aux = texelFetch(uAux, p, 0);
   if (aux.a < 0.5) {
-    // No gel: outside the dish, or cut away down to the plastic.
+    // No gel: outside the dish, or cut away down to the plastic. It keeps
+    // the medium's colour with no opacity, so that the gel beside a cut
+    // isn't darkened by being read together with nothing.
     oRelief = vec4(0.0);
     oColony = vec4(0.0);
-    oAgar = vec4(0.0);
+    oAgar = vec4(uAgarColor, 0.0);
     oGlow = vec4(0.0);
     return;
   }
 
   vec4 b = texelFetch(uB, p, 0);
   vec4 d = texelFetch(uD, p, 0);
-  float wr = texelFetch(uWr, p, 0).r;
+  vec4 wrinkle = texelFetch(uWr, p, 0);
+  float wr = wrinkle.r;
   vec2 xy = gl_FragCoord.xy;
   vec4 c0 = agarAt(uC0, xy);
   vec4 c1 = agarAt(uC1, xy);
-  vec4 c2 = agarAt(uC2, xy);
+  vec4 c2 = agarSmoothAt(uC2, xy);
 
   vec4 mass = b + d;
   float rhoB = dot(b, ONE);
@@ -129,6 +165,31 @@ void main() {
   vec4 shareD = d / max(rhoD, 1e-6);
   float pig = aux.g;
   float sport = aux.b;
+  if (rho < 1e-5) {
+    // Bare gel beside a colony. Nothing here to have a colour, but the
+    // scene reads the colour between this texel and its neighbours, and
+    // nothing would read as black: a dark line round every colony. So it
+    // takes its neighbours' colour, and none of their substance.
+    float near = 0.0;
+    float nearPig = 0.0;
+    float nearSport = 0.0;
+    vec4 nearMass = vec4(0.0);
+    for (int j = 0; j < 8; j++) {
+      ivec2 q = p + OFF[j];
+      vec4 mj = texelFetch(uB, q, 0) + texelFetch(uD, q, 0);
+      float rj = dot(mj, ONE);
+      vec4 xj = texelFetch(uAux, q, 0);
+      nearMass += mj;
+      nearPig += rj * xj.g;
+      nearSport += rj * xj.b;
+      near += rj;
+    }
+    if (near > 1e-5) {
+      share = nearMass / near;
+      pig = nearPig / near;
+      sport = nearSport / near;
+    }
+  }
 
   // ---- Relief ---------------------------------------------------------
   float height = dot(d, uHeightD) + dot(b, uHeightB);
@@ -140,7 +201,29 @@ void main() {
   float crest = pow(max(v, 0.0), 1.5);
   float trough = max(-v, 0.0);
   float fold = dot(shareD, uWrHeight * mix(ONE, uWrSport, sport));
+  // A broad fold is a tall one: both follow the thickness of the film, which
+  // is why the old veins near the middle stand over the young ridges at the
+  // rim (see wrinkle.js for the width).
+  float old = 1.0 - exp(-wrinkle.g / max(dot(shareD, uWrAgeing), 1.0));
+  fold *= pow(1.0 + dot(shareD, uWrCoarsen) * old, 0.6);
+  float ridge = film * crest;
   height += film * fold * (crest - 0.12 * trough);
+
+  // ---- Tufts ----------------------------------------------------------
+  // A mould doesn't fruit evenly. Its spores come up in tufts on the felt,
+  // a millimetre or so across and nowhere in particular, so the colour is
+  // on them first and never quite fills in between. They are noise, not a
+  // pattern the plate grew: irregular is the whole of what they have to be.
+  float tufted = dot(share, uTufts) * smoothstep(0.03, 0.25, rhoD);
+  float tuft = 0.0;
+  if (tufted > 0.0) {
+    vec2 mm = gl_FragCoord.xy * uMmPerTexel;
+    float n = 0.6 * lattice(mm / 1.2, uSeed + 5u)
+      + 0.4 * lattice(mat2(0.8, -0.6, 0.6, 0.8) * mm / 0.55, uSeed + 11u);
+    tuft = smoothstep(-0.2, 0.7, n);
+    height += tufted * (0.05 + 0.2 * pig) * tuft;
+    pig = mix(pig, clamp(pig * (0.3 + 1.4 * tuft), 0.0, 1.0), tufted);
+  }
 
   // ---- Colony ---------------------------------------------------------
   vec3 young = pick(share, uYoungR, uYoungG, uYoungB);
@@ -149,21 +232,36 @@ void main() {
   vec3 colour = mix(young, mix(mature, sported, sport), pig);
   // A dye in the medium is taken up by the matrix: the film goes the
   // dye's colour, most where it is thickest.
+  // It pools between the folds and thins over them, so the floors come
+  // up saturated and the crests pale.
   float stained = dot(share, uStain) * uDye * smoothstep(0.05, 0.6, rhoD);
-  colour = mix(colour, colour * uDyeColor * 1.6, stained);
-  // The floors of the folds are older, wetter and a shade darker.
-  colour *= 1.0 - 0.18 * film * trough;
+  stained *= 1.0 - 0.45 * ridge + 0.25 * film * trough;
+  colour = mix(colour, colour * uDyeColor * 1.6, clamp(stained, 0.0, 1.0));
+  // The floors of the folds are older, wetter and a shade darker; the
+  // crests are where the film is thickest and driest, and scatter the most
+  // light back.
+  colour *= 1.0 - 0.22 * film * trough;
+  float pale = dot(share, uCrest) * ridge;
+  colour = mix(colour, mix(colour, vec3(0.97, 0.94, 0.9), 0.75), clamp(pale, 0.0, 1.0));
 
-  float coverage = 1.0 - exp(-dot(mass, uOpacity));
-  // A paper disc sits on top of whatever is there.
-  float paper = smoothstep(0.35, 0.65, c2.a);
-  colour = mix(colour, vec3(0.86, 0.84, 0.78), paper);
-  coverage = max(coverage, paper);
+  // How much stands between the eye and the gel, as an optical depth. The
+  // scene turns it into coverage after it has been magnified, not before:
+  // a colony's edge is where this crosses about one, and a smooth curve
+  // through that is an outline, where a blur of covered and uncovered
+  // texels is a staircase.
+  float depth = dot(mass, uOpacity);
+  // A paper disc sits on top of whatever is there, and where nothing is,
+  // it is all there is to see.
+  float paper = smoothstep(0.3, 0.7, c2.a);
+  float lid = paper / max(paper + (1.0 - paper) * (1.0 - exp(-depth)), 1e-3);
+  colour = mix(colour, vec3(0.86, 0.84, 0.78), lid);
+  depth = max(depth, 9.0 * paper);
+  float coverage = 1.0 - exp(-depth);
   height += 0.5 * paper;
   // A thin travelling layer is a film of liquid: it glistens.
   float wetFilm = clamp(rhoB * 5.0, 0.0, 1.0) * (1.0 - smoothstep(0.15, 0.5, rhoD));
-  float gloss = mix(mix(dot(share, uGloss), 0.92, wetFilm), 0.05, paper);
-  float rough = mix(mix(dot(share, uRough), 0.12, wetFilm), 0.9, paper);
+  float gloss = mix(mix(dot(share, uGloss), 0.92, wetFilm), 0.05, lid);
+  float rough = mix(mix(dot(share, uRough), 0.12, wetFilm), 0.9, lid);
   float fuzz = dot(share, uFuzz + uFuzzLate * pig) * smoothstep(0.03, 0.25, rhoD);
   float sheen = dot(share, uSheen) * pig * coverage;
 
@@ -196,7 +294,7 @@ void main() {
     light = pick(share * lit, uGlowR, uGlowG, uGlowB) * coverage * (0.25 + 0.75 * fed);
   }
 
-  oRelief = vec4(height, coverage, gloss, rough);
+  oRelief = vec4(height, min(depth, 16.0), gloss, rough);
   oColony = vec4(colour, fuzz);
   oAgar = vec4(gel, max(opacity, 0.02));
   oGlow = vec4(light, sheen);

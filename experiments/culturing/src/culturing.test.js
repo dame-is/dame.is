@@ -11,8 +11,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   createGrid,
+  DETAILS,
   DISH,
   dryingFactor,
+  gridSize,
   hexToAbsorbance,
   hexToLinear,
   temperatureFactor,
@@ -42,7 +44,19 @@ import {
   resolveMedium,
   slotsOf,
 } from './recipe.js';
-import { FULL, slotFor, stampsFor } from './tools.js';
+import {
+  CLUMP,
+  DEFAULT_DROP,
+  dropRadius,
+  DROPS,
+  FULL,
+  slotFor,
+  SPOT_RADIUS,
+  stampsFor,
+  unmixed,
+  WET_HOURS,
+  wetDropsUnder,
+} from './tools.js';
 import {
   act,
   advance,
@@ -50,8 +64,11 @@ import {
   behind,
   draw,
   record,
+  REPLAY_SECONDS,
+  replayOf,
   setEnv,
   settle,
+  tickReplay,
 } from './incubate.js';
 import { randomDish, suitedTo } from './chance.js';
 import {
@@ -93,6 +110,23 @@ describe('units', () => {
     for (const size of SIZES) {
       expect(createGrid(size).chemDiffusion(1.8)).toBeLessThan(0.25);
     }
+  });
+
+  it('works a plate out one size finer when asked, on any device', () => {
+    expect(DETAILS.map((d) => d.value)).toEqual(['standard', 'fine']);
+    for (const modest of [true, false]) {
+      const standard = gridSize('standard', modest);
+      const fine = gridSize('fine', modest);
+      expect(fine).toBeGreaterThan(standard);
+      // Sizes the packing is held to the schemes' limits on (SIZES below).
+      expect(SIZES).toContain(standard);
+      expect(SIZES).toContain(fine);
+      // Anything it doesn't know is the standard grid.
+      expect(gridSize('finest', modest)).toBe(standard);
+    }
+    expect(gridSize('standard', true)).toBeLessThan(
+      gridSize('standard', false),
+    );
   });
 
   it('grows nothing outside a culture’s temperatures and best at its optimum', () => {
@@ -158,7 +192,7 @@ describe('shaders are given every number they wait on', () => {
     ),
     // Set by the simulation itself for each step (simulation.js).
     ...['uB', 'uD', 'uAux', 'uC0', 'uC1', 'uC2', 'uWr', 'uWrA'],
-    ...['uHours', 'uStep', 'uChemSize', 'uWrDt'],
+    ...['uHours', 'uStep', 'uChemSize', 'uWrDt', 'uWrHours'],
   ]);
 
   it.each([
@@ -185,6 +219,7 @@ describe('shaders are given every number they wait on', () => {
         'uWr',
         'uChemSize',
         'uLightMode',
+        'uMmPerTexel',
       ],
     ]);
     expect(
@@ -339,6 +374,77 @@ describe('packing', () => {
     expect(flat(0.6)).toBeCloseTo(flat(1.5), 9);
   });
 
+  it('broadens a fold with age only for a culture that says so, and never narrows one', () => {
+    const grid = createGrid(384);
+    const pack = (id) =>
+      packPlate({
+        slots: [cultureById(id)],
+        medium: mediumById('congo'),
+        env: ENV,
+        grid,
+        seed: 1,
+      }).u;
+    // A plain colony has no folds to broaden.
+    expect(pack('crimson').uWrCoarsen[0]).toBe(0);
+    expect(pack('rosette').uWrCoarsen[0]).toBeGreaterThan(1);
+    for (const culture of CULTURES) {
+      const u = pack(culture.id);
+      expect(u.uWrCoarsen[0], culture.id).toBeGreaterThanOrEqual(0);
+      // Hours to divide by.
+      expect(u.uWrAgeing[0], culture.id).toBeGreaterThanOrEqual(1);
+      expect(u.uWrCore[0], culture.id).toBeGreaterThanOrEqual(0);
+      expect(u.uWrCore[0], culture.id).toBeLessThanOrEqual(1);
+      // An empty slot buckles like anything else would, and divides by one.
+      expect(u.uWrAgeing.slice(1)).toEqual([1, 1, 1]);
+      expect(u.uWrCore.slice(1)).toEqual([1, 1, 1]);
+    }
+    // Rosette keeps the drop it grew from flat.
+    expect(pack('rosette').uWrCore[0]).toBe(0);
+  });
+
+  it('gives a film that makes its matrix only in the cool nothing to fold in the warm', () => {
+    const grid = createGrid(384);
+    const drive = (id, temperature) =>
+      packPlate({
+        slots: [cultureById(id)],
+        medium: mediumById('broth'),
+        env: { ...ENV, temperature },
+        grid,
+        seed: 1,
+      }).u.uWrDrive[0];
+    // A laboratory E. coli: rings at 28 °C, a smooth colony at 37.
+    expect(drive('cyan-tag', 28)).toBeGreaterThan(0);
+    expect(drive('cyan-tag', 37)).toBe(0);
+    expect(drive('cyan-tag', 30)).toBeLessThan(drive('cyan-tag', 28));
+    // And across the way it grew, not along it.
+    expect(resolveCulture(cultureById('cyan-tag')).wrinkle.radial).toBeLessThan(
+      0,
+    );
+    // The twins fold alike, or they would not be twins.
+    expect(resolveCulture(cultureById('yellow-tag')).wrinkle).toEqual(
+      resolveCulture(cultureById('cyan-tag')).wrinkle,
+    );
+    // A culture that says nothing about temperature folds at any.
+    expect(drive('hay', 37)).toBe(drive('hay', 28));
+  });
+
+  it('lets no culture share its ground for nothing', () => {
+    const grid = createGrid(384);
+    for (const culture of CULTURES) {
+      const { u } = packPlate({
+        slots: [culture],
+        medium: mediumById('broth'),
+        env: ENV,
+        grid,
+        seed: 1,
+      });
+      // Two cultures in one patch each slow the other: it is what sorts a
+      // mixed drop into sectors, so none may opt out of it.
+      expect(u.uKin[0], culture.id).toBeGreaterThan(0);
+      expect(u.uKin[0], culture.id).toBeLessThanOrEqual(1);
+    }
+  });
+
   it('refills the surface in hours for a sugar and hardly at all on a lean plate', () => {
     expect(refillHours(1.8)).toBeGreaterThan(2);
     expect(refillHours(1.8)).toBeLessThan(6);
@@ -364,6 +470,24 @@ describe('packing', () => {
     expect(lightAt('cycle', 27)).toBe(1);
     expect(lightAt('on', 15)).toBe(1);
     expect(lightAt('dark', 3)).toBe(0);
+  });
+
+  it('stands only the moulds up in tufts', () => {
+    const look = (id) =>
+      packLook({
+        cultures: [resolveCulture(cultureById(id)), null, null, null],
+        medium: mediumById('potato'),
+        seed: 9,
+      });
+    for (const culture of CULTURES) {
+      const tufts = look(culture.id).uTufts[0];
+      if (culture.kind === 'mould')
+        expect(tufts, culture.id).toBeGreaterThan(0);
+      else expect(tufts, culture.id).toBe(0);
+      expect(tufts, culture.id).toBeLessThanOrEqual(1);
+    }
+    // Where they fall is the plate's own chance.
+    expect(look('rings').uSeed).toBe(9);
   });
 
   it('packs every look as colours between black and white', () => {
@@ -786,6 +910,28 @@ describe('a plate nobody chose', () => {
     }
   });
 
+  it('deals some plates whose cultures share a middle, and mixes them there', () => {
+    const middle = (e) => e.do === 'spot' && e.x === 0 && e.y === 0;
+    const sharing = dealt.filter(
+      (dish) => dish.events.filter((e) => middle(e) && e.mixed).length > 1,
+    );
+    expect(sharing.length).toBeGreaterThan(dealt.length / 10);
+    for (const dish of dealt) {
+      const mixed = dish.events.filter((e) => e.mixed);
+      // A mixed drop is a drop of more than one thing, all in one place.
+      if (mixed.length) {
+        expect(mixed.length).toBeGreaterThan(1);
+        expect(new Set(mixed.map((e) => e.culture)).size).toBe(mixed.length);
+        expect(new Set(mixed.map((e) => `${e.x},${e.y}`)).size).toBe(1);
+      }
+    }
+    // And some that give one culture the middle to itself.
+    const alone = dealt.filter(
+      (dish) => dish.events.filter(middle).length === 1,
+    );
+    expect(alone.length).toBeGreaterThan(dealt.length / 10);
+  });
+
   it('is not the same plate twice, and is the same plate from the same numbers', () => {
     expect(new Set(dealt.map((d) => d.medium)).size).toBeGreaterThan(
       MEDIA.length / 2,
@@ -831,6 +977,116 @@ describe('stamps', () => {
     expect(surface.addB).toBeUndefined();
     // More at the rim: the drop dried from its edge.
     expect(surface.ring).toBeGreaterThan(0);
+  });
+
+  it('leaves drops of three sizes, the middle one by default', () => {
+    const radii = DROPS.map((d) => d.radius);
+    expect(radii[0]).toBe(SPOT_RADIUS);
+    for (let i = 1; i < radii.length; i += 1) {
+      expect(radii[i]).toBeGreaterThan(radii[i - 1]);
+    }
+    expect(DROPS.map((d) => d.value)).toContain(DEFAULT_DROP);
+    expect(dropRadius('nothing of the kind')).toBe(SPOT_RADIUS);
+    for (const drop of DROPS) {
+      expect(drop.label).toBeTruthy();
+      expect(drop.hint.length).toBeGreaterThan(10);
+      // A recipe keeps the size it is given: none is clamped on the way in.
+      const [event] = cleanDish({
+        medium: 'broth',
+        events: [
+          { at: 0, do: 'spot', culture: 'hay', x: 0, y: 0, size: drop.radius },
+        ],
+      }).events;
+      expect(event.size).toBe(drop.radius);
+      const { surface } = stampsFor(event, []).stamps[0];
+      expect(surface.radius).toBe(drop.radius);
+    }
+  });
+
+  it('sorts a mixed drop into clumps, and leaves a plain one whole', () => {
+    const drop = (extra) =>
+      stampsFor(
+        { do: 'spot', culture: 'crimson', x: 0, y: 0, seed: 4, ...extra },
+        [],
+      ).stamps[0].surface;
+    expect(drop({}).speckle).toBe(1);
+    expect(drop({}).clump).toBe(0);
+    const mixed = drop({ mixed: true });
+    expect(mixed.speckle).toBe(0.5);
+    expect(mixed.clump).toBe(CLUMP);
+    // Patches big enough for a grid to hold and small enough that a drop
+    // holds several.
+    expect(CLUMP).toBeGreaterThan(2 * createGrid(256).dx);
+    expect(CLUMP).toBeLessThan(DROPS[1].radius);
+  });
+
+  it('finds the wet drops a new one would run into', () => {
+    const first = { at: 2, do: 'spot', culture: 'hay', x: 0, y: 0, size: 6 };
+    const far = { at: 2, do: 'spot', culture: 'lemon', x: 20, y: 0 };
+    const events = [first, far];
+    const landing = (extra) =>
+      wetDropsUnder(events, {
+        at: 2.2,
+        do: 'spot',
+        culture: 'crimson',
+        x: 1,
+        y: 1,
+        ...extra,
+      });
+    expect(landing({})).toEqual([0]);
+    // More of the same is only more of it.
+    expect(landing({ culture: 'hay' })).toEqual([]);
+    // Off to one side of the drop the two just sit side by side.
+    expect(landing({ x: 5, y: 0 })).toEqual([]);
+    // A drop that has dried is a colony, not a drop.
+    expect(landing({ at: 2 + WET_HOURS + 0.1 })).toEqual([]);
+    // Only drops mix: not a streak through one, and not a disc.
+    expect(landing({ do: 'streak' })).toEqual([]);
+    expect(
+      wetDropsUnder([{ at: 2, do: 'add', addition: 'sugar', x: 0, y: 0 }], {
+        at: 2,
+        do: 'spot',
+        culture: 'crimson',
+        x: 0,
+        y: 0,
+      }),
+    ).toEqual([]);
+    // A big drop over a small one counts as well as the other way round.
+    expect(
+      wetDropsUnder([{ at: 0, do: 'spot', culture: 'lemon', x: 2, y: 0 }], {
+        at: 0,
+        do: 'spot',
+        culture: 'hay',
+        x: 0,
+        y: 0,
+        size: 6,
+      }),
+    ).toEqual([0]);
+  });
+
+  it('makes a drop whole again when what it was mixed with is taken back', () => {
+    const hay = {
+      at: 0,
+      do: 'spot',
+      culture: 'hay',
+      x: 0,
+      y: 0,
+      size: 6,
+      mixed: true,
+    };
+    const rosette = { ...hay, culture: 'rosette' };
+    const apart = { ...hay, culture: 'crimson', x: 20 };
+    // Together they stay as they are, and nothing is changed in place.
+    const pair = [hay, rosette];
+    expect(unmixed(pair)).toEqual(pair);
+    // One alone is a drop; so is one whose partner is across the plate.
+    expect(unmixed([hay])).toEqual([{ ...hay, mixed: undefined }]);
+    expect(unmixed([hay])[0]).not.toHaveProperty('mixed');
+    expect(hay.mixed).toBe(true);
+    expect(unmixed([hay, apart]).some((e) => e.mixed)).toBe(false);
+    // Nothing else in a record is touched.
+    const lawn = { at: 0, do: 'lawn', culture: 'gold', seed: 1 };
+    expect(unmixed([lawn, hay, rosette])).toEqual([lawn, hay, rosette]);
   });
 
   it('puts a swarmer down in both its states, unless it makes its own swarmers', () => {
@@ -1165,6 +1421,49 @@ describe('incubating', () => {
     advance(sim, live, 1e6);
     expect(live.plate.hours).toBeGreaterThan(40 - sim.grid.dt);
     expect(live.plate.hours).toBeLessThanOrEqual(40 + sim.grid.dt);
+  });
+
+  it('replays a plate from the pour in about the same time whatever its age', () => {
+    for (const hours of [6, 48, 240]) {
+      const replay = replayOf(hours);
+      expect(replay.goal).toBe(hours);
+      // Never slower than an hour a second, so a young plate is not drawn out.
+      expect(replay.rate).toBeGreaterThanOrEqual(1);
+      expect(hours / replay.rate).toBeLessThanOrEqual(REPLAY_SECONDS + 1e-9);
+    }
+    expect(48 / replayOf(48).rate).toBeCloseTo(REPLAY_SECONDS, 9);
+  });
+
+  it('winds a replay on to where the plate stood, with the simulation, and no further', () => {
+    const sim = fakeSim();
+    const dish = cleanDish({
+      medium: 'broth',
+      events: [{ at: 0, do: 'spot', culture: 'crimson', x: 0, y: 0 }],
+      hours: 0,
+    });
+    const live = begin(sim, sim.createPlate(), dish);
+    const replay = replayOf(60);
+    // With the simulation standing still the clock gets a little ahead of
+    // it and then waits: what is on screen is the hour the caption says.
+    let arrived = false;
+    for (let i = 0; i < 600 && !arrived; i += 1) {
+      arrived = tickReplay(live, replay, 1 / 60);
+    }
+    expect(arrived).toBe(false);
+    expect(dish.hours).toBeLessThan(replay.rate);
+    // With it keeping up, the clock arrives, in about the time promised.
+    let seconds = 0;
+    while (!arrived && seconds < 60) {
+      advance(sim, live, 400);
+      arrived = tickReplay(live, replay, 1 / 60);
+      seconds += 1 / 60;
+    }
+    expect(arrived).toBe(true);
+    expect(dish.hours).toBe(60);
+    expect(seconds).toBeLessThan(REPLAY_SECONDS * 1.5);
+    // And stays there.
+    expect(tickReplay(live, replay, 5)).toBe(true);
+    expect(dish.hours).toBe(60);
   });
 
   it('never moves a plate on by settling it', () => {

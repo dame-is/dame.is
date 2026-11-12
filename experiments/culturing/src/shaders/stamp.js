@@ -11,7 +11,7 @@
 // from the centre of the dish, so one gesture lands the same on the surface
 // textures and on the half-resolution agar ones.
 
-import { HEADER, HASH } from './common.js';
+import { HEADER, HASH, LATTICE } from './common.js';
 
 function stampFragment({ samplers, hardThird }) {
   return `${HEADER}
@@ -29,6 +29,7 @@ uniform float uRadius;     // mm
 uniform float uFeather;    // mm of soft edge
 uniform float uRing;       // extra at the rim: the drying drop's coffee ring
 uniform float uSpeckle;    // 1 = solid; less = that fraction of texels, at random
+uniform float uClump;      // > 0: speckled in clumps this many mm across instead
 uniform uint uSeed;
 uniform bool uNeedsAgar;   // false only for the stamp that cuts or pours
 
@@ -44,6 +45,7 @@ layout(location = 1) out vec4 o1;
 layout(location = 2) out vec4 o2;
 
 ${HASH}
+${LATTICE}
 
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
@@ -62,7 +64,17 @@ void main() {
   float rim = exp(-pow((dist - (uRadius - uFeather)) / max(uFeather * 1.5, 1e-3), 2.0));
   float kRing = k * (1.0 + uRing * rim);
   if (uSpeckle < 1.0) {
-    kRing *= step(hash(p, uSeed), uSpeckle);
+    // Cell by cell, or in clumps: the strains of a mixed drop don't land
+    // one cell here and one there, they settle out in patches, and a patch
+    // at the rim of the drop is what a sector grows from. The clumps are
+    // sized in millimetres, so a drop sorts the same on any grid.
+    float chance = hash(p, uSeed);
+    if (uClump > 0.0) {
+      vec2 q = mm / uClump + 311.7;
+      chance = 0.5 + 0.5 * (0.7 * lattice(q, uSeed)
+        + 0.45 * lattice(mat2(0.8, -0.6, 0.6, 0.8) * q * 2.3, uSeed + 13u));
+    }
+    kRing *= step(chance, uSpeckle);
   }
   if (uNeedsAgar) {
     float agar = texelFetch(uMask, ivec2(vec2(p) * uMaskScale), 0).a;
@@ -119,18 +131,7 @@ layout(location = 1) out vec4 o1;
 layout(location = 2) out vec4 o2;
 
 ${HASH}
-
-float lattice(vec2 x, uint k) {
-  ivec2 i = ivec2(floor(x));
-  vec2 f = fract(x);
-  f = f * f * (3.0 - 2.0 * f);
-  float a = hash(i, k);
-  float b = hash(i + ivec2(1, 0), k);
-  float c = hash(i + ivec2(0, 1), k);
-  float d = hash(i + ivec2(1, 1), k);
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 2.0 - 1.0;
-}
-
+${LATTICE}
 void main() {
   vec2 mm = (gl_FragCoord.xy / uTexels - 0.5) * uSpan;
   // In or out is decided for each 2×2 block of texels together, from the

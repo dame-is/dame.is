@@ -60,7 +60,9 @@ export const CULTURE_DEFAULTS = {
   raftFloor: 0.03, // the fraction of that a lone cell manages
   swarmSpeed: 1.2, // mm/h: the fastest a raft is carried by a gradient
   wetNeed: 2, // how strongly moving needs a wet surface
-  hinder: 6, // how far another culture's biofilm blocks it
+  // How far another culture's biofilm blocks it. Enough that a fresh drop
+  // of something else is ground already taken: a swarm goes round it.
+  hinder: 12,
 
   // ---- between the two states
   settle: 0.05,
@@ -91,7 +93,11 @@ export const CULTURE_DEFAULTS = {
   sensX: 0, // 1 / (toxin X that halves its growth)
   sensY: 0,
   kill: 0, // lysis per hour once growth is mostly stopped
-  kin: 0, // harm it does to other cultures sharing a texel, 0..1
+  // Harm it does to other cultures sharing a texel, 0..1. Never nothing:
+  // two cultures on one patch of ground each slow the other, so whichever
+  // holds more of it keeps it. It is why strains put down together sort
+  // into sectors instead of blending, whatever they are.
+  kin: 0.3,
   kinKill: 0,
   lyse: 0, // autolysis per hour of old starved biofilm
   lyseAfter: 48,
@@ -113,9 +119,16 @@ export const CULTURE_DEFAULTS = {
   wrinkle: {
     drive: 0, // 0 smooth … 1 deeply rugose
     wavelength: 1.4, // mm, ridge to ridge
-    radial: 0, // 0 labyrinth … 1 spokes
-    bump: 0, // > 0 turns ridges toward pustules
+    radial: 0, // 0 labyrinth … 1 spokes; below 0, toward rings
+    bump: 0, // > 0 turns ridges toward pustules, < 0 toward a honeycomb
     sport: 1, // a sport's wrinkling relative to its parent's
+    // A fold is a few times as wide as its film is thick, and a film
+    // thickens for days: `coarsen` is how many times its first width a fold
+    // gains by the time the film is old, and `ageing` the hours that takes.
+    coarsen: 0,
+    ageing: 48,
+    core: 1, // how readily the inoculum itself buckles: 0 a flat disc
+    tempMax: null, // °C above which it makes no matrix to buckle
   },
 
   // ---- how it looks
@@ -127,11 +140,13 @@ export const CULTURE_DEFAULTS = {
     height: 0.45, // mm of biofilm at density 1
     motileHeight: 0.04, // mm of motile layer at density 1
     wrinkleHeight: 0.35, // mm, ridge crest above the film
+    crest: 0.3, // how much paler the top of a fold is than its floor
     gloss: 0.45, // 0 matte … 1 wet
     rough: 0.35, // highlight width, 0 mirror … 1 chalk
     grain: 0.2, // fine surface relief
     fuzz: 0, // aerial hyphae on young growth, 0..1
     fuzzLate: 0, // ... added as it matures
+    tufts: 0, // how far ripe growth stands up in tufts, with its colour on them
     sheen: 0, // metallic film on old growth
     stain: 0, // how readily it takes up a dye in the medium
     scatter: 0.3, // light bleeding through thin ridges and edges
@@ -246,6 +261,12 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     if (c.pigment.tempMax == null) return 1;
     // Fades out over the few degrees below the cutoff.
     return clamp((c.pigment.tempMax - env.temperature) / 3, 0, 1);
+  };
+  // A film that only makes its matrix in the cool has nothing to buckle
+  // in the warm: it fades out over the same few degrees a pigment does.
+  const matrixGate = (c) => {
+    if (c.wrinkle.tempMax == null) return 1;
+    return clamp((c.wrinkle.tempMax - env.temperature) / 3, 0, 1);
   };
   const absorbance = (c) =>
     c.secretes
@@ -385,7 +406,7 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uPigB: each((c) => absorbance(c)[2]),
 
     // ---- wrinkles
-    uWrDrive: each((c) => c.wrinkle.drive),
+    uWrDrive: each((c) => c.wrinkle.drive * matrixGate(c)),
     uWrQ2: each((c) => {
       // A film on a soft bed buckles at a wavelength of its thickness times
       // the cube root of how much stiffer it is than the bed (Yan et al.
@@ -399,6 +420,9 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uWrRadial: each((c) => c.wrinkle.radial),
     uWrBump: each((c) => c.wrinkle.bump),
     uWrSport: each((c) => c.wrinkle.sport, 1),
+    uWrCoarsen: each((c) => Math.max(0, c.wrinkle.coarsen)),
+    uWrAgeing: each((c) => Math.max(1, c.wrinkle.ageing), 1),
+    uWrCore: each((c) => clamp(c.wrinkle.core, 0, 1), 1),
     uWrOnset: 0.3,
     uWrFull: 0.75,
 
@@ -444,7 +468,7 @@ export const MEDIUM_LOOK_DEFAULTS = {
  * something to look at: each culture's colours and surface, and the
  * medium's. Colours go in as linear light.
  */
-export function packLook({ cultures, medium }) {
+export function packLook({ cultures, medium, seed = 1 }) {
   const each = (fn, empty = 0) => cultures.map((c) => (c ? fn(c) : empty));
   const channel = (pickHex, i, empty = 0) =>
     each((c) => {
@@ -464,6 +488,7 @@ export function packLook({ cultures, medium }) {
     }
   }
   return {
+    uSeed: seed >>> 0,
     uYoungR: channel((c) => c.look.young, 0),
     uYoungG: channel((c) => c.look.young, 1),
     uYoungB: channel((c) => c.look.young, 2),
@@ -478,10 +503,14 @@ export function packLook({ cultures, medium }) {
     uHeightB: each((c) => c.look.motileHeight),
     uWrHeight: each((c) => c.look.wrinkleHeight),
     uWrSport: each((c) => c.wrinkle.sport, 1),
+    uWrCoarsen: each((c) => Math.max(0, c.wrinkle.coarsen)),
+    uWrAgeing: each((c) => Math.max(1, c.wrinkle.ageing), 1),
+    uCrest: each((c) => c.look.crest),
     uGloss: each((c) => c.look.gloss),
     uRough: each((c) => c.look.rough),
     uFuzz: each((c) => c.look.fuzz),
     uFuzzLate: each((c) => c.look.fuzzLate),
+    uTufts: each((c) => c.look.tufts),
     uSheen: each((c) => c.look.sheen),
     uStain: each((c) => c.look.stain),
     uFluorR: channel((c) => c.look.fluoresce, 0),

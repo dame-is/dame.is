@@ -11,6 +11,7 @@
 //                   b  1 where a variant ("sport") founded this patch
 //                   a  1 where there is agar, 0 outside the dish or in a cut
 //   uWr   surface   r  the wrinkle field, signed, about -1 to 1
+//                   g  the hours the film here has been thick enough to buckle
 //   uC0   agar      nutrient near the surface, surfactant, toxin X, signal
 //   uC1   agar      pH shift (+ acid, - alkali), enzyme, deep nutrient, toxin Y
 //   uC2   agar      pigment dissolved in the agar, as RGB absorbance
@@ -40,6 +41,23 @@ uint pcg(uint v) {
 float hash(ivec2 p, uint k) {
   uint h = pcg(uint(p.x) + pcg(uint(p.y) + pcg(k)));
   return float(h) * (1.0 / 4294967295.0);
+}
+`;
+
+/**
+ * Smooth noise on a lattice, -1 to 1 (needs HASH). Asked for in millimetres
+ * it is the same at every resolution.
+ */
+export const LATTICE = `
+float lattice(vec2 x, uint k) {
+  ivec2 i = ivec2(floor(x));
+  vec2 f = fract(x);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash(i, k);
+  float b = hash(i + ivec2(1, 0), k);
+  float c = hash(i + ivec2(0, 1), k);
+  float d = hash(i + ivec2(1, 1), k);
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 2.0 - 1.0;
 }
 `;
 

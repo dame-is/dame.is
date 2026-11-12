@@ -35,6 +35,10 @@ should be its own chunk, loaded only by the page that shows it.
   the same plate at 256 texels (phones) or 384, and a culture's numbers can be
   read against a paper's. [`pack.js`](src/pack.js) turns a recipe
   into uniforms and clamps anything that would break the explicit schemes.
+- **The grid** ([`units.js`](src/units.js) `gridSize`). A plate is worked out
+  on 384 texels across (256 on a phone). The Incubator tab can ask for one
+  size finer, which is about three times the work for every hour grown; the
+  plates are let go and grown again from their records on the new grid.
 - **A plate is its recipe** ([`recipe.js`](src/recipe.js),
   [`incubate.js`](src/incubate.js)): the medium, the incubator, and
   everything done to it with the hour it was done. The picture is not kept.
@@ -46,7 +50,15 @@ should be its own chunk, loaded only by the page that shows it.
   displaced sheet per plate, lit four ways a microbiologist would recognise:
   a raking lamp over a black bench, a light table from underneath, a 365 nm
   lamp, and the dark. Heights are true and the vertical is stretched, by an
-  amount the page states.
+  amount the page states. A plate is a few hundred texels across and is
+  looked at from much nearer than that, so the scene reads it through a cubic
+  B-spline and makes every hard edge afterwards, from the smooth value: a
+  colony's outline from its optical depth, a cut from how much gel is round
+  the point. Made before, on the grid, those edges were staircases. Two things
+  are drawn below the grid and say so on the page: a mould's tufts
+  ([`shaders/display.js`](src/shaders/display.js)), which are noise in
+  millimetres with the spore colour gathered on them, and a little fraying of
+  a colony's outline up close.
 - **The bench** ([`bench.js`](src/bench.js)) owns the canvas, the
   clock and the pointer, and knows nothing about React; the page reads a
   snapshot of it. A plate's clock runs ahead of its simulation by as much as
@@ -54,11 +66,17 @@ should be its own chunk, loaded only by the page that shows it.
   in the fridge) hands that lead back: a stopped plate stays at the hour it
   has reached. One that was still re-growing from its recipe waits where it
   stands and goes on when the incubator starts again.
+- **Replay** ([`incubate.js`](src/incubate.js) `replayOf`). A plate can be
+  watched again from the pour to the hour it stands at, in about twelve
+  seconds whatever its age. It is the same record grown once more at a pace
+  that can be followed, so nothing is kept for it and nothing in the record
+  changes; a replay cut short puts the plate back at the age it was.
 - **Randomize** ([`chance.js`](src/chance.js)) deals a plate nobody
-  chose: a medium, a few cultures that can live on it, and now and then
-  something off the tray. Across the bench it deals every plate; with one
-  picked up, that one. It only asks first when a plate holds something done by
-  hand.
+  chose: a medium, a few cultures that can live on it, one of a handful of
+  ways to lay them out (one big drop in the middle, two or three mixed in it,
+  a ring, a pair facing each other, a scatter), and now and then something
+  off the tray. Across the bench it deals every plate; with one picked up,
+  that one. It only asks first when a plate holds something done by hand.
 - **On a phone** ([`useCompact.js`](src/useCompact.js), and the last section
   of [`culturing.css`](src/culturing.css))
   the shelf lies on its side: each tab is a strip of chips that scrolls
@@ -71,7 +89,8 @@ should be its own chunk, loaded only by the page that shows it.
 that every uniform a shader declares is supplied, that every culture on every
 medium stays inside the schemes' stability bounds on every grid, that
 recipes survive a link and reject what isn't one, that a stopped plate takes
-no further step, and that a dealt plate is a recipe like any other.
+no further step, that a drop mixes with a wet one of another culture and
+with nothing else, and that a dealt plate is a recipe like any other.
 
 ## What it borrows from the site
 

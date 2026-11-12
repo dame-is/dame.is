@@ -31,8 +31,13 @@ export const GEL_Y = FLOOR_Y + DISH.agarDepth;
 /** The dish's outer radius: what its footprint on the bench is. */
 export const OUTER_RADIUS = DISH.radius + DISH.wallThickness;
 
-/** Quads along a side of a plate's sheet: up close, and across the bench. */
-const MESH_NEAR = 224;
+/**
+ * Quads along a side of a plate's sheet. Up close it is one to a texel, as
+ * far as that goes: a fold is only a few texels wide, and on a coarser sheet
+ * its crest comes out as a row of teeth against the bench when the plate is
+ * tilted. Across the bench nobody can tell.
+ */
+const MESH_NEAR = 384;
 const MESH_FAR = 72;
 /** Segments around the dish wall. */
 const WALL_SEGMENTS = 128;
@@ -47,7 +52,9 @@ function gridMesh(gl, quads) {
       positions[k++] = (y / quads) * 2 - 1;
     }
   }
-  const indices = new Uint16Array(quads * quads * 6);
+  // More corners than sixteen bits can count, on the finer sheets.
+  const wide = side * side > 65535;
+  const indices = new (wide ? Uint32Array : Uint16Array)(quads * quads * 6);
   k = 0;
   for (let y = 0; y < quads; y += 1) {
     for (let x = 0; x < quads; x += 1) {
@@ -75,7 +82,12 @@ function gridMesh(gl, quads) {
     count: indices.length,
     draw() {
       gl.bindVertexArray(vao);
-      gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+      gl.drawElements(
+        gl.TRIANGLES,
+        indices.length,
+        wide ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
+        0,
+      );
     },
     dispose() {
       gl.deleteVertexArray(vao);
@@ -224,7 +236,7 @@ export function createRenderer(gl, sim) {
     slab: createProgram(gl, SLAB_VERTEX, SLAB_FRAGMENT, 'slab'),
     glass: createProgram(gl, GLASS_VERTEX, GLASS_FRAGMENT, 'glass'),
   };
-  const near = gridMesh(gl, MESH_NEAR);
+  const near = gridMesh(gl, Math.min(N, MESH_NEAR));
   const far = gridMesh(gl, MESH_FAR);
   const wall = wallMesh(gl);
   const slab = slabMesh(gl);
@@ -288,7 +300,11 @@ export function createRenderer(gl, sim) {
       uC2: plate.agar.C2,
     });
     programs.compose.set(look);
-    programs.compose.set({ uChemSize: NC, uLightMode: light.mode });
+    programs.compose.set({
+      uChemSize: NC,
+      uLightMode: light.mode,
+      uMmPerTexel: sim.grid.dx,
+    });
     sim.fullscreen.draw();
 
     gl.bindTexture(gl.TEXTURE_2D, display.glow);

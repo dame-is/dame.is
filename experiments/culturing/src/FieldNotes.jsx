@@ -70,7 +70,21 @@ export default function FieldNotes() {
           <Ref href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7148565">
             where it is squeezed round its rim
           </Ref>
-          .
+          . The film goes on thickening for days, so the width a fold wants goes
+          on growing: ridges that come up fine at the rim run together into
+          heavy veins toward the middle, and the drop the colony was started
+          from, which was never squeezed the same way, keeps a character of its
+          own.
+        </li>
+        <li>
+          <strong>Ground that is held.</strong> Two cultures on one patch of
+          agar each slow the other, so whichever has more of it keeps it. Put
+          down in one drop they settle into patches, and since only the cells at
+          the very edge found new ground,{' '}
+          <Ref href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2148399/">
+            each patch at the rim becomes a sector
+          </Ref>
+          : wide where its culture keeps pace, pinched out where it can’t.
         </li>
         <li>
           <strong>Swarming by turns.</strong> Swarmer cells are made only inside
@@ -95,7 +109,8 @@ export default function FieldNotes() {
       <ul className="cult-liberties">
         <li>
           Time runs fast. A branching colony that takes a real plate a month
-          crosses this one in a week, and the swarmers are slower than life
+          crosses this one in a week, a film spreads two or three times as far
+          in four days as it would, and the swarmers are slower than life
           because the grid can only carry them so far in a step.
         </li>
         <li>
@@ -117,6 +132,12 @@ export default function FieldNotes() {
         <li>
           A plate holds four cultures, and it is remembered as its recipe: grown
           twice, it comes out alike but not the same.
+        </li>
+        <li>
+          Two things are drawn and not grown, because they are smaller than the
+          grid a plate is worked out on: the tufts a mould fruits in, which are
+          placed by chance, and a little fraying of a colony’s edge when you
+          look at it closely.
         </li>
       </ul>
     </section>
