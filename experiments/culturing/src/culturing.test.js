@@ -53,6 +53,7 @@ import {
   slotFor,
   SPOT_RADIUS,
   stampsFor,
+  stripEnds,
   unmixed,
   WET_HOURS,
   wetDropsUnder,
@@ -1340,6 +1341,40 @@ describe('stamps', () => {
       // Formazan is only ever made on the plate.
       expect(stamp.reagents.add0[2], id).toBe(0);
     }
+  });
+
+  it('lays a gradient strip whole, its drug halving along it, on the gel', () => {
+    const item = additionById('etest');
+    const laid = stampsFor(
+      {
+        do: 'add',
+        addition: 'etest',
+        path: [
+          [0, 0],
+          [30, 40],
+        ],
+      },
+      [],
+    ).stamps;
+    expect(laid).toHaveLength(2);
+    const [drug, paper] = laid.map((s) => s.agar);
+    expect(drug.from).toEqual([0, 0]);
+    expect(drug.to).toEqual([30, 40]);
+    expect(drug.add0[2]).toBe(item.drop.toxinX);
+    expect(Math.exp(drug.taper)).toBeCloseTo(2 ** -item.strip.halvings, 8);
+    expect(drug.add2).toBeUndefined();
+    expect(paper.add2[3]).toBe(1);
+    expect(paper.taper).toBeUndefined();
+    // Touched near the rim, it lies along the radius, strong end inward,
+    // and wholly on the gel.
+    const [end0, end1] = stripEnds({ x: 0, y: -40 }, item.strip.length);
+    expect(Math.hypot(...end1)).toBeLessThanOrEqual(DISH.radius - 2 + 1e-9);
+    expect(Math.hypot(...end0)).toBeLessThan(Math.hypot(...end1));
+    expect(end0[0]).toBeCloseTo(0, 9);
+    expect(Math.hypot(end1[0] - end0[0], end1[1] - end0[1])).toBeCloseTo(
+      item.strip.length,
+      9,
+    );
   });
 
   it('draws a dragged drop as a line as strong as the drop, and a disc as a ribbon of paper', () => {

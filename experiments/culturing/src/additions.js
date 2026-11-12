@@ -46,6 +46,26 @@ export const ADDITIONS = [
     drop: { toxinY: 9, paper: 1 },
   },
   {
+    id: 'etest',
+    name: 'Gradient strip',
+    after: 'an Etest strip',
+    kind: 'disc',
+    blurb:
+      'A strip carrying an antibiotic that halves fourteen times from one end to the other. Laid on a lawn it clears an ellipse, widest at the strong end, and where the ellipse meets the strip is the dose that stops the lawn.',
+    notes: [
+      {
+        text: 'Gradient strips were first made in 1991. They give an elliptical zone, and the minimum inhibitory concentration is read where its edge crosses the strip.',
+        href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6627445/',
+      },
+    ],
+    radius: 2.5,
+    // Laid as a whole: the strong end where the hand starts, the strip
+    // pointing the way it is dragged. Set down with a touch, it lies along
+    // the radius with its strong end toward the middle.
+    strip: { length: 50, halvings: 14 },
+    drop: { toxinX: 24, paper: 1 },
+  },
+  {
     id: 'sugar',
     name: 'Sugar',
     after: 'a drop of glucose',

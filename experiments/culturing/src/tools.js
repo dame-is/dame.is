@@ -189,10 +189,51 @@ function perSegment(length, radius) {
 const scaled = (v, k) => v.map((x) => x * k);
 const any = (v) => v.some((x) => x !== 0);
 
+/**
+ * Where a strip lies: from its strong end to its weak one. Laid by hand, it
+ * is the two ends the record holds; set down at a point, it lies along the
+ * radius through that point, its strong end toward the middle, moved in as
+ * far as it has to be to lie wholly on the gel.
+ */
+export function stripEnds(event, length) {
+  if (event.path && event.path.length > 1) return event.path.slice(0, 2);
+  const r = Math.hypot(event.x, event.y);
+  const u = r > 3 ? [event.x / r, event.y / r] : [1, 0];
+  const middle = Math.min(r, DISH.radius - 2 - length / 2);
+  return [
+    [u[0] * (middle - length / 2), u[1] * (middle - length / 2)],
+    [u[0] * (middle + length / 2), u[1] * (middle + length / 2)],
+  ];
+}
+
+/** A strip's two stamps: its drug falling off along it, and its paper. */
+function strip(item, event) {
+  const [from, to] = stripEnds(event, item.strip.length);
+  const d = item.drop;
+  const shape = {
+    from,
+    to,
+    radius: item.radius + PAPER_EDGE / 2,
+    feather: PAPER_EDGE,
+  };
+  return [
+    {
+      agar: {
+        ...shape,
+        taper: -item.strip.halvings * Math.LN2,
+        add0: [0, 0, d.toxinX || 0, 0],
+        add1: [0, 0, 0, d.toxinY || 0],
+      },
+    },
+    { agar: { ...shape, add2: [0, 0, 0, 1] } },
+  ];
+}
+
 /** Stamps for an addition, at a point or along a path. */
 function addition(event) {
   const item = additionById(event.addition);
   if (!item) return [];
+  if (item.strip) return strip(item, event);
   const path = event.path || [[event.x, event.y]];
   const drawn = path.length > 1;
   const segments = drawn

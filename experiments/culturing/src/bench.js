@@ -107,6 +107,8 @@ const MAX_ZOOM = 1.3;
 const CLICK_SLOP = 5;
 /** Points along a stroke are kept at least this far apart, mm. */
 const STROKE_SPACING = 0.7;
+/** A strip dragged less than this far, mm, is set down as if touched. */
+const STRIP_DRAG = 3;
 /** The most simulation steps one frame may spend, across every plate. */
 const MAX_BUDGET = 40;
 
@@ -675,15 +677,18 @@ export function createBench(canvas, options = {}) {
         draws: true,
       };
     }
-    if (!additionById(tool.id)) return null;
+    const item = additionById(tool.id);
+    if (!item) return null;
     return {
       entry,
       event: { do: 'add', addition: tool.id, path: [mm] },
       segments: 0,
       // Anything off the tray can be dragged: a blade cuts, a loop
       // scrapes, a drop or a dye is drawn as a line, and a disc is laid
-      // down as a ribbon of soaked paper. A touch sets one down.
-      draws: true,
+      // down as a ribbon of soaked paper. A touch sets one down. A strip
+      // is laid whole when the hand lifts, pointing the way it was dragged.
+      draws: !item.strip,
+      strip: item.strip || null,
     };
   }
 
@@ -748,8 +753,29 @@ export function createBench(canvas, options = {}) {
       emit();
       return;
     }
+    if (stroke.strip) {
+      const [start] = event.path;
+      const run = Math.hypot(mm[0] - start[0], mm[1] - start[1]);
+      if (run > STRIP_DRAG) {
+        const k = stroke.strip.length / run;
+        const end = [
+          start[0] + (mm[0] - start[0]) * k,
+          start[1] + (mm[1] - start[1]) * k,
+        ];
+        const round = (v) => Math.round(v * 100) / 100;
+        const refused = act(sim, entry.live, {
+          do: 'add',
+          addition: event.addition,
+          path: [start, end].map((p) => p.map(round)),
+        });
+        if (refused) say(refused);
+        else entry.touched = true;
+        emit();
+        return;
+      }
+    }
     // Never dragged: a single touch of the loop, or something set down.
-    const [x, y] = stroke.draws ? event.path[0] : mm;
+    const [x, y] = stroke.draws || stroke.strip ? event.path[0] : mm;
     const refused =
       event.do === 'streak'
         ? putDrop(entry, dropOf(event.culture, x, y, event.seed))

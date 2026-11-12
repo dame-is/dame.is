@@ -411,6 +411,9 @@ function additionSwatch(item) {
 /** What the hand does with something off the tray, in a sentence. */
 function handling(item) {
   if (item.cut || item.scrape) return 'Drag it across the gel.';
+  if (item.strip) {
+    return 'Touch the gel to lay it along the radius, strong end inward, or drag from where the strong end should go.';
+  }
   if (item.kind === 'disc') {
     return 'Touch the gel to set a disc down, or drag to lay a ribbon of soaked paper.';
   }
