@@ -24,8 +24,10 @@ import {
   behind,
   draw as drawPart,
   record,
+  replayOf,
   setEnv as setLiveEnv,
   settle,
+  tickReplay,
 } from './incubate.js';
 import {
   cleanDish,
@@ -252,13 +254,21 @@ export function createBench(canvas, options = {}) {
       waiting: false,
       // Something on it was done by hand, and would be lost with it.
       touched,
+      // Being watched again from the pour (incubate.js replayOf), or null.
+      replay: null,
     };
   }
 
   function restart(entry) {
+    // A replay cut short by something else being done to the plate: the
+    // plate goes back to being as old as it was.
+    if (entry.replay) {
+      entry.dish.hours = Math.max(entry.dish.hours, entry.replay.goal);
+    }
     entry.live = begin(sim, entry.plate, entry.dish);
     entry.owed = entry.dish.hours;
     entry.waiting = false;
+    entry.replay = null;
     lightDirty = true;
   }
 
@@ -380,15 +390,17 @@ export function createBench(canvas, options = {}) {
       size: sim.grid.size,
       canAdd: entries.length < MAX_DISHES,
       canRemove: entries.length > 1,
-      dishes: entries.map(({ dish, live, waiting, touched }) => ({
+      dishes: entries.map(({ dish, live, waiting, touched, replay }) => ({
         medium: dish.medium,
         agar: live.medium.agar,
         nutrient: live.medium.nutrient,
         env: live.env,
         hours: live.plate.hours,
-        goal: dish.hours,
+        goal: replay ? replay.goal : dish.hours,
+        // Being watched again from the pour.
+        replaying: Boolean(replay),
         // Re-growing from its recipe, not being watched.
-        catching: behind(live) > Math.max(1.5, view.speed),
+        catching: !replay && behind(live) > Math.max(1.5, view.speed),
         // Stopped before it got back there.
         waiting,
         held: dish.held,
@@ -437,13 +449,19 @@ export function createBench(canvas, options = {}) {
           lampAz: view.lampAz,
           lampEl: view.lampEl,
           drop: view.drop,
-          dishes: entries.map(({ dish }) => packDish(dish)),
+          dishes: entries.map((entry) => packDish(asRecorded(entry))),
         }),
       );
     } catch {
       // Private mode, or full: the bench just isn't remembered.
     }
   }
+  /** A plate's record at its true age: a replay in progress winds the
+   *  clock back, and that is not something to write down or send. */
+  function asRecorded({ dish, replay }) {
+    return replay ? { ...dish, hours: replay.goal } : dish;
+  }
+
   function scheduleSave() {
     if (!saveTimer) saveTimer = setTimeout(save, 1200);
   }
@@ -502,9 +520,19 @@ export function createBench(canvas, options = {}) {
     // that is behind its recipe (just restored) is left to catch up.
     const lead = Math.max(0.3, view.speed * 0.6);
     if (playing) {
-      for (const { dish, live } of entries) {
-        if (dish.held || behind(live) > lead) continue;
+      for (const { dish, live, replay } of entries) {
+        if (replay || dish.held || behind(live) > lead) continue;
         dish.hours = Math.min(MAX_HOURS, dish.hours + seconds * view.speed);
+      }
+    }
+    // A plate being replayed keeps its own time, incubator or no incubator,
+    // until it is back at the hour it stood at.
+    for (const entry of entries) {
+      if (!entry.replay) continue;
+      if (tickReplay(entry.live, entry.replay, seconds)) {
+        entry.replay = null;
+        entry.waiting = false;
+        emit();
       }
     }
 
@@ -517,7 +545,7 @@ export function createBench(canvas, options = {}) {
     queue.forEach((index, place) => {
       if (left <= 0) return;
       const entry = entries[index];
-      if (entry.waiting) return;
+      if (entry.waiting && !entry.replay) return;
       const share = place === 0 ? Math.ceil(left * 0.7) : Math.ceil(left / 2);
       left -= advance(sim, entry.live, Math.max(1, Math.min(left, share)));
     });
@@ -1003,6 +1031,7 @@ export function createBench(canvas, options = {}) {
 
   /** Put a different plate where one was. Nothing on it is by hand yet. */
   function swap(entry, dish) {
+    entry.replay = null;
     entry.dish = dish;
     entry.touched = false;
     restart(entry);
@@ -1109,6 +1138,36 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
+  /**
+   * Watch a plate grow again from the pour to the hour it stands at, in
+   * about twelve seconds whatever its age. Nothing in its record changes:
+   * it is the same recipe grown once more, at a pace that can be followed.
+   * Asked again while it is replaying, it goes straight to the end.
+   */
+  function replay(index) {
+    const entry = entries[index];
+    if (!entry) return;
+    if (entry.replay) {
+      entry.dish.hours = entry.replay.goal;
+      entry.replay = null;
+      entry.waiting = false;
+      emit();
+      return;
+    }
+    const goal = Math.max(entry.dish.hours, entry.live.plate.hours);
+    if (!entry.dish.events.length || goal < 1) {
+      say('Nothing has grown on this plate yet.');
+      return;
+    }
+    entry.dish.hours = 0;
+    restart(entry);
+    // Stopping the incubator part-way never leaves it short of where it was.
+    entry.owed = goal;
+    entry.replay = replayOf(goal);
+    dirty = true;
+    emit();
+  }
+
   function addDish(mediumId = 'broth') {
     if (entries.length >= MAX_DISHES) return;
     entries.push(makeEntry(createDish(mediumId)));
@@ -1197,7 +1256,7 @@ export function createBench(canvas, options = {}) {
     const url = new URL(window.location.href);
     url.search = '';
     url.hash = '';
-    url.searchParams.set('plate', encodeDish(entry.dish));
+    url.searchParams.set('plate', encodeDish(asRecorded(entry)));
     return url.toString();
   }
 
@@ -1274,6 +1333,7 @@ export function createBench(canvas, options = {}) {
     setDrop,
     put,
     undo,
+    replay,
     addDish,
     removeDish,
     randomize,

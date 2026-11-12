@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   Pause,
   Play,
+  Rewind,
   RotateCcw,
   ZoomIn,
   ZoomOut,
@@ -132,7 +133,9 @@ function Caption({ snap, compact }) {
   ];
   const stopped = compact ? 'stopped' : 'incubator stopped';
   let age = formatHours(plate.hours);
-  if (plate.catching) {
+  if (plate.replaying) {
+    age = `${compact ? 'replaying' : 'replaying from the pour'}, ${formatHours(plate.hours)} of ${formatHours(plate.goal)}`;
+  } else if (plate.catching) {
     age = `${compact ? 're-growing' : 're-growing from its recipe'}, ${formatHours(plate.hours)} of ${formatHours(plate.goal)}`;
     if (plate.waiting) age = `${age}, ${stopped}`;
   } else if (plate.held) {
@@ -243,6 +246,34 @@ function ViewTools({ bench, inPlate, compact }) {
         </Button>
       )}
     </>
+  );
+}
+
+/**
+ * Watch the plate in hand grow again from the pour (bench.js replay). While
+ * it does, the same button goes straight to the end.
+ */
+function Replay({ bench, snap, compact }) {
+  const plate = snap.dishes[snap.selected];
+  if (snap.mode !== 'plate' || !plate) return null;
+  const hint = plate.replaying
+    ? 'Skip to the end of the replay'
+    : 'Watch this plate grow again from the start';
+  return (
+    <Button
+      size="sm"
+      variant={compact ? 'icon' : undefined}
+      on={plate.replaying}
+      className="cult-replay"
+      aria-pressed={plate.replaying}
+      aria-label={hint}
+      title={hint}
+      disabled={!plate.replaying && !plate.events.length}
+      onClick={() => bench.replay(snap.selected)}
+    >
+      <Rewind size={14} aria-hidden="true" />
+      {!compact && (plate.replaying ? 'Replaying' : 'Replay')}
+    </Button>
   );
 }
 
@@ -411,11 +442,13 @@ export default function Workbench() {
                       }}
                     >
                       {i + 1}
-                      {dish.catching
-                        ? ' · re-growing'
-                        : dish.held
-                          ? ' · fridge'
-                          : ''}
+                      {dish.replaying
+                        ? ' · replaying'
+                        : dish.catching
+                          ? ' · re-growing'
+                          : dish.held
+                            ? ' · fridge'
+                            : ''}
                     </li>
                   ))}
                 </ol>
@@ -441,6 +474,7 @@ export default function Workbench() {
                   aria-label="View"
                 >
                   <ViewTools bench={bench} inPlate={inPlate} compact />
+                  <Replay bench={bench} snap={snap} compact />
                   <Photograph inPlate={inPlate} compact onClick={takePhoto} />
                 </div>
               )}
@@ -498,6 +532,7 @@ export default function Workbench() {
                   onChange={bench.setSpeed}
                   compact={compact}
                 />
+                {!compact && <Replay bench={bench} snap={snap} />}
               </div>
               <div className="cult-bar-group">
                 <Pick

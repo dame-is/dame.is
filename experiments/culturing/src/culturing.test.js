@@ -62,8 +62,11 @@ import {
   behind,
   draw,
   record,
+  REPLAY_SECONDS,
+  replayOf,
   setEnv,
   settle,
+  tickReplay,
 } from './incubate.js';
 import { randomDish, suitedTo } from './chance.js';
 import {
@@ -1399,6 +1402,49 @@ describe('incubating', () => {
     advance(sim, live, 1e6);
     expect(live.plate.hours).toBeGreaterThan(40 - sim.grid.dt);
     expect(live.plate.hours).toBeLessThanOrEqual(40 + sim.grid.dt);
+  });
+
+  it('replays a plate from the pour in about the same time whatever its age', () => {
+    for (const hours of [6, 48, 240]) {
+      const replay = replayOf(hours);
+      expect(replay.goal).toBe(hours);
+      // Never slower than an hour a second, so a young plate is not drawn out.
+      expect(replay.rate).toBeGreaterThanOrEqual(1);
+      expect(hours / replay.rate).toBeLessThanOrEqual(REPLAY_SECONDS + 1e-9);
+    }
+    expect(48 / replayOf(48).rate).toBeCloseTo(REPLAY_SECONDS, 9);
+  });
+
+  it('winds a replay on to where the plate stood, with the simulation, and no further', () => {
+    const sim = fakeSim();
+    const dish = cleanDish({
+      medium: 'broth',
+      events: [{ at: 0, do: 'spot', culture: 'crimson', x: 0, y: 0 }],
+      hours: 0,
+    });
+    const live = begin(sim, sim.createPlate(), dish);
+    const replay = replayOf(60);
+    // With the simulation standing still the clock gets a little ahead of
+    // it and then waits: what is on screen is the hour the caption says.
+    let arrived = false;
+    for (let i = 0; i < 600 && !arrived; i += 1) {
+      arrived = tickReplay(live, replay, 1 / 60);
+    }
+    expect(arrived).toBe(false);
+    expect(dish.hours).toBeLessThan(replay.rate);
+    // With it keeping up, the clock arrives, in about the time promised.
+    let seconds = 0;
+    while (!arrived && seconds < 60) {
+      advance(sim, live, 400);
+      arrived = tickReplay(live, replay, 1 / 60);
+      seconds += 1 / 60;
+    }
+    expect(arrived).toBe(true);
+    expect(dish.hours).toBe(60);
+    expect(seconds).toBeLessThan(REPLAY_SECONDS * 1.5);
+    // And stays there.
+    expect(tickReplay(live, replay, 5)).toBe(true);
+    expect(dish.hours).toBe(60);
   });
 
   it('never moves a plate on by settling it', () => {

@@ -62,6 +62,11 @@ should be its own chunk, loaded only by the page that shows it.
   in the fridge) hands that lead back: a stopped plate stays at the hour it
   has reached. One that was still re-growing from its recipe waits where it
   stands and goes on when the incubator starts again.
+- **Replay** ([`incubate.js`](src/incubate.js) `replayOf`). A plate can be
+  watched again from the pour to the hour it stands at, in about twelve
+  seconds whatever its age. It is the same record grown once more at a pace
+  that can be followed, so nothing is kept for it and nothing in the record
+  changes; a replay cut short puts the plate back at the age it was.
 - **Randomize** ([`chance.js`](src/chance.js)) deals a plate nobody
   chose: a medium, a few cultures that can live on it, one of a handful of
   ways to lay them out (one big drop in the middle, two or three mixed in it,

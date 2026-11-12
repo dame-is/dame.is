@@ -158,6 +158,34 @@ export function settle(live, owed = 0) {
   dish.hours = Math.min(dish.hours, Math.max(plate.hours, owed));
 }
 
+/** How long a replay takes, whatever the plate's age, in seconds. */
+export const REPLAY_SECONDS = 12;
+
+/**
+ * A replay of a plate that stands at `hours`: where it is going back to,
+ * and how many plate-hours pass in a second of watching. A plate of any age
+ * is watched from the pour in about the same time, and a young one is not
+ * rushed: an hour a second at the least.
+ */
+export function replayOf(hours) {
+  return { goal: hours, rate: Math.max(hours / REPLAY_SECONDS, 1) };
+}
+
+/**
+ * Move a replaying plate's clock on by `seconds` of watching. Like the
+ * incubator's own clock it waits for the simulation rather than running
+ * away from it, so what is on screen is the hour the caption says. Returns
+ * true once the clock is back where the plate stood.
+ */
+export function tickReplay(live, replay, seconds) {
+  const { dish } = live;
+  const lead = Math.max(0.3, replay.rate * 0.6);
+  if (behind(live) <= lead) {
+    dish.hours = Math.min(replay.goal, dish.hours + seconds * replay.rate);
+  }
+  return dish.hours >= replay.goal;
+}
+
 /** The hour to write an event down at: now, rounded down, so that on a
  *  replay its hour has come by the time the plate gets to where it was. */
 function now(live) {
