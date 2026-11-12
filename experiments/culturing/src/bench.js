@@ -259,6 +259,7 @@ export function createBench(canvas, options = {}) {
   let lost = false;
   let dirty = true; // the scene needs drawing again
   let lightDirty = true; // every plate's display needs composing again
+  let filming = null; // a replay being filmed: { entry, recorder }
 
   function makeEntry(dish, touched = false) {
     const plate = sim.createPlate();
@@ -410,6 +411,7 @@ export function createBench(canvas, options = {}) {
       lost,
       size: sim.grid.size,
       canAdd: entries.length < MAX_DISHES,
+      filming: Boolean(filming),
       canRemove: entries.length > 1,
       dishes: entries.map(({ dish, live, waiting, touched, replay }) => ({
         medium: dish.medium,
@@ -525,9 +527,9 @@ export function createBench(canvas, options = {}) {
     ];
   }
 
-  function frame(time) {
+  function frame(time, still = false) {
     raf = requestAnimationFrame(frame);
-    if (lost || !onScreen) {
+    if (lost || (!onScreen && !still)) {
       last = time;
       return;
     }
@@ -545,7 +547,7 @@ export function createBench(canvas, options = {}) {
     // The clocks. A plate that is watched keeps time with the wall; one
     // that is behind its recipe (just restored) is left to catch up.
     const lead = Math.max(0.3, view.speed * 0.6);
-    if (playing) {
+    if (playing && !still) {
       for (const { dish, live, replay } of entries) {
         if (replay || dish.held || behind(live) > lead) continue;
         dish.hours = Math.min(MAX_HOURS, dish.hours + seconds * view.speed);
@@ -554,16 +556,19 @@ export function createBench(canvas, options = {}) {
     // A plate being replayed keeps its own time, incubator or no incubator,
     // until it is back at the hour it stood at.
     for (const entry of entries) {
-      if (!entry.replay) continue;
+      if (!entry.replay || still) continue;
       if (tickReplay(entry.live, entry.replay, seconds)) {
         entry.replay = null;
         entry.waiting = false;
         emit();
       }
     }
+    // A replay being filmed ends with its replay, however that comes.
+    if (filming && !filming.entry.replay) stopFilming();
 
     // The steps: the plate being looked at first, then the rest in turn.
-    let left = Math.max(1, Math.round(budget));
+    // A frame drawn for a photograph takes none: the plate holds still.
+    let left = still ? 0 : Math.max(1, Math.round(budget));
     const order = entries.map((_, i) => i).filter((i) => i !== selected);
     turn = (turn + 1) % Math.max(1, order.length);
     const rotated = order.slice(turn).concat(order.slice(0, turn));
@@ -1395,6 +1400,101 @@ export function createBench(canvas, options = {}) {
     });
   }
 
+  /**
+   * The plate in view under each of the four lights, side by side, two by
+   * two, as a PNG. Each is drawn and copied before the next; the plate
+   * holds still meanwhile, and goes back to the light it was under.
+   */
+  function photoLights() {
+    const keep = view.light;
+    const w = canvas.width;
+    const h = canvas.height;
+    const gap = Math.round(Math.min(w, h) * 0.01);
+    const sheet = document.createElement('canvas');
+    sheet.width = 2 * w + gap;
+    sheet.height = 2 * h + gap;
+    const ctx = sheet.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, sheet.width, sheet.height);
+    for (const light of LIGHTS) {
+      view.light = light.value;
+      lightDirty = true;
+      dirty = true;
+      cancelAnimationFrame(raf);
+      frame(performance.now(), true);
+      const col = light.value % 2;
+      const row = Math.floor(light.value / 2);
+      ctx.drawImage(canvas, col * (w + gap), row * (h + gap));
+    }
+    view.light = keep;
+    lightDirty = true;
+    dirty = true;
+    return new Promise((resolve) => {
+      sheet.toBlob((blob) => resolve(blob), 'image/png');
+    });
+  }
+
+  /** The kind of video this browser can make, or null. */
+  function videoType() {
+    if (typeof MediaRecorder !== 'function' || !canvas.captureStream) {
+      return null;
+    }
+    const kinds = [
+      'video/mp4;codecs=avc1',
+      'video/webm;codecs=vp9',
+      'video/webm',
+      'video/mp4',
+    ];
+    return kinds.find((k) => MediaRecorder.isTypeSupported(k)) || null;
+  }
+
+  function stopFilming() {
+    if (!filming) return;
+    const { recorder } = filming;
+    filming = null;
+    if (recorder.state !== 'inactive') recorder.stop();
+    emit();
+  }
+
+  /**
+   * Replay a plate from the pour and film it as it goes: the canvas, as it
+   * is seen, for as long as the replay lasts. Resolves with the video and
+   * its file extension, or null if this browser can't make one.
+   */
+  function filmReplay(index) {
+    const entry = entries[index];
+    const type = videoType();
+    if (!type) say('This browser can’t make a video of the bench.');
+    if (!entry || !type) return Promise.resolve(null);
+    stopFilming();
+    // One already going is first sent to its end, then started again.
+    if (entry.replay) replay(index);
+    replay(index);
+    if (!entry.replay) return Promise.resolve(null);
+    const stream = canvas.captureStream(30);
+    const recorder = new MediaRecorder(stream, {
+      mimeType: type,
+      videoBitsPerSecond: 8e6,
+    });
+    const chunks = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size) chunks.push(e.data);
+    };
+    const done = new Promise((resolve) => {
+      recorder.onstop = () => {
+        for (const track of stream.getTracks()) track.stop();
+        resolve({
+          blob: new Blob(chunks, { type: type.split(';')[0] }),
+          extension: type.startsWith('video/mp4') ? 'mp4' : 'webm',
+        });
+      };
+    });
+    filming = { entry, recorder };
+    recorder.start(1000);
+    emit();
+    return done;
+  }
+
   /** A link that carries one plate's recipe. */
   function shareLink(index) {
     const entry = entries[index];
@@ -1408,6 +1508,7 @@ export function createBench(canvas, options = {}) {
 
   function dispose() {
     disposed = true;
+    stopFilming();
     cancelAnimationFrame(raf);
     clearTimeout(noticeTimer);
     if (saveTimer) clearTimeout(saveTimer);
@@ -1492,6 +1593,8 @@ export function createBench(canvas, options = {}) {
     zoomBy,
     turnBy,
     photo,
+    photoLights,
+    filmReplay,
     shareLink,
     dispose,
     recipes: RECIPES,

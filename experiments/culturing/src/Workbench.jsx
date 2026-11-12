@@ -24,6 +24,7 @@ import { createBench, LIGHTS, SPEEDS } from './bench.js';
 import { decodeDish } from './recipe.js';
 import Tray from './Tray.jsx';
 import { describeMedia, formatHours } from './format.js';
+import { saveBlob } from './save.js';
 import { useCompact } from './useCompact.js';
 import './culturing.css';
 
@@ -395,17 +396,14 @@ export default function Workbench() {
     if (!bench) return;
     const blob = await bench.photo();
     if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
     const state = bench.getSnapshot();
     const plate = state.dishes[state.selected];
-    link.href = url;
-    link.download =
+    saveBlob(
+      blob,
       state.mode === 'plate' && plate
         ? `plate-${state.selected + 1}-${Math.round(plate.hours)}h.png`
-        : 'bench.png';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+        : 'bench.png',
+    );
   }, [bench]);
 
   if (error) {

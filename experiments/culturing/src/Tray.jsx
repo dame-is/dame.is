@@ -28,6 +28,7 @@ import { MEDIUM_LOOK_DEFAULTS, resolveCulture } from './pack.js';
 import { DROPS } from './tools.js';
 import { DETAILS, temperatureFactor } from './units.js';
 import { describeEvent, describePour, formatHours } from './format.js';
+import { saveBlob } from './save.js';
 
 const TABS = [
   { value: 'cultures', label: 'Cultures' },
@@ -915,8 +916,26 @@ function RecipesPanel({ bench, snap, compact }) {
 
 // -------------------------------------------------------------- record
 
+/** Pick the plate up, and give the camera a moment to get there. */
+async function inView(bench, snap) {
+  if (snap.mode === 'plate') return;
+  bench.enter(snap.selected);
+  await new Promise((resolve) => setTimeout(resolve, 800));
+}
+
 function RecordPanel({ bench, snap }) {
   const plate = snap.dishes[snap.selected];
+  const name = `plate-${snap.selected + 1}-${Math.round(plate.goal)}h`;
+  const fourLights = async () => {
+    await inView(bench, snap);
+    const blob = await bench.photoLights();
+    if (blob) saveBlob(blob, `${name}-four-lights.png`);
+  };
+  const film = async () => {
+    await inView(bench, snap);
+    const video = await bench.filmReplay(snap.selected);
+    if (video) saveBlob(video.blob, `${name}.${video.extension}`);
+  };
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return undefined;
@@ -968,6 +987,19 @@ function RecordPanel({ bench, snap }) {
         </Button>
         <Button size="sm" onClick={copyLink}>
           {copied ? 'Link copied' : 'Copy a link to this plate'}
+        </Button>
+      </div>
+      <div className="cult-actions">
+        <Button size="sm" onClick={fourLights}>
+          Photograph it under all four lights
+        </Button>
+        <Button
+          size="sm"
+          on={snap.filming}
+          disabled={!plate.events.length || snap.filming}
+          onClick={film}
+        >
+          {snap.filming ? 'Filming the replay…' : 'Save the replay as a video'}
         </Button>
       </div>
       <div className="cult-actions cult-actions--bench">

@@ -98,7 +98,10 @@ should be its own chunk, loaded only by the page that shows it.
   watched again from the pour to the hour it stands at, in about twelve
   seconds whatever its age. It is the same record grown once more at a pace
   that can be followed, so nothing is kept for it and nothing in the record
-  changes; a replay cut short puts the plate back at the age it was.
+  changes; a replay cut short puts the plate back at the age it was. The
+  Record tab can film one (`MediaRecorder` on the canvas, MP4 where the
+  browser makes it, WebM otherwise) and photograph the plate under all four
+  lights on one sheet, drawing it four times while it holds still.
 - **Randomize** ([`chance.js`](src/chance.js)) deals a plate nobody
   chose: a medium, a few cultures that can live on it, one of a handful of
   ways to lay them out (one big drop in the middle, two or three mixed in it,
