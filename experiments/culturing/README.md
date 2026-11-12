@@ -46,7 +46,11 @@ should be its own chunk, loaded only by the page that shows it.
   displaced sheet per plate, lit four ways a microbiologist would recognise:
   a raking lamp over a black bench, a light table from underneath, a 365 nm
   lamp, and the dark. Heights are true and the vertical is stretched, by an
-  amount the page states.
+  amount the page states. A plate is a few hundred texels across and is
+  looked at from much nearer than that, so the scene reads it through a cubic
+  B-spline and makes every hard edge afterwards, from the smooth value: a
+  colony's outline from its optical depth, a cut from how much gel is round
+  the point. Made before, on the grid, those edges were staircases.
 - **The bench** ([`bench.js`](src/bench.js)) owns the canvas, the
   clock and the pointer, and knows nothing about React; the page reads a
   snapshot of it. A plate's clock runs ahead of its simulation by as much as

@@ -121,6 +121,70 @@ vec3 toScreen(vec3 linear) {
 }
 `;
 
+/**
+ * Reading a plate's textures up close.
+ *
+ * A plate is a few hundred texels across and is looked at from much nearer
+ * than that. Read with straight lines between texels, every edge shows the
+ * grid it was made on: outlines step, and a ridge that runs at an angle to
+ * the grid comes out ribbed. So everything the eye rests on is read through
+ * a cubic B-spline, which is smooth in value and in slope, and whatever
+ * should have a hard edge is given one afterwards, from the smooth value.
+ *
+ * Four bilinear taps make one such read, because a pair of the spline's
+ * weights along each axis can be had from the hardware in a single fetch
+ * placed between two texels.
+ */
+const SMOOTH = `
+vec4 smoothAt(sampler2D t, vec2 uv, float texels) {
+  vec2 st = uv * texels - 0.5;
+  vec2 i = floor(st);
+  vec2 f = st - i;
+  vec2 f2 = f * f;
+  vec2 f3 = f2 * f;
+  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+  vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+  vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+  vec2 w3 = f3 / 6.0;
+  vec2 g0 = w0 + w1;
+  vec2 g1 = w2 + w3;
+  vec2 h0 = (i - 0.5 + w1 / g0) / texels;
+  vec2 h1 = (i + 1.5 + w3 / g1) / texels;
+  return mix(
+    mix(textureLod(t, h1, 0.0), textureLod(t, vec2(h0.x, h1.y), 0.0), g0.x),
+    mix(textureLod(t, vec2(h1.x, h0.y), 0.0), textureLod(t, h0, 0.0), g0.x),
+    g0.y
+  );
+}
+
+// How much of the gel is here, 0 to 1 and smooth. The gel ends on a lattice
+// of 2×2 blocks of texels (the agar's own resolution), so a cut read raw is
+// a staircase two texels to the step. This weighs the sixteen blocks round
+// the point, gel or no gel, with the same spline; where it crosses a half is
+// the edge, and it is a curve.
+float gelAt(sampler2D agar, vec2 uv, float texels) {
+  vec2 st = uv * texels * 0.5 - 0.5;
+  vec2 i = floor(st);
+  vec2 f = st - i;
+  vec2 f2 = f * f;
+  vec2 f3 = f2 * f;
+  vec2 w[4];
+  w[0] = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+  w[1] = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+  w[2] = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+  w[3] = f3 / 6.0;
+  ivec2 hi = ivec2(int(texels) - 1);
+  float sum = 0.0;
+  for (int y = 0; y < 4; y++) {
+    for (int x = 0; x < 4; x++) {
+      ivec2 q = clamp((ivec2(i) + ivec2(x - 1, y - 1)) * 2, ivec2(0), hi);
+      sum += w[x].x * w[y].y * step(0.006, texelFetch(agar, q, 0).a);
+    }
+  }
+  return sum;
+}
+`;
+
 // ---------------------------------------------------------------- bench
 
 export const BENCH_VERTEX = `${HEADER}
@@ -157,11 +221,12 @@ uniform float uEdge;      // the last mm before the wall, taken from just inside
 uniform float uTop;       // height of the gel's surface
 uniform float uFloor;     // height of the dish floor
 uniform float uStretch;
+uniform float uTexels;
 uniform sampler2D uRelief;
 uniform sampler2D uAgar;
 out vec3 vWorld;
 out vec2 vMm;
-
+${SMOOTH}
 void main() {
   vec2 mm = aGrid * uSpan * 0.5;
   float r = length(mm);
@@ -170,8 +235,11 @@ void main() {
   // wall in a clean circle.
   vec2 at = mm * min(1.0, (uRadius - uEdge) / max(r, 1e-4));
   vec2 uv = at / uSpan + 0.5;
-  float height = textureLod(uRelief, uv, 0.0).r;
-  float gel = smoothstep(0.0, 0.012, textureLod(uAgar, uv, 0.0).a);
+  float height = smoothAt(uRelief, uv, uTexels).r;
+  // Down to the floor where the gel stops. The drop is spread over a few
+  // quads, as a slope: a sheer wall would have to run between the sheet's
+  // corners, and wherever it didn't it would stand up in teeth.
+  float gel = smoothstep(0.15, 1.0, gelAt(uAgar, uv, uTexels));
   // Gel climbs the wall a little: a meniscus.
   float meniscus = 0.9 * exp(-(uRadius - min(r, uRadius)) / 1.5);
   float y = mix(uFloor, uTop + height * uStretch + meniscus, gel);
@@ -185,7 +253,7 @@ in vec3 vWorld;
 in vec2 vMm;
 out vec4 o;
 
-uniform sampler2D uRelief;  // height mm, coverage, gloss, roughness
+uniform sampler2D uRelief;  // height mm, optical depth, gloss, roughness
 uniform sampler2D uColony;  // colour, fuzz
 uniform sampler2D uAgar;    // colour, opacity
 uniform sampler2D uGlow;    // light given off, sheen
@@ -198,28 +266,16 @@ uniform float uStretch;
 uniform float uDetail;      // 1 up close, 0 from across the bench
 ${LIGHTING}
 
-// Height read through a cubic B-spline (four bilinear taps), so the slope
-// taken from it is smooth and a highlight sliding over the surface doesn't
-// show the texels underneath.
+${SMOOTH}
 float reliefAt(vec2 uv) {
-  vec2 st = uv * uTexels - 0.5;
-  vec2 i = floor(st);
-  vec2 f = st - i;
-  vec2 f2 = f * f;
-  vec2 f3 = f2 * f;
-  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
-  vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
-  vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
-  vec2 w3 = f3 / 6.0;
-  vec2 g0 = w0 + w1;
-  vec2 g1 = w2 + w3;
-  vec2 h0 = (i - 0.5 + w1 / g0) / uTexels;
-  vec2 h1 = (i + 1.5 + w3 / g1) / uTexels;
-  return mix(
-    mix(texture(uRelief, h1).r, texture(uRelief, vec2(h0.x, h1.y)).r, g0.x),
-    mix(texture(uRelief, vec2(h1.x, h0.y)).r, texture(uRelief, h0).r, g0.x),
-    g0.y
-  );
+  return smoothAt(uRelief, uv, uTexels).r;
+}
+
+// How much of a noise whose cells are so many mm across to draw, where a
+// pixel covers so many mm: all of it while a cell is two pixels or more,
+// none once a pixel is as big as a cell.
+float shown(float cell, float px) {
+  return 1.0 - smoothstep(0.45 * cell, 0.9 * cell, px);
 }
 
 void main() {
@@ -228,16 +284,29 @@ void main() {
   vec2 at = vMm * min(1.0, (uRadius - uEdge) / max(r, 1e-4));
   vec2 uv = at / uSpan + 0.5;
 
-  vec4 relief = texture(uRelief, uv);
-  vec4 colony = texture(uColony, uv);
-  vec4 agar = texture(uAgar, uv);
+  vec4 relief = smoothAt(uRelief, uv, uTexels);
+  vec4 colony = smoothAt(uColony, uv, uTexels);
+  vec4 agar = smoothAt(uAgar, uv, uTexels);
   vec4 glow = texture(uGlow, uv);
-  vec4 shade = texture(uShade, uv);
-  float coverage = relief.g;
+  vec4 shade = smoothAt(uShade, uv, uTexels);
   float gloss = relief.b;
   float rough = relief.a;
   float fuzz = colony.a;
-  float gel = smoothstep(0.0, 0.012, agar.a);
+  // The gel's edge, a pixel or so wide wherever it falls.
+  float gelField = gelAt(uAgar, uv, uTexels);
+  float gelSoft = max(fwidth(gelField), 0.02);
+  float gel = smoothstep(0.5 - gelSoft, 0.5 + gelSoft, gelField);
+
+  // How much of the gel the growth here hides. The optical depth comes in
+  // smooth, and is frayed a little on the way: the edge of a colony is not
+  // a clean curve at any scale, and below the grid's it is drawn rather
+  // than grown. Only up close, and only as fine as a pixel can show.
+  float px = length(fwidth(vMm));
+  float fray = (noise2(vMm * 4.3) - 0.5) * shown(0.23, px)
+    + 0.5 * (noise2(vMm * 11.0 + 7.0) - 0.5) * shown(0.09, px);
+  float depth = relief.g * exp(uDetail * (0.5 + 0.9 * fuzz) * fray);
+  // Nothing grows on the face of a cut: it is bare gel all the way down.
+  float coverage = (1.0 - exp(-depth)) * smoothstep(0.6, 0.95, gelField);
 
   // ---- The surface's slope -------------------------------------------
   float texel = 1.0 / uTexels;
@@ -246,13 +315,18 @@ void main() {
   float hy = reliefAt(uv + vec2(0.0, texel)) - reliefAt(uv - vec2(0.0, texel));
   vec2 slope = vec2(hx, hy) * uStretch / (2.0 * mmPerTexel);
   // Finer than the grid can hold: the grain of a dry film, the nap of a
-  // mould. Only worth drawing up close.
+  // mould. Only worth drawing up close, and each scale of it only while a
+  // pixel is small enough to hold it: from further off, grain this fine on
+  // a glossy surface is not texture, it is glitter.
   vec2 fine = vMm * 9.0;
-  float grainAmount = coverage * (0.22 * rough + 0.5 * fuzz) * uDetail;
-  vec2 grain = vec2(
+  float grainAmount = coverage * (0.22 * rough * (1.0 - 0.6 * gloss) + 0.5 * fuzz) * uDetail;
+  vec2 grain = shown(0.3, px) * 0.6 * vec2(
+    noise2(vMm * 3.3 + vec2(5.0, 0.0)) - noise2(vMm * 3.3 - vec2(5.0, 0.0)),
+    noise2(vMm * 3.3 + vec2(0.0, 9.0)) - noise2(vMm * 3.3 - vec2(0.0, 9.0))
+  ) + shown(0.11, px) * vec2(
     noise2(fine + vec2(13.0, 0.0)) - noise2(fine - vec2(13.0, 0.0)),
     noise2(fine + vec2(0.0, 7.0)) - noise2(fine - vec2(0.0, 7.0))
-  ) + 0.5 * vec2(
+  ) + shown(0.04, px) * 0.5 * vec2(
     noise2(fine * 2.7 + 3.0) - 0.5,
     noise2(fine * 2.7 - 5.0) - 0.5
   );
@@ -338,7 +412,9 @@ void main() {
   vec3 halo = textureLod(uGlow, uv, 2.5).rgb * 0.5 + textureLod(uGlow, uv, 4.5).rgb * 0.45;
   look += glow.rgb * 1.6 + halo;
 
-  // The plastic floor, where the gel has been cut away.
+  // The plastic floor, where the gel has been cut away, and the face of the
+  // cut on the way down to it, which the lamp doesn't reach.
+  look *= mix(0.45, 1.0, smoothstep(0.5, 0.95, gelField));
   vec3 plastic = under + mirrored(reflect(-v, vec3(0.0, 1.0, 0.0)), 0.08, 1.0) * fresnel;
   look = mix(plastic, look, gel);
 

@@ -78,7 +78,7 @@ uniform float uDye;
 uniform vec3 uAgarFluor;   // the gel's own glow under ultraviolet
 uniform vec3 uHaloFluor;   // the glow of whatever pigment has left the colony
 
-layout(location = 0) out vec4 oRelief; // height mm, coverage, gloss, roughness
+layout(location = 0) out vec4 oRelief; // height mm, optical depth, gloss, roughness
 layout(location = 1) out vec4 oColony; // colour, fuzz
 layout(location = 2) out vec4 oAgar;   // colour, opacity (0 = no gel here)
 layout(location = 3) out vec4 oGlow;   // light given off, sheen
@@ -100,6 +100,31 @@ vec4 agarAt(sampler2D t, vec2 xy) {
   );
 }
 
+// The same, through a cubic B-spline over sixteen texels. For what is
+// about to be given a hard edge (a paper disc): read between texels with
+// straight lines, a disc four texels across comes out an octagon.
+vec4 agarSmoothAt(sampler2D t, vec2 xy) {
+  vec2 c = xy * 0.5 - 0.5;
+  vec2 f = fract(c);
+  ivec2 i = ivec2(floor(c));
+  ivec2 hi = ivec2(int(uChemSize) - 1);
+  vec2 f2 = f * f;
+  vec2 f3 = f2 * f;
+  vec2 w[4];
+  w[0] = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+  w[1] = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+  w[2] = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+  w[3] = f3 / 6.0;
+  vec4 sum = vec4(0.0);
+  for (int y = 0; y < 4; y++) {
+    for (int x = 0; x < 4; x++) {
+      ivec2 q = clamp(i + ivec2(x - 1, y - 1), ivec2(0), hi);
+      sum += w[x].x * w[y].y * texelFetch(t, q, 0);
+    }
+  }
+  return sum;
+}
+
 vec3 pick(vec4 w, vec4 r, vec4 g, vec4 b) {
   return vec3(dot(w, r), dot(w, g), dot(w, b));
 }
@@ -108,10 +133,12 @@ void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
   vec4 aux = texelFetch(uAux, p, 0);
   if (aux.a < 0.5) {
-    // No gel: outside the dish, or cut away down to the plastic.
+    // No gel: outside the dish, or cut away down to the plastic. It keeps
+    // the medium's colour with no opacity, so that the gel beside a cut
+    // isn't darkened by being read together with nothing.
     oRelief = vec4(0.0);
     oColony = vec4(0.0);
-    oAgar = vec4(0.0);
+    oAgar = vec4(uAgarColor, 0.0);
     oGlow = vec4(0.0);
     return;
   }
@@ -123,7 +150,7 @@ void main() {
   vec2 xy = gl_FragCoord.xy;
   vec4 c0 = agarAt(uC0, xy);
   vec4 c1 = agarAt(uC1, xy);
-  vec4 c2 = agarAt(uC2, xy);
+  vec4 c2 = agarSmoothAt(uC2, xy);
 
   vec4 mass = b + d;
   float rhoB = dot(b, ONE);
@@ -133,6 +160,31 @@ void main() {
   vec4 shareD = d / max(rhoD, 1e-6);
   float pig = aux.g;
   float sport = aux.b;
+  if (rho < 1e-5) {
+    // Bare gel beside a colony. Nothing here to have a colour, but the
+    // scene reads the colour between this texel and its neighbours, and
+    // nothing would read as black: a dark line round every colony. So it
+    // takes its neighbours' colour, and none of their substance.
+    float near = 0.0;
+    float nearPig = 0.0;
+    float nearSport = 0.0;
+    vec4 nearMass = vec4(0.0);
+    for (int j = 0; j < 8; j++) {
+      ivec2 q = p + OFF[j];
+      vec4 mj = texelFetch(uB, q, 0) + texelFetch(uD, q, 0);
+      float rj = dot(mj, ONE);
+      vec4 xj = texelFetch(uAux, q, 0);
+      nearMass += mj;
+      nearPig += rj * xj.g;
+      nearSport += rj * xj.b;
+      near += rj;
+    }
+    if (near > 1e-5) {
+      share = nearMass / near;
+      pig = nearPig / near;
+      sport = nearSport / near;
+    }
+  }
 
   // ---- Relief ---------------------------------------------------------
   float height = dot(d, uHeightD) + dot(b, uHeightB);
@@ -171,16 +223,24 @@ void main() {
   float pale = dot(share, uCrest) * ridge;
   colour = mix(colour, mix(colour, vec3(0.97, 0.94, 0.9), 0.75), clamp(pale, 0.0, 1.0));
 
-  float coverage = 1.0 - exp(-dot(mass, uOpacity));
-  // A paper disc sits on top of whatever is there.
-  float paper = smoothstep(0.35, 0.65, c2.a);
-  colour = mix(colour, vec3(0.86, 0.84, 0.78), paper);
-  coverage = max(coverage, paper);
+  // How much stands between the eye and the gel, as an optical depth. The
+  // scene turns it into coverage after it has been magnified, not before:
+  // a colony's edge is where this crosses about one, and a smooth curve
+  // through that is an outline, where a blur of covered and uncovered
+  // texels is a staircase.
+  float depth = dot(mass, uOpacity);
+  // A paper disc sits on top of whatever is there, and where nothing is,
+  // it is all there is to see.
+  float paper = smoothstep(0.3, 0.7, c2.a);
+  float lid = paper / max(paper + (1.0 - paper) * (1.0 - exp(-depth)), 1e-3);
+  colour = mix(colour, vec3(0.86, 0.84, 0.78), lid);
+  depth = max(depth, 9.0 * paper);
+  float coverage = 1.0 - exp(-depth);
   height += 0.5 * paper;
   // A thin travelling layer is a film of liquid: it glistens.
   float wetFilm = clamp(rhoB * 5.0, 0.0, 1.0) * (1.0 - smoothstep(0.15, 0.5, rhoD));
-  float gloss = mix(mix(dot(share, uGloss), 0.92, wetFilm), 0.05, paper);
-  float rough = mix(mix(dot(share, uRough), 0.12, wetFilm), 0.9, paper);
+  float gloss = mix(mix(dot(share, uGloss), 0.92, wetFilm), 0.05, lid);
+  float rough = mix(mix(dot(share, uRough), 0.12, wetFilm), 0.9, lid);
   float fuzz = dot(share, uFuzz + uFuzzLate * pig) * smoothstep(0.03, 0.25, rhoD);
   float sheen = dot(share, uSheen) * pig * coverage;
 
@@ -213,7 +273,7 @@ void main() {
     light = pick(share * lit, uGlowR, uGlowG, uGlowB) * coverage * (0.25 + 0.75 * fed);
   }
 
-  oRelief = vec4(height, coverage, gloss, rough);
+  oRelief = vec4(height, min(depth, 16.0), gloss, rough);
   oColony = vec4(colour, fuzz);
   oAgar = vec4(gel, max(opacity, 0.02));
   oGlow = vec4(light, sheen);

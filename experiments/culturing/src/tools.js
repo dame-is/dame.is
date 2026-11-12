@@ -64,6 +64,8 @@ export const STREAK_RADIUS = 0.75;
 /** The share of the surface a spread plate's cells land on: all of it,
  *  which is a lawn. */
 export const LAWN_DENSITY = 1;
+/** How wide the soft edge of a paper disc is where it is put down, mm. */
+const PAPER_EDGE = 1.4;
 /** How big the patches are that a mixed drop's strains settle out in, mm. */
 export const CLUMP = 1.1;
 /** How far along a streak the loop still carries half its load, mm. */
@@ -235,8 +237,12 @@ function addition(event) {
       agar: {
         from,
         to,
-        radius,
-        feather: d.paper ? 0.25 : radius * 0.5,
+        // A disc's edge is laid down soft, over more than one texel of the
+        // agar, and still half way down at the disc's own radius. Laid
+        // down hard it is a handful of squares, and no amount of care in
+        // the drawing makes a circle of those.
+        radius: d.paper ? radius + PAPER_EDGE / 2 : radius,
+        feather: d.paper ? PAPER_EDGE : radius * 0.5,
         add0: [
           d.nutrient || 0,
           d.surfactant || 0,
