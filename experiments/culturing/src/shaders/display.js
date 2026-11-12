@@ -29,6 +29,7 @@ uniform sampler2D uC3;
 uniform sampler2D uR0;
 uniform sampler2D uR1;
 uniform sampler2D uR2;
+uniform bool uStained;   // whether anything from the tray's stains is on it
 uniform float uChemSize;
 uniform int uLightMode; // 0 bench, 1 light table, 2 ultraviolet, 3 dark
 
@@ -177,9 +178,15 @@ void main() {
   vec4 c2 = agarSmoothAt(uC2, xy);
   // Smooth, because a stain is gathered at a colony's edge and the eye goes
   // to an edge.
-  vec4 r0 = agarSmoothAt(uR0, xy);
-  vec4 r1 = agarSmoothAt(uR1, xy);
-  vec4 r2 = agarSmoothAt(uR2, xy);
+  // A plate nothing has been put on reads none of them.
+  vec4 r0 = vec4(0.0);
+  vec4 r1 = vec4(0.0);
+  vec4 r2 = vec4(0.0);
+  if (uStained) {
+    r0 = agarSmoothAt(uR0, xy);
+    r1 = agarSmoothAt(uR1, xy);
+    r2 = agarSmoothAt(uR2, xy);
+  }
 
   vec4 mass = b + d;
   float rhoB = dot(b, ONE);

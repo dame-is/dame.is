@@ -246,6 +246,7 @@ describe('shaders are given every number they wait on', () => {
         'uR0',
         'uR1',
         'uR2',
+        'uStained',
         'uWr',
         'uChemSize',
         'uLightMode',

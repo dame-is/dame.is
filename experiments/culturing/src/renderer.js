@@ -409,6 +409,7 @@ export function createRenderer(gl, sim) {
     });
     programs.compose.set(look);
     programs.compose.set({
+      uStained: plate.stained,
       uChemSize: NC,
       uLightMode: light.mode,
       uMmPerTexel: sim.grid.dx,
