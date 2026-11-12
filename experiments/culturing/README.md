@@ -55,6 +55,12 @@ should be its own chunk, loaded only by the page that shows it.
   six-well plate is two thirds of real size, to fit the grid a dish is worked
   out on. A gradient (antibiotic, sugar or pH) is poured as a ramp across the
   whole vessel.
+- **The lid** ([`simulation.js`](src/simulation.js) `setLid`). A word typed in
+  the Incubator tab is drawn in black on a texture the size of the plate,
+  and the biology pass reads the incubator's light through it, so a culture
+  that pigments only in the light (Day rings) or only in the dark
+  (Darkroom) develops it. The word is part of the incubator's settings, so
+  it is kept in the record with the hour it was put on or taken off.
 - **A plate is its recipe** ([`recipe.js`](src/recipe.js),
   [`incubate.js`](src/incubate.js)): the medium, the incubator, and
   everything done to it with the hour it was done. The picture is not kept.

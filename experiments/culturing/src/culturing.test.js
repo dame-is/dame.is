@@ -213,6 +213,7 @@ describe('shaders are given every number they wait on', () => {
     ...['uB', 'uD', 'uAux', 'uC0', 'uC1', 'uC2', 'uC3', 'uR0', 'uR1', 'uR2'],
     ...['uWr', 'uWrA'],
     ...['uHours', 'uStep', 'uChemSize', 'uWrDt', 'uWrHours', 'uMmPerTexel'],
+    'uLid',
   ]);
 
   it.each([
@@ -836,6 +837,7 @@ describe('recipes', () => {
       temperature: 45,
       humidity: 0.85,
       light: 'cycle',
+      lid: '',
     });
     expect(dish.events.map((e) => [e.at, e.do])).toEqual([
       [0, 'lawn'],
@@ -1577,7 +1579,14 @@ describe('stamps', () => {
 
 /** A simulation that only keeps count. */
 function fakeSim(size = 256) {
-  const calls = { pour: 0, step: 0, surface: [], agar: [], reagents: [] };
+  const calls = {
+    pour: 0,
+    step: 0,
+    surface: [],
+    agar: [],
+    reagents: [],
+    lids: [],
+  };
   const sim = {
     grid: createGrid(size),
     calls,
@@ -1596,6 +1605,7 @@ function fakeSim(size = 256) {
     stampSurface: (_plate, stamp) => calls.surface.push(stamp),
     stampAgar: (_plate, stamp) => calls.agar.push(stamp),
     stampReagents: (_plate, stamp) => calls.reagents.push(stamp),
+    setLid: (_plate, text) => calls.lids.push(text),
   };
   return sim;
 }
@@ -1739,6 +1749,39 @@ describe('incubating', () => {
     expect(again.env.temperature).toBe(30);
     advance(sim, again, 1e6);
     expect(again.env.temperature).toBe(37);
+  });
+
+  it('masks the lid when the record says to, and keeps the word short and plain', () => {
+    const sim = fakeSim();
+    const dish = cleanDish({
+      medium: 'broth',
+      hours: 10,
+      env: { lid: '  hi\u0007 there, this is far too long ' },
+      events: [
+        { at: 0, do: 'lawn', culture: 'coliroid', seed: 1 },
+        { at: 5, do: 'set', env: { lid: '' } },
+      ],
+    });
+    expect(dish.env.lid).toBe('hi there, this i');
+    const live = begin(sim, sim.createPlate(), dish);
+    expect(sim.calls.lids).toEqual(['hi there, this i']);
+    advance(sim, live, 1e6);
+    expect(sim.calls.lids).toEqual(['hi there, this i', '']);
+    setEnv(sim, live, { lid: 'yes' });
+    expect(sim.calls.lids.at(-1)).toBe('yes');
+    expect(describeEvent(dish.events.at(-1))).toBe(
+      'Incubator set to “yes” masked on the lid',
+    );
+    // The darkroom culture pigments only in the dark; nothing else does.
+    const { u } = packPlate({
+      slots: [cultureById('coliroid'), cultureById('rings')],
+      medium: mediumById('broth'),
+      env: ENV,
+      grid: sim.grid,
+      seed: 1,
+    });
+    expect(u.uPigDark).toEqual([1, 0, 0, 0]);
+    expect(u.uPigLight).toEqual([0, 1, 0, 0]);
   });
 
   it('takes a setting changed before anything is planted as how the plate was set up', () => {

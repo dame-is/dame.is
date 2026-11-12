@@ -18,7 +18,12 @@ import {
 } from './vessels.js';
 import { ADDITIONS, ADDITION_KINDS, additionById } from './additions.js';
 import { RECIPES } from './recipes.js';
-import { HUMIDITY_RANGE, TEMPERATURE_RANGE } from './recipe.js';
+import {
+  cleanLid,
+  HUMIDITY_RANGE,
+  LID_LENGTH,
+  TEMPERATURE_RANGE,
+} from './recipe.js';
 import { MEDIUM_LOOK_DEFAULTS, resolveCulture } from './pack.js';
 import { DROPS } from './tools.js';
 import { DETAILS, temperatureFactor } from './units.js';
@@ -640,6 +645,60 @@ function TemperatureNote({ slots, temperature }) {
   );
 }
 
+/**
+ * A word masked on the lid: black letters on a clear sheet, which keep the
+ * incubator's light off the plate under them. Only a culture that cares
+ * about light shows it.
+ */
+function LidField({ lid, onSet }) {
+  const [text, setText] = useState(lid);
+  useEffect(() => setText(lid), [lid]);
+  const word = cleanLid(text);
+  return (
+    <div className="cult-field">
+      <label className="cult-field-label" htmlFor="cult-lid">
+        Lid
+      </label>
+      <output className="cult-field-value" htmlFor="cult-lid">
+        {lid ? `masked: “${lid}”` : 'clear'}
+      </output>
+      <form
+        className="cult-lid"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (word && word !== lid) onSet(word);
+        }}
+      >
+        <input
+          id="cult-lid"
+          className="cult-lid-input"
+          type="text"
+          maxLength={LID_LENGTH}
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="done"
+          placeholder="a word to mask it with"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <Button size="sm" type="submit" disabled={!word || word === lid}>
+          Mask the lid
+        </Button>
+        {lid && (
+          <Button size="sm" variant="text" onClick={() => onSet('')}>
+            Clear it
+          </Button>
+        )}
+      </form>
+      <p className="cult-field-hint">
+        Black letters over the lid keep the light off what is under them. A lawn
+        of Darkroom goes black there; Day rings fruits everywhere else. Keep the
+        light on, or the night develops the whole plate.
+      </p>
+    </div>
+  );
+}
+
 function IncubatorPanel({ bench, snap }) {
   const plate = snap.dishes[snap.selected];
   const { env } = plate;
@@ -677,10 +736,11 @@ function IncubatorPanel({ bench, snap }) {
             onChange={(v) => set({ light: v })}
           />
           <p className="cult-field-hint">
-            Twelve hours on, twelve off, unless told otherwise. Only some moulds
-            care.
+            Twelve hours on, twelve off, unless told otherwise. Only some
+            cultures care.
           </p>
         </div>
+        <LidField lid={env.lid || ''} onSet={(lid) => set({ lid })} />
         <div className="cult-actions">
           <Button
             size="sm"

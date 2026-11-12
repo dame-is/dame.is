@@ -29,6 +29,7 @@ export function begin(sim, plate, dish) {
   if (dish.gradient) {
     applyStamps(sim, plate, gradientStamps(dish.gradient, GRADIENT_PEAK));
   }
+  sim.setLid(plate, dish.env.lid || '');
   const live = {
     plate,
     dish,
@@ -73,6 +74,7 @@ export function repack(sim, live) {
 function apply(sim, live, event) {
   if (event.do === 'set') {
     live.env = { ...live.env, ...event.env };
+    if (event.env.lid != null) sim.setLid(live.plate, live.env.lid);
     repack(sim, live);
     return;
   }
@@ -274,5 +276,6 @@ export function setEnv(sim, live, patch) {
     live.cursor += 1;
   }
   live.env = { ...live.env, ...patch };
+  if (patch.lid != null) sim.setLid(live.plate, live.env.lid);
   repack(sim, live);
 }

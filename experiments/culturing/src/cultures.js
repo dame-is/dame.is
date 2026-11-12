@@ -347,6 +347,43 @@ export const CULTURES = [
     },
   },
   {
+    id: 'coliroid',
+    name: 'Darkroom',
+    after: 'Escherichia coli that sees light',
+    kind: 'colony',
+    blurb:
+      'A lawn that develops a picture. Wherever it is kept in the dark it turns a dye in the plate black, and wherever light reaches it, it doesn’t. Spread it, mask the lid with a word in the incubator tab, keep the light on, and wait half a day.',
+    notes: [
+      {
+        text: 'Given a sensor from a cyanobacterium, these cells switch a gene off in red light. In the dark the gene turns a dye in the plate into a black precipitate, so a lawn kept under a projected picture develops it, at about a hundred megapixels a square inch.',
+        href: 'https://escholarship.org/uc/item/938935tz',
+      },
+      {
+        text: 'The first pictures took about twelve hours at 37 °C, with the image shone on the plate the whole time.',
+        href: 'https://escholarship.org/uc/item/938935tz',
+      },
+    ],
+    tags: ['gram-negative'],
+    growth: 1.3,
+    creep: 0.03,
+    temp: { tMin: 8, tOpt: 37, tMax: 46 },
+    acid: 5,
+    kin: 0.5,
+    noise: 0.4,
+    sensX: 0.4,
+    sensY: 1.0,
+    kill: 0.4,
+    pigment: { hours: 5, dark: 1 },
+    look: {
+      young: '#e7e3d5',
+      mature: '#1f1b17',
+      gloss: 0.6,
+      rough: 0.3,
+      height: 0.3,
+      opacity: 7,
+    },
+  },
+  {
     id: 'slime',
     name: 'Slime',
     after: 'Klebsiella pneumoniae',

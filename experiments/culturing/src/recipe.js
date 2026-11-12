@@ -23,7 +23,20 @@ export const DEFAULT_ENV = {
   temperature: 30, // °C
   humidity: 0.85, // relative, 0..1
   light: 'cycle', // 'cycle' (12 h on, 12 off), 'on' or 'dark'
+  lid: '', // a word masked on the lid in black, or nothing
 };
+
+/** The longest word a lid can be masked with. */
+export const LID_LENGTH = 16;
+
+/** A word for the lid from untrusted text: printable, trimmed, short. */
+export function cleanLid(text) {
+  return Array.from(String(text ?? ''))
+    .filter((ch) => ch >= ' ' && ch !== '\u007f')
+    .join('')
+    .trim()
+    .slice(0, LID_LENGTH);
+}
 
 export const TEMPERATURE_RANGE = { min: 4, max: 45, step: 1 };
 export const HUMIDITY_RANGE = { min: 0.2, max: 1, step: 0.05 };
@@ -122,6 +135,7 @@ function cleanEnv(raw) {
     );
   }
   if (['cycle', 'on', 'dark'].includes(raw.light)) env.light = raw.light;
+  if (typeof raw.lid === 'string') env.lid = cleanLid(raw.lid);
   return env;
 }
 

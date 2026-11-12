@@ -27,6 +27,9 @@ export function describeEnv(env) {
   if (env.humidity != null)
     parts.push(`${Math.round(env.humidity * 100)} % humidity`);
   if (env.light != null) parts.push(LIGHT_WORDS[env.light] || env.light);
+  if (env.lid != null) {
+    parts.push(env.lid ? `“${env.lid}” masked on the lid` : 'the lid clear');
+  }
   return parts.join(', ');
 }
 

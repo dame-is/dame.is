@@ -128,6 +128,61 @@ export function createSimulation(gl, caps, size) {
     const R2 = stateTexture(NC);
     return { R0, R1, R2, target: createTarget(gl, [R0, R1, R2]) };
   }
+  /** What lies over a plate's lid: white lets the light through. */
+  const LID = 256;
+  function createLid() {
+    const texture = createTexture(gl, LID, LID, {
+      internalFormat: gl.RGBA8,
+      filter: gl.LINEAR,
+    });
+    return texture;
+  }
+  let lidCanvas = null;
+  /**
+   * Mask a plate's lid with a word, in black, across the middle; or clear
+   * it. Drawn in the page's own type, a little soft, as a mask laid on the
+   * outside of the lid is: the light bends round its edges on the way down.
+   */
+  function setLid(plate, text = '') {
+    if (!lidCanvas) {
+      lidCanvas = document.createElement('canvas');
+      lidCanvas.width = LID;
+      lidCanvas.height = LID;
+    }
+    const ctx = lidCanvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, LID, LID);
+    if (text) {
+      const family =
+        getComputedStyle(document.body).fontFamily || 'Georgia, serif';
+      // As big as fits across about two thirds of the dish.
+      let size = LID * 0.34;
+      ctx.font = `600 ${size}px ${family}`;
+      const wide = ctx.measureText(text).width;
+      const room = LID * 0.68;
+      if (wide > room) size *= room / wide;
+      ctx.font = `600 ${size}px ${family}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000';
+      ctx.filter = 'blur(1px)';
+      ctx.fillText(text, LID / 2, LID / 2);
+      ctx.filter = 'none';
+    }
+    gl.bindTexture(gl.TEXTURE_2D, plate.lid);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      0,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      lidCanvas,
+    );
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  }
+
   function createWrinkle() {
     const WR = stateTexture(N);
     return { WR, target: createTarget(gl, [WR]) };
@@ -161,6 +216,7 @@ export function createSimulation(gl, caps, size) {
       agar: createAgar(),
       reagents: createReagents(),
       wrinkle: createWrinkle(),
+      lid: createLid(),
       // Whether anything has been put in the reagent textures: until it
       // has, they are all zero and their pass is skipped.
       stained: false,
@@ -174,6 +230,7 @@ export function createSimulation(gl, caps, size) {
     disposeTarget(gl, plate.agar.target);
     disposeTarget(gl, plate.reagents.target);
     disposeTarget(gl, plate.wrinkle.target);
+    gl.deleteTexture(plate.lid);
   }
 
   function stampSurface(plate, stamp) {
@@ -341,6 +398,7 @@ export function createSimulation(gl, caps, size) {
       uC0: plate.agar.C0,
       uC1: plate.agar.C1,
       uC3: plate.agar.C3,
+      uLid: plate.lid,
     });
     programs.culture.set(u);
     programs.culture.set({ ...clock, uChemSize: NC });
@@ -436,6 +494,7 @@ export function createSimulation(gl, caps, size) {
     stampSurface,
     stampAgar,
     stampReagents,
+    setLid,
     dispose,
   };
 }

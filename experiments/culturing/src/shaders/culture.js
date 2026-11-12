@@ -38,6 +38,7 @@ uniform sampler2D uAux;
 uniform sampler2D uC0;
 uniform sampler2D uC1;
 uniform sampler2D uC3;     // which compartment of the vessel (vessels.js)
+uniform sampler2D uLid;    // how much of the incubator's light the lid lets through
 
 uniform float uChemSize;
 uniform float uHours;
@@ -105,6 +106,7 @@ uniform vec4 uMutAdv;       // its growth advantage
 uniform vec4 uPigRate;      // pigment coming up, per step
 uniform vec4 uPigQ;         // signal needed first (0 = none)
 uniform vec4 uPigLight;     // 1 = only young growth under light pigments
+uniform vec4 uPigDark;      // 1 = only growth kept in the dark pigments
 uniform vec4 uPigStarve;    // 1 = only once the food has run down
 
 layout(location = 0) out vec4 oB;
@@ -392,9 +394,13 @@ void main() {
       smoothstep(uPigQ * 0.6, uPigQ * 1.4, vec4(c0.a)),
       step(1e-6, uPigQ)
     );
-    vec4 lGate = mix(vec4(1.0), vec4(uLight * young), uPigLight);
+    // The light that reaches this point: the incubator's, less whatever a
+    // mask on the lid holds back.
+    float light = uLight * texture(uLid, (vec2(p) + 0.5) / vec2(textureSize(uAux, 0))).r;
+    vec4 lGate = mix(vec4(1.0), vec4(light * young), uPigLight);
+    vec4 dGate = mix(vec4(1.0), vec4(1.0 - light), uPigDark);
     vec4 sGate = mix(vec4(1.0), 1.0 - fN, uPigStarve);
-    float rate = dot(shareNew, uPigRate * qGate * lGate * sGate);
+    float rate = dot(shareNew, uPigRate * qGate * lGate * dGate * sGate);
     pig = clamp(pig + rate * (1.0 - pig), 0.0, 1.0);
   }
 

@@ -178,6 +178,11 @@ export default function FieldNotes() {
           Real tetrazolium also holds some bacteria back, and here it doesn’t.
         </li>
         <li>
+          Darkroom answers to the incubator’s light, whatever its colour, where
+          the real one answers to red, and the dye it blackens is taken to be in
+          whatever it is poured on. The real one needs it put in the plate.
+        </li>
+        <li>
           The six-well plate is two thirds the size of a real one, so that it
           can be worked out on the same grid as a dish. Every compartment of a
           vessel is poured from one gel: the media differ in what is dissolved

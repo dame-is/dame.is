@@ -138,6 +138,7 @@ export const CULTURE_DEFAULTS = {
     quorum: 0, // signal needed first (0 = none)
     tempMax: null, // °C above which none is made
     light: 0, // 1 = only young growth under light pigments (banding)
+    dark: 0, // 1 = only growth kept in the dark pigments (a photograph)
     starve: 0, // 1 = only once the food has run down
   },
 
@@ -444,6 +445,7 @@ export function packPlate({ slots, medium, media, env, grid, seed }) {
     uPigRate: each((c) => rate(1 / c.pigment.hours) * pigmentGate(c)),
     uPigQ: each((c) => c.pigment.quorum),
     uPigLight: each((c) => c.pigment.light),
+    uPigDark: each((c) => c.pigment.dark),
     uPigStarve: each((c) => c.pigment.starve),
 
     // ---- agar
