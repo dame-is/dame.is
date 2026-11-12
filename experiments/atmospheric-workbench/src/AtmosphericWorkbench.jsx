@@ -178,6 +178,21 @@ export default function AtmosphericWorkbench({ storage = defaultStorage }) {
             <figure className="atmo-figure">
               <div className="atmo-stage" ref={stageRef} hidden={rays}>
                 {/* The canvas is put here by useSky. */}
+                {/* On a phone two fingers zoom, so the picture carries only
+                    the way back to where it started. */}
+                {snap && compact && (
+                  <div className="atmo-stage-tools">
+                    <Button
+                      size="sm"
+                      variant="icon"
+                      aria-label="Put the view back"
+                      title="Put the view back"
+                      onClick={sky.resetView}
+                    >
+                      <RotateCcw size={14} aria-hidden="true" />
+                    </Button>
+                  </div>
+                )}
                 {snap?.notice && (
                   <p className="atmo-notice" role="status" key={snap.notice.id}>
                     {snap.notice.text}
@@ -220,7 +235,7 @@ export default function AtmosphericWorkbench({ storage = defaultStorage }) {
                 value={bench}
                 onChange={setBench}
               />
-              {snap && !rays && (
+              {snap && !rays && !compact && (
                 <div className="atmo-bar-end">
                   <Button
                     size="sm"

@@ -159,6 +159,23 @@
   }
 }
 
+/* The view's one control, on a phone: on the picture, the way a map keeps
+   its own, so the bar under it is a single row. */
+.atmo-stage-tools {
+  position: absolute;
+  inset: var(--space-2) var(--space-2) auto auto;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.atmo .atmo-stage-tools .btn {
+  min-height: var(--control-h-md);
+  width: var(--control-h-md);
+  color: var(--stage-ink);
+  background: var(--stage-ground);
+  border-color: var(--stage-rule);
+}
+
 .atmo-caption {
   font-family: var(--sans);
   font-size: var(--text-meta);
@@ -371,5 +388,45 @@
 /* ------------------------------------------------------------------ */
 
 .atmo-notes {
-  margin-top: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.atmo-notes p {
+  margin: 0;
+  text-indent: 0;
+}
+
+.atmo-rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: var(--measure);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.atmo-rules li {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule-soft);
+  line-height: var(--leading-ui);
+}
+
+.atmo-rules strong {
+  font-weight: 600;
+}
+
+.atmo-notes-sub {
+  margin: var(--space-3) 0 0;
+  font-family: var(--sans);
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  color: var(--ink);
+}
+
+.atmo-notes-date {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
 }

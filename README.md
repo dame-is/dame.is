@@ -199,8 +199,9 @@ A `draft` is the owner's alone. The page's own title and intro are its
 `is.dame.page/experimenting` record, like every page's.
 
 An experiment's `url` can be anywhere. One that is built into this site lives
-under the bench, as [`/experimenting/culturing`](#culturing) and
-[`/experimenting/sunfarming`](#sunfarming) do. A built-in experiment is a
+under the bench, as [`/experimenting/culturing`](#culturing),
+[`/experimenting/sunfarming`](#sunfarming) and
+[`/experimenting/atmospheric-workbench`](#atmospheric-workbench) do. A built-in experiment is a
 project of its own in [`experiments/`](experiments/), with its own
 `package.json`, dependencies and standalone build, which the site only imports;
 [`experiments/README.md`](experiments/README.md) is how that works, how to add
@@ -345,6 +346,35 @@ The game looks nothing like the rest of the site, on purpose: it carries its
 own stylesheet, scoped under one class, and reads none of the site's tokens,
 so it is the same game on its own (`npm run dev -w @dame-is/sunfarming`) as it
 is in the page.
+
+## Atmospheric workbench
+
+`/experimenting/atmospheric-workbench` is a sky on a bench, with three benches
+sharing one stage. On **Clouds** there is a sky to look round and a turntable
+to reshape one cloud on. On **Halos and bows** there are ice crystals in the
+air, and the halos they make of the sun are traced a ray at a time: nothing is
+drawn as an arc, so laying plates flat gives sun dogs and raising the sun past
+32° loses the circumzenithal arc, because that is what the rays do. Rain across
+from the sun makes the bow. On **Rays** there is one prism, crystal or raindrop
+with a beam through it, which is where the angles in the sky come from. The
+page says which parts are real, and gives its sources, in "What is real here"
+at its foot.
+
+It is the third [experiment](#experimenting) built into the site, and like
+[Culturing](#culturing) it is a page with a bench on it, found and linked to
+its reactions the same way.
+
+The workbench is a package of its own,
+[`experiments/atmospheric-workbench/`](experiments/atmospheric-workbench/),
+which the site imports as `@dame-is/atmospheric-workbench` into one page
+([`src/pages/AtmosphericWorkbench.jsx`](src/pages/AtmosphericWorkbench.jsx)).
+It is its own chunk and never warmed: it carries three.js and a ray tracer
+that runs in a worker. How the tracer, the picture of the sky, the rainbow,
+the clouds and the ray table work is in its
+[README](experiments/atmospheric-workbench/README.md), along with what its
+tests hold it to and what has not been checked. It is dressed in the site's
+kit, and borrows that through one file
+([`src/host.js`](experiments/atmospheric-workbench/src/host.js)).
 
 ## Newsletter
 

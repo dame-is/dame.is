@@ -1,9 +1,10 @@
 // The sky on the bench: clouds you can pick up and reshape on a turntable,
 // and the light that ice and rain make of the sun.
 //
-// The clouds and the turntable are atmosphere.online's sky (its sky.js),
-// brought over with its camera changed: there it flew, here it stands still
-// and looks round, because here the sky sits in a page that has to scroll.
+// The clouds and the turntable are brought over from an earlier sky of the
+// same author's, with its camera changed: there it flew, here it stands
+// still and looks round, because here the sky sits in a page that has to
+// scroll.
 // A cloud is a few hundred soft puffs, all drawn in one instanced batch and
 // sorted back to front each frame (clouds.js, puff.js).
 //
@@ -113,7 +114,7 @@ export function createSky(host, { storage = null, reduceMotion = false } = {}) {
     powerPreference: 'high-performance',
   });
   // Every colour here is painted for the screen and handed to the shaders as
-  // it is, the way atmosphere.online's were. Nothing is converted on the way
+  // it is. Nothing is converted on the way
   // in (rgb(), below) or on the way out.
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));

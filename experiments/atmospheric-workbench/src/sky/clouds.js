@@ -3,8 +3,7 @@
 // A cloud is a few hundred soft puffs (see puff.js). Each kind is a
 // generator: puff i depends only on the cloud's seed and i, so moving a
 // slider adds or removes puffs instead of reshuffling them, and changing
-// kind lets the same puffs glide into the new shape. Brought over from
-// atmosphere.online's sky.js.
+// kind lets the same puffs glide into the new shape.
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

@@ -1,6 +1,6 @@
 // The colour of the sky by how high the sun is.
 //
-// Four skies, painted by hand for atmosphere.online, are pinned to the sun
+// Four skies, painted by hand, are pinned to the sun
 // heights they were painted for, and anything between is a blend of its two
 // neighbours. Night is its own sky, with the moon where the sun would be.
 

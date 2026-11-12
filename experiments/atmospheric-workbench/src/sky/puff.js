@@ -1,6 +1,7 @@
 // How a cloud is drawn: lots of soft, lit sphere impostors ("puffs") with
 // noisy, eroded edges, sun on one side and a warm rim on the other, fading
-// into haze with distance. Brought over from atmosphere.online's puff3d.js.
+// into haze with distance. Brought over from an earlier sky of the same
+// author's.
 
 import * as THREE from 'three';
 
