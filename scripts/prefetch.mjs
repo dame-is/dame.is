@@ -562,6 +562,7 @@ const SITEMAP_SURFACES = [
   '/experimenting',
   '/experimenting/culturing',
   '/experimenting/sunfarming',
+  '/experimenting/atmospheric-workbench',
   '/curating',
   '/posting',
   '/logging',

@@ -1,0 +1,30 @@
+/* The site's base stylesheets, for the standalone page.
+
+   The workbench is dressed in dame.is's kit, and its own stylesheet
+   (src/atmospheric-workbench.css) is written in the site's tokens: its inks,
+   its type scale, its spacing, its controls. Embedded in the site those are
+   already on the page. On its own they have to be brought in, and this is
+   where: the same sheets, in the same order, that the site's entry loads.
+
+   Together with src/host.js this is everything the experiment borrows from
+   the repo around it. */
+
+@import '../../../src/styles/fonts.css';
+@import '../../../src/styles/reset.css';
+@import '../../../src/styles/theme.css';
+@import '../../../src/styles/typography.css';
+@import '../../../src/styles/controls.css';
+@import '../../../src/styles/app.css';
+
+/* The site puts a page in a frame, with its chrome above and below and a
+   grid whose wings the bench hangs into. Here there is only the page: a
+   margin, and no wings to hang into. */
+.solo {
+  --wing: 0px;
+  --main-gutter: var(--space-5);
+
+  box-sizing: border-box;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--space-6) var(--main-gutter);
+}

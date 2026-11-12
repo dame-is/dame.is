@@ -53,6 +53,7 @@ export const DECLARED_ROUTES = [
   '/experimenting',
   '/experimenting/culturing',
   '/experimenting/sunfarming',
+  '/experimenting/atmospheric-workbench',
   '/experimenting/:rkey',
   '/participants',
   '/colophon',

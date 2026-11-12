@@ -96,6 +96,13 @@ export const PAGES = {
     desc: 'A small cel-shaded game: take an island off its diesel generator with solar panels, batteries and wind, mind the shade, and watch the village grow until the generator falls silent.',
     nsid: 'is.dame.experiment',
   },
+  // The third (experiments/atmospheric-workbench): a sky on a bench.
+  '/experimenting/atmospheric-workbench': {
+    label: 'experimenting',
+    title: 'Atmospheric workbench — dame.is experimenting',
+    desc: 'A sky on a bench: shape a cloud on a turntable, put ice crystals in the air and see which halos they make of the sun, and send light through a prism, a crystal and a raindrop. Every halo is traced a ray at a time.',
+    nsid: 'is.dame.experiment',
+  },
   '/curating': {
     label: 'curating',
     title: 'dame.is curating',

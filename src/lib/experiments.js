@@ -33,15 +33,21 @@ export function experimentPath(rkey) {
  * The first is /experimenting/culturing, a bench of simulated petri dishes.
  * Its experiment record points its "Try it" here. The second is
  * /experimenting/sunfarming, a small game about building a solar farm on an
- * island.
+ * island. The third is /experimenting/atmospheric-workbench, a sky on a
+ * bench: clouds to shape, and halos and rainbows traced a ray at a time.
  *
  * Each is a package of its own under experiments/ (experiments/culturing,
- * experiments/sunfarming) that the site only imports; see
- * experiments/README.md for that arrangement.
+ * experiments/sunfarming, experiments/atmospheric-workbench) that the site
+ * only imports; see experiments/README.md for that arrangement.
  */
 export const CULTURING_PATH = `${EXPERIMENTING_PATH}/culturing`;
 export const SUNFARMING_PATH = `${EXPERIMENTING_PATH}/sunfarming`;
-export const EXPERIMENT_PAGE_PATHS = Object.freeze([CULTURING_PATH, SUNFARMING_PATH]);
+export const ATMOSPHERIC_WORKBENCH_PATH = `${EXPERIMENTING_PATH}/atmospheric-workbench`;
+export const EXPERIMENT_PAGE_PATHS = Object.freeze([
+  CULTURING_PATH,
+  SUNFARMING_PATH,
+  ATMOSPHERIC_WORKBENCH_PATH,
+]);
 
 const withoutTrailingSlash = (pathname) => String(pathname || '').replace(/\/+$/, '');
 

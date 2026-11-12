@@ -66,6 +66,7 @@ export const STATIC_ROUTE_PATTERNS = [
   // outranks `/experimenting/:rkey` below — see matchRoute.
   '/experimenting/culturing',
   '/experimenting/sunfarming',
+  '/experimenting/atmospheric-workbench',
   '/experimenting/:rkey',
   '/participants',
   '/colophon',
