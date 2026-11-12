@@ -37,6 +37,15 @@ uniform float uTaper;
 // Not a capsule but a ramp across the whole plate: none of it behind uFrom,
 // all of it past uTo, and in proportion between. A gradient plate's wedge.
 uniform bool uRamp;
+// How far the edge strays from round, as a share of the radius, and the
+// seed of the shape it strays into. Nothing put down by hand lands as a
+// perfect circle: a drop spreads a little further one way than another,
+// and a loop or a brush lays a line that thickens and thins.
+uniform float uWobble;
+uniform uint uShape;
+// How unevenly what is in it soaks in: 0 the same all through, more and
+// some of it stays where it landed while the rest runs to one side.
+uniform float uMottle;
 
 ${each(
   (i) => `uniform vec4 uClear${i};
@@ -48,6 +57,17 @@ ${each((i) => `layout(location = ${i}) out vec4 o${i};`)}
 ${HASH}
 ${LATTICE}
 
+// The edge's distance from the path at a point, mm. Noise in millimetres,
+// on the scale of the stamp itself, so a drop comes out a few soft lobes
+// rather than a fringe, and the same at any resolution.
+float edgeAt(vec2 at) {
+  if (uWobble <= 0.0) return uRadius;
+  vec2 q = at / max(uRadius * 0.55, 0.3) + 91.7;
+  float n = 0.7 * lattice(q, uShape ^ 0x5bd1e995u)
+    + 0.3 * lattice(mat2(0.8, -0.6, 0.6, 0.8) * q * 2.6, uShape ^ 0x68e31da4u);
+  return uRadius * (1.0 + uWobble * n);
+}
+
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
 ${each((i) => `  vec4 s${i} = texelFetch(${samplers[i]}, p, 0);`)}
@@ -57,12 +77,17 @@ ${each((i) => `  vec4 s${i} = texelFetch(${samplers[i]}, p, 0);`)}
   float t = dot(ab, ab) > 1e-8 ? clamp(dot(mm - uFrom, ab) / dot(ab, ab), 0.0, 1.0) : 0.0;
   float dist = length(mm - (uFrom + t * ab));
 
-  float k = 1.0 - smoothstep(uRadius - uFeather, uRadius, dist);
+  float edge = edgeAt(mm);
+  float k = 1.0 - smoothstep(edge - uFeather, edge, dist);
   if (uRamp) k = t;
   // A drop dries from its edge, and the flow that feeds the edge carries
   // the cells there: more lands at the rim than in the middle.
-  float rim = exp(-pow((dist - (uRadius - uFeather)) / max(uFeather * 1.5, 1e-3), 2.0));
+  float rim = exp(-pow((dist - (edge - uFeather)) / max(uFeather * 1.5, 1e-3), 2.0));
   float kRing = k * (1.0 + uRing * rim) * exp(uTaper * t);
+  if (uMottle > 0.0) {
+    vec2 q = mm / max(uRadius * 1.3, 0.5) + 37.1;
+    kRing *= max(1.0 + uMottle * lattice(q, uShape ^ 0x27d4eb2fu), 0.0);
+  }
   if (uSpeckle < 1.0) {
     // Cell by cell, or in clumps: the strains of a mixed drop don't land
     // one cell here and one there, they settle out in patches, and a patch
@@ -91,7 +116,7 @@ ${each((i) =>
       // block and the two have to agree about where the gel ends.
       `  vec2 blockMm = ((floor(gl_FragCoord.xy * 0.5) * 2.0 + 1.0) / uTexels - 0.5) * uSpan;
   float tb = dot(ab, ab) > 1e-8 ? clamp(dot(blockMm - uFrom, ab) / dot(ab, ab), 0.0, 1.0) : 0.0;
-  float kh = step(length(blockMm - (uFrom + tb * ab)), uRadius - 0.5 * uFeather);
+  float kh = step(length(blockMm - (uFrom + tb * ab)), edgeAt(blockMm) - 0.5 * uFeather);
   if (uNeedsAgar) kh *= step(0.5, s2.a);
   o2 = s2 * (1.0 - kh * uClear2) + kh * uAdd2;`
     : `  o${i} = s${i} * (1.0 - min(k, 1.0) * uClear${i}) + kRing * uAdd${i};`,

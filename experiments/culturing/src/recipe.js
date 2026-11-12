@@ -154,6 +154,7 @@ function cleanEvent(raw) {
   if (raw.do === 'add') {
     if (!additionById(raw.addition)) return null;
     out.addition = raw.addition;
+    if (finite(raw.seed)) out.seed = raw.seed >>> 0;
   } else if (raw.do === 'print') {
     const cultures = Array.isArray(raw.cultures)
       ? raw.cultures.filter((id) => cultureById(id))

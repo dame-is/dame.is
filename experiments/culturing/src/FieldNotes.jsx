@@ -224,6 +224,11 @@ export default function FieldNotes() {
           placed by chance, and a little fraying of a colony’s edge when you
           look at it closely.
         </li>
+        <li>
+          The unevenness of a drop or a line as it is put down is chance too:
+          noise on its edge, the same each time the plate is grown, and none on
+          a paper disc or a strip, which are cut true.
+        </li>
       </ul>
     </section>
   );

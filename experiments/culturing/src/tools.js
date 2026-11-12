@@ -74,6 +74,38 @@ const STREAK_HALF = 30;
 
 const ONES = [1, 1, 1, 1];
 
+/**
+ * How far what the hand puts down strays from a perfect shape, as a share
+ * of its radius (stamp.js `uWobble`). A drop on agar spreads and soaks in a
+ * little further one way than another; a line from a loop or a brush
+ * thickens and thins as it goes. Paper is punched and cut, and stays true.
+ */
+const WOBBLE = { drop: 0.16, spill: 0.33, line: 0.25 };
+/** How unevenly a drop from the tray soaks in (stamp.js `uMottle`). */
+const MOTTLE = 0.5;
+/** The shape every half of a mixed drop shares, so the two land as one. */
+const MIXED_SHAPE = 0x2545f491;
+
+/** A seed as a number from 0 to 1, the same every time. */
+function fraction(seed) {
+  return ((Math.imul(seed >>> 0, 2654435761) >>> 0) % 100000) / 100000;
+}
+
+/**
+ * The seed of something put down by hand. Older records have none for
+ * what came off the tray; theirs is made from where it went, so a plate
+ * still grows the same each time.
+ */
+export function seedOf(event) {
+  if (Number.isFinite(event.seed)) return event.seed >>> 0;
+  const [x, y] = event.path ? event.path[0] : [event.x || 0, event.y || 0];
+  return (
+    (Math.imul(Math.round(x * 100), 73856093) ^
+      Math.imul(Math.round(y * 100), 19349663)) >>>
+    0
+  );
+}
+
 function unit(slot, amount) {
   const v = [0, 0, 0, 0];
   v[slot] = amount;
@@ -151,6 +183,8 @@ function inoculation(event, slot) {
           feather: 0.3,
           speckle: Math.max(0.012, carried),
           seed: seed + i * 7919,
+          wobble: WOBBLE.line,
+          shape: seed,
           ...deposit(culture, slot, 1),
         },
       });
@@ -163,7 +197,10 @@ function inoculation(event, slot) {
   // cells there, so more land at the rim than in the middle. A drop of a
   // mixed culture leaves each strain in about half the places, in patches:
   // the "homeland" sectors grow out of.
-  const radius = event.size ?? SPOT_RADIUS;
+  // No two drops come out quite the same size or quite round; the halves
+  // of a mixed drop come out as the same one.
+  const shape = event.mixed ? MIXED_SHAPE : seed;
+  const radius = (event.size ?? SPOT_RADIUS) * (0.94 + 0.12 * fraction(shape));
   return [
     {
       surface: {
@@ -174,6 +211,8 @@ function inoculation(event, slot) {
         speckle: event.mixed ? 0.5 : 1,
         clump: event.mixed ? CLUMP : 0,
         seed,
+        wobble: WOBBLE.drop,
+        shape,
         ...deposit(culture, slot, 1),
       },
     },
@@ -311,13 +350,21 @@ function addition(event) {
     // A disc's edge is laid down soft, over more than one texel of the
     // agar, and still half way down at the disc's own radius. Laid down
     // hard it is a handful of squares, and no amount of care in the
-    // drawing makes a circle of those.
-    const shape = {
-      from,
-      to,
-      radius: d.paper ? radius + PAPER_EDGE / 2 : radius,
-      feather: d.paper ? PAPER_EDGE : radius * 0.5,
-    };
+    // drawing makes a circle of those. A drop is never quite round.
+    const seed = seedOf(event);
+    const shape = d.paper
+      ? { from, to, radius: radius + PAPER_EDGE / 2, feather: PAPER_EDGE }
+      : {
+          from,
+          to,
+          radius: drawn ? radius : radius * (0.92 + 0.16 * fraction(seed)),
+          // A liquid's edge is a meniscus: firmer than a disc's, which
+          // only its own spreading softens afterwards.
+          feather: radius * (drawn ? 0.45 : 0.28),
+          wobble: drawn ? WOBBLE.line : WOBBLE.spill,
+          mottle: MOTTLE,
+          shape: seed,
+        };
     const stamp = {};
     const add0 = scaled(
       [d.nutrient || 0, d.surfactant || 0, d.toxinX || 0, d.signal || 0],

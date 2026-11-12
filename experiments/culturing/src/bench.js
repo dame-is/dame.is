@@ -706,7 +706,12 @@ export function createBench(canvas, options = {}) {
     }
     return {
       entry,
-      event: { do: 'add', addition: tool.id, path: [mm] },
+      event: {
+        do: 'add',
+        addition: tool.id,
+        path: [mm],
+        seed: (Math.random() * 1e6) | 0,
+      },
       segments: 0,
       // Anything off the tray can be dragged: a blade cuts, a loop
       // scrapes, a drop or a dye is drawn as a line, and a disc is laid
@@ -804,7 +809,13 @@ export function createBench(canvas, options = {}) {
     const refused =
       event.do === 'streak'
         ? putDrop(entry, dropOf(event.culture, x, y, event.seed))
-        : act(sim, entry.live, { do: 'add', addition: event.addition, x, y });
+        : act(sim, entry.live, {
+            do: 'add',
+            addition: event.addition,
+            x,
+            y,
+            seed: event.seed,
+          });
     if (refused) say(refused);
     else entry.touched = true;
     emit();
@@ -1234,7 +1245,13 @@ export function createBench(canvas, options = {}) {
   function put(index, additionId, x, y) {
     const entry = entries[index];
     if (!entry || !additionById(additionId)) return;
-    act(sim, entry.live, { do: 'add', addition: additionId, x, y });
+    act(sim, entry.live, {
+      do: 'add',
+      addition: additionId,
+      x,
+      y,
+      seed: (Math.random() * 1e6) | 0,
+    });
     entry.touched = true;
     emit();
   }

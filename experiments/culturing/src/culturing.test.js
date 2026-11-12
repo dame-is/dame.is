@@ -66,6 +66,7 @@ import {
   gradientStamps,
   PRINT,
   printOf,
+  seedOf,
   slotFor,
   SPOT_RADIUS,
   stampsFor,
@@ -1406,9 +1407,71 @@ describe('stamps', () => {
         ],
       }).events;
       expect(event.size).toBe(drop.radius);
+      // The drop itself comes out a little bigger or smaller than that.
       const { surface } = stampsFor(event, []).stamps[0];
-      expect(surface.radius).toBe(drop.radius);
+      expect(surface.radius / drop.radius).toBeGreaterThan(0.93);
+      expect(surface.radius / drop.radius).toBeLessThan(1.07);
     }
+  });
+
+  it('puts nothing down by hand as a perfect shape, except what is cut', () => {
+    const drop = (seed, extra = {}) =>
+      stampsFor(
+        { at: 0, do: 'spot', culture: 'hay', x: 3, y: 4, seed, ...extra },
+        [],
+      ).stamps[0].surface;
+    const a = drop(11);
+    const b = drop(12345);
+    expect(a.wobble).toBeGreaterThan(0);
+    // Two drops are two shapes, and not quite the same size.
+    expect(a.shape).not.toBe(b.shape);
+    expect(a.radius).not.toBe(b.radius);
+    // The halves of a mixed drop land as one drop.
+    const m1 = drop(11, { mixed: true });
+    const m2 = drop(12345, { mixed: true });
+    expect(m1.shape).toBe(m2.shape);
+    expect(m1.radius).toBe(m2.radius);
+    // A streak thickens and thins along its length, the same all the way.
+    const streak = stampsFor(
+      {
+        at: 0,
+        do: 'streak',
+        culture: 'hay',
+        seed: 5,
+        path: [
+          [0, 0],
+          [3, 0],
+          [6, 0],
+        ],
+      },
+      [],
+    ).stamps.map((s) => s.surface);
+    expect(streak[0].wobble).toBeGreaterThan(a.wobble);
+    expect(streak[0].shape).toBe(streak[1].shape);
+    // A dye or a drop off the tray, set down or drawn, is uneven too...
+    const dye = stampsFor(
+      { do: 'add', addition: 'dye-violet', x: 0, y: 0, seed: 3 },
+      [],
+    ).stamps[0].reagents;
+    expect(dye.wobble).toBeGreaterThan(0);
+    // ...but paper is punched, and a strip is cut.
+    for (const id of ['penicillin', 'etest']) {
+      for (const stamp of stampsFor(
+        { do: 'add', addition: id, x: 5, y: 5, seed: 3 },
+        [],
+      ).stamps) {
+        expect(stamp.agar.wobble ?? 0, id).toBe(0);
+      }
+    }
+    // A tray drop from an older record, with no seed, still grows the same
+    // every time.
+    const old = { do: 'add', addition: 'sugar', x: 7, y: -2 };
+    expect(seedOf(old)).toBe(seedOf({ ...old }));
+    expect(seedOf(old)).not.toBe(seedOf({ ...old, x: 8 }));
+    expect(
+      cleanDish({ medium: 'broth', events: [{ ...old, at: 1, seed: 42 }] })
+        .events[0].seed,
+    ).toBe(42);
   });
 
   it('sorts a mixed drop into clumps, and leaves a plain one whole', () => {
