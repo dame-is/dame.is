@@ -255,6 +255,38 @@ export const MEDIA = [
     look: { color: '#d6cc98', opacity: 0.13 },
   },
   {
+    id: 'chromogenic',
+    name: 'Chromogenic agar',
+    after: 'CHROMagar Orientation',
+    blurb:
+      'A pale plate laced with substrates that are colourless until a particular enzyme cuts them. Each kind of culture comes up in the colour its own enzymes make: pink, metallic blue, a brown halo, or nothing different at all.',
+    notes: [
+      {
+        text: 'On it E. coli is dark pink to reddish; Klebsiella, Enterobacter, Citrobacter and Serratia metallic blue; Proteus has a brown halo; Pseudomonas stays translucent and S. aureus golden.',
+        href: 'https://www.chromagar.com/wp-content/uploads/2021/11/NT-EXT-002-V13.1.pdf',
+      },
+    ],
+    nutrient: 1,
+    agar: 1.5,
+    look: { color: '#e5dfcf', opacity: 0.5, chromogenic: true },
+  },
+  {
+    id: 'clear',
+    name: 'Clear gel',
+    after: 'gellan gum and a colourless medium',
+    blurb:
+      'Set with gellan gum instead of agar and fed with a colourless medium, so it is nearly as clear as glass. Whatever the plate sits on shows through it, and every colony sits on that.',
+    notes: [
+      {
+        text: 'Gellan gum sets to a far more transparent gel than agar, which is cloudy; it is used where what grows in or under the gel has to be seen.',
+        href: 'https://www.plantcelltechnology.com/blog/agar-vs-gellan-gum-which-to-choose/',
+      },
+    ],
+    nutrient: 0.8,
+    agar: 1.5,
+    look: { color: '#f2f1ec', opacity: 0.025 },
+  },
+  {
     id: 'charcoal',
     name: 'Charcoal agar',
     after: 'charcoal agar',
@@ -282,3 +314,36 @@ export function mediumById(id) {
 export const AGAR_RANGE = { min: 0.3, max: 2.5, step: 0.1 };
 /** The leanest and richest. */
 export const NUTRIENT_RANGE = { min: 0.1, max: 1.5, step: 0.05 };
+
+/**
+ * A gradient plate (Szybalski 1952): poured first as a wedge with the dish
+ * tilted, then level with something added, so that once it has diffused
+ * down through the wedge there is more of it toward one side. Here it runs
+ * from none on the left to the most on the right, across every
+ * compartment.
+ *
+ *   antibiotic  toxin X, up to about what a disc gives a few mm out
+ *   sugar       food, on top of what the medium has
+ *   ph          from alkaline on the left to acid on the right, and buffered
+ *               there: the gel keeps its gradient
+ */
+export const GRADIENTS = [
+  {
+    value: 'antibiotic',
+    label: 'Antibiotic',
+    hint: 'None on the left, more and more to the right: each culture stops where it can’t take any more.',
+  },
+  {
+    value: 'sugar',
+    label: 'Sugar',
+    hint: 'The medium as it is on the left, twice as rich on the right.',
+  },
+  {
+    value: 'ph',
+    label: 'pH',
+    hint: 'Alkaline on the left, acid on the right. Put it in an indicator medium to see it.',
+  },
+];
+
+/** The extra a gradient puts in at its strong side. */
+export const GRADIENT_PEAK = { antibiotic: 5, sugar: 1, ph: 1.6 };

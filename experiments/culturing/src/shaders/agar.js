@@ -14,6 +14,12 @@
 //   enzyme       whatever a culture secretes that clears the medium
 //   pigment      colour that leaves the colony and stains the agar
 //
+// and, kept beside them and changed only when the plate is poured, which of
+// the vessel's compartments each point is in and the pH its gel is buffered
+// to (vessels.js). Compartments are walled off from each other, so nothing
+// diffuses between them, and each keeps the food, buffer and selectivity of
+// its own medium.
+//
 // It runs at half the surface's resolution (see common.js).
 
 import { HEADER, STENCIL } from './common.js';
@@ -25,6 +31,7 @@ uniform sampler2D uAux;
 uniform sampler2D uC0;
 uniform sampler2D uC1;
 uniform sampler2D uC2;
+uniform sampler2D uC3;
 
 uniform vec4 uDiff0;   // diffusion per step, on this grid
 uniform vec4 uDiff1;
@@ -32,8 +39,14 @@ uniform vec4 uDiff2;
 uniform vec4 uDecay0;  // first-order loss per step
 uniform vec4 uDecay1;
 uniform vec4 uDecay2;
-uniform float uExchange;  // surface <-> deep nutrient, per step
 uniform float uDeepRatio; // how much more the deep layer holds
+
+// One per compartment (vessels.js).
+uniform float uNutD[6];     // the nutrient's diffusion per step
+uniform float uExch[6];     // surface <-> deep nutrient, per step
+uniform float uBuffer[6];   // pull back toward the medium's own pH, per step
+uniform vec4 uSuit[6];      // how well each culture grows on it
+uniform float uChromogenic[6]; // 1 where a culture's enzymes colour the gel
 
 uniform vec4 uGrowB;
 uniform vec4 uGrowD;
@@ -53,6 +66,9 @@ uniform vec4 uSignal;
 uniform vec4 uAcid;     // pH shift per unit of growth
 uniform vec4 uAlkali;   // ... and back the other way from starved biofilm
 uniform vec4 uEnzyme;
+uniform vec4 uHaloR;    // ... and what its enzymes make of a chromogenic medium
+uniform vec4 uHaloG;
+uniform vec4 uHaloB;
 uniform vec4 uPigR;     // absorbance secreted per unit of pigmented biofilm
 uniform vec4 uPigG;
 uniform vec4 uPigB;
@@ -60,6 +76,7 @@ uniform vec4 uPigB;
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
 layout(location = 2) out vec4 o2;
+layout(location = 3) out vec4 o3;
 
 ${STENCIL}
 
@@ -95,8 +112,11 @@ void main() {
     o0 = s0 * inv;
     o1 = s1 * inv;
     o2 = s2 * inv;
+    o3 = texelFetch(uC3, pc, 0);
     return;
   }
+  vec4 c3 = texelFetch(uC3, pc, 0);
+  int part = clamp(int(c3.r + 0.5), 0, 5);
   vec4 b = 0.25 * (
     texelFetch(uB, pf, 0) + texelFetch(uB, pf + ivec2(1, 0), 0) +
     texelFetch(uB, pf + ivec2(0, 1), 0) + texelFetch(uB, pf + ivec2(1, 1), 0)
@@ -126,8 +146,13 @@ void main() {
     l1 += open * (texelFetch(uC1, q, 0) - c1);
     l2 += open * (texelFetch(uC2, q, 0) - c2);
   }
-  c0 += uDiff0 * l0 - uDecay0 * c0;
-  c1 += uDiff1 * l1 - uDecay1 * c1;
+  // The nutrient spreads at its own medium's rate, and the pH is pulled
+  // back toward the medium's own, not toward neutral.
+  vec4 diff0 = vec4(uNutD[part], uDiff0.gba);
+  vec4 diff1 = vec4(uDiff1.rg, uNutD[part], uDiff1.a);
+  vec4 decay1 = vec4(uBuffer[part], uDecay1.gba);
+  c0 += diff0 * l0 - uDecay0 * c0;
+  c1 += diff1 * l1 - decay1 * (c1 - vec4(c3.g, 0.0, 0.0, 0.0));
   c2 += uDiff2 * l2 - uDecay2 * c2;
 
   // What the biomass above did this step.
@@ -138,14 +163,14 @@ void main() {
   // The same growth law the biology pass uses (culture.js), less the
   // modifiers that only matter where something is being poisoned.
   vec4 layer = min(ONE, uActive / max(rhoD, 1e-6));
-  vec4 growth = uTemp * fN * (
+  vec4 growth = uTemp * uSuit[part] * fN * (
     uGrowB * b * smoothstep(0.5 * uCutoff, uCutoff, b) * max(1.0 - rhoB / uCapB, 0.0) +
     uGrowD * d * max(layer - uActive / uCapD, 0.0)
   );
 
   // Nutrient: eaten from the top, refilled from below.
   float eaten = min(dot(growth, uUptake), n);
-  float refill = uExchange * (c1.b - (n - eaten));
+  float refill = uExch[part] * (c1.b - (n - eaten));
   c0.r = n - eaten + refill;
   c1.b = max(c1.b - refill / uDeepRatio, 0.0);
 
@@ -156,10 +181,12 @@ void main() {
   c1.r += dot(uAcid, growth) - dot(uAlkali * (1.0 - fN), d);
   c1.g += dot(uEnzyme, d);
   c1.a += dot(uProdY * late, d);
-  c2.rgb += pig * vec3(dot(uPigR, d), dot(uPigG, d), dot(uPigB, d));
+  c2.rgb += pig * vec3(dot(uPigR, d), dot(uPigG, d), dot(uPigB, d))
+    + uChromogenic[part] * vec3(dot(uHaloR, d), dot(uHaloG, d), dot(uHaloB, d));
 
   o0 = max(c0, 0.0);
   o1 = vec4(c1.r, max(c1.gba, 0.0)); // the pH shift is signed
   o2 = max(c2, 0.0);
+  o3 = c3;
 }
 `;

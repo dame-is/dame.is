@@ -117,6 +117,29 @@ export default function FieldNotes() {
           . A zone of inhibition, a violet halo and a turned indicator are all
           the same diffusion, read by something different.
         </li>
+        <li>
+          <strong>Vessels and gradients.</strong> A{' '}
+          <Ref href="https://www.thermofisher.com/order/catalog/product/R02066">
+            bi-plate
+          </Ref>{' '}
+          is a dish walled in two, with a medium each side, so that two can be
+          read against each other on one plate. A{' '}
+          <Ref href="https://fgsc.net/neurosporaprotocols/How%20to%20prepare%20and%20use%20gradient%20plates.pdf">
+            gradient plate
+          </Ref>{' '}
+          is poured as a wedge and then level with something added to the top
+          layer, which spreads down through the wedge until there is more of it
+          toward one side. Szybalski described it in 1952, for finding which
+          bacteria could stand how much of a drug.
+        </li>
+        <li>
+          <strong>Stains that are taken up.</strong> A dye from the tray spreads
+          through the gel, under colonies as freely as anywhere, and the cells
+          it reaches take it up and keep it. So a colony stains from the side
+          the dye comes from, and the gel beside it pales. Tetrazolium is turned
+          red only by cells that are still feeding, and calcofluor sticks only
+          to chitin and cellulose.
+        </li>
       </ul>
       <SectionHead as="h3" title="Liberties taken" />
       <ul className="cult-liberties">
@@ -149,6 +172,33 @@ export default function FieldNotes() {
           one signal for every autoinducer.
         </li>
         <li>
+          Every culture takes up a dye at the same rate. How much a culture has
+          for calcofluor to stick to is guessed from what kind of thing it is: a
+          mould or a yeast has plenty, a film less, a plain colony very little.
+          Real tetrazolium also holds some bacteria back, and here it doesn’t.
+        </li>
+        <li>
+          Darkroom answers to the incubator’s light, whatever its colour, where
+          the real one answers to red, and the dye it blackens is taken to be in
+          whatever it is poured on. The real one needs it put in the plate.
+        </li>
+        <li>
+          A velvet’s print is kept a little over a millimetre to a cell, so that
+          it can travel in a link, and comes up coarser than the plate it was
+          taken from.
+        </li>
+        <li>
+          The six-well plate is two thirds the size of a real one, so that it
+          can be worked out on the same grid as a dish. Every compartment of a
+          vessel is poured from one gel: the media differ in what is dissolved
+          in them, not in how firm they are.
+        </li>
+        <li>
+          On the chromogenic plate only the cultures the maker’s chart names
+          change colour. Everything else on the shelf shows as it would on
+          broth, which is a guess: the chart doesn’t say.
+        </li>
+        <li>
           More of the colonies fold with age here than would on a real bench.
           The golden one does on{' '}
           <Ref href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5595439">
@@ -173,6 +223,11 @@ export default function FieldNotes() {
           grid a plate is worked out on: the tufts a mould fruits in, which are
           placed by chance, and a little fraying of a colony’s edge when you
           look at it closely.
+        </li>
+        <li>
+          The unevenness of a drop or a line as it is put down is chance too:
+          noise on its edge, the same each time the plate is grown, and none on
+          a paper disc or a strip, which are cut true.
         </li>
       </ul>
     </section>

@@ -22,9 +22,9 @@ import {
 import { Button, Segmented } from './host.js';
 import { createBench, LIGHTS, SPEEDS } from './bench.js';
 import { decodeDish } from './recipe.js';
-import { mediumById } from './media.js';
 import Tray from './Tray.jsx';
-import { formatHours } from './format.js';
+import { describeMedia, formatHours } from './format.js';
+import { saveBlob } from './save.js';
 import { useCompact } from './useCompact.js';
 import './culturing.css';
 
@@ -125,10 +125,10 @@ function usePrefersReducedMotion() {
 function Caption({ snap, compact }) {
   const plate = snap.dishes[snap.selected];
   if (!plate) return null;
-  const medium = mediumById(plate.medium);
+  const media = describeMedia(plate);
   const parts = [
     `Plate ${snap.selected + 1} of ${snap.dishes.length}`,
-    `${medium?.name || 'Agar'}, ${plate.agar} % agar`,
+    `${media.charAt(0).toUpperCase()}${media.slice(1)}, ${plate.agar} % agar`,
     `${plate.env.temperature} °C`,
   ];
   const stopped = compact ? 'stopped' : 'incubator stopped';
@@ -396,17 +396,14 @@ export default function Workbench() {
     if (!bench) return;
     const blob = await bench.photo();
     if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
     const state = bench.getSnapshot();
     const plate = state.dishes[state.selected];
-    link.href = url;
-    link.download =
+    saveBlob(
+      blob,
       state.mode === 'plate' && plate
         ? `plate-${state.selected + 1}-${Math.round(plate.hours)}h.png`
-        : 'bench.png';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+        : 'bench.png',
+    );
   }, [bench]);
 
   if (error) {

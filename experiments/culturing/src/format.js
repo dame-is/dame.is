@@ -2,7 +2,8 @@
 
 import { cultureById } from './cultures.js';
 import { additionById } from './additions.js';
-import { mediumById } from './media.js';
+import { GRADIENTS, mediumById } from './media.js';
+import { vesselById } from './vessels.js';
 
 /** "41 h" up to two days, then "3 d 4 h". */
 export function formatHours(hours) {
@@ -26,18 +27,36 @@ export function describeEnv(env) {
   if (env.humidity != null)
     parts.push(`${Math.round(env.humidity * 100)} % humidity`);
   if (env.light != null) parts.push(LIGHT_WORDS[env.light] || env.light);
+  if (env.lid != null) {
+    parts.push(env.lid ? `“${env.lid}” masked on the lid` : 'the lid clear');
+  }
   return parts.join(', ');
+}
+
+/** "Crimson", "Crimson and Lemon", "Crimson, Lemon and Gold". */
+function andList(names) {
+  if (names.length < 2) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 }
 
 /** One line of a plate's record: what an event did. */
 export function describeEvent(event) {
   if (event.do === 'set') return `Incubator set to ${describeEnv(event.env)}`;
+  if (event.do === 'print') {
+    const names = event.cultures.map((id) => cultureById(id)?.name || id);
+    return `A velvet print of ${andList(names)}`;
+  }
   if (event.do === 'add') {
     const item = additionById(event.addition);
     if (!item) return 'Something added';
     if (item.cut)
       return event.path ? 'A cut with the scalpel' : 'A nick with the scalpel';
     if (item.scrape) return 'Growth scraped off with a loop';
+    if (event.path && !item.strip) {
+      return item.kind === 'disc'
+        ? `${item.name}, as a ribbon of paper`
+        : `${item.name}, drawn as a line`;
+    }
     return item.name;
   }
   const culture = cultureById(event.culture);
@@ -47,8 +66,31 @@ export function describeEvent(event) {
   return event.mixed ? `${name}, in a mixed drop` : `${name}, as a drop`;
 }
 
+/** "Broth agar", or for a vessel of several, what is in it: "a bi-plate of
+ *  Indicator agar and Bile & lactose", "six wells of 4 media". */
+export function describeMedia(dish) {
+  const names = (dish.media || [dish.medium]).map(
+    (id) => mediumById(id)?.name || 'agar',
+  );
+  const vessel = vesselById(dish.vessel);
+  if (!vessel || vessel.compartments === 1) return names[0];
+  const kinds = [...new Set(names)];
+  if (vessel.id === 'split') {
+    return kinds.length === 1
+      ? `a bi-plate of ${kinds[0]}`
+      : `a bi-plate of ${names[0]} and ${names[1]}`;
+  }
+  return kinds.length === 1
+    ? `six wells of ${kinds[0]}`
+    : `six wells of ${kinds.length} media`;
+}
+
 /** The first line of every record: what the plate was poured from. */
 export function describePour(dish) {
-  const medium = mediumById(dish.medium);
-  return `Poured: ${medium ? medium.name : 'agar'}, ${dish.agar} % agar`;
+  const gradient = GRADIENTS.find((g) => g.value === dish.gradient);
+  const what = gradient?.value === 'ph' ? 'pH' : gradient?.label.toLowerCase();
+  const article = /^[aeiou]/i.test(what || '') ? 'an' : 'a';
+  const across = gradient ? `, with ${article} ${what} gradient` : '';
+  const tinted = dish.tints?.some(Boolean) ? ', tinted' : '';
+  return `Poured: ${describeMedia(dish)}${tinted}, ${dish.agar} % agar${across}`;
 }

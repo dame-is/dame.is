@@ -8,20 +8,33 @@
 
 import { clockUniforms, packPlate, packLook } from './pack.js';
 import { cultureById } from './cultures.js';
-import { resolveMedium } from './recipe.js';
-import { applyStamps, stampsFor } from './tools.js';
+import { GRADIENT_PEAK } from './media.js';
+import { resolveMedia } from './recipe.js';
+import { applyStamps, gradientStamps, stampsFor } from './tools.js';
 
 /**
  * Pour a dish's medium into a simulation plate and get ready to grow it.
  * Nothing in the recipe has been applied yet; `advance` does that.
  */
 export function begin(sim, plate, dish) {
-  const medium = resolveMedium(dish);
-  sim.pour(plate, { nutrient: medium.nutrient, ph: medium.ph || 0 }, dish.seed);
+  const media = resolveMedia(dish);
+  sim.pour(
+    plate,
+    {
+      vessel: dish.vessel || 'dish',
+      media: media.map((m) => ({ nutrient: m.nutrient, ph: m.ph || 0 })),
+    },
+    dish.seed,
+  );
+  if (dish.gradient) {
+    applyStamps(sim, plate, gradientStamps(dish.gradient, GRADIENT_PEAK));
+  }
+  sim.setLid(plate, dish.env.lid || '');
   const live = {
     plate,
     dish,
-    medium,
+    medium: media[0],
+    media,
     env: { ...dish.env }, // the incubator now: as poured, plus every change since
     slots: [], // culture ids, in the order they arrived
     cursor: 0, // the next event in dish.events to apply
@@ -38,10 +51,12 @@ export function begin(sim, plate, dish) {
 /** Rebuild the plate's numbers: after a new culture arrives, or the
  *  incubator's settings change. */
 export function repack(sim, live) {
-  live.medium = resolveMedium(live.dish);
+  live.media = resolveMedia(live.dish);
+  [live.medium] = live.media;
   live.packed = packPlate({
     slots: live.slots.map(cultureById),
     medium: live.medium,
+    media: live.media,
     env: live.env,
     grid: sim.grid,
     seed: live.dish.seed,
@@ -49,6 +64,7 @@ export function repack(sim, live) {
   live.look = packLook({
     cultures: live.packed.cultures,
     medium: live.medium,
+    media: live.media,
     seed: live.dish.seed,
   });
   live.stale = true;
@@ -58,6 +74,7 @@ export function repack(sim, live) {
 function apply(sim, live, event) {
   if (event.do === 'set') {
     live.env = { ...live.env, ...event.env };
+    if (event.env.lid != null) sim.setLid(live.plate, live.env.lid);
     repack(sim, live);
     return;
   }
@@ -259,5 +276,6 @@ export function setEnv(sim, live, patch) {
     live.cursor += 1;
   }
   live.env = { ...live.env, ...patch };
+  if (patch.lid != null) sim.setLid(live.plate, live.env.lid);
   repack(sim, live);
 }

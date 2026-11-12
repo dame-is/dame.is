@@ -29,7 +29,11 @@ should be its own chunk, loaded only by the page that shows it.
   into wrinkles past a thickness (Swift–Hohenberg), a biofilm as it grows and
   a plain colony only after a couple of days, in folds that then set; toxins,
   quorum signals, acid, enzymes and pigments spread through the agar at half
-  the surface's resolution. No pattern is drawn. Branches, tendrils, rings,
+  the surface's resolution. What is put on from the tray to look with (dyes,
+  a universal indicator, tetrazolium, calcofluor, fluorescein) has textures
+  and a pass of its own ([`reagents.js`](src/shaders/reagents.js)), run only
+  on a plate that has had one: each spreads loose through the gel, and cells
+  take up a dye and keep it. No pattern is drawn. Branches, tendrils, rings,
   spokes, sectors, halos and standoffs are what those rules do when they meet,
   which is why the cultures are only parameter sets
   ([`cultures.js`](src/cultures.js)).
@@ -42,6 +46,28 @@ should be its own chunk, loaded only by the page that shows it.
   on 384 texels across (256 on a phone). The Incubator tab can ask for one
   size finer, which is about three times the work for every hour grown; the
   plates are let go and grown again from their records on the new grid.
+- **Vessels** ([`vessels.js`](src/vessels.js)). A plate is poured into a
+  dish, a bi-plate or a six-well plate, with a medium for each compartment.
+  The pour writes which compartment each point of the agar is in, beside the
+  pH its gel is buffered to, and the passes look up that compartment's food,
+  buffer, selectivity and colour; nothing crosses from one to the next. All
+  of a vessel is poured from one gel, so its firmness is the plate's. The
+  six-well plate is two thirds of real size, to fit the grid a dish is worked
+  out on. A gradient (antibiotic, sugar or pH) is poured as a ramp across the
+  whole vessel, and any compartment can be tinted a colour picked by hand,
+  which changes its look and nothing else.
+- **The lid** ([`simulation.js`](src/simulation.js) `setLid`). A word typed in
+  the Incubator tab is drawn in black on a texture the size of the plate,
+  and the biology pass reads the incubator's light through it, so a culture
+  that pigments only in the light (Day rings) or only in the dark
+  (Darkroom) develops it. The word is part of the incubator's settings, so
+  it is kept in the record with the hour it was put on or taken off.
+- **The velvet** ([`tools.js`](src/tools.js) `printOf`). Pressing a velvet onto
+  a grown plate reads its biomass back from the GPU and keeps, for each cell
+  of a 64 × 64 grid over the dish, whichever culture has the most there.
+  That map, as runs, is written into the other plate's record as a print, and
+  stamped as a few cells along each run. So a printed plate is still only
+  its recipe, and grows again without the plate it was printed from.
 - **A plate is its recipe** ([`recipe.js`](src/recipe.js),
   [`incubate.js`](src/incubate.js)): the medium, the incubator, and
   everything done to it with the hour it was done. The picture is not kept.
@@ -52,7 +78,8 @@ should be its own chunk, loaded only by the page that shows it.
   [`shaders/scene.js`](src/shaders/scene.js)). The surface is one
   displaced sheet per plate, lit four ways a microbiologist would recognise:
   a raking lamp over a black bench, a light table from underneath, a 365 nm
-  lamp, and the dark. Heights are true and the vertical is stretched, by an
+  lamp, and the dark. The bench can be any colour (black for relief, white
+  for colour), and shows through a gel as clear as the clear one. Heights are true and the vertical is stretched, by an
   amount the page states. A plate is a few hundred texels across and is
   looked at from much nearer than that, so the scene reads it through a cubic
   B-spline and makes every hard edge afterwards, from the smooth value: a
@@ -73,7 +100,10 @@ should be its own chunk, loaded only by the page that shows it.
   watched again from the pour to the hour it stands at, in about twelve
   seconds whatever its age. It is the same record grown once more at a pace
   that can be followed, so nothing is kept for it and nothing in the record
-  changes; a replay cut short puts the plate back at the age it was.
+  changes; a replay cut short puts the plate back at the age it was. The
+  Record tab can film one (`MediaRecorder` on the canvas, MP4 where the
+  browser makes it, WebM otherwise) and photograph the plate under all four
+  lights on one sheet, drawing it four times while it holds still.
 - **Randomize** ([`chance.js`](src/chance.js)) deals a plate nobody
   chose: a medium, a few cultures that can live on it, one of a handful of
   ways to lay them out (one big drop in the middle, two or three mixed in it,

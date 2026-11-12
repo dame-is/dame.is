@@ -9,15 +9,14 @@
 //
 // with k the stamp's coverage of this texel. Positions are in millimetres
 // from the centre of the dish, so one gesture lands the same on the surface
-// textures and on the half-resolution agar ones.
+// textures and on the half-resolution agar and reagent ones.
 
-import { HEADER, HASH, LATTICE } from './common.js';
+import { HEADER, HASH, LATTICE, VESSEL } from './common.js';
 
 function stampFragment({ samplers, hardThird }) {
+  const each = (fn) => samplers.map((_, i) => fn(i)).join('\n');
   return `${HEADER}
-uniform sampler2D ${samplers[0]};
-uniform sampler2D ${samplers[1]};
-uniform sampler2D ${samplers[2]};
+${each((i) => `uniform sampler2D ${samplers[i]};`)}
 uniform sampler2D uMask;   // the surface's uAux, for where there is agar
 
 uniform float uTexels;     // this target's size
@@ -32,37 +31,63 @@ uniform float uSpeckle;    // 1 = solid; less = that fraction of texels, at rand
 uniform float uClump;      // > 0: speckled in clumps this many mm across instead
 uniform uint uSeed;
 uniform bool uNeedsAgar;   // false only for the stamp that cuts or pours
+// A strip soaked in a gradient: what is added falls along the path, by
+// exp(uTaper) from its start to its end (0: the same all the way).
+uniform float uTaper;
+// Not a capsule but a ramp across the whole plate: none of it behind uFrom,
+// all of it past uTo, and in proportion between. A gradient plate's wedge.
+uniform bool uRamp;
+// How far the edge strays from round, as a share of the radius, and the
+// seed of the shape it strays into. Nothing put down by hand lands as a
+// perfect circle: a drop spreads a little further one way than another,
+// and a loop or a brush lays a line that thickens and thins.
+uniform float uWobble;
+uniform uint uShape;
+// How unevenly what is in it soaks in: 0 the same all through, more and
+// some of it stays where it landed while the rest runs to one side.
+uniform float uMottle;
 
-uniform vec4 uClear0;
-uniform vec4 uAdd0;
-uniform vec4 uClear1;
-uniform vec4 uAdd1;
-uniform vec4 uClear2;
-uniform vec4 uAdd2;
+${each(
+  (i) => `uniform vec4 uClear${i};
+uniform vec4 uAdd${i};`,
+)}
 
-layout(location = 0) out vec4 o0;
-layout(location = 1) out vec4 o1;
-layout(location = 2) out vec4 o2;
+${each((i) => `layout(location = ${i}) out vec4 o${i};`)}
 
 ${HASH}
 ${LATTICE}
 
+// The edge's distance from the path at a point, mm. Noise in millimetres,
+// on the scale of the stamp itself, so a drop comes out a few soft lobes
+// rather than a fringe, and the same at any resolution.
+float edgeAt(vec2 at) {
+  if (uWobble <= 0.0) return uRadius;
+  vec2 q = at / max(uRadius * 0.55, 0.3) + 91.7;
+  float n = 0.7 * lattice(q, uShape ^ 0x5bd1e995u)
+    + 0.3 * lattice(mat2(0.8, -0.6, 0.6, 0.8) * q * 2.6, uShape ^ 0x68e31da4u);
+  return uRadius * (1.0 + uWobble * n);
+}
+
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
-  vec4 s0 = texelFetch(${samplers[0]}, p, 0);
-  vec4 s1 = texelFetch(${samplers[1]}, p, 0);
-  vec4 s2 = texelFetch(${samplers[2]}, p, 0);
+${each((i) => `  vec4 s${i} = texelFetch(${samplers[i]}, p, 0);`)}
 
   vec2 mm = (gl_FragCoord.xy / uTexels - 0.5) * uSpan;
   vec2 ab = uTo - uFrom;
   float t = dot(ab, ab) > 1e-8 ? clamp(dot(mm - uFrom, ab) / dot(ab, ab), 0.0, 1.0) : 0.0;
   float dist = length(mm - (uFrom + t * ab));
 
-  float k = 1.0 - smoothstep(uRadius - uFeather, uRadius, dist);
+  float edge = edgeAt(mm);
+  float k = 1.0 - smoothstep(edge - uFeather, edge, dist);
+  if (uRamp) k = t;
   // A drop dries from its edge, and the flow that feeds the edge carries
   // the cells there: more lands at the rim than in the middle.
-  float rim = exp(-pow((dist - (uRadius - uFeather)) / max(uFeather * 1.5, 1e-3), 2.0));
-  float kRing = k * (1.0 + uRing * rim);
+  float rim = exp(-pow((dist - (edge - uFeather)) / max(uFeather * 1.5, 1e-3), 2.0));
+  float kRing = k * (1.0 + uRing * rim) * exp(uTaper * t);
+  if (uMottle > 0.0) {
+    vec2 q = mm / max(uRadius * 1.3, 0.5) + 37.1;
+    kRing *= max(1.0 + uMottle * lattice(q, uShape ^ 0x27d4eb2fu), 0.0);
+  }
   if (uSpeckle < 1.0) {
     // Cell by cell, or in clumps: the strains of a mixed drop don't land
     // one cell here and one there, they settle out in patches, and a patch
@@ -82,22 +107,20 @@ void main() {
     kRing *= step(0.5, agar);
   }
 
-  o0 = s0 * (1.0 - min(k, 1.0) * uClear0) + kRing * uAdd0;
-  o1 = s1 * (1.0 - min(k, 1.0) * uClear1) + kRing * uAdd1;
-  ${
-    hardThird
-      ? // The third surface texture holds the hour of arrival and the agar
-        // mask, which are either one thing or another: no soft edge. And
-        // it is decided for each 2×2 block of texels together, from the
-        // block's centre, because the agar pass has one texel under each
-        // block and the two have to agree about where the gel ends.
-        `vec2 blockMm = ((floor(gl_FragCoord.xy * 0.5) * 2.0 + 1.0) / uTexels - 0.5) * uSpan;
+${each((i) =>
+  hardThird && i === 2
+    ? // The third surface texture holds the hour of arrival and the agar
+      // mask, which are either one thing or another: no soft edge. And
+      // it is decided for each 2×2 block of texels together, from the
+      // block's centre, because the agar pass has one texel under each
+      // block and the two have to agree about where the gel ends.
+      `  vec2 blockMm = ((floor(gl_FragCoord.xy * 0.5) * 2.0 + 1.0) / uTexels - 0.5) * uSpan;
   float tb = dot(ab, ab) > 1e-8 ? clamp(dot(blockMm - uFrom, ab) / dot(ab, ab), 0.0, 1.0) : 0.0;
-  float kh = step(length(blockMm - (uFrom + tb * ab)), uRadius - 0.5 * uFeather);
+  float kh = step(length(blockMm - (uFrom + tb * ab)), edgeAt(blockMm) - 0.5 * uFeather);
   if (uNeedsAgar) kh *= step(0.5, s2.a);
   o2 = s2 * (1.0 - kh * uClear2) + kh * uAdd2;`
-      : `o2 = s2 * (1.0 - min(k, 1.0) * uClear2) + kRing * uAdd2;`
-  }
+    : `  o${i} = s${i} * (1.0 - min(k, 1.0) * uClear${i}) + kRing * uAdd${i};`,
+)}
 }
 `;
 }
@@ -108,7 +131,13 @@ export const STAMP_SURFACE_FRAGMENT = stampFragment({
 });
 
 export const STAMP_AGAR_FRAGMENT = stampFragment({
-  samplers: ['uC0', 'uC1', 'uC2'],
+  samplers: ['uC0', 'uC1', 'uC2', 'uC3'],
+  hardThird: false,
+});
+
+/** The reagents put on from the tray: stains, indicators, dyes. */
+export const STAMP_REAGENT_FRAGMENT = stampFragment({
+  samplers: ['uR0', 'uR1', 'uR2'],
   hardThird: false,
 });
 
@@ -125,6 +154,9 @@ uniform float uTexels;
 uniform float uSpan;
 uniform float uRadius;
 uniform uint uSeed;
+uniform int uVessel;
+uniform float uDivider;
+uniform vec3 uWells[6];
 
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
@@ -132,13 +164,15 @@ layout(location = 2) out vec4 o2;
 
 ${HASH}
 ${LATTICE}
+${VESSEL}
 void main() {
   vec2 mm = (gl_FragCoord.xy / uTexels - 0.5) * uSpan;
   // In or out is decided for each 2×2 block of texels together, from the
   // block's centre: the agar pass has one texel under each block, and the
   // two have to agree about where the gel ends.
   vec2 blockMm = ((floor(gl_FragCoord.xy * 0.5) * 2.0 + 1.0) / uTexels - 0.5) * uSpan;
-  float inside = step(length(blockMm), uRadius);
+  int part;
+  float inside = step(0.0, insideVessel(blockMm, part));
   // Offset well away from the lattice origin, and rotated between octaves,
   // so no axis of the noise lines up with the grid's.
   vec2 q = mm + 517.3;
@@ -149,5 +183,40 @@ void main() {
   o0 = vec4(0.0);
   o1 = vec4(0.0);
   o2 = vec4(-1.0, 0.0, 0.0, inside * (1.0 + 0.4 * clamp(g, -1.0, 1.0)));
+}
+`;
+
+/**
+ * Pouring a plate, as far as the agar is concerned: each compartment filled
+ * with its own medium's food and pH, and told which it is. Every texel gets
+ * a compartment, the nearest, so that one just outside the gel still says
+ * whose edge it is.
+ */
+export const POUR_AGAR_FRAGMENT = `${HEADER}
+uniform float uTexels;
+uniform float uSpan;
+uniform float uRadius;
+uniform int uVessel;
+uniform float uDivider;
+uniform vec3 uWells[6];
+uniform float uNutrient[6];
+uniform float uPh[6];
+
+layout(location = 0) out vec4 o0;
+layout(location = 1) out vec4 o1;
+layout(location = 2) out vec4 o2;
+layout(location = 3) out vec4 o3;
+
+${VESSEL}
+void main() {
+  vec2 mm = (gl_FragCoord.xy / uTexels - 0.5) * uSpan;
+  int part;
+  insideVessel(mm, part);
+  float n = uNutrient[part];
+  float ph = uPh[part];
+  o0 = vec4(n, 0.0, 0.0, 0.0);
+  o1 = vec4(ph, 0.0, n, 0.0);
+  o2 = vec4(0.0);
+  o3 = vec4(float(part), ph, 0.0, 0.0);
 }
 `;

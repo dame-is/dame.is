@@ -8,8 +8,9 @@
 
 import { detectCapabilities } from './gl.js';
 import { createSimulation } from './simulation.js';
-import { createRenderer, GEL_Y, OUTER_RADIUS } from './renderer.js';
-import { DETAILS, DISH, gridSize, hexToLinear } from './units.js';
+import { createRenderer, footprint, GEL_Y } from './renderer.js';
+import { DETAILS, gridSize, hexToLinear } from './units.js';
+import { compartmentAt } from './vessels.js';
 import {
   benchLayout,
   fitDistance,
@@ -33,6 +34,7 @@ import {
   cleanDish,
   createDish,
   encodeDish,
+  isColour,
   MAX_HOURS,
   packDish,
   RECIPE_VERSION,
@@ -46,6 +48,7 @@ import {
   DROPS,
   dropRadius,
   FULL,
+  printOf,
   SPOT_RADIUS,
   unmixed,
   wetDropsUnder,
@@ -83,6 +86,17 @@ export const LIGHTS = [
   { value: 3, label: 'Dark', hint: 'Nothing but what the plate gives off.' },
 ];
 
+/**
+ * What the plates sit on. A black bench, like the epoxy of a real one, is
+ * how colonies are photographed to show their relief; a white card shows
+ * their colour, and shows through a clear gel. Any colour can be picked.
+ */
+export const BENCHES = [
+  { value: '#141517', label: 'Black' },
+  { value: '#7c7d79', label: 'Grey' },
+  { value: '#eeece5', label: 'White' },
+];
+
 const DEFAULT_VIEW = {
   speed: 2,
   light: 0,
@@ -91,10 +105,8 @@ const DEFAULT_VIEW = {
   lampEl: 36,
   drop: DEFAULT_DROP,
   detail: 'standard',
+  bench: BENCHES[0].value,
 };
-
-/** The bench top: matte black, like the epoxy of a real one. */
-const BENCH_COLOUR = hexToLinear('#141517');
 
 const RAD = Math.PI / 180;
 const BENCH_ELEVATION = 60 * RAD;
@@ -107,6 +119,8 @@ const MAX_ZOOM = 1.3;
 const CLICK_SLOP = 5;
 /** Points along a stroke are kept at least this far apart, mm. */
 const STROKE_SPACING = 0.7;
+/** A strip dragged less than this far, mm, is set down as if touched. */
+const STRIP_DRAG = 3;
 /** The most simulation steps one frame may spend, across every plate. */
 const MAX_BUDGET = 40;
 
@@ -237,6 +251,7 @@ export function createBench(canvas, options = {}) {
           drop: DROPS.some((d) => d.value === saved.drop)
             ? saved.drop
             : DEFAULT_VIEW.drop,
+          bench: isColour(saved.bench) ? saved.bench : DEFAULT_VIEW.bench,
         }
       : null),
     detail: startDetail,
@@ -255,6 +270,7 @@ export function createBench(canvas, options = {}) {
   let lost = false;
   let dirty = true; // the scene needs drawing again
   let lightDirty = true; // every plate's display needs composing again
+  let filming = null; // a replay being filmed: { entry, recorder }
 
   function makeEntry(dish, touched = false) {
     const plate = sim.createPlate();
@@ -339,13 +355,12 @@ export function createBench(canvas, options = {}) {
     const aspect = width / height;
     if (mode === 'plate' && entries[selected]) {
       const [x, z] = entries[selected].centre;
+      const { halfW, halfD } = footprint(entries[selected].dish.vessel);
       return {
         target: [x, GEL_Y, z],
         az: user.az,
         el: user.el,
-        dist:
-          fitDistance(OUTER_RADIUS, OUTER_RADIUS, user.el, aspect, 1.1) *
-          user.zoom,
+        dist: fitDistance(halfW, halfD, user.el, aspect, 1.1) * user.zoom,
       };
     }
     return {
@@ -400,6 +415,7 @@ export function createBench(canvas, options = {}) {
       stretch: view.stretch,
       lampAz: view.lampAz,
       lampEl: view.lampEl,
+      bench: view.bench,
       drop: view.drop,
       detail: view.detail,
       tool,
@@ -407,11 +423,17 @@ export function createBench(canvas, options = {}) {
       lost,
       size: sim.grid.size,
       canAdd: entries.length < MAX_DISHES,
+      filming: Boolean(filming),
       canRemove: entries.length > 1,
       dishes: entries.map(({ dish, live, waiting, touched, replay }) => ({
         medium: dish.medium,
         agar: live.medium.agar,
         nutrient: live.medium.nutrient,
+        vessel: dish.vessel || 'dish',
+        // One per compartment, the first being `medium`.
+        media: live.media.map((m) => m.id),
+        gradient: dish.gradient || null,
+        tints: dish.tints || null,
         env: live.env,
         hours: live.plate.hours,
         goal: replay ? replay.goal : dish.hours,
@@ -466,6 +488,7 @@ export function createBench(canvas, options = {}) {
           stretch: view.stretch,
           lampAz: view.lampAz,
           lampEl: view.lampEl,
+          bench: view.bench,
           detail: view.detail,
           drop: view.drop,
           dishes: entries.map((entry) => packDish(asRecorded(entry))),
@@ -518,9 +541,9 @@ export function createBench(canvas, options = {}) {
     ];
   }
 
-  function frame(time) {
+  function frame(time, still = false) {
     raf = requestAnimationFrame(frame);
-    if (lost || !onScreen) {
+    if (lost || (!onScreen && !still)) {
       last = time;
       return;
     }
@@ -538,7 +561,7 @@ export function createBench(canvas, options = {}) {
     // The clocks. A plate that is watched keeps time with the wall; one
     // that is behind its recipe (just restored) is left to catch up.
     const lead = Math.max(0.3, view.speed * 0.6);
-    if (playing) {
+    if (playing && !still) {
       for (const { dish, live, replay } of entries) {
         if (replay || dish.held || behind(live) > lead) continue;
         dish.hours = Math.min(MAX_HOURS, dish.hours + seconds * view.speed);
@@ -547,16 +570,19 @@ export function createBench(canvas, options = {}) {
     // A plate being replayed keeps its own time, incubator or no incubator,
     // until it is back at the hour it stood at.
     for (const entry of entries) {
-      if (!entry.replay) continue;
+      if (!entry.replay || still) continue;
       if (tickReplay(entry.live, entry.replay, seconds)) {
         entry.replay = null;
         entry.waiting = false;
         emit();
       }
     }
+    // A replay being filmed ends with its replay, however that comes.
+    if (filming && !filming.entry.replay) stopFilming();
 
     // The steps: the plate being looked at first, then the rest in turn.
-    let left = Math.max(1, Math.round(budget));
+    // A frame drawn for a photograph takes none: the plate holds still.
+    let left = still ? 0 : Math.max(1, Math.round(budget));
     const order = entries.map((_, i) => i).filter((i) => i !== selected);
     turn = (turn + 1) % Math.max(1, order.length);
     const rotated = order.slice(turn).concat(order.slice(0, turn));
@@ -598,16 +624,19 @@ export function createBench(canvas, options = {}) {
         viewProj: camera.viewProj,
         eye: camera.eye,
         light,
-        bench: BENCH_COLOUR,
+        bench: hexToLinear(view.bench),
         dishes: entries.map((entry, i) => ({
           centre: entry.centre,
           display: entry.display,
+          vessel: entry.dish.vessel,
           close: mode === 'plate' && i === selected,
         })),
       });
       dirty = false;
       if (frameListeners.size) {
-        const places = entries.map((entry) => place(entry.centre));
+        const places = entries.map((entry) =>
+          place(entry.centre, entry.dish.vessel),
+        );
         for (const listener of frameListeners) listener(places);
       }
     }
@@ -617,9 +646,10 @@ export function createBench(canvas, options = {}) {
   }
 
   /** Where a dish is on the canvas, in CSS pixels: its near edge. */
-  function place(centre) {
+  function place(centre, vessel) {
     const rect = { w: canvas.clientWidth, h: canvas.clientHeight };
-    const front = project(camera, [centre[0], 0, centre[1] + OUTER_RADIUS]);
+    const { halfD } = footprint(vessel);
+    const front = project(camera, [centre[0], 0, centre[1] + halfD]);
     const middle = project(camera, [centre[0], GEL_Y, centre[1]]);
     return {
       x: ((middle[0] + 1) / 2) * rect.w,
@@ -643,9 +673,16 @@ export function createBench(canvas, options = {}) {
       const dx = at[0] - entry.centre[0];
       const dz = at[1] - entry.centre[1];
       const r = Math.hypot(dx, dz);
-      if (r <= OUTER_RADIUS + 3 && (!best || r < best.r)) {
+      const { vessel } = entry.dish;
+      const { halfW, halfD } = footprint(vessel);
+      const over =
+        vessel === 'wells'
+          ? Math.abs(dx) <= halfW + 3 && Math.abs(dz) <= halfD + 3
+          : r <= halfW + 3;
+      if (over && (!best || r < best.r)) {
         // Plate space: x to the right, y away from the viewer.
-        best = { index, r, mm: [dx, -dz], onGel: r <= DISH.radius - 0.4 };
+        const onGel = compartmentAt(vessel, dx, -dz, 0.4) >= 0;
+        best = { index, r, mm: [dx, -dz], onGel };
       }
     });
     return best;
@@ -677,12 +714,26 @@ export function createBench(canvas, options = {}) {
     }
     const item = additionById(tool.id);
     if (!item) return null;
+    if (item.print) {
+      say('Choose the plate to take the print from, on the card beside it.');
+      return null;
+    }
     return {
       entry,
-      event: { do: 'add', addition: tool.id, path: [mm] },
+      event: {
+        do: 'add',
+        addition: tool.id,
+        path: [mm],
+        seed: (Math.random() * 1e6) | 0,
+        ...(item.pick ? { color: tool.color || item.pick } : null),
+      },
       segments: 0,
-      // Only a blade or a loop is dragged; a disc or a drop is set down.
-      draws: Boolean(item.cut || item.scrape),
+      // Anything off the tray can be dragged: a blade cuts, a loop
+      // scrapes, a drop or a dye is drawn as a line, and a disc is laid
+      // down as a ribbon of soaked paper. A touch sets one down. A strip
+      // is laid whole when the hand lifts, pointing the way it was dragged.
+      draws: !item.strip,
+      strip: item.strip || null,
     };
   }
 
@@ -747,12 +798,40 @@ export function createBench(canvas, options = {}) {
       emit();
       return;
     }
+    if (stroke.strip) {
+      const [start] = event.path;
+      const run = Math.hypot(mm[0] - start[0], mm[1] - start[1]);
+      if (run > STRIP_DRAG) {
+        const k = stroke.strip.length / run;
+        const end = [
+          start[0] + (mm[0] - start[0]) * k,
+          start[1] + (mm[1] - start[1]) * k,
+        ];
+        const round = (v) => Math.round(v * 100) / 100;
+        const refused = act(sim, entry.live, {
+          do: 'add',
+          addition: event.addition,
+          path: [start, end].map((p) => p.map(round)),
+        });
+        if (refused) say(refused);
+        else entry.touched = true;
+        emit();
+        return;
+      }
+    }
     // Never dragged: a single touch of the loop, or something set down.
-    const [x, y] = stroke.draws ? event.path[0] : mm;
+    const [x, y] = stroke.draws || stroke.strip ? event.path[0] : mm;
     const refused =
       event.do === 'streak'
         ? putDrop(entry, dropOf(event.culture, x, y, event.seed))
-        : act(sim, entry.live, { do: 'add', addition: event.addition, x, y });
+        : act(sim, entry.live, {
+            do: 'add',
+            addition: event.addition,
+            x,
+            y,
+            seed: event.seed,
+            ...(event.color ? { color: event.color } : null),
+          });
     if (refused) say(refused);
     else entry.touched = true;
     emit();
@@ -1030,6 +1109,14 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
+  /** What the plates sit on: a colour, '#rrggbb'. */
+  function setBench(colour) {
+    if (!isColour(colour)) return;
+    view.bench = colour.toLowerCase();
+    dirty = true;
+    emit();
+  }
+
   function setLamp({ az, el }) {
     if (Number.isFinite(az)) view.lampAz = ((az % 360) + 360) % 360;
     if (Number.isFinite(el)) view.lampEl = Math.min(80, Math.max(8, el));
@@ -1064,13 +1151,27 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
-  /** Throw a plate's contents away and pour it again. */
-  function pour(index, mediumId, { agar = null, nutrient = null } = {}) {
+  /**
+   * Throw a plate's contents away and pour it again: into a vessel
+   * (vessels.js), with a medium for each of its compartments, and a
+   * gradient across it if one is asked for.
+   */
+  function pour(
+    index,
+    mediumId,
+    { agar = null, nutrient = null, vessel, media, gradient, tints } = {},
+  ) {
     const entry = entries[index];
     if (!entry) return;
     replace(
       index,
-      createDish(mediumId, { agar, nutrient, env: { ...entry.live.env } }),
+      cleanDish({
+        ...createDish(mediumId, { agar, nutrient, env: { ...entry.live.env } }),
+        vessel,
+        media,
+        gradient,
+        tints,
+      }),
     );
   }
 
@@ -1166,11 +1267,49 @@ export function createBench(canvas, options = {}) {
   }
 
   /** Something off the tray, set down at a point. */
-  function put(index, additionId, x, y) {
+  function put(index, additionId, x, y, color) {
     const entry = entries[index];
     if (!entry || !additionById(additionId)) return;
-    act(sim, entry.live, { do: 'add', addition: additionId, x, y });
+    act(sim, entry.live, {
+      do: 'add',
+      addition: additionId,
+      x,
+      y,
+      seed: (Math.random() * 1e6) | 0,
+      ...(color ? { color } : null),
+    });
     entry.touched = true;
+    emit();
+  }
+
+  /**
+   * Press a velvet onto one plate and then onto another: whatever is
+   * growing on the first, as it stands, is put down on the second in the
+   * same places, and written into the second's record as a print.
+   */
+  function print(fromIndex, toIndex) {
+    const source = entries[fromIndex];
+    const target = entries[toIndex];
+    if (!source || !target || source === target) return;
+    const { B, D } = sim.readSurface(source.plate);
+    const taken = printOf(
+      source.live.slots,
+      B,
+      D,
+      sim.grid.size,
+      sim.grid.span,
+    );
+    if (!taken) {
+      say(`Nothing has grown on plate ${fromIndex + 1} to take a print of.`);
+      return;
+    }
+    const refused = act(sim, target.live, {
+      do: 'print',
+      ...taken,
+      seed: (Math.random() * 1e6) | 0,
+    });
+    if (refused) say(refused);
+    else target.touched = true;
     emit();
   }
 
@@ -1304,6 +1443,101 @@ export function createBench(canvas, options = {}) {
     });
   }
 
+  /**
+   * The plate in view under each of the four lights, side by side, two by
+   * two, as a PNG. Each is drawn and copied before the next; the plate
+   * holds still meanwhile, and goes back to the light it was under.
+   */
+  function photoLights() {
+    const keep = view.light;
+    const w = canvas.width;
+    const h = canvas.height;
+    const gap = Math.round(Math.min(w, h) * 0.01);
+    const sheet = document.createElement('canvas');
+    sheet.width = 2 * w + gap;
+    sheet.height = 2 * h + gap;
+    const ctx = sheet.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, sheet.width, sheet.height);
+    for (const light of LIGHTS) {
+      view.light = light.value;
+      lightDirty = true;
+      dirty = true;
+      cancelAnimationFrame(raf);
+      frame(performance.now(), true);
+      const col = light.value % 2;
+      const row = Math.floor(light.value / 2);
+      ctx.drawImage(canvas, col * (w + gap), row * (h + gap));
+    }
+    view.light = keep;
+    lightDirty = true;
+    dirty = true;
+    return new Promise((resolve) => {
+      sheet.toBlob((blob) => resolve(blob), 'image/png');
+    });
+  }
+
+  /** The kind of video this browser can make, or null. */
+  function videoType() {
+    if (typeof MediaRecorder !== 'function' || !canvas.captureStream) {
+      return null;
+    }
+    const kinds = [
+      'video/mp4;codecs=avc1',
+      'video/webm;codecs=vp9',
+      'video/webm',
+      'video/mp4',
+    ];
+    return kinds.find((k) => MediaRecorder.isTypeSupported(k)) || null;
+  }
+
+  function stopFilming() {
+    if (!filming) return;
+    const { recorder } = filming;
+    filming = null;
+    if (recorder.state !== 'inactive') recorder.stop();
+    emit();
+  }
+
+  /**
+   * Replay a plate from the pour and film it as it goes: the canvas, as it
+   * is seen, for as long as the replay lasts. Resolves with the video and
+   * its file extension, or null if this browser can't make one.
+   */
+  function filmReplay(index) {
+    const entry = entries[index];
+    const type = videoType();
+    if (!type) say('This browser can’t make a video of the bench.');
+    if (!entry || !type) return Promise.resolve(null);
+    stopFilming();
+    // One already going is first sent to its end, then started again.
+    if (entry.replay) replay(index);
+    replay(index);
+    if (!entry.replay) return Promise.resolve(null);
+    const stream = canvas.captureStream(30);
+    const recorder = new MediaRecorder(stream, {
+      mimeType: type,
+      videoBitsPerSecond: 8e6,
+    });
+    const chunks = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size) chunks.push(e.data);
+    };
+    const done = new Promise((resolve) => {
+      recorder.onstop = () => {
+        for (const track of stream.getTracks()) track.stop();
+        resolve({
+          blob: new Blob(chunks, { type: type.split(';')[0] }),
+          extension: type.startsWith('video/mp4') ? 'mp4' : 'webm',
+        });
+      };
+    });
+    filming = { entry, recorder };
+    recorder.start(1000);
+    emit();
+    return done;
+  }
+
   /** A link that carries one plate's recipe. */
   function shareLink(index) {
     const entry = entries[index];
@@ -1317,6 +1551,7 @@ export function createBench(canvas, options = {}) {
 
   function dispose() {
     disposed = true;
+    stopFilming();
     cancelAnimationFrame(raf);
     clearTimeout(noticeTimer);
     if (saveTimer) clearTimeout(saveTimer);
@@ -1378,6 +1613,7 @@ export function createBench(canvas, options = {}) {
     setLight,
     setStretch,
     setLamp,
+    setBench,
     arm,
     pour,
     loadRecipe,
@@ -1388,6 +1624,7 @@ export function createBench(canvas, options = {}) {
     setDrop,
     setDetail,
     put,
+    print,
     undo,
     replay,
     addDish,
@@ -1400,6 +1637,8 @@ export function createBench(canvas, options = {}) {
     zoomBy,
     turnBy,
     photo,
+    photoLights,
+    filmReplay,
     shareLink,
     dispose,
     recipes: RECIPES,

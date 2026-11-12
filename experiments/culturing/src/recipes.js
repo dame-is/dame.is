@@ -252,6 +252,18 @@ export const RECIPES = [
     start: 30,
   },
   {
+    id: 'photograph',
+    name: 'Photograph',
+    watch:
+      'A lawn that sees light, under a lid masked with a word and the incubator lit all the time. The word comes up black within half a day. Mask the lid with something else in the incubator tab, or clear it, and turn the light off to develop the rest.',
+    dish: {
+      medium: 'broth',
+      env: { temperature: 37, light: 'on', lid: 'hello' },
+      events: [lawn('coliroid')],
+    },
+    start: 3,
+  },
+  {
     id: 'weather',
     name: 'Weather map',
     watch:

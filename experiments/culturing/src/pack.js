@@ -20,6 +20,28 @@ import {
 
 /** Cultures a plate can hold: one per channel of an RGBA texel. */
 export const SLOTS = 4;
+/** Compartments a vessel can have (vessels.js): the six-well plate's. */
+export const COMPARTMENTS = 6;
+/** The uniforms that hold one value, or one vec4, per compartment. */
+export const PER_COMPARTMENT = [
+  'uSuit',
+  'uNutD',
+  'uExch',
+  'uBuffer',
+  'uChromogenic',
+  'uAgarColor',
+  'uAgarOpacity',
+  'uAcidColor',
+  'uAlkaliColor',
+  'uIndicator',
+  'uPhRange',
+  'uClearColor',
+  'uClearOpacity',
+  'uClearGain',
+  'uDyeColor',
+  'uDye',
+  'uAgarFluor',
+];
 
 /**
  * Every parameter a culture has, with the value it takes when the library
@@ -116,6 +138,7 @@ export const CULTURE_DEFAULTS = {
     quorum: 0, // signal needed first (0 = none)
     tempMax: null, // °C above which none is made
     light: 0, // 1 = only young growth under light pigments (banding)
+    dark: 0, // 1 = only growth kept in the dark pigments (a photograph)
     starve: 0, // 1 = only once the food has run down
   },
 
@@ -162,9 +185,14 @@ export const CULTURE_DEFAULTS = {
     tufts: 0, // how far ripe growth stands up in tufts, with its colour on them
     sheen: 0, // metallic film on old growth
     stain: 0, // how readily it takes up a dye in the medium
+    binds: null, // what calcofluor has to stick to, 0..1 (null: by kind)
     scatter: 0.3, // light bleeding through thin ridges and edges
     fluoresce: null, // colour under 365 nm
     glow: null, // bioluminescence
+    // On a chromogenic medium: { color, metallic, halo }, the colour its
+    // enzymes make of the substrates, whether it comes up with a sheen,
+    // and what leaks into the gel round it. null: it shows as it is.
+    chromo: null,
     droplets: null, // { color } — exudate beads on mature growth
   },
 };
@@ -205,6 +233,19 @@ export const AGAR = {
   ph: 0.5,
   enzyme: 0.2,
   pigment: 0.5,
+  // What is put on from the tray to be looked at with: small dyes, a few
+  // hundred daltons each, which go through agar a little slower than a
+  // sugar.
+  indicator: 0.8,
+  ttc: 0.9,
+  calcofluor: 0.5,
+  dye: 0.5,
+  fluorescein: 1.0,
+  // The share of a dye loose under a full layer of cells that they take up
+  // in an hour.
+  take: 1,
+  // How fast live cells turn tetrazolium red, per hour per unit of growth.
+  reduce: 1.5,
   // First-order losses.
   surfactantLoss: 0.25,
   toxinXLoss: 0.012,
@@ -230,27 +271,50 @@ export function refillHours(diffusivity) {
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 
 /**
+ * How much a culture has for calcofluor to stick to, 0 to 1. It binds
+ * β-glucans: the chitin in a fungus's walls, and the cellulose some films
+ * build their matrix of. A culture can say; otherwise a mould or a yeast
+ * has all it needs, a film whose matrix takes up Congo red has much of it,
+ * and anything else a little.
+ */
+export function bindsCalcofluor(c) {
+  if (c.look.binds != null) return clamp(c.look.binds, 0, 1);
+  if (c.kind === 'mould' || c.kind === 'yeast') return 1;
+  if (c.look.stain > 0) return clamp(0.4 + 0.5 * c.look.stain, 0, 1);
+  return c.kind === 'biofilm' ? 0.3 : 0.08;
+}
+
+/**
  * The packed uniform set for a plate.
  *
  * @param {object}   opts
  * @param {object[]} opts.slots   up to four resolved cultures (null = empty)
  * @param {object}   opts.medium  a media.js entry, with any slider overrides
+ * @param {object[]} [opts.media] one per compartment of the vessel
+ *   (vessels.js), the first being `medium`; left out, there is one
  * @param {object}   opts.env     { temperature, humidity, light }
  * @param {object}   opts.grid    createGrid()
  * @param {number}   opts.seed
  */
-export function packPlate({ slots, medium, env, grid, seed }) {
+export function packPlate({ slots, medium, media, env, grid, seed }) {
   const cultures = Array.from({ length: SLOTS }, (_, i) =>
     slots[i] ? resolveCulture(slots[i]) : null,
   );
+  const parts = media && media.length ? media : [medium];
+  /** One value per compartment, the first compartment's for any unused. */
+  const perPart = (fn) =>
+    Array.from({ length: COMPARTMENTS }, (_, i) => fn(parts[i] || parts[0]));
   // What limits growth on a lean plate is not a sugar. The published models
   // only draw branches at the width real plates show if the limiting
   // nutrient diffuses about a hundred times more slowly than glucose does
   // (Golding et al. 1998 work in units that imply 0.04 mm²/h), and nobody
   // has a better account. A medium can say so with `diffusion`; this
   // workbench takes the same liberty the literature does, in the open.
-  const nutrientD = Math.min(medium.diffusion ?? AGAR.nutrient, AGAR.nutrient);
+  const nutrientOf = (m) =>
+    Math.min(m.diffusion ?? AGAR.nutrient, AGAR.nutrient);
+  const nutrientD = nutrientOf(medium);
   const each = (fn, empty = 0) => cultures.map((c) => (c ? fn(c) : empty));
+  // The whole vessel is poured from one gel: how firm it is is the plate's.
   const softness = wetnessForAgar(medium.agar);
 
   // A medium can suit a culture or hold it back. `selects` maps a
@@ -258,13 +322,13 @@ export function packPlate({ slots, medium, env, grid, seed }) {
   // an acid plate and the moulds). Salt is its own rule: on a salty plate
   // only what needs or tolerates salt does well, and what needs it does
   // badly anywhere else.
-  const suits = (c) => {
+  const suits = (c, m) => {
     let f = 1;
     for (const tag of c.tags || []) {
-      if (medium.selects && tag in medium.selects) f *= medium.selects[tag];
+      if (m.selects && tag in m.selects) f *= m.selects[tag];
     }
-    if (medium.salt && !c.salt) f *= 0.06;
-    if (!medium.salt && c.salt === 'needs') f *= 0.2;
+    if (m.salt && !c.salt) f *= 0.06;
+    if (!m.salt && c.salt === 'needs') f *= 0.2;
     return f;
   };
   const warmth = (c) => temperatureFactor(env.temperature, c.temp);
@@ -281,9 +345,15 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     if (c.wrinkle.tempMax == null) return 1;
     return clamp((c.wrinkle.tempMax - env.temperature) / 3, 0, 1);
   };
+  // What a culture leaks into the gel: its own pigment, and on a
+  // chromogenic medium whatever colour its enzymes cut out of it.
   const absorbance = (c) =>
     c.secretes
       ? hexToAbsorbance(c.secretes.color, rate(c.secretes.rate))
+      : [0, 0, 0];
+  const halo = (c) =>
+    c.look.chromo?.halo
+      ? hexToAbsorbance(c.look.chromo.halo, rate(0.3))
       : [0, 0, 0];
 
   const hasTaxis = cultures.some(
@@ -302,8 +372,14 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uTaxK: 0.04,
     uHasTaxis: hasTaxis ? 1 : 0,
 
-    uGrowB: each((c) => rate(c.motileGrowth * suits(c))),
-    uGrowD: each((c) => rate(c.growth * suits(c))),
+    uGrowB: each((c) => rate(c.motileGrowth)),
+    uGrowD: each((c) => rate(c.growth)),
+    // ---- per compartment (vessels.js)
+    uSuit: perPart((m) => each((c) => suits(c, m))).flat(),
+    uNutD: perPart((m) => clamp(grid.chemDiffusion(nutrientOf(m)), 0, 0.24)),
+    uExch: perPart((m) => rate(1 / refillHours(nutrientOf(m)))),
+    uBuffer: perPart((m) => rate(m.buffer ?? 0.04)),
+    uChromogenic: perPart((m) => (m.look?.chromogenic ? 1 : 0)),
     uKn: each((c) => c.kn, 1),
     uCapB: each((c) => c.motileCap, 1),
     uCutoff: each((c) => c.motileFloor, 1),
@@ -369,6 +445,7 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uPigRate: each((c) => rate(1 / c.pigment.hours) * pigmentGate(c)),
     uPigQ: each((c) => c.pigment.quorum),
     uPigLight: each((c) => c.pigment.light),
+    uPigDark: each((c) => c.pigment.dark),
     uPigStarve: each((c) => c.pigment.starve),
 
     // ---- agar
@@ -403,7 +480,6 @@ export function packPlate({ slots, medium, env, grid, seed }) {
       rate(AGAR.toxinYLoss),
     ],
     uDecay2: [0, 0, 0, 0],
-    uExchange: rate(1 / refillHours(nutrientD)),
     uDeepRatio: medium.deep ?? AGAR.deepRatio,
     uUptake: each((c) => 1 / c.yield),
 
@@ -415,6 +491,26 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uAcid: each((c) => c.acid),
     uAlkali: each((c) => rate(c.alkali)),
     uEnzyme: each((c) => rate(c.enzyme)),
+    // ---- reagents (shaders/reagents.js)
+    uRDiff0: [
+      grid.chemDiffusion(AGAR.indicator),
+      grid.chemDiffusion(AGAR.ttc),
+      0, // formazan stays where it is made
+      grid.chemDiffusion(AGAR.calcofluor),
+    ].map((x) => clamp(x, 0, 0.24)),
+    uRDiff1: [
+      grid.chemDiffusion(AGAR.dye),
+      grid.chemDiffusion(AGAR.dye),
+      grid.chemDiffusion(AGAR.dye),
+      grid.chemDiffusion(AGAR.fluorescein),
+    ].map((x) => clamp(x, 0, 0.24)),
+    uTake: rate(AGAR.take),
+    uBinds: each(bindsCalcofluor),
+    uReduce: rate(AGAR.reduce),
+
+    uHaloR: each((c) => halo(c)[0]),
+    uHaloG: each((c) => halo(c)[1]),
+    uHaloB: each((c) => halo(c)[2]),
     uPigR: each((c) => absorbance(c)[0]),
     uPigG: each((c) => absorbance(c)[1]),
     uPigB: each((c) => absorbance(c)[2]),
@@ -478,6 +574,7 @@ export const MEDIUM_LOOK_DEFAULTS = {
   clearGain: 3, // how readily enzyme clears it
   dye: null, // a dye colonies can take up (Congo red)
   fluoresce: null, // the gel's own faint glow under ultraviolet
+  chromogenic: false, // whether cultures show their `look.chromo` on it
 };
 
 /**
@@ -485,14 +582,23 @@ export const MEDIUM_LOOK_DEFAULTS = {
  * something to look at: each culture's colours and surface, and the
  * medium's. Colours go in as linear light.
  */
-export function packLook({ cultures, medium, seed = 1 }) {
+export function packLook({ cultures, medium, media, seed = 1 }) {
   const each = (fn, empty = 0) => cultures.map((c) => (c ? fn(c) : empty));
   const channel = (pickHex, i, empty = 0) =>
     each((c) => {
       const hex = pickHex(c);
       return hex ? hexToLinear(hex)[i] : empty;
     }, empty);
-  const m = { ...MEDIUM_LOOK_DEFAULTS, ...medium.look };
+  const looks = (media && media.length ? media : [medium]).map((x) => ({
+    ...MEDIUM_LOOK_DEFAULTS,
+    ...x.look,
+  }));
+  /** One value (or colour) per compartment, flattened. */
+  const perPart = (fn) =>
+    Array.from({ length: COMPARTMENTS }, (_, i) =>
+      fn(looks[i] || looks[0]),
+    ).flat();
+  const chromogenic = looks.some((x) => x.chromogenic);
   const lin = (hex, fallback) => hexToLinear(hex || fallback);
   // What has leaked into the gel glows, under ultraviolet, the colour of
   // whichever culture's pigment it is. One colour for the plate: the
@@ -530,6 +636,13 @@ export function packLook({ cultures, medium, seed = 1 }) {
     uTufts: each((c) => c.look.tufts),
     uSheen: each((c) => c.look.sheen),
     uStain: each((c) => c.look.stain),
+    uChromoR: channel((c) => c.look.chromo?.color, 0),
+    uChromoG: channel((c) => c.look.chromo?.color, 1),
+    uChromoB: channel((c) => c.look.chromo?.color, 2),
+    // Shown only where the medium is chromogenic (uChromogenic).
+    uChromo: each((c) => (chromogenic && c.look.chromo?.color ? 1 : 0)),
+    uChromoSheen: each((c) => (c.look.chromo?.metallic ? 0.12 : 0)),
+    uChromogenic: perPart((m) => (m.chromogenic ? 1 : 0)),
     uFluorR: channel((c) => c.look.fluoresce, 0),
     uFluorG: channel((c) => c.look.fluoresce, 1),
     uFluorB: channel((c) => c.look.fluoresce, 2),
@@ -541,23 +654,48 @@ export function packLook({ cultures, medium, seed = 1 }) {
     uWrOnset: 0.3,
     uWrFull: 0.75,
 
-    uAgarColor: lin(m.color),
-    uAgarOpacity: m.opacity,
-    uAcidColor: lin(m.acid, m.color),
-    uAlkaliColor: lin(m.alkali, m.color),
-    uIndicator: m.acid || m.alkali ? 1 : 0,
-    uPhRange: m.phRange,
-    uClearColor: lin(m.clear, m.color),
-    uClearOpacity: m.clear ? m.clearOpacity : m.opacity,
-    uClearGain: m.clear ? m.clearGain : 0,
-    uDyeColor: lin(m.dye, '#ffffff'),
-    uDye: m.dye ? 1 : 0,
-    uAgarFluor: m.fluoresce
-      ? hexToLinear(m.fluoresce).map((x) => x * 0.05)
-      : [0.004, 0.005, 0.012],
+    // ---- the medium, one per compartment
+    uAgarColor: perPart((m) => lin(m.color)),
+    uAgarOpacity: perPart((m) => m.opacity),
+    uAcidColor: perPart((m) => lin(m.acid, m.color)),
+    uAlkaliColor: perPart((m) => lin(m.alkali, m.color)),
+    uIndicator: perPart((m) => (m.acid || m.alkali ? 1 : 0)),
+    uPhRange: perPart((m) => m.phRange),
+    uClearColor: perPart((m) => lin(m.clear, m.color)),
+    uClearOpacity: perPart((m) => (m.clear ? m.clearOpacity : m.opacity)),
+    uClearGain: perPart((m) => (m.clear ? m.clearGain : 0)),
+    uDyeColor: perPart((m) => lin(m.dye, '#ffffff')),
+    uDye: perPart((m) => (m.dye ? 1 : 0)),
+    uAgarFluor: perPart((m) =>
+      m.fluoresce
+        ? hexToLinear(m.fluoresce).map((x) => x * 0.05)
+        : [0.004, 0.005, 0.012],
+    ),
     uHaloFluor: halo,
+
+    uBinds: each(bindsCalcofluor),
+    uUniversal: UNIVERSAL.flatMap(hexToLinear),
+    uFormazan: hexToLinear('#a8132b'),
+    uCalcofluor: hexToLinear('#6f8dff').map((x) => x * 0.9),
+    uFluorescein: hexToLinear('#7dff4f'),
+    uFluoresceinAbs: hexToAbsorbance('#f5c400', 0.7),
   };
 }
+
+/**
+ * A universal indicator's colours at pH 4, 5, … 10: red, orange, yellow,
+ * green, a blue-green, blue and violet. Estimates from photographs of the
+ * colour chart that comes with it.
+ */
+export const UNIVERSAL = [
+  '#d0262e',
+  '#ee7a22',
+  '#efcf2c',
+  '#4ba14a',
+  '#1f8c90',
+  '#2a50b0',
+  '#5c2c8e',
+];
 
 /** Lights on (1) or off (0) at an hour: 'on', 'dark', or a 12:12 'cycle'. */
 export function lightAt(mode, hours) {

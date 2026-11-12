@@ -17,7 +17,7 @@
 //   ultraviolet  a 365 nm lamp in a dark room: only what fluoresces.
 //   dark         nothing but what the plate gives off.
 
-import { HEADER } from './common.js';
+import { HEADER, VESSEL } from './common.js';
 
 const LIGHTING = `
 uniform vec3 uEye;
@@ -75,15 +75,20 @@ vec3 benchAt(vec2 xz) {
     float fall = 1.0 - 0.18 * smoothstep(60.0, 420.0, length(xz));
     return vec3(1.0, 0.985, 0.95) * 1.9 * fall;
   }
-  float mottle = 0.88 + 0.24 * noise2(xz * 0.35) + 0.1 * (noise2(xz * 3.1) - 0.5);
+  // Epoxy is mottled; a card is smooth. The paler the bench, the less of
+  // its mottle shows, or a white one looks dirty.
+  float pale = smoothstep(0.03, 0.4, dot(uBench, vec3(0.2126, 0.7152, 0.0722)));
+  float mottle = 1.0 + mix(1.0, 0.12, pale)
+    * (0.24 * (noise2(xz * 0.35) - 0.5) + 0.1 * (noise2(xz * 3.1) - 0.5));
   vec3 base = uBench * mottle;
   float shade = 1.0;
   for (int i = 0; i < 8; i++) {
     if (i >= uDishCount) break;
     vec4 dish = uDishes[i];
     float away = length(xz - dish.xy) - dish.z;
-    // Close to the wall the bench sees less sky...
-    shade *= 1.0 - 0.5 * (1.0 - smoothstep(-2.0, 16.0, away));
+    // Close to the wall the bench sees less sky, inside it as well as out.
+    // Further in, under a clear gel, it is lit through the gel.
+    shade *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 16.0, abs(away + 2.0)));
     // ...and the wall throws a shadow away from the lamp.
     vec2 thrown = -uLamp.xz / max(uLamp.y, 0.2) * dish.w * 0.55;
     float inShadow = length(xz - dish.xy - thrown) - dish.z;
@@ -185,6 +190,26 @@ float gelAt(sampler2D agar, vec2 uv, float texels) {
 }
 `;
 
+/**
+ * The round wall that bounds the gel a point is in or nearest: the dish's
+ * own, or a well's. As (centre x, centre y, radius), in plate mm. Needs the
+ * vessel's uniforms and VESSEL.
+ */
+const WALL = `
+uniform int uVessel;
+uniform float uDivider;
+uniform vec3 uWells[6];
+${VESSEL}
+vec3 wallOf(vec2 mm) {
+  if (uVessel == 2) {
+    int k;
+    wellDistance(mm, k);
+    return uWells[k];
+  }
+  return vec3(0.0, 0.0, uRadius);
+}
+`;
+
 // ---------------------------------------------------------------- bench
 
 export const BENCH_VERTEX = `${HEADER}
@@ -227,13 +252,16 @@ uniform sampler2D uAgar;
 out vec3 vWorld;
 out vec2 vMm;
 ${SMOOTH}
+${WALL}
 void main() {
   vec2 mm = aGrid * uSpan * 0.5;
-  float r = length(mm);
   // The gel's edge is a staircase of texels under the wall. The last
   // little way is drawn from just inside it, so the surface meets the
-  // wall in a clean circle.
-  vec2 at = mm * min(1.0, (uRadius - uEdge) / max(r, 1e-4));
+  // wall in a clean circle: the dish's, or a well's.
+  vec3 wall = wallOf(mm);
+  vec2 off = mm - wall.xy;
+  float r = length(off);
+  vec2 at = wall.xy + off * min(1.0, (wall.z - uEdge) / max(r, 1e-4));
   vec2 uv = at / uSpan + 0.5;
   float height = smoothAt(uRelief, uv, uTexels).r;
   // Down to the floor where the gel stops. The drop is spread over a few
@@ -241,7 +269,7 @@ void main() {
   // corners, and wherever it didn't it would stand up in teeth.
   float gel = smoothstep(0.15, 1.0, gelAt(uAgar, uv, uTexels));
   // Gel climbs the wall a little: a meniscus.
-  float meniscus = 0.9 * exp(-(uRadius - min(r, uRadius)) / 1.5);
+  float meniscus = 0.9 * exp(-(wall.z - min(r, wall.z)) / 1.5);
   float y = mix(uFloor, uTop + height * uStretch + meniscus, gel);
   vWorld = vec3(uCentre.x + mm.x, y, uCentre.z - mm.y);
   vMm = mm;
@@ -267,6 +295,7 @@ uniform float uDetail;      // 1 up close, 0 from across the bench
 ${LIGHTING}
 
 ${SMOOTH}
+${WALL}
 float reliefAt(vec2 uv) {
   return smoothAt(uRelief, uv, uTexels).r;
 }
@@ -279,9 +308,11 @@ float shown(float cell, float px) {
 }
 
 void main() {
-  float r = length(vMm);
-  if (r > uRadius) discard;
-  vec2 at = vMm * min(1.0, (uRadius - uEdge) / max(r, 1e-4));
+  vec3 wall = wallOf(vMm);
+  vec2 off = vMm - wall.xy;
+  float r = length(off);
+  if (r > wall.z) discard;
+  vec2 at = wall.xy + off * min(1.0, (wall.z - uEdge) / max(r, 1e-4));
   vec2 uv = at / uSpan + 0.5;
 
   vec4 relief = smoothAt(uRelief, uv, uTexels);
@@ -332,8 +363,8 @@ void main() {
   );
   slope += grain * grainAmount;
   // The meniscus tilts the gel up toward the wall.
-  float lip = 0.6 * exp(-(uRadius - r) / 1.5);
-  slope += normalize(vMm + 1e-5) * lip;
+  float lip = 0.6 * exp(-(wall.z - r) / 1.5);
+  slope += normalize(off + 1e-5) * lip;
   // Plate space is (x, -z): the texture's y runs away from the viewer.
   vec3 n = normalize(vec3(-slope.x, 1.0, slope.y));
 
@@ -361,7 +392,7 @@ void main() {
   vec3 gelLook = mix(through, gelLit, agar.a);
   // Light that enters the gel is carried sideways in it and comes out at
   // the rim: the edge of a plate is always a little brighter.
-  gelLook += gelLit * 0.3 * exp(-(uRadius - r) / 2.2) * (1.0 - agar.a);
+  gelLook += gelLit * 0.3 * exp(-(wall.z - r) / 2.2) * (1.0 - agar.a);
 
   // ---- The colony ----------------------------------------------------
   float wrap = 0.22;
@@ -430,6 +461,7 @@ layout(location = 0) in vec3 aPosition; // cos, height 0..1, sin
 uniform mat4 uViewProj;
 uniform vec3 uCentre;
 uniform float uRadius;
+uniform vec2 uOffset;     // a well's middle, from the vessel's, plate mm
 uniform float uTop;
 uniform float uFloor;
 out vec3 vWorld;
@@ -438,7 +470,11 @@ void main() {
   vAround = aPosition.xz;
   // To the top of the meniscus, where the surface sheet ends.
   float y = mix(uFloor, uTop + 0.9, aPosition.y);
-  vWorld = vec3(uCentre.x + aPosition.x * uRadius, y, uCentre.z + aPosition.z * uRadius);
+  vWorld = vec3(
+    uCentre.x + uOffset.x + aPosition.x * uRadius,
+    y,
+    uCentre.z - uOffset.y + aPosition.z * uRadius
+  );
   gl_Position = uViewProj * vec4(vWorld, 1.0);
 }`;
 
@@ -449,12 +485,13 @@ out vec4 o;
 uniform sampler2D uAgar;
 uniform float uSpan;
 uniform float uRadius;
+uniform vec2 uOffset;
 uniform float uEdge;
 ${LIGHTING}
 void main() {
   // The gel a little way inside the wall at this bearing, clear of the
   // staircase its edge makes. Plate space is (x, -z).
-  vec2 uv = vec2(vAround.x, -vAround.y) * (uRadius - 2.4 * uEdge) / uSpan + 0.5;
+  vec2 uv = (vec2(vAround.x, -vAround.y) * (uRadius - 2.4 * uEdge) + uOffset) / uSpan + 0.5;
   vec4 agar = texture(uAgar, uv);
   if (agar.a < 0.006) discard;
   vec3 n = normalize(vec3(vAround.x, 0.0, vAround.y));
@@ -489,8 +526,18 @@ export const GLASS_FRAGMENT = `${HEADER}
 in vec3 vWorld;
 in vec3 vNormal;
 out vec4 o;
+uniform vec3 uCentre;
+uniform float uHoled;     // 1 for the six-well plate's deck: open over each well
+uniform float uRimScatter; // how much a flat top scatters rather than mirrors
+uniform float uRadius;
 ${LIGHTING}
+${WALL}
 void main() {
+  if (uHoled > 0.5) {
+    vec2 mm = vec2(vWorld.x - uCentre.x, uCentre.z - vWorld.z);
+    int k;
+    if (wellDistance(mm, k) < 0.0) discard;
+  }
   vec3 n = normalize(vNormal);
   vec3 v = normalize(uEye - vWorld);
   if (dot(n, v) < 0.0) n = -n;
@@ -502,7 +549,7 @@ void main() {
   float patch_ = lampPatch(refl, uLamp, 0.06) + 0.2 * lampPatch(refl, fillDir(), 0.06);
   patch_ *= 3.0;
   // The rim is a moulded edge: it scatters the lamp instead of mirroring it.
-  float rim = step(0.9, abs(vNormal.y));
+  float rim = step(0.9, abs(vNormal.y)) * uRimScatter;
   vec3 colour = sky * (0.5 + 0.5 * clamp(refl.y, 0.0, 1.0)) * 1.4 * fresnel
     + lamp * patch_ * 4.0 * fresnel
     + rim * (lamp * max(uLamp.y, 0.0) * 0.55 + sky * 0.9);

@@ -7,8 +7,10 @@
 // stored in a few hundred bytes, or sent to someone as a link.
 
 import { cultureById } from './cultures.js';
-import { mediumById } from './media.js';
+import { GRADIENTS, mediumById } from './media.js';
+import { vesselById } from './vessels.js';
 import { additionById } from './additions.js';
+import { decodePrint } from './tools.js';
 import { SLOTS } from './pack.js';
 
 /** The newest shape of a saved bench. Bump it when a recipe's meaning
@@ -22,7 +24,20 @@ export const DEFAULT_ENV = {
   temperature: 30, // °C
   humidity: 0.85, // relative, 0..1
   light: 'cycle', // 'cycle' (12 h on, 12 off), 'on' or 'dark'
+  lid: '', // a word masked on the lid in black, or nothing
 };
+
+/** The longest word a lid can be masked with. */
+export const LID_LENGTH = 16;
+
+/** A word for the lid from untrusted text: printable, trimmed, short. */
+export function cleanLid(text) {
+  return Array.from(String(text ?? ''))
+    .filter((ch) => ch >= ' ' && ch !== '\u007f')
+    .join('')
+    .trim()
+    .slice(0, LID_LENGTH);
+}
 
 export const TEMPERATURE_RANGE = { min: 4, max: 45, step: 1 };
 export const HUMIDITY_RANGE = { min: 0.2, max: 1, step: 0.05 };
@@ -43,6 +58,14 @@ export function createDish(mediumId = 'broth', overrides = {}) {
     medium: mediumById(mediumId) ? mediumId : 'broth',
     agar: null, // percent, when the pour departs from the medium's own
     nutrient: null,
+    vessel: 'dish', // vessels.js
+    // One medium id per compartment, for a vessel with more than one; the
+    // first is always `medium`. null for a dish.
+    media: null,
+    gradient: null, // a media.js GRADIENTS value, or none
+    // A colour the gel was tinted with, one per compartment ('#rrggbb'),
+    // null where it is its own. null for none at all.
+    tints: null,
     env: { ...DEFAULT_ENV },
     seed: freshSeed(),
     events: [],
@@ -63,19 +86,47 @@ export function resolveMedium(dish) {
   };
 }
 
+/**
+ * Every compartment's medium as poured, one per compartment of the vessel.
+ * They are poured from one gel, so all are as firm as the first; each keeps
+ * its own food, pH and look. The strength slider is for a plate of one
+ * medium, and is set aside for more.
+ */
+export function resolveMedia(dish) {
+  const first = resolveMedium(dish);
+  const vessel = vesselById(dish.vessel) || vesselById('dish');
+  const media =
+    vessel.compartments === 1 || !dish.media
+      ? [first]
+      : Array.from({ length: vessel.compartments }, (_, i) => {
+          if (i === 0) return first;
+          const base = mediumById(dish.media[i]) || first;
+          return { ...base, agar: first.agar };
+        });
+  // A tinted gel is the medium in another colour, and nothing else about
+  // it changes: an indicator still turns, a clearing still clears.
+  return media.map((m, i) => {
+    const tint = dish.tints?.[i];
+    return tint ? { ...m, look: { ...m.look, color: tint } } : m;
+  });
+}
+
 /** The cultures on a plate, in the order they arrived: its four slots. */
 export function slotsOf(dish) {
   const slots = [];
   for (const event of dish.events) {
-    if (!event.culture) continue;
-    if (!slots.includes(event.culture) && slots.length < SLOTS) {
-      slots.push(event.culture);
+    const brought = event.cultures || (event.culture ? [event.culture] : []);
+    for (const id of brought) {
+      if (!slots.includes(id) && slots.length < SLOTS) slots.push(id);
     }
   }
   return slots;
 }
 
 const finite = (x) => typeof x === 'number' && Number.isFinite(x);
+/** A colour as the page writes one: '#rrggbb'. */
+export const isColour = (x) =>
+  typeof x === 'string' && /^#[0-9a-f]{6}$/i.test(x);
 const point = (p) => Array.isArray(p) && finite(p[0]) && finite(p[1]);
 const round = (x, places = 2) => {
   const k = 10 ** places;
@@ -99,6 +150,7 @@ function cleanEnv(raw) {
     );
   }
   if (['cycle', 'on', 'dark'].includes(raw.light)) env.light = raw.light;
+  if (typeof raw.lid === 'string') env.lid = cleanLid(raw.lid);
   return env;
 }
 
@@ -116,6 +168,27 @@ function cleanEvent(raw) {
   if (raw.do === 'add') {
     if (!additionById(raw.addition)) return null;
     out.addition = raw.addition;
+    if (finite(raw.seed)) out.seed = raw.seed >>> 0;
+    if (isColour(raw.color)) out.color = raw.color.toLowerCase();
+  } else if (raw.do === 'print') {
+    const cultures = Array.isArray(raw.cultures)
+      ? raw.cultures.filter((id) => cultureById(id))
+      : [];
+    if (
+      !cultures.length ||
+      cultures.length !== raw.cultures.length ||
+      cultures.length > SLOTS ||
+      new Set(cultures).size !== cultures.length ||
+      !decodePrint(raw.map)
+    ) {
+      return null;
+    }
+    return {
+      ...out,
+      cultures,
+      map: raw.map,
+      seed: finite(raw.seed) ? raw.seed >>> 0 : 1,
+    };
   } else if (raw.do === 'spot' || raw.do === 'streak' || raw.do === 'lawn') {
     if (!cultureById(raw.culture)) return null;
     out.culture = raw.culture;
@@ -149,6 +222,24 @@ export function cleanDish(raw) {
   if (!raw || typeof raw !== 'object') return createDish();
   const dish = createDish(raw.medium);
   if (finite(raw.agar)) dish.agar = Math.min(Math.max(raw.agar, 0.3), 2.5);
+  const vessel = vesselById(raw.vessel);
+  if (vessel && vessel.compartments > 1) {
+    dish.vessel = vessel.id;
+    const listed = Array.isArray(raw.media) ? raw.media : [];
+    dish.media = Array.from({ length: vessel.compartments }, (_, i) =>
+      i === 0 ? dish.medium : mediumById(listed[i]) ? listed[i] : dish.medium,
+    );
+  }
+  if (GRADIENTS.some((g) => g.value === raw.gradient)) {
+    dish.gradient = raw.gradient;
+  }
+  if (Array.isArray(raw.tints)) {
+    const count = vesselById(dish.vessel)?.compartments || 1;
+    const tints = Array.from({ length: count }, (_, i) =>
+      isColour(raw.tints[i]) ? raw.tints[i].toLowerCase() : null,
+    );
+    if (tints.some(Boolean)) dish.tints = tints;
+  }
   if (finite(raw.nutrient)) {
     dish.nutrient = Math.min(Math.max(raw.nutrient, 0.1), 1.5);
   }
@@ -177,6 +268,12 @@ export function packDish(dish) {
   };
   if (dish.agar != null) out.agar = dish.agar;
   if (dish.nutrient != null) out.nutrient = dish.nutrient;
+  if (dish.vessel && dish.vessel !== 'dish') {
+    out.vessel = dish.vessel;
+    out.media = dish.media;
+  }
+  if (dish.gradient) out.gradient = dish.gradient;
+  if (dish.tints && dish.tints.some(Boolean)) out.tints = dish.tints;
   const env = {};
   for (const key of Object.keys(DEFAULT_ENV)) {
     if (dish.env[key] !== DEFAULT_ENV[key]) env[key] = dish.env[key];

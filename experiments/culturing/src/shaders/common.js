@@ -14,7 +14,11 @@
 //                   g  the hours the film here has been thick enough to buckle
 //   uC0   agar      nutrient near the surface, surfactant, toxin X, signal
 //   uC1   agar      pH shift (+ acid, - alkali), enzyme, deep nutrient, toxin Y
-//   uC2   agar      pigment dissolved in the agar, as RGB absorbance
+//   uC2   agar      pigment dissolved in the agar, as RGB absorbance;
+//                   paper, where a disc or a strip lies
+//   uC3   agar      r  which compartment of the vessel (vessels.js)
+//                   g  the pH shift the gel is buffered to
+//   uR0…2 reagents  what is put on from the tray (reagents.js)
 //
 // The agar textures are half the surface's resolution: what diffuses through
 // a gel is smooth, and on a coarser grid it can diffuse sixteen times as far
@@ -77,4 +81,39 @@ const float WGT[8] = float[8](
   0.1666667, 0.1666667, 0.1666667, 0.1666667
 );
 const vec4 ONE = vec4(1.0);
+`;
+
+/**
+ * The vessel's shape (vessels.js): where its gel is, and which compartment
+ * a point belongs to. Needs uVessel, uRadius, uDivider and uWells declared.
+ *
+ *   0  a dish
+ *   1  a bi-plate, walled down the middle: left 0, right 1
+ *   2  six wells, each its own compartment
+ */
+export const VESSEL = `
+float wellDistance(vec2 mm, out int nearest) {
+  float far = 1e9;
+  nearest = 0;
+  for (int i = 0; i < 6; i++) {
+    float r = length(mm - uWells[i].xy) - uWells[i].z;
+    if (r < far) {
+      far = r;
+      nearest = i;
+    }
+  }
+  return far;
+}
+// How far inside the gel a point is, mm (negative outside), and which
+// compartment it is in or nearest.
+float insideVessel(vec2 mm, out int part) {
+  if (uVessel == 2) return -wellDistance(mm, part);
+  float inside = uRadius - length(mm);
+  part = 0;
+  if (uVessel == 1) {
+    part = mm.x < 0.0 ? 0 : 1;
+    inside = min(inside, abs(mm.x) - uDivider);
+  }
+  return inside;
+}
 `;
