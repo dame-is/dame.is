@@ -163,6 +163,11 @@ export default function FieldNotes() {
           Real tetrazolium also holds some bacteria back, and here it doesn’t.
         </li>
         <li>
+          On the chromogenic plate only the cultures the maker’s chart names
+          change colour. Everything else on the shelf shows as it would on
+          broth, which is a guess: the chart doesn’t say.
+        </li>
+        <li>
           More of the colonies fold with age here than would on a real bench.
           The golden one does on{' '}
           <Ref href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5595439">

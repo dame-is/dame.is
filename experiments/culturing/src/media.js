@@ -255,6 +255,22 @@ export const MEDIA = [
     look: { color: '#d6cc98', opacity: 0.13 },
   },
   {
+    id: 'chromogenic',
+    name: 'Chromogenic agar',
+    after: 'CHROMagar Orientation',
+    blurb:
+      'A pale plate laced with substrates that are colourless until a particular enzyme cuts them. Each kind of culture comes up in the colour its own enzymes make: pink, metallic blue, a brown halo, or nothing different at all.',
+    notes: [
+      {
+        text: 'On it E. coli is dark pink to reddish; Klebsiella, Enterobacter, Citrobacter and Serratia metallic blue; Proteus has a brown halo; Pseudomonas stays translucent and S. aureus golden.',
+        href: 'https://www.chromagar.com/wp-content/uploads/2021/11/NT-EXT-002-V13.1.pdf',
+      },
+    ],
+    nutrient: 1,
+    agar: 1.5,
+    look: { color: '#e5dfcf', opacity: 0.5, chromogenic: true },
+  },
+  {
     id: 'charcoal',
     name: 'Charcoal agar',
     after: 'charcoal agar',

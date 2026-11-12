@@ -166,6 +166,10 @@ export const CULTURE_DEFAULTS = {
     scatter: 0.3, // light bleeding through thin ridges and edges
     fluoresce: null, // colour under 365 nm
     glow: null, // bioluminescence
+    // On a chromogenic medium: { color, metallic, halo }, the colour its
+    // enzymes make of the substrates, whether it comes up with a sheen,
+    // and what leaks into the gel round it. null: it shows as it is.
+    chromo: null,
     droplets: null, // { color } — exudate beads on mature growth
   },
 };
@@ -309,10 +313,18 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     if (c.wrinkle.tempMax == null) return 1;
     return clamp((c.wrinkle.tempMax - env.temperature) / 3, 0, 1);
   };
-  const absorbance = (c) =>
-    c.secretes
+  // What a culture leaks into the gel: its own pigment, and on a
+  // chromogenic plate whatever colour its enzymes cut out of the medium.
+  const halo = (c) =>
+    medium.look?.chromogenic && c.look.chromo?.halo
+      ? hexToAbsorbance(c.look.chromo.halo, rate(0.3))
+      : [0, 0, 0];
+  const absorbance = (c) => {
+    const own = c.secretes
       ? hexToAbsorbance(c.secretes.color, rate(c.secretes.rate))
       : [0, 0, 0];
+    return own.map((x, i) => x + halo(c)[i]);
+  };
 
   const hasTaxis = cultures.some(
     (c) =>
@@ -523,6 +535,7 @@ export const MEDIUM_LOOK_DEFAULTS = {
   clearGain: 3, // how readily enzyme clears it
   dye: null, // a dye colonies can take up (Congo red)
   fluoresce: null, // the gel's own faint glow under ultraviolet
+  chromogenic: false, // whether cultures show their `look.chromo` on it
 };
 
 /**
@@ -573,8 +586,15 @@ export function packLook({ cultures, medium, seed = 1 }) {
     uFuzz: each((c) => c.look.fuzz),
     uFuzzLate: each((c) => c.look.fuzzLate),
     uTufts: each((c) => c.look.tufts),
-    uSheen: each((c) => c.look.sheen),
+    uSheen: each(
+      (c) =>
+        c.look.sheen + (m.chromogenic && c.look.chromo?.metallic ? 0.12 : 0),
+    ),
     uStain: each((c) => c.look.stain),
+    uChromoR: channel((c) => c.look.chromo?.color, 0),
+    uChromoG: channel((c) => c.look.chromo?.color, 1),
+    uChromoB: channel((c) => c.look.chromo?.color, 2),
+    uChromo: each((c) => (m.chromogenic && c.look.chromo?.color ? 1 : 0)),
     uFluorR: channel((c) => c.look.fluoresce, 0),
     uFluorG: channel((c) => c.look.fluoresce, 1),
     uFluorB: channel((c) => c.look.fluoresce, 2),

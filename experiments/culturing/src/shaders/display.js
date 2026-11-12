@@ -58,6 +58,10 @@ uniform float uMmPerTexel;
 uniform uint uSeed;
 uniform vec4 uSheen;
 uniform vec4 uStain;
+uniform vec4 uChromoR;   // the colour it turns a chromogenic medium's substrates
+uniform vec4 uChromoG;
+uniform vec4 uChromoB;
+uniform vec4 uChromo;    // 1 where that is to be shown
 uniform vec4 uFluorR;
 uniform vec4 uFluorG;
 uniform vec4 uFluorB;
@@ -246,6 +250,12 @@ void main() {
   vec3 mature = pick(share, uMatureR, uMatureG, uMatureB);
   vec3 sported = pick(share, uSportR, uSportG, uSportB);
   vec3 colour = mix(young, mix(mature, sported, sport), pig);
+  // On a chromogenic plate the colour is made by the colony's enzymes from
+  // what is in the gel, so it comes up as the colony thickens and is the
+  // same at any age.
+  float chromo = dot(share, uChromo) * smoothstep(0.04, 0.4, rhoD);
+  colour = mix(colour, pick(share * uChromo, uChromoR, uChromoG, uChromoB)
+    / max(dot(share, uChromo), 1e-4), 0.9 * chromo);
   // A dye in the medium is taken up by the matrix: the film goes the
   // dye's colour, most where it is thickest.
   // It pools between the folds and thins over them, so the floors come

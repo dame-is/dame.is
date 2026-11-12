@@ -553,6 +553,34 @@ describe('packing', () => {
     expect(lightAt('dark', 3)).toBe(0);
   });
 
+  it('shows a culture’s chromogenic colour only on a chromogenic medium', () => {
+    const grid = createGrid(256);
+    const slots = ['slime', 'bullseye', 'lemon'].map(cultureById);
+    const on = (id) => {
+      const medium = mediumById(id);
+      const packed = packPlate({ slots, medium, env: ENV, grid, seed: 1 });
+      return {
+        u: packed.u,
+        look: packLook({ cultures: packed.cultures, medium }),
+      };
+    };
+    const plain = on('broth');
+    const chromo = on('chromogenic');
+    expect(plain.look.uChromo).toEqual([0, 0, 0, 0]);
+    // Klebsiella goes metallic blue; Proteus only leaks a halo; Micrococcus
+    // is left as it is.
+    expect(chromo.look.uChromo).toEqual([1, 0, 0, 0]);
+    expect(chromo.look.uChromoB[0]).toBeGreaterThan(chromo.look.uChromoR[0]);
+    expect(chromo.look.uSheen[0]).toBeGreaterThan(plain.look.uSheen[0]);
+    expect(plain.u.uPigR[1]).toBe(0);
+    expect(chromo.u.uPigB[1]).toBeGreaterThan(0);
+    for (const culture of CULTURES) {
+      const c = resolveCulture(culture).look.chromo;
+      if (c?.color) expect(c.color, culture.id).toMatch(HEX);
+      if (c?.halo) expect(c.halo, culture.id).toMatch(HEX);
+    }
+  });
+
   it('stands only the moulds up in tufts', () => {
     const look = (id) =>
       packLook({

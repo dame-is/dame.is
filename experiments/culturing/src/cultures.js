@@ -54,6 +54,8 @@ export const CULTURES = [
       wander: 0.6,
     },
     look: {
+      // On chromogenic agar (media.js), metallic blue.
+      chromo: { color: '#2d4f92', metallic: true },
       young: '#e8e2d4',
       mature: '#a81c34',
       sport: '#ece4d6',
@@ -283,6 +285,9 @@ export const CULTURES = [
       tempMax: 31,
     },
     look: {
+      // On chromogenic agar (media.js) its enzymes turn the substrates
+      // dark pink.
+      chromo: { color: '#b62c5c' },
       young: '#dcdacb',
       mature: '#d3d6cd',
       gloss: 0.72,
@@ -327,6 +332,9 @@ export const CULTURES = [
       tempMax: 31,
     },
     look: {
+      // On chromogenic agar (media.js) its enzymes turn the substrates
+      // dark pink.
+      chromo: { color: '#b62c5c' },
       young: '#dedbc9',
       mature: '#d8d6c6',
       gloss: 0.72,
@@ -364,6 +372,8 @@ export const CULTURES = [
     sensY: 0.8,
     kill: 0.3,
     look: {
+      // On chromogenic agar (media.js), metallic blue.
+      chromo: { color: '#2d4f92', metallic: true },
       young: '#dcd8c6',
       mature: '#cfcab4',
       gloss: 0.97,
@@ -674,6 +684,8 @@ export const CULTURES = [
     sensY: 1.0,
     kill: 0.4,
     look: {
+      // On chromogenic agar (media.js), a brown halo in the gel round it.
+      chromo: { halo: '#7a4a22' },
       young: '#d9d4c0',
       mature: '#cfc9b2',
       gloss: 0.8,
