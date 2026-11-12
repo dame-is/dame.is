@@ -10,6 +10,7 @@ import { cultureById } from './cultures.js';
 import { GRADIENTS, mediumById } from './media.js';
 import { vesselById } from './vessels.js';
 import { additionById } from './additions.js';
+import { decodePrint } from './tools.js';
 import { SLOTS } from './pack.js';
 
 /** The newest shape of a saved bench. Bump it when a recipe's meaning
@@ -103,9 +104,9 @@ export function resolveMedia(dish) {
 export function slotsOf(dish) {
   const slots = [];
   for (const event of dish.events) {
-    if (!event.culture) continue;
-    if (!slots.includes(event.culture) && slots.length < SLOTS) {
-      slots.push(event.culture);
+    const brought = event.cultures || (event.culture ? [event.culture] : []);
+    for (const id of brought) {
+      if (!slots.includes(id) && slots.length < SLOTS) slots.push(id);
     }
   }
   return slots;
@@ -153,6 +154,25 @@ function cleanEvent(raw) {
   if (raw.do === 'add') {
     if (!additionById(raw.addition)) return null;
     out.addition = raw.addition;
+  } else if (raw.do === 'print') {
+    const cultures = Array.isArray(raw.cultures)
+      ? raw.cultures.filter((id) => cultureById(id))
+      : [];
+    if (
+      !cultures.length ||
+      cultures.length !== raw.cultures.length ||
+      cultures.length > SLOTS ||
+      new Set(cultures).size !== cultures.length ||
+      !decodePrint(raw.map)
+    ) {
+      return null;
+    }
+    return {
+      ...out,
+      cultures,
+      map: raw.map,
+      seed: finite(raw.seed) ? raw.seed >>> 0 : 1,
+    };
   } else if (raw.do === 'spot' || raw.do === 'streak' || raw.do === 'lawn') {
     if (!cultureById(raw.culture)) return null;
     out.culture = raw.culture;

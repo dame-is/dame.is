@@ -33,9 +33,19 @@ export function describeEnv(env) {
   return parts.join(', ');
 }
 
+/** "Crimson", "Crimson and Lemon", "Crimson, Lemon and Gold". */
+function andList(names) {
+  if (names.length < 2) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
+
 /** One line of a plate's record: what an event did. */
 export function describeEvent(event) {
   if (event.do === 'set') return `Incubator set to ${describeEnv(event.env)}`;
+  if (event.do === 'print') {
+    const names = event.cultures.map((id) => cultureById(id)?.name || id);
+    return `A velvet print of ${andList(names)}`;
+  }
   if (event.do === 'add') {
     const item = additionById(event.addition);
     if (!item) return 'Something added';

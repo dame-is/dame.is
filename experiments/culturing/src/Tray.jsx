@@ -544,6 +544,9 @@ function additionSwatch(item) {
 
 /** What the hand does with something off the tray, in a sentence. */
 function handling(item) {
+  if (item.print) {
+    return `Take a print of another plate as it stands, and put it down on this one.`;
+  }
   if (item.cut || item.scrape) return 'Drag it across the gel.';
   if (item.strip) {
     return 'Touch the gel to lay it along the radius, strong end inward, or drag from where the strong end should go.';
@@ -554,10 +557,43 @@ function handling(item) {
   return 'Touch the gel to leave a drop, or drag to draw a line of it.';
 }
 
+/** The plates a velvet can take a print from: the others with something
+ *  growing on them. */
+function PrintFrom({ bench, snap }) {
+  const sources = snap.dishes
+    .map((dish, i) => ({ dish, i }))
+    .filter(({ dish, i }) => i !== snap.selected && dish.slots.length > 0);
+  if (!sources.length) {
+    return (
+      <p className="cult-hint">
+        No other plate has anything growing on it to take a print of.
+      </p>
+    );
+  }
+  return (
+    <div className="cult-actions">
+      {sources.map(({ dish, i }) => (
+        <Button
+          key={i}
+          size="sm"
+          title={`Press it onto plate ${i + 1}, then onto plate ${snap.selected + 1}`}
+          onClick={() => {
+            bench.enter(snap.selected);
+            bench.print(i, snap.selected);
+          }}
+        >
+          {mediumSwatch(mediumById(dish.medium) || MEDIA[0])}
+          From plate {i + 1}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 function TrayPanel({ bench, snap, compact }) {
   const armed =
     snap.tool?.kind === 'addition' ? additionById(snap.tool.id) : null;
-  const dragged = armed && (armed.cut || armed.scrape);
+  const dragged = armed && (armed.cut || armed.scrape || armed.print);
   return (
     <>
       {armed ? (
@@ -566,6 +602,7 @@ function TrayPanel({ bench, snap, compact }) {
           <p className="cult-card-after">after {armed.after}</p>
           <p className="cult-card-blurb">{armed.blurb}</p>
           <p className="cult-hint">{handling(armed)}</p>
+          {armed.print && <PrintFrom bench={bench} snap={snap} />}
           <div className="cult-actions">
             {!dragged && (
               <Button

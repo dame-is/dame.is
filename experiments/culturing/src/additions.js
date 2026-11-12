@@ -258,6 +258,26 @@ export const ADDITIONS = [
     cut: true,
   },
   {
+    id: 'velvet',
+    name: 'Velvet',
+    after: 'replica plating',
+    kind: 'tool',
+    blurb:
+      'A square of sterile velvet. Pressed onto a grown plate it picks up a few cells from everything on it; pressed onto this one, it puts them down in the same places, so the same pattern grows again, on whatever this plate was poured with.',
+    notes: [
+      {
+        text: 'Joshua and Esther Lederberg printed one plate of colonies onto several fresh ones this way, each copy in the same places as the master.',
+        href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC169282/',
+      },
+      {
+        text: 'Paper was tried first, and wicked sideways and squashed the colonies. Cotton velveteen didn’t, and could be laundered and used again.',
+        href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC1203627/',
+      },
+    ],
+    radius: 0,
+    print: true,
+  },
+  {
     id: 'loop',
     name: 'Sterile loop',
     after: 'a flamed loop',

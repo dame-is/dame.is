@@ -183,6 +183,11 @@ export default function FieldNotes() {
           whatever it is poured on. The real one needs it put in the plate.
         </li>
         <li>
+          A velvet’s print is kept a little over a millimetre to a cell, so that
+          it can travel in a link, and comes up coarser than the plate it was
+          taken from.
+        </li>
+        <li>
           The six-well plate is two thirds the size of a real one, so that it
           can be worked out on the same grid as a dish. Every compartment of a
           vessel is poured from one gel: the media differ in what is dissolved

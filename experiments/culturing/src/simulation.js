@@ -475,6 +475,24 @@ export function createSimulation(gl, caps, size) {
     plate.hours += grid.dt;
   }
 
+  /**
+   * A plate's two biomass textures read back, for a velvet's print: RGBA
+   * floats, row 0 at the near edge. Slow, and only done when asked.
+   */
+  function readSurface(plate) {
+    const read = (attachment) => {
+      const out = new Float32Array(N * N * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, plate.surface.target.framebuffer);
+      gl.readBuffer(gl.COLOR_ATTACHMENT0 + attachment);
+      gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, out);
+      return out;
+    };
+    const result = { B: read(0), D: read(1) };
+    gl.readBuffer(gl.COLOR_ATTACHMENT0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return result;
+  }
+
   function dispose() {
     for (const key in programs) programs[key].dispose();
     disposeTarget(gl, scratch.surface.target);
@@ -495,6 +513,7 @@ export function createSimulation(gl, caps, size) {
     stampAgar,
     stampReagents,
     setLid,
+    readSurface,
     dispose,
   };
 }

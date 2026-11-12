@@ -60,8 +60,12 @@ import {
   DEFAULT_DROP,
   dropRadius,
   DROPS,
+  decodePrint,
+  encodePrint,
   FULL,
   gradientStamps,
+  PRINT,
+  printOf,
   slotFor,
   SPOT_RADIUS,
   stampsFor,
@@ -915,6 +919,127 @@ describe('recipes', () => {
     ]) {
       expect(decodeDish(junk)).toBeNull();
     }
+  });
+});
+
+describe('a velvet', () => {
+  /** Two biomass textures with a square of each culture slot in them. */
+  function plateWith(n, span, squares) {
+    const B = new Float32Array(n * n * 4);
+    const D = new Float32Array(n * n * 4);
+    for (const { slot, x0, x1, y0, y1, amount = 0.5 } of squares) {
+      for (let j = 0; j < n; j += 1) {
+        const y = ((j + 0.5) / n - 0.5) * span;
+        if (y < y0 || y > y1) continue;
+        for (let i = 0; i < n; i += 1) {
+          const x = ((i + 0.5) / n - 0.5) * span;
+          if (x >= x0 && x <= x1) D[(j * n + i) * 4 + slot] = amount;
+        }
+      }
+    }
+    return { B, D };
+  }
+
+  it('keeps its print as runs, and reads back only a print', () => {
+    const cells = new Uint8Array(PRINT * PRINT);
+    cells.fill(2, 100, 140);
+    cells.fill(1, 2000, 2003);
+    const text = encodePrint(cells);
+    expect(text.startsWith('a100c40a')).toBe(true);
+    expect(Array.from(decodePrint(text))).toEqual(Array.from(cells));
+    expect(decodePrint('a10')).toBe(null);
+    expect(decodePrint(`a${PRINT * PRINT + 1}`)).toBe(null);
+    expect(decodePrint(42)).toBe(null);
+  });
+
+  it('picks up each culture where it is, on any grid, and nothing from bare gel', () => {
+    for (const size of [256, 384]) {
+      const grid = createGrid(size);
+      const { B, D } = plateWith(grid.size, grid.span, [
+        { slot: 1, x0: -20, x1: -10, y0: 5, y1: 15 },
+        { slot: 3, x0: 10, x1: 12, y0: -30, y1: 30 },
+        { slot: 0, x0: 0, x1: 4, y0: 0, y1: 4, amount: 0.001 },
+      ]);
+      const taken = printOf(
+        ['crimson', 'lemon', null, 'gold'],
+        B,
+        D,
+        grid.size,
+        grid.span,
+      );
+      expect(taken.cultures.sort()).toEqual(['gold', 'lemon']);
+      const cells = decodePrint(taken.map);
+      const cell = (x, y) => {
+        const c = (2 * DISH.radius) / PRINT;
+        return cells[
+          Math.floor((y + DISH.radius) / c) * PRINT +
+            Math.floor((x + DISH.radius) / c)
+        ];
+      };
+      const lemon = taken.cultures.indexOf('lemon') + 1;
+      const gold = taken.cultures.indexOf('gold') + 1;
+      expect(cell(-15, 10)).toBe(lemon);
+      expect(cell(11, 0)).toBe(gold);
+      expect(cell(2, 2)).toBe(0); // too little to lift
+      expect(cell(30, 30)).toBe(0);
+    }
+    const empty = createGrid(256);
+    const blank = plateWith(empty.size, empty.span, []);
+    expect(printOf([], blank.B, blank.D, empty.size, empty.span)).toBe(null);
+  });
+
+  it('prints in the cultures it carries, and not past four', () => {
+    const cells = new Uint8Array(PRINT * PRINT);
+    cells.fill(1, 64 * 30 + 10, 64 * 30 + 20); // one run of the first
+    cells.fill(2, 64 * 40 + 5, 64 * 40 + 6); // one cell of the second
+    const event = {
+      do: 'print',
+      cultures: ['lemon', 'gold'],
+      map: encodePrint(cells),
+      seed: 3,
+    };
+    const slots = ['crimson'];
+    const { stamps, refused } = stampsFor(event, slots);
+    expect(refused).toBeUndefined();
+    expect(slots).toEqual(['crimson', 'lemon', 'gold']);
+    expect(stamps).toHaveLength(2);
+    // Lemon's run, settled in its own channel, a few cells at a time.
+    expect(stamps[0].surface.addD[1]).toBeGreaterThan(0);
+    expect(stamps[0].surface.speckle).toBeLessThan(1);
+    expect(stamps[0].surface.to[0]).toBeGreaterThan(stamps[0].surface.from[0]);
+    expect(stamps[1].surface.addD[2]).toBeGreaterThan(0);
+    const full = ['crimson', 'violet', 'coral'];
+    expect(stampsFor(event, full).refused).toBe(FULL);
+    expect(full).toEqual(['crimson', 'violet', 'coral']);
+  });
+
+  it('is written down with its print, and cleaned like anything else', () => {
+    const cells = new Uint8Array(PRINT * PRINT);
+    cells.fill(1, 500, 520);
+    const print = {
+      at: 4,
+      do: 'print',
+      cultures: ['lemon'],
+      map: encodePrint(cells),
+      seed: 9,
+    };
+    const dish = cleanDish({
+      medium: 'broth',
+      events: [
+        print,
+        { ...print, cultures: ['nobody'] },
+        { ...print, map: 'a3' },
+        { ...print, cultures: ['lemon', 'lemon'] },
+      ],
+    });
+    expect(dish.events).toHaveLength(1);
+    expect(dish.events[0]).toEqual(print);
+    expect(slotsOf(dish)).toEqual(['lemon']);
+    expect(decodeDish(encodeDish(dish)).events[0].map).toBe(print.map);
+    expect(describeEvent(print)).toBe('A velvet print of Lemon');
+    expect(
+      describeEvent({ ...print, cultures: ['lemon', 'gold', 'crimson'] }),
+    ).toBe('A velvet print of Lemon, Gold and Crimson');
   });
 });
 

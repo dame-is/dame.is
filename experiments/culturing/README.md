@@ -61,6 +61,12 @@ should be its own chunk, loaded only by the page that shows it.
   that pigments only in the light (Day rings) or only in the dark
   (Darkroom) develops it. The word is part of the incubator's settings, so
   it is kept in the record with the hour it was put on or taken off.
+- **The velvet** ([`tools.js`](src/tools.js) `printOf`). Pressing a velvet onto
+  a grown plate reads its biomass back from the GPU and keeps, for each cell
+  of a 64 × 64 grid over the dish, whichever culture has the most there.
+  That map, as runs, is written into the other plate's record as a print, and
+  stamped as a few cells along each run. So a printed plate is still only
+  its recipe, and grows again without the plate it was printed from.
 - **A plate is its recipe** ([`recipe.js`](src/recipe.js),
   [`incubate.js`](src/incubate.js)): the medium, the incubator, and
   everything done to it with the hour it was done. The picture is not kept.

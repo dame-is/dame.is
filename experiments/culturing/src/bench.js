@@ -47,6 +47,7 @@ import {
   DROPS,
   dropRadius,
   FULL,
+  printOf,
   SPOT_RADIUS,
   unmixed,
   wetDropsUnder,
@@ -694,6 +695,10 @@ export function createBench(canvas, options = {}) {
     }
     const item = additionById(tool.id);
     if (!item) return null;
+    if (item.print) {
+      say('Choose the plate to take the print from, on the card beside it.');
+      return null;
+    }
     return {
       entry,
       event: { do: 'add', addition: tool.id, path: [mm] },
@@ -1229,6 +1234,37 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
+  /**
+   * Press a velvet onto one plate and then onto another: whatever is
+   * growing on the first, as it stands, is put down on the second in the
+   * same places, and written into the second's record as a print.
+   */
+  function print(fromIndex, toIndex) {
+    const source = entries[fromIndex];
+    const target = entries[toIndex];
+    if (!source || !target || source === target) return;
+    const { B, D } = sim.readSurface(source.plate);
+    const taken = printOf(
+      source.live.slots,
+      B,
+      D,
+      sim.grid.size,
+      sim.grid.span,
+    );
+    if (!taken) {
+      say(`Nothing has grown on plate ${fromIndex + 1} to take a print of.`);
+      return;
+    }
+    const refused = act(sim, target.live, {
+      do: 'print',
+      ...taken,
+      seed: (Math.random() * 1e6) | 0,
+    });
+    if (refused) say(refused);
+    else target.touched = true;
+    emit();
+  }
+
   /** Take back the last thing done to a plate, and grow it again without. */
   function undo(index) {
     const entry = entries[index];
@@ -1443,6 +1479,7 @@ export function createBench(canvas, options = {}) {
     setDrop,
     setDetail,
     put,
+    print,
     undo,
     replay,
     addDish,

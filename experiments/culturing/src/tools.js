@@ -10,6 +10,7 @@
 //   { at, do: 'streak', culture, path: [[x, y], …], seed }
 //   { at, do: 'lawn',   culture, density?, seed }
 //   { at, do: 'add',    addition, x, y } or { …, path }
+//   { at, do: 'print',  cultures, map, seed }   (a velvet's print, below)
 //
 // `at` is the plate's age in hours when it happens; positions are in mm from
 // the centre of the dish, x to the right and y away from the viewer.
@@ -399,6 +400,14 @@ export function stampsFor(event, slots, fromSegment = 0) {
   if (event.do === 'add') {
     return { stamps: addition(event).slice(fromSegment) };
   }
+  if (event.do === 'print') {
+    // Every culture in the print needs a slot, or none of it is put down.
+    const wanted = event.cultures.filter((id) => !slots.includes(id));
+    if (slots.length + wanted.length > SLOTS)
+      return { stamps: [], refused: FULL };
+    const at = event.cultures.map((id) => slotFor(slots, id));
+    return { stamps: printStamps(event, at).slice(fromSegment) };
+  }
   const slot = slotFor(slots, event.culture);
   if (slot < 0) return { stamps: [], refused: FULL };
   return { stamps: inoculation(event, slot).slice(fromSegment) };
@@ -436,4 +445,140 @@ export function gradientStamps(kind, peak) {
     ];
   }
   return [];
+}
+
+// ---------------------------------------------------------------- velvet
+//
+// Replica plating: a square of velvet pressed onto a grown plate picks up a
+// few cells from everything on it, and pressed onto a fresh plate puts them
+// down in the same places. What it carries is written into the record as a
+// map, so a printed plate is still only its recipe and can be grown again,
+// or sent, without the plate it was printed from.
+//
+// The map is a grid of PRINT × PRINT cells over the dish, each nothing or
+// one of up to four cultures, kept as runs: a letter for what is in a cell
+// (a for nothing, b to e for the print's cultures in turn) and how many
+// cells in a row it covers, row after row from the near edge of the dish.
+
+/** Cells across a print. Each is a little over a millimetre: the velvet's
+ *  nap, more or less, and the finest a link should have to carry. */
+export const PRINT = 64;
+/** The square a print covers, mm: the dish. */
+const PRINT_SPAN = 2 * DISH.radius;
+
+/** Cells as runs (see above). */
+export function encodePrint(cells) {
+  let out = '';
+  let run = 0;
+  for (let i = 0; i <= cells.length; i += 1) {
+    if (i > 0 && (i === cells.length || cells[i] !== cells[i - 1])) {
+      out += String.fromCharCode(97 + cells[i - 1]) + run;
+      run = 0;
+    }
+    run += 1;
+  }
+  return out;
+}
+
+/** The other way: PRINT × PRINT cells, or null if it isn't a print. */
+export function decodePrint(text) {
+  const cells = new Uint8Array(PRINT * PRINT);
+  if (typeof text !== 'string' || text.length > 4 * PRINT * PRINT) return null;
+  let at = 0;
+  for (const [, letter, count] of text.matchAll(/([a-e])(\d+)/g)) {
+    const n = Number(count);
+    if (at + n > cells.length) return null;
+    cells.fill(letter.charCodeAt(0) - 97, at, at + n);
+    at += n;
+  }
+  return at === cells.length ? cells : null;
+}
+
+/**
+ * What a velvet picks up from a plate: for each cell, whichever culture has
+ * the most there, if anything has much. `B` and `D` are the plate's two
+ * biomass textures read back (RGBA floats, n × n, row 0 at the near edge)
+ * and `slots` the culture in each channel; `span` is the mm the texture
+ * covers. Returns `{ cultures, map }`, or null for a plate with nothing on
+ * it.
+ */
+export function printOf(slots, B, D, n, span, threshold = 0.15) {
+  const sums = new Float32Array(PRINT * PRINT * 4);
+  const counts = new Uint16Array(PRINT * PRINT);
+  for (let j = 0; j < n; j += 1) {
+    const y = ((j + 0.5) / n - 0.5) * span;
+    const cj = Math.floor(((y + PRINT_SPAN / 2) / PRINT_SPAN) * PRINT);
+    if (cj < 0 || cj >= PRINT) continue;
+    for (let i = 0; i < n; i += 1) {
+      const x = ((i + 0.5) / n - 0.5) * span;
+      const ci = Math.floor(((x + PRINT_SPAN / 2) / PRINT_SPAN) * PRINT);
+      if (ci < 0 || ci >= PRINT) continue;
+      const cell = cj * PRINT + ci;
+      const k = (j * n + i) * 4;
+      for (let c = 0; c < 4; c += 1) sums[cell * 4 + c] += B[k + c] + D[k + c];
+      counts[cell] += 1;
+    }
+  }
+  const cultures = [];
+  const cells = new Uint8Array(PRINT * PRINT);
+  for (let cell = 0; cell < cells.length; cell += 1) {
+    let best = -1;
+    let most = 0;
+    let total = 0;
+    for (let c = 0; c < 4; c += 1) {
+      const v = sums[cell * 4 + c];
+      total += v;
+      if (v > most) {
+        most = v;
+        best = c;
+      }
+    }
+    if (
+      best < 0 ||
+      !slots[best] ||
+      total < threshold * Math.max(counts[cell], 1)
+    )
+      continue;
+    let index = cultures.indexOf(slots[best]);
+    if (index < 0) index = cultures.push(slots[best]) - 1;
+    cells[cell] = index + 1;
+  }
+  if (!cultures.length) return null;
+  return { cultures, map: encodePrint(cells) };
+}
+
+/** A print's stamps: one capsule for each run of a culture along a row,
+ *  speckled, since a velvet lifts a few cells and not a colony. */
+function printStamps(event, at) {
+  const cells = decodePrint(event.map);
+  if (!cells) return [];
+  const size = PRINT_SPAN / PRINT;
+  const seed = event.seed >>> 0;
+  const stamps = [];
+  for (let j = 0; j < PRINT; j += 1) {
+    const y = -PRINT_SPAN / 2 + (j + 0.5) * size;
+    let i = 0;
+    while (i < PRINT) {
+      const v = cells[j * PRINT + i];
+      let end = i;
+      while (end + 1 < PRINT && cells[j * PRINT + end + 1] === v) end += 1;
+      const slot = v > 0 ? at[v - 1] : -1;
+      const culture = v > 0 ? cultureById(event.cultures[v - 1]) : null;
+      if (culture && slot >= 0) {
+        stamps.push({
+          surface: {
+            from: [-PRINT_SPAN / 2 + (i + 0.5) * size, y],
+            to: [-PRINT_SPAN / 2 + (end + 0.5) * size, y],
+            radius: size * 0.55,
+            feather: size * 0.3,
+            speckle: 0.25,
+            seed: seed + j * 131 + i,
+            ...deposit(culture, slot, 0.6),
+          },
+        });
+      }
+      i = end + 1;
+    }
+  }
+  return stamps;
 }
