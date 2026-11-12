@@ -76,7 +76,11 @@ export const CULTURE_DEFAULTS = {
   launchTop: 1e3, // biofilm denser than this makes no more swarmers
 
   // ---- steering (mm²/h per unit of potential)
-  taxis: { nutrient: 0, surfactant: 0, toxin: 0 },
+  // `rafted` is how far being carried needs company, as spreading does:
+  // 0, a thin layer is carried as fast as a thick one; 1, the speed falls
+  // away with the layer (by raftAt and raftExp), the way a film of liquid
+  // slows as it thins.
+  taxis: { nutrient: 0, surfactant: 0, toxin: 0, rafted: 0 },
 
   // ---- what it secretes, per hour per unit of biomass
   surfactant: 0,
@@ -340,6 +344,7 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uTaxN: each((c) => grid.diffusion(c.taxis.nutrient)),
     uTaxS: each((c) => grid.diffusion(c.taxis.surfactant)),
     uTaxX: each((c) => grid.diffusion(c.taxis.toxin)),
+    uTaxRaft: each((c) => clamp(c.taxis.rafted, 0, 1)),
 
     uSensX: each((c) => c.sensX),
     uSensY: each((c) => c.sensY),

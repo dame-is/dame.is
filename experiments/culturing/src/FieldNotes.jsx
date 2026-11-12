@@ -87,6 +87,18 @@ export default function FieldNotes() {
           : wide where its culture keeps pace, pinched out where it can’t.
         </li>
         <li>
+          <strong>A film that is pulled.</strong> A swarm on its own surfactant
+          is a film of liquid, pulled outward because the surface is slacker
+          where there is more surfactant, and{' '}
+          <Ref href="https://uni-muenster.de/Physik.TP/~thiele/Paper/TrJT2018sm.pdf">
+            a flow driven that way breaks a round front into fingers
+          </Ref>
+          . Here it is one rule: the thicker the layer lies, the faster it is
+          carried. A stretch that gets ahead comes to fresh agar first, thickens
+          and pulls away, and the thin stretches between are left behind as the
+          gaps.
+        </li>
+        <li>
           <strong>Swarming by turns.</strong> Swarmer cells are made only inside
           a window of density and move only in company. That is the whole of{' '}
           <Ref href="https://arxiv.org/abs/physics/0007087">
@@ -123,6 +135,12 @@ export default function FieldNotes() {
           slowly than a sugar really does. The published models need the same
           thing to draw branches at the width real plates show, and say so less
           loudly.
+        </li>
+        <li>
+          A swarm’s tendrils come from one borrowed rule and not from the whole
+          of how a liquid film flows. Here a tip stays thick by feeding on fresh
+          agar. On a real plate the liquid does that work, and the people who
+          model it say food is not what decides it.
         </li>
         <li>
           Colours are estimates from descriptions and photographs of real

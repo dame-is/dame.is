@@ -374,6 +374,33 @@ describe('packing', () => {
     expect(flat(0.6)).toBeCloseTo(flat(1.5), 9);
   });
 
+  it('carries a swarm by its thickness only for a culture that says so', () => {
+    const grid = createGrid(256);
+    const pack = (id) =>
+      packPlate({
+        slots: [cultureById(id)],
+        medium: mediumById('swarm'),
+        env: ENV,
+        grid,
+        seed: 1,
+      }).u;
+    // Verdigris goes out in tendrils; Hay rides its surfactant as one edge.
+    expect(pack('verdigris').uTaxRaft[0]).toBe(1);
+    expect(pack('hay').uTaxRaft[0]).toBe(0);
+    for (const culture of CULTURES) {
+      const u = pack(culture.id);
+      // It weighs a speed, so it stays a fraction.
+      expect(u.uTaxRaft[0], culture.id).toBeGreaterThanOrEqual(0);
+      expect(u.uTaxRaft[0], culture.id).toBeLessThanOrEqual(1);
+      expect(u.uTaxRaft.slice(1)).toEqual([0, 0, 0]);
+    }
+    // A layer of nothing is carried nowhere: a culture that moves this way
+    // has no floor under its speed.
+    const verdigris = resolveCulture(cultureById('verdigris'));
+    expect(verdigris.taxis.rafted).toBe(1);
+    expect(verdigris.raftFloor).toBe(0);
+  });
+
   it('broadens a fold with age only for a culture that says so, and never narrows one', () => {
     const grid = createGrid(384);
     const pack = (id) =>

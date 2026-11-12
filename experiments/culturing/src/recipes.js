@@ -214,15 +214,15 @@ export const RECIPES = [
   },
   {
     id: 'fingers',
-    name: 'Fingers',
+    name: 'Tendrils',
     watch:
-      'A swarm on a soft, lean plate, breaking into fingers because the front has outrun its food. The gel behind it goes blue-green; under ultraviolet it glows.',
+      'A swarm on a soft, lean plate. It starts as a disc, and then the front breaks up: the thicker stretches of it run ahead as tendrils, fork where they have room, and leave bare agar between them. Put a second drop on the plate and the two swarms stop short of each other. The gel behind goes blue-green; under ultraviolet it glows.',
     dish: {
       medium: 'swarm',
       env: { temperature: 36 },
       events: [spot('verdigris', 0, 0, { size: 2.2 })],
     },
-    start: 18,
+    start: 36,
   },
   {
     id: 'feathers',

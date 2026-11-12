@@ -623,7 +623,7 @@ export const CULTURES = [
     after: 'Pseudomonas aeruginosa',
     kind: 'swarmer',
     blurb:
-      'Sends out fingers over soft agar, stains the gel blue-green around itself, poisons its neighbours, and glows under ultraviolet.',
+      'Sends tendrils out over soft agar that fork where they have room and never touch, stains the gel blue-green around itself, poisons its neighbours, and glows under ultraviolet.',
     notes: [
       {
         text: 'The blue-green is pyocyanin, which leaves the colony and tints the agar. The yellow-green glow under ultraviolet is pyoverdine.',
@@ -634,6 +634,10 @@ export const CULTURES = [
         href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC8073002/',
       },
       {
+        text: 'The swarm is a film of liquid, pulled outward by the surfactant it makes: the surface is slacker where there is more of it. A flow driven that way does not keep a round front. It breaks into fingers.',
+        href: 'https://uni-muenster.de/Physik.TP/~thiele/Paper/TrJT2018sm.pdf',
+      },
+      {
         text: 'Old growth lyses in patches that take on a metallic sheen.',
         href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC135425',
       },
@@ -642,22 +646,27 @@ export const CULTURES = [
     growth: 0.6,
     cap: 0.7,
     creep: 0.004,
-    // Hungrier than most: its front strips the gel as it goes, which is
-    // what breaks it into fingers.
+    // Hungrier than most: a stretch of its front that falls behind is left
+    // with little to grow on, which is what keeps the gaps open.
     yield: 0.15,
     temp: { tMin: 8, tOpt: 37, tMax: 44 },
-    motility: 0.1,
-    motileGrowth: 2,
-    motileCap: 0.15,
+    // A layer that hardly moves by itself. It is carried, down the
+    // gradient of its own surfactant, and the thicker it lies the faster it
+    // goes (`rafted`): a layer under raftAt is slower in proportion. On
+    // fresh agar it thickens quickly, so whatever gets ahead stays ahead.
+    motility: 0.01,
+    motileGrowth: 3,
+    motileCap: 0.3,
     motileFloor: 0.006,
     raftExp: 1,
-    raftAt: 0.03,
+    raftAt: 0.06,
+    raftFloor: 0,
     wetNeed: 2,
-    settle: 0.2,
+    settle: 0.05,
     settleStarve: 0.9,
     surfactant: 6,
-    taxis: { surfactant: 22 },
-    swarmSpeed: 1.2,
+    taxis: { surfactant: 22, rafted: 1 },
+    swarmSpeed: 1.5,
     patchy: 0.8,
     toxinY: 0.9,
     alkali: 0.08,

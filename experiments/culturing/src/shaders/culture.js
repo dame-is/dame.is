@@ -6,7 +6,9 @@
 //   exploring edge. It spreads by a diffusion that needs company and a wet
 //   surface (cells move in rafts, not alone), is carried up a nutrient
 //   gradient and down a surfactant or toxin one, and settles when it thins
-//   out, starves or dries.
+//   out, starves or dries. A culture can also be carried the way a film of
+//   liquid is, faster where it lies thicker; that one rule is what breaks a
+//   swarm's front into tendrils (see uTaxRaft below).
 //
 //   Settled (uD) is the biofilm. It doesn't diffuse; it creeps, pushed outward
 //   by its own growth like a viscous drop, which is what gives a colony a
@@ -84,6 +86,7 @@ uniform vec4 uTaxN;         // drift up the nutrient gradient
 uniform vec4 uTaxS;         // drift down the surfactant gradient
 uniform vec4 uTaxX;         // drift down the toxin gradient
 uniform vec4 uTaxMax;       // the fastest a raft is carried, texels per step
+uniform vec4 uTaxRaft;      // how far that speed needs a thick raft too, 0..1
 uniform float uTaxK;
 
 uniform vec4 uSensX;        // 1 / (toxin X that halves growth)
@@ -271,6 +274,14 @@ void main() {
       }
       vec4 steep = sqrt(along * along + across * across);
       vec4 v = -drop * min(ONE, uTaxMax / max(steep, vec4(1e-6))) * passable;
+      // A swarm that spreads on its own surfactant is a film of liquid
+      // dragged along by its surface, and a film like that moves at a speed
+      // that grows with its depth. So a stretch of the front that is a
+      // little thicker gets a little ahead, comes to fresh agar first,
+      // thickens on it, and pulls away; the thin stretches between are left
+      // on ground already eaten, slow down and set. The front does not stay
+      // a front: it goes out as tendrils with bare agar between them.
+      v *= mix(ONE, raft, uTaxRaft);
       dB += w * (max(-v, 0.0) * bj - max(v, 0.0) * b);
     }
 
