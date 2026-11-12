@@ -197,6 +197,7 @@ describe('shaders are given every number they wait on', () => {
         'uWr',
         'uChemSize',
         'uLightMode',
+        'uMmPerTexel',
       ],
     ]);
     expect(
@@ -447,6 +448,24 @@ describe('packing', () => {
     expect(lightAt('cycle', 27)).toBe(1);
     expect(lightAt('on', 15)).toBe(1);
     expect(lightAt('dark', 3)).toBe(0);
+  });
+
+  it('stands only the moulds up in tufts', () => {
+    const look = (id) =>
+      packLook({
+        cultures: [resolveCulture(cultureById(id)), null, null, null],
+        medium: mediumById('potato'),
+        seed: 9,
+      });
+    for (const culture of CULTURES) {
+      const tufts = look(culture.id).uTufts[0];
+      if (culture.kind === 'mould')
+        expect(tufts, culture.id).toBeGreaterThan(0);
+      else expect(tufts, culture.id).toBe(0);
+      expect(tufts, culture.id).toBeLessThanOrEqual(1);
+    }
+    // Where they fall is the plate's own chance.
+    expect(look('rings').uSeed).toBe(9);
   });
 
   it('packs every look as colours between black and white', () => {

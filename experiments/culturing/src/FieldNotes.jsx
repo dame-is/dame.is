@@ -133,6 +133,12 @@ export default function FieldNotes() {
           A plate holds four cultures, and it is remembered as its recipe: grown
           twice, it comes out alike but not the same.
         </li>
+        <li>
+          Two things are drawn and not grown, because they are smaller than the
+          grid a plate is worked out on: the tufts a mould fruits in, which are
+          placed by chance, and a little fraying of a colony’s edge when you
+          look at it closely.
+        </li>
       </ul>
     </section>
   );

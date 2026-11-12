@@ -45,6 +45,23 @@ float hash(ivec2 p, uint k) {
 `;
 
 /**
+ * Smooth noise on a lattice, -1 to 1 (needs HASH). Asked for in millimetres
+ * it is the same at every resolution.
+ */
+export const LATTICE = `
+float lattice(vec2 x, uint k) {
+  ivec2 i = ivec2(floor(x));
+  vec2 f = fract(x);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash(i, k);
+  float b = hash(i + ivec2(1, 0), k);
+  float c = hash(i + ivec2(0, 1), k);
+  float d = hash(i + ivec2(1, 1), k);
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 2.0 - 1.0;
+}
+`;
+
+/**
  * The eight neighbours and their weights in the isotropic nine-point
  * Laplacian, (1/6)[4·edges + corners − 20·centre]. The usual five-point
  * stencil is cheaper and wrong for this: its error is fourfold, so a front

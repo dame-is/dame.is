@@ -46,7 +46,11 @@ export function repack(sim, live) {
     grid: sim.grid,
     seed: live.dish.seed,
   });
-  live.look = packLook({ cultures: live.packed.cultures, medium: live.medium });
+  live.look = packLook({
+    cultures: live.packed.cultures,
+    medium: live.medium,
+    seed: live.dish.seed,
+  });
   live.stale = true;
 }
 

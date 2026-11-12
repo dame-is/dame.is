@@ -146,6 +146,7 @@ export const CULTURE_DEFAULTS = {
     grain: 0.2, // fine surface relief
     fuzz: 0, // aerial hyphae on young growth, 0..1
     fuzzLate: 0, // ... added as it matures
+    tufts: 0, // how far ripe growth stands up in tufts, with its colour on them
     sheen: 0, // metallic film on old growth
     stain: 0, // how readily it takes up a dye in the medium
     scatter: 0.3, // light bleeding through thin ridges and edges
@@ -467,7 +468,7 @@ export const MEDIUM_LOOK_DEFAULTS = {
  * something to look at: each culture's colours and surface, and the
  * medium's. Colours go in as linear light.
  */
-export function packLook({ cultures, medium }) {
+export function packLook({ cultures, medium, seed = 1 }) {
   const each = (fn, empty = 0) => cultures.map((c) => (c ? fn(c) : empty));
   const channel = (pickHex, i, empty = 0) =>
     each((c) => {
@@ -487,6 +488,7 @@ export function packLook({ cultures, medium }) {
     }
   }
   return {
+    uSeed: seed >>> 0,
     uYoungR: channel((c) => c.look.young, 0),
     uYoungG: channel((c) => c.look.young, 1),
     uYoungB: channel((c) => c.look.young, 2),
@@ -508,6 +510,7 @@ export function packLook({ cultures, medium }) {
     uRough: each((c) => c.look.rough),
     uFuzz: each((c) => c.look.fuzz),
     uFuzzLate: each((c) => c.look.fuzzLate),
+    uTufts: each((c) => c.look.tufts),
     uSheen: each((c) => c.look.sheen),
     uStain: each((c) => c.look.stain),
     uFluorR: channel((c) => c.look.fluoresce, 0),

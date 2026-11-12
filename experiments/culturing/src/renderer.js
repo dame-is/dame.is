@@ -300,7 +300,11 @@ export function createRenderer(gl, sim) {
       uC2: plate.agar.C2,
     });
     programs.compose.set(look);
-    programs.compose.set({ uChemSize: NC, uLightMode: light.mode });
+    programs.compose.set({
+      uChemSize: NC,
+      uLightMode: light.mode,
+      uMmPerTexel: sim.grid.dx,
+    });
     sim.fullscreen.draw();
 
     gl.bindTexture(gl.TEXTURE_2D, display.glow);

@@ -50,7 +50,11 @@ should be its own chunk, loaded only by the page that shows it.
   looked at from much nearer than that, so the scene reads it through a cubic
   B-spline and makes every hard edge afterwards, from the smooth value: a
   colony's outline from its optical depth, a cut from how much gel is round
-  the point. Made before, on the grid, those edges were staircases.
+  the point. Made before, on the grid, those edges were staircases. Two things
+  are drawn below the grid and say so on the page: a mould's tufts
+  ([`shaders/display.js`](src/shaders/display.js)), which are noise in
+  millimetres with the spore colour gathered on them, and a little fraying of
+  a colony's outline up close.
 - **The bench** ([`bench.js`](src/bench.js)) owns the canvas, the
   clock and the pointer, and knows nothing about React; the page reads a
   snapshot of it. A plate's clock runs ahead of its simulation by as much as

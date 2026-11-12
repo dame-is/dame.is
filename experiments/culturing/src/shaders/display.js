@@ -15,7 +15,7 @@
 // dish 86 mm across. The renderer stretches the vertical, as a raking light
 // does in a photograph, and says by how much.
 
-import { HEADER, STENCIL } from './common.js';
+import { HEADER, HASH, LATTICE, STENCIL } from './common.js';
 
 export const COMPOSE_FRAGMENT = `${HEADER}
 uniform sampler2D uB;
@@ -50,6 +50,9 @@ uniform vec4 uGloss;
 uniform vec4 uRough;
 uniform vec4 uFuzz;
 uniform vec4 uFuzzLate;
+uniform vec4 uTufts;     // how far ripe growth stands up in tufts
+uniform float uMmPerTexel;
+uniform uint uSeed;
 uniform vec4 uSheen;
 uniform vec4 uStain;
 uniform vec4 uFluorR;
@@ -84,6 +87,8 @@ layout(location = 2) out vec4 oAgar;   // colour, opacity (0 = no gel here)
 layout(location = 3) out vec4 oGlow;   // light given off, sheen
 
 ${STENCIL}
+${HASH}
+${LATTICE}
 
 // The agar textures are half this resolution; read between their texels.
 vec4 agarAt(sampler2D t, vec2 xy) {
@@ -203,6 +208,22 @@ void main() {
   fold *= pow(1.0 + dot(shareD, uWrCoarsen) * old, 0.6);
   float ridge = film * crest;
   height += film * fold * (crest - 0.12 * trough);
+
+  // ---- Tufts ----------------------------------------------------------
+  // A mould doesn't fruit evenly. Its spores come up in tufts on the felt,
+  // a millimetre or so across and nowhere in particular, so the colour is
+  // on them first and never quite fills in between. They are noise, not a
+  // pattern the plate grew: irregular is the whole of what they have to be.
+  float tufted = dot(share, uTufts) * smoothstep(0.03, 0.25, rhoD);
+  float tuft = 0.0;
+  if (tufted > 0.0) {
+    vec2 mm = gl_FragCoord.xy * uMmPerTexel;
+    float n = 0.6 * lattice(mm / 1.2, uSeed + 5u)
+      + 0.4 * lattice(mat2(0.8, -0.6, 0.6, 0.8) * mm / 0.55, uSeed + 11u);
+    tuft = smoothstep(-0.2, 0.7, n);
+    height += tufted * (0.05 + 0.2 * pig) * tuft;
+    pig = mix(pig, clamp(pig * (0.3 + 1.4 * tuft), 0.0, 1.0), tufted);
+  }
 
   // ---- Colony ---------------------------------------------------------
   vec3 young = pick(share, uYoungR, uYoungG, uYoungB);

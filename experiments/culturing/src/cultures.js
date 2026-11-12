@@ -860,6 +860,7 @@ export const CULTURES = [
       opacity: 7,
       fuzz: 0.55,
       fuzzLate: 0.35,
+      tufts: 0.3,
     },
   },
   {
@@ -906,6 +907,7 @@ export const CULTURES = [
       opacity: 7,
       fuzz: 0.45,
       fuzzLate: 0.5,
+      tufts: 0.8,
     },
   },
   {
@@ -950,6 +952,7 @@ export const CULTURES = [
       opacity: 5,
       fuzz: 0.9,
       fuzzLate: 0,
+      tufts: 1,
     },
   },
   {
