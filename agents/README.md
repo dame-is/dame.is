@@ -52,6 +52,7 @@ Sources, read 2026-11-11: Claude Code's docs on memory (https://code.claude.com/
 
 - 2026-11-11: First version. `core.md` rewrites the preference text I'd been pasting into claude.ai, quoted below, and adds collaboration, privacy, "less is more" and checking work. The three guides are new drafts. `design.md` builds on my Bluesky post of 2026-11-06 and its replies.
 - 2026-11-11: Added a `CLAUDE.md` at the root of this repo that imports `core.md`, so every Claude Code session here starts with it.
+- 2026-11-12: `core.md` now says I go by Dame in public, and that my first name, full name and city never appear in anything public. Those details live in my private notes, not here.
 
 The original preference text:
 
