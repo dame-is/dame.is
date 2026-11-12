@@ -9,7 +9,7 @@
 import { detectCapabilities } from './gl.js';
 import { createSimulation } from './simulation.js';
 import { createRenderer, GEL_Y, OUTER_RADIUS } from './renderer.js';
-import { DISH, hexToLinear } from './units.js';
+import { DETAILS, DISH, gridSize, hexToLinear } from './units.js';
 import {
   benchLayout,
   fitDistance,
@@ -90,6 +90,7 @@ const DEFAULT_VIEW = {
   lampAz: 215,
   lampEl: 36,
   drop: DEFAULT_DROP,
+  detail: 'standard',
 };
 
 /** The bench top: matte black, like the epoxy of a real one. */
@@ -109,18 +110,14 @@ const STROKE_SPACING = 0.7;
 /** The most simulation steps one frame may spend, across every plate. */
 const MAX_BUDGET = 40;
 
-/**
- * The grid a device gets. A phone grows its plates at 256 texels across,
- * which is a sixth of the work per incubator hour of 384 and looks nearly
- * the same on a small screen.
- */
-function pickSize() {
+/** Whether this is a device to go easy on: a phone, or little memory. */
+function modestDevice() {
   const coarse =
     typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const small =
     Math.min(window.screen?.width || 1e4, window.screen?.height || 1e4) < 720;
   const lowMemory = (navigator.deviceMemory || 8) <= 4;
-  return coarse || small || lowMemory ? 256 : 384;
+  return coarse || small || lowMemory;
 }
 
 function dishFromRecipe(id) {
@@ -189,19 +186,38 @@ export function createBench(canvas, options = {}) {
   const caps = detectCapabilities(gl);
   if (!caps.ok) return { error: 'float' };
 
+  const saved = loadSaved();
+  const modest = modestDevice();
+  const known = (detail) => DETAILS.some((d) => d.value === detail);
+
   let sim;
   let renderer;
-  try {
-    sim = createSimulation(gl, caps, pickSize());
+  /** The simulation and what draws it, at a level of detail. */
+  function build(detail) {
+    sim = createSimulation(gl, caps, gridSize(detail, modest));
     renderer = createRenderer(gl, sim);
+  }
+  let startDetail = known(saved?.detail) ? saved.detail : DEFAULT_VIEW.detail;
+  try {
+    build(startDetail);
   } catch (err) {
-    console.error('[culturing] could not start', err);
-    return { error: 'shader' };
+    // The finer grid asks more of a device than the standard one, and it
+    // was this device that was asked for it: try once more without.
+    if (startDetail === DEFAULT_VIEW.detail) {
+      console.error('[culturing] could not start', err);
+      return { error: 'shader' };
+    }
+    startDetail = DEFAULT_VIEW.detail;
+    try {
+      build(startDetail);
+    } catch (again) {
+      console.error('[culturing] could not start', again);
+      return { error: 'shader' };
+    }
   }
 
   // ------------------------------------------------------------ state
 
-  const saved = loadSaved();
   const view = {
     ...DEFAULT_VIEW,
     ...(saved
@@ -223,6 +239,7 @@ export function createBench(canvas, options = {}) {
             : DEFAULT_VIEW.drop,
         }
       : null),
+    detail: startDetail,
   };
   let entries = [];
   let selected = saved
@@ -384,6 +401,7 @@ export function createBench(canvas, options = {}) {
       lampAz: view.lampAz,
       lampEl: view.lampEl,
       drop: view.drop,
+      detail: view.detail,
       tool,
       notice,
       lost,
@@ -448,6 +466,7 @@ export function createBench(canvas, options = {}) {
           stretch: view.stretch,
           lampAz: view.lampAz,
           lampEl: view.lampEl,
+          detail: view.detail,
           drop: view.drop,
           dishes: entries.map((entry) => packDish(asRecorded(entry))),
         }),
@@ -1104,6 +1123,41 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
+  /**
+   * Work every plate out on a finer or a coarser grid (units.js gridSize).
+   * The grid is what a plate's state is kept on, so there is nothing to
+   * convert: the old plates are let go and every one is grown again from
+   * its record. If the device can't hold the finer grid, it goes back to
+   * the one it had and says so.
+   */
+  function setDetail(value) {
+    if (!known(value) || value === view.detail) return;
+    const kept = entries.map((entry) => ({
+      dish: asRecorded(entry),
+      touched: entry.touched,
+    }));
+    for (const entry of entries) {
+      sim.disposePlate(entry.plate);
+      renderer.disposeDisplay(entry.display);
+    }
+    renderer.dispose();
+    sim.dispose();
+    gesture = null;
+    try {
+      build(value);
+      view.detail = value;
+    } catch (err) {
+      console.error('[culturing] could not change the grid', err);
+      build(view.detail);
+      say('This device couldn’t take the finer grid.');
+    }
+    entries = kept.map(({ dish, touched }) => makeEntry(dish, touched));
+    relayout();
+    lightDirty = true;
+    dirty = true;
+    emit();
+  }
+
   /** How big a drop the hand leaves from now on (tools.js DROPS). */
   function setDrop(value) {
     if (!DROPS.some((d) => d.value === value)) return;
@@ -1214,7 +1268,8 @@ export function createBench(canvas, options = {}) {
     selected = 0;
     mode = 'bench';
     tool = null;
-    Object.assign(view, DEFAULT_VIEW);
+    // Everything about the view but the grid, which is the plates' own.
+    Object.assign(view, DEFAULT_VIEW, { detail: view.detail });
     lightDirty = true;
     relayout();
     dirty = true;
@@ -1331,6 +1386,7 @@ export function createBench(canvas, options = {}) {
     spread,
     spot,
     setDrop,
+    setDetail,
     put,
     undo,
     replay,

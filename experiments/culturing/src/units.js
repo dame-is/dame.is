@@ -66,6 +66,24 @@ export function createGrid(size) {
   };
 }
 
+/** How finely a plate can be worked out. */
+export const DETAILS = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'fine', label: 'Fine' },
+];
+
+/**
+ * How many texels across a plate is, for a level of detail on a kind of
+ * device. A phone (`modest`) grows its plates at 256, which is a sixth of
+ * the work per incubator hour of 384 and looks nearly the same on a small
+ * screen. Fine is one size up from whatever standard is: about three times
+ * the work for every hour grown, for folds and edges half again as fine.
+ */
+export function gridSize(detail, modest) {
+  if (detail === 'fine') return modest ? 384 : 512;
+  return modest ? 256 : 384;
+}
+
 /**
  * How fast a culture grows at a temperature, as a fraction of its best: the
  * cardinal temperature model with inflection (Rosso et al., 1993), which is

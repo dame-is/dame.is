@@ -8,7 +8,7 @@ import { RECIPES } from './recipes.js';
 import { HUMIDITY_RANGE, TEMPERATURE_RANGE } from './recipe.js';
 import { MEDIUM_LOOK_DEFAULTS, resolveCulture } from './pack.js';
 import { DROPS } from './tools.js';
-import { temperatureFactor } from './units.js';
+import { DETAILS, temperatureFactor } from './units.js';
 import { describeEvent, describePour, formatHours } from './format.js';
 
 const TABS = [
@@ -571,6 +571,23 @@ function IncubatorPanel({ bench, snap }) {
           onChange={bench.setStretch}
           hint="A colony is a fraction of a millimetre thick on a dish 86 mm across. The vertical is stretched, the way a raking light stretches it in a photograph."
         />
+        <div className="cult-field">
+          <span className="cult-field-label">Grid</span>
+          <output className="cult-field-value">
+            {snap.size} points across
+          </output>
+          <Segmented
+            label="How finely the plates are worked out"
+            options={DETAILS}
+            value={snap.detail}
+            onChange={bench.setDetail}
+          />
+          <p className="cult-field-hint">
+            A finer grid shows finer folds and sharper edges, and takes about
+            three times the work for every hour grown. Changing it grows every
+            plate again from its record.
+          </p>
+        </div>
         <Slider
           label="Lamp, round the bench"
           value={snap.lampAz}

@@ -11,8 +11,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   createGrid,
+  DETAILS,
   DISH,
   dryingFactor,
+  gridSize,
   hexToAbsorbance,
   hexToLinear,
   temperatureFactor,
@@ -108,6 +110,23 @@ describe('units', () => {
     for (const size of SIZES) {
       expect(createGrid(size).chemDiffusion(1.8)).toBeLessThan(0.25);
     }
+  });
+
+  it('works a plate out one size finer when asked, on any device', () => {
+    expect(DETAILS.map((d) => d.value)).toEqual(['standard', 'fine']);
+    for (const modest of [true, false]) {
+      const standard = gridSize('standard', modest);
+      const fine = gridSize('fine', modest);
+      expect(fine).toBeGreaterThan(standard);
+      // Sizes the packing is held to the schemes' limits on (SIZES below).
+      expect(SIZES).toContain(standard);
+      expect(SIZES).toContain(fine);
+      // Anything it doesn't know is the standard grid.
+      expect(gridSize('finest', modest)).toBe(standard);
+    }
+    expect(gridSize('standard', true)).toBeLessThan(
+      gridSize('standard', false),
+    );
   });
 
   it('grows nothing outside a culture’s temperatures and best at its optimum', () => {

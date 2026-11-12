@@ -35,6 +35,10 @@ should be its own chunk, loaded only by the page that shows it.
   the same plate at 256 texels (phones) or 384, and a culture's numbers can be
   read against a paper's. [`pack.js`](src/pack.js) turns a recipe
   into uniforms and clamps anything that would break the explicit schemes.
+- **The grid** ([`units.js`](src/units.js) `gridSize`). A plate is worked out
+  on 384 texels across (256 on a phone). The Incubator tab can ask for one
+  size finer, which is about three times the work for every hour grown; the
+  plates are let go and grown again from their records on the new grid.
 - **A plate is its recipe** ([`recipe.js`](src/recipe.js),
   [`incubate.js`](src/incubate.js)): the medium, the incubator, and
   everything done to it with the hour it was done. The picture is not kept.
