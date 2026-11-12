@@ -16,7 +16,7 @@
 // spokes there; the extra term below smooths u along the direction the
 // colony grew in, which lines the ridges up with it.
 //
-// Three more things a real colony does, each one rule here:
+// Four more things a real colony does, each one rule here:
 //
 //   A fold is a few times as wide as its film is thick, and a film goes on
 //   thickening and stiffening for days. So the preferred width is not one
@@ -36,11 +36,17 @@
 //   ridges break into pustules; negative, into a honeycomb of raised walls
 //   round sunken cells.
 //
+//   Plenty of colonies are smooth for their first days and fold only once
+//   the film has had time to thicken. A culture can say how long its film
+//   has to have been a film before it buckles (uWrAfter), and how quickly
+//   the folds then set (uWrSets): the matrix that holds a fold goes on
+//   stiffening, and a fold that has set no longer moves.
+//
 // The fourth derivative is taken as a Laplacian of a Laplacian over two
 // passes, each with the isotropic nine-point stencil, so the ridges turn
 // freely and do not lock to the grid.
 
-import { HEADER, HASH, STENCIL } from './common.js';
+import { HEADER, HASH, LATTICE, STENCIL } from './common.js';
 
 /** Pass one: the Laplacian of u, and every term that needs only u's own
  *  neighbourhood. Writes (u, ∇²u, those terms, the film's age in hours). */
@@ -57,13 +63,19 @@ uniform vec4 uWrSport;   // a sport's wrinkling, relative to its parent's
 uniform vec4 uWrCoarsen; // how much broader a fold gets as its film ages
 uniform vec4 uWrAgeing;  // hours over which it does
 uniform vec4 uWrCore;    // how readily the inoculum itself buckles, 0..1
+uniform vec4 uWrAfter;   // hours a film has to have been one before it buckles
 uniform float uWrHours;  // hours this pass moves the plate on
 uniform float uWrOnset;  // biofilm density where buckling starts
 uniform float uWrFull;   // ... and where it is fully driven
 uniform float uWrEnv;    // dry air, stiff agar and low oxygen all add to it
+uniform vec4 uWrWander;  // how far its ridges stray from the way it grew, radians
+uniform float uMmPerTexel; // the size of a texel, for noise laid out in mm
+uniform uint uSeed;
 
 layout(location = 0) out vec4 o;
 
+${HASH}
+${LATTICE}
 ${STENCIL}
 
 void main() {
@@ -111,6 +123,16 @@ void main() {
   float aniso = 0.0;
   if (gl > 1e-4) {
     vec2 dir = g / gl;
+    // No colony grows dead straight out from its middle. For a culture
+    // that says so, the direction is turned a little one way or the other,
+    // by noise a couple of millimetres across that is the plate's for life.
+    // A small colony has room for eight or ten creases, and left exactly
+    // radial they sit on the grid's eight directions, like an asterisk.
+    float wander = dot(share, uWrWander);
+    if (wander > 0.0) {
+      float turn = wander * lattice(vec2(p) * uMmPerTexel / 2.5, uSeed + 23u);
+      dir = mat2(cos(turn), sin(turn), -sin(turn), cos(turn)) * dir;
+    }
     // d²u/dr², the curvature along the direction of growth, from the 3×3
     // neighbourhood (OFF: E W N S NE NW SE SW). It is taken twice, in the
     // grid's own axes and in its diagonals, and the two are blended by
@@ -138,7 +160,11 @@ void main() {
     aniso = abs(radial) * q2 * grown * (radial >= 0.0 ? urr : uxx + uyy - urr);
   }
 
-  vec4 drive = uWrDrive * mix(ONE, uWrSport, aux.b) * mix(uWrCore, ONE, grown);
+  // A film that waits to buckle (uWrAfter) does it over a few hours once it
+  // starts, and not gradually: a film brought slowly up to its threshold
+  // has time to find the grid, and folds along it.
+  vec4 ripe = mix(ONE, smoothstep(uWrAfter, uWrAfter + 6.0, vec4(seasoned)), step(1e-3, uWrAfter));
+  vec4 drive = uWrDrive * ripe * mix(ONE, uWrSport, aux.b) * mix(uWrCore, ONE, grown);
   // Positive where the film is past its buckling threshold; firmly negative
   // where there is no film, so a scraped patch goes flat again.
   float eps = film * dot(share, drive) * uWrEnv - (1.0 - film) * 0.6;
@@ -158,6 +184,9 @@ void main() {
 export const WRINKLE_B_FRAGMENT = `${HEADER}
 uniform sampler2D uWrA;
 uniform sampler2D uAux;
+uniform sampler2D uD;
+uniform vec4 uWrAfter;   // hours a film has to have been one before it buckles
+uniform vec4 uWrSets;    // hours over which its folds then set (0: never)
 uniform float uWrDt;
 uniform uint uStep;
 uniform uint uSeed;
@@ -182,6 +211,16 @@ void main() {
   float du = c.b - lapLap;
   // Something has to start a wrinkle; a film is never perfectly flat.
   float seed = (hash(p, uSeed ^ (uStep * 40503u)) - 0.5) * 2e-3;
-  o = vec4(clamp(u + uWrDt * du + seed, -2.5, 2.5), c.a, 0.0, 0.0);
+  // A fold, once made, stays: the matrix it is made of stiffens. For a
+  // culture whose folds set, the field moves less and less from the hour it
+  // began to buckle, so the pattern it came up in is the one it keeps. (Left
+  // free for days, folds this near the grid's own scale straighten along
+  // it.)
+  vec4 d = texelFetch(uD, p, 0);
+  vec4 share = d / max(dot(d, ONE), 1e-6);
+  float sets = dot(share, uWrSets);
+  float since = max(c.a - dot(share, uWrAfter), 0.0);
+  float free = sets > 0.0 ? exp(-since / sets) : 1.0;
+  o = vec4(clamp(u + free * (uWrDt * du + seed), -2.5, 2.5), c.a, 0.0, 0.0);
 }
 `;

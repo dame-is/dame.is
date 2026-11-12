@@ -20,7 +20,7 @@ export const CULTURES = [
     after: 'Serratia marcescens',
     kind: 'colony',
     blurb:
-      'Smooth, glossy domes that come up pale and turn blood red from the middle, unless the incubator is warm.',
+      'Smooth, glossy domes that come up pale and turn blood red from the middle, unless the incubator is warm. Left a couple of days, they crease.',
     notes: [
       {
         text: 'The red is prodigiosin, made at 20–30 °C and switched off above about 30: the same plate at 37 °C grows white.',
@@ -41,6 +41,18 @@ export const CULTURES = [
     sportRate: 0.012,
     sportAdvantage: 0.03,
     pigment: { hours: 10, tempMax: 33, starve: 0.3 },
+    // Smooth for two days, then fine creases that run out to the rim. There
+    // is no source for this one: it folds because the plate is better for
+    // it, and the page says so.
+    wrinkle: {
+      drive: 0.6,
+      wavelength: 1.7,
+      radial: 0.85,
+      core: 0.5,
+      after: 50,
+      sets: 30,
+      wander: 0.6,
+    },
     look: {
       young: '#e8e2d4',
       mature: '#a81c34',
@@ -48,6 +60,8 @@ export const CULTURES = [
       gloss: 0.78,
       rough: 0.2,
       height: 0.5,
+      wrinkleHeight: 0.09,
+      crest: 0.15,
       opacity: 8,
     },
   },
@@ -57,7 +71,7 @@ export const CULTURES = [
     after: 'Chromobacterium violaceum',
     kind: 'colony',
     blurb:
-      'Cream until the colony is crowded enough to hear itself, then a violet so dark it is nearly black.',
+      'Cream until the colony is crowded enough to hear itself, then a violet so dark it is nearly black. After a few days a crown of short creases comes up round its middle.',
     notes: [
       {
         text: 'Violacein is made only above a quorum: cells secrete a small signal, and switch the pigment on when enough of it has built up around them.',
@@ -74,12 +88,26 @@ export const CULTURES = [
     sensY: 1.0,
     kill: 0.4,
     pigment: { hours: 9, quorum: 0.45 },
+    // Smooth for two and a half days. Then the ground it has grown over
+    // since it was put down creases, in short folds that point outward, and
+    // the drop it started from stays flat. No source for this one either.
+    wrinkle: {
+      drive: 0.6,
+      wavelength: 2.2,
+      radial: 0.9,
+      core: 0,
+      after: 60,
+      sets: 30,
+      wander: 0.6,
+    },
     look: {
       young: '#e9e3d2',
       mature: '#2f1a45',
       gloss: 0.7,
       rough: 0.22,
       height: 0.42,
+      wrinkleHeight: 0.09,
+      crest: 0.2,
       opacity: 8,
       sheen: 0.12,
     },
@@ -111,12 +139,24 @@ export const CULTURES = [
     // Far more sensitive than the culture it was made from, as a detector
     // strain is: it answers a trace of signal.
     pigment: { hours: 7, quorum: 0.03 },
+    // It folds as Violet does.
+    wrinkle: {
+      drive: 0.6,
+      wavelength: 2.2,
+      radial: 0.9,
+      core: 0,
+      after: 60,
+      sets: 30,
+      wander: 0.6,
+    },
     look: {
       young: '#e9e3d2',
       mature: '#3a2058',
       gloss: 0.7,
       rough: 0.22,
       height: 0.42,
+      wrinkleHeight: 0.09,
+      crest: 0.2,
       opacity: 8,
       sheen: 0.1,
     },
@@ -159,7 +199,7 @@ export const CULTURES = [
     after: 'Staphylococcus aureus',
     kind: 'colony',
     blurb:
-      'Round golden colonies. Sours its medium, clears blood agar around itself, and melts away near a penicillin disc.',
+      'Round golden colonies that wrinkle from the middle if they are left for days. Sours its medium, clears blood agar around itself, and melts away near a penicillin disc.',
     notes: [
       {
         text: 'Ferments mannitol in 7.5 % salt, which is what mannitol salt agar is for: the phenol red in it goes yellow under and around each colony.',
@@ -168,6 +208,10 @@ export const CULTURES = [
       {
         text: 'Its haemolysins leave a clear halo on blood agar, best seen with the light behind the plate.',
         href: 'https://asm.org/ASM/media/protocol-images/Blood-Agar-Plates-and-Hemolysis-Protocols.pdf',
+      },
+      {
+        text: 'Grown for five days on a plate with extra magnesium, a colony comes to have three parts: an old middle, a wrinkled zone round it, and a thin edge. Here it does it on any plate.',
+        href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC5595439',
       },
     ],
     tags: ['gram-positive', 'halotolerant'],
@@ -181,12 +225,24 @@ export const CULTURES = [
     sensY: 1.0,
     kill: 0.7,
     pigment: { hours: 14 },
+    // Smooth for two and a half days, then broad folds that fork on their
+    // way out.
+    wrinkle: {
+      drive: 0.55,
+      wavelength: 2,
+      radial: 0.9,
+      after: 60,
+      sets: 30,
+      wander: 0.6,
+    },
     look: {
       young: '#ece4c4',
       mature: '#dba92f',
       gloss: 0.7,
       rough: 0.25,
       height: 0.5,
+      wrinkleHeight: 0.09,
+      crest: 0.15,
       opacity: 9,
     },
   },
@@ -322,10 +378,10 @@ export const CULTURES = [
     after: 'Rhodotorula',
     kind: 'yeast',
     blurb:
-      'A yeast, not a bacterium: slow, glossy, salmon-pink mounds that shrug off antibiotics.',
+      'A yeast, not a bacterium: slow, glossy, salmon-pink mounds that shrug off antibiotics and, given three days, crease like a brain.',
     notes: [
       {
-        text: 'The pink-to-orange is carotenoid. Colonies are smooth, moist and often a little mucoid.',
+        text: 'The pink-to-orange is carotenoid. Colonies are usually smooth and moist, sometimes rugose or corrugated. Here they always get there in the end.',
         href: 'https://mycology.adelaide.edu.au/fungal-descriptions-and-antifungal-susceptibility/yeast-like-fungi/rhodotorula',
       },
     ],
@@ -339,12 +395,22 @@ export const CULTURES = [
     sensY: 0.5,
     kill: 0.3,
     pigment: { hours: 12 },
+    // Smooth for three days, then a few broad folds with no direction to
+    // them.
+    wrinkle: {
+      drive: 0.6,
+      wavelength: 2.4,
+      after: 72,
+      sets: 30,
+    },
     look: {
       young: '#f3d9c4',
       mature: '#ec7f55',
       gloss: 0.85,
       rough: 0.15,
       height: 0.6,
+      wrinkleHeight: 0.11,
+      crest: 0.12,
       opacity: 8,
     },
   },
@@ -787,11 +853,15 @@ export const CULTURES = [
     after: 'Aliivibrio fischeri',
     kind: 'colony',
     blurb:
-      'Unremarkable cream colonies by day. Turn the lights off: once they are crowded enough, they shine blue-green.',
+      'Plain cream colonies by day, crumpling a little as they age. Turn the lights off: once they are crowded enough, they shine blue-green.',
     notes: [
       {
         text: 'Its luciferase gives light at about 490 nm, and only above a quorum: the same kind of signal Violet uses, and near enough the same molecule that each can set the other off.',
         href: 'https://en.wikipedia.org/wiki/Aliivibrio_fischeri',
+      },
+      {
+        text: 'The wild type grows round, smooth and wet. With the regulator of its biofilm genes turned up, the same species is dry, flat and wrinkled in two days. This one has been given that habit.',
+        href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC1852533',
       },
     ],
     tags: ['gram-negative', 'marine'],
@@ -804,12 +874,22 @@ export const CULTURES = [
     sensY: 1.0,
     kill: 0.4,
     pigment: { hours: 9, quorum: 0.4 },
+    // Smooth for nearly two days, then a low, close crumpling.
+    wrinkle: {
+      drive: 0.6,
+      wavelength: 1.4,
+      radial: 0.4,
+      after: 44,
+      sets: 30,
+      wander: 0.6,
+    },
     look: {
       young: '#e6e0cc',
       mature: '#e0d9c0',
       gloss: 0.72,
       rough: 0.22,
       height: 0.4,
+      wrinkleHeight: 0.08,
       opacity: 7,
       glow: '#37e6c8',
       glowQuorum: 0.4,

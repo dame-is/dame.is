@@ -132,6 +132,15 @@ export const CULTURE_DEFAULTS = {
     coarsen: 0,
     ageing: 48,
     core: 1, // how readily the inoculum itself buckles: 0 a flat disc
+    // A colony that is smooth while it is young and folds as it ages:
+    // `after` is the hours its film has to have been a film before it
+    // buckles, and `sets` the hours over which the folds then stiffen and
+    // stop moving (0: they never do).
+    after: 0,
+    sets: 0,
+    // How far its ridges stray from the direction it grew in, in radians:
+    // 0 dead straight, 0.6 about a third of a right angle either way.
+    wander: 0,
     tempMax: null, // °C above which it makes no matrix to buckle
   },
 
@@ -428,6 +437,9 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uWrCoarsen: each((c) => Math.max(0, c.wrinkle.coarsen)),
     uWrAgeing: each((c) => Math.max(1, c.wrinkle.ageing), 1),
     uWrCore: each((c) => clamp(c.wrinkle.core, 0, 1), 1),
+    uWrAfter: each((c) => Math.max(0, c.wrinkle.after)),
+    uWrSets: each((c) => Math.max(0, c.wrinkle.sets)),
+    uWrWander: each((c) => clamp(c.wrinkle.wander, 0, 1.5)),
     uWrOnset: 0.3,
     uWrFull: 0.75,
 

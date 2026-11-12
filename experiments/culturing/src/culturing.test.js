@@ -192,7 +192,7 @@ describe('shaders are given every number they wait on', () => {
     ),
     // Set by the simulation itself for each step (simulation.js).
     ...['uB', 'uD', 'uAux', 'uC0', 'uC1', 'uC2', 'uWr', 'uWrA'],
-    ...['uHours', 'uStep', 'uChemSize', 'uWrDt', 'uWrHours'],
+    ...['uHours', 'uStep', 'uChemSize', 'uWrDt', 'uWrHours', 'uMmPerTexel'],
   ]);
 
   it.each([
@@ -427,6 +427,54 @@ describe('packing', () => {
     }
     // Rosette keeps the drop it grew from flat.
     expect(pack('rosette').uWrCore[0]).toBe(0);
+  });
+
+  it('lets a colony wait to fold, and its folds set, only where a culture says so', () => {
+    const grid = createGrid(256);
+    const pack = (id) =>
+      packPlate({
+        slots: [cultureById(id)],
+        medium: mediumById('broth'),
+        env: ENV,
+        grid,
+        seed: 1,
+      }).u;
+    // The films fold from the start and go on rearranging: it is how their
+    // ridges run together into veins.
+    for (const id of ['hay', 'rosette', 'corrugated']) {
+      expect(pack(id).uWrAfter[0], id).toBe(0);
+      expect(pack(id).uWrSets[0], id).toBe(0);
+      expect(pack(id).uWrWander[0], id).toBe(0);
+    }
+    // These are smooth until they have had a couple of days.
+    for (const id of ['crimson', 'violet', 'listener', 'gold', 'coral']) {
+      expect(pack(id).uWrAfter[0], id).toBeGreaterThanOrEqual(48);
+      expect(pack(id).uWrDrive[0], id).toBeGreaterThan(0);
+    }
+    // And these never fold: a bead and a slime.
+    for (const id of ['lemon', 'slime']) {
+      expect(pack(id).uWrDrive[0], id).toBe(0);
+    }
+    for (const culture of CULTURES) {
+      const u = pack(culture.id);
+      // Hours, both of them.
+      expect(u.uWrAfter[0], culture.id).toBeGreaterThanOrEqual(0);
+      expect(u.uWrSets[0], culture.id).toBeGreaterThanOrEqual(0);
+      expect(u.uWrAfter.slice(1)).toEqual([0, 0, 0]);
+      expect(u.uWrSets.slice(1)).toEqual([0, 0, 0]);
+      // A colony that waits is smooth for at least its first day, and its
+      // folds set: left free, folds this fine straighten along the grid.
+      if (u.uWrAfter[0] > 0) {
+        expect(u.uWrAfter[0], culture.id).toBeGreaterThanOrEqual(24);
+        expect(u.uWrSets[0], culture.id).toBeGreaterThan(0);
+        expect(u.uWrDrive[0], culture.id).toBeGreaterThanOrEqual(0.5);
+      }
+      // A turn of the direction ridges follow, in radians: under a right
+      // angle, or a spoke would be told to run as a ring.
+      expect(u.uWrWander[0], culture.id).toBeGreaterThanOrEqual(0);
+      expect(u.uWrWander[0], culture.id).toBeLessThanOrEqual(1.5);
+      expect(u.uWrWander.slice(1)).toEqual([0, 0, 0]);
+    }
   });
 
   it('gives a film that makes its matrix only in the cool nothing to fold in the warm', () => {
