@@ -159,14 +159,46 @@ function cultureSwatch(culture) {
   );
 }
 
-function mediumSwatch(medium) {
+function mediumSwatch(medium, tint = null) {
   const look = { ...MEDIUM_LOOK_DEFAULTS, ...medium.look };
+  const colour = tint || look.color;
   return (
     <span
       className="cult-swatch cult-swatch--gel"
-      style={{ '--swatch-rim': look.color, '--swatch-core': look.color }}
+      style={{ '--swatch-rim': colour, '--swatch-core': colour }}
       aria-hidden="true"
     />
+  );
+}
+
+/**
+ * A colour picked by hand: the system's own picker, and a way back to
+ * whatever it was before. `value` is '#rrggbb' or null for "its own".
+ */
+function ColourField({ id, label, value, own, onChange, ownLabel, hint }) {
+  return (
+    <div className="cult-field">
+      <label className="cult-field-label" htmlFor={id}>
+        {label}
+      </label>
+      <output className="cult-field-value" htmlFor={id}>
+        {value ? value : 'its own'}
+      </output>
+      <div className="cult-colour">
+        <input
+          id={id}
+          type="color"
+          value={value || own}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {ownLabel && value && (
+          <Button size="sm" variant="text" onClick={() => onChange(null)}>
+            {ownLabel}
+          </Button>
+        )}
+      </div>
+      {hint && <p className="cult-field-hint">{hint}</p>}
+    </div>
   );
 }
 
@@ -368,6 +400,7 @@ function MediaPanel({ bench, snap }) {
   const [agar, setAgar] = useState(plate.agar);
   const [nutrient, setNutrient] = useState(plate.nutrient);
   const [gradient, setGradient] = useState(plate.gradient || 'none');
+  const [tints, setTints] = useState(plate.tints || []);
   // Looking at another plate shows that plate's media.
   useEffect(() => {
     setVessel(plate.vessel);
@@ -376,8 +409,9 @@ function MediaPanel({ bench, snap }) {
     setAgar(plate.agar);
     setNutrient(plate.nutrient);
     setGradient(plate.gradient || 'none');
+    setTints(plate.tints || []);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on which plate, not on its every tick
-  }, [snap.selected, plate.medium, plate.vessel, plate.gradient]);
+  }, [snap.selected, plate.medium, plate.vessel, plate.gradient, plate.tints]);
 
   const shape = vesselById(vessel) || VESSELS[0];
   const several = shape.compartments > 1;
@@ -439,7 +473,7 @@ function MediaPanel({ bench, snap }) {
                     title={m.name}
                     onClick={() => setPart(i)}
                   >
-                    {mediumSwatch(m)}
+                    {mediumSwatch(m, tints[i])}
                     {names[i]}
                   </button>
                 );
@@ -457,6 +491,21 @@ function MediaPanel({ bench, snap }) {
         <h3 className="cult-card-title">{medium.name}</h3>
         <p className="cult-card-after">after {medium.after}</p>
         <p className="cult-card-blurb">{medium.blurb}</p>
+        <ColourField
+          id="cult-tint"
+          label="Colour"
+          value={tints[here] || null}
+          own={{ ...MEDIUM_LOOK_DEFAULTS, ...medium.look }.color}
+          ownLabel="Its own colour"
+          onChange={(colour) =>
+            setTints(
+              Array.from({ length: shape.compartments }, (_, i) =>
+                i === here ? colour : tints[i] || null,
+              ),
+            )
+          }
+          hint="A few drops of food colouring in the pour. It changes nothing but the colour: an indicator still turns, and a clearing still clears."
+        />
         <Slider
           label="Agar"
           value={agar}
@@ -503,6 +552,10 @@ function MediaPanel({ bench, snap }) {
                 vessel: shape.id,
                 media: several ? media : null,
                 gradient: gradient === 'none' ? null : gradient,
+                tints: Array.from(
+                  { length: shape.compartments },
+                  (_, i) => tints[i] || null,
+                ),
               });
             }}
           />
@@ -530,8 +583,9 @@ function MediaPanel({ bench, snap }) {
 
 // ---------------------------------------------------------------- tray
 
-function additionSwatch(item) {
-  const colour = item.drop?.dye || (item.kind === 'disc' ? '#dcd8c8' : null);
+function additionSwatch(item, chosen = null) {
+  const colour =
+    chosen || item.drop?.dye || (item.kind === 'disc' ? '#dcd8c8' : null);
   return (
     <span
       className={`cult-swatch cult-swatch--${item.kind}`}
@@ -604,6 +658,17 @@ function TrayPanel({ bench, snap, compact }) {
           <p className="cult-card-blurb">{armed.blurb}</p>
           <p className="cult-hint">{handling(armed)}</p>
           {armed.print && <PrintFrom bench={bench} snap={snap} />}
+          {armed.pick && (
+            <ColourField
+              id="cult-food"
+              label="Colour"
+              value={snap.tool.color || armed.pick}
+              own={armed.pick}
+              onChange={(colour) =>
+                bench.arm({ ...snap.tool, color: colour || armed.pick })
+              }
+            />
+          )}
           <div className="cult-actions">
             {!dragged && (
               <Button
@@ -611,7 +676,7 @@ function TrayPanel({ bench, snap, compact }) {
                 onClick={() => {
                   const { x, y } = somewhere(snap.dishes[snap.selected]);
                   bench.enter(snap.selected);
-                  bench.put(snap.selected, armed.id, x, y);
+                  bench.put(snap.selected, armed.id, x, y, snap.tool.color);
                 }}
               >
                 Set one down anywhere
@@ -638,7 +703,10 @@ function TrayPanel({ bench, snap, compact }) {
                 <Item
                   key={a.id}
                   on={armed?.id === a.id}
-                  swatch={additionSwatch(a)}
+                  swatch={additionSwatch(
+                    a,
+                    a.pick && armed?.id === a.id ? snap.tool.color : null,
+                  )}
                   name={a.name}
                   after={a.after}
                   onClick={() => {
@@ -1056,7 +1124,7 @@ export default function Tray({ bench, snap, compact = false }) {
               title={`${medium?.name || 'Agar'}, ${formatHours(dish.hours)}`}
               onClick={() => bench.enter(i)}
             >
-              {mediumSwatch(medium || MEDIA[0])}
+              {mediumSwatch(medium || MEDIA[0], dish.tints?.[0])}
               {i + 1}
             </button>
           );

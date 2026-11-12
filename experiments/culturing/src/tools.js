@@ -343,7 +343,9 @@ function addition(event) {
       continue;
     }
     const d = item.drop || {};
-    const dye = d.dye ? hexToAbsorbance(d.dye, d.strength ?? 2) : [0, 0, 0];
+    // A colour chosen by hand is kept on the drop itself.
+    const hex = item.pick ? event.color || item.pick : d.dye;
+    const dye = hex ? hexToAbsorbance(hex, d.strength ?? 2) : [0, 0, 0];
     const k = drawn
       ? perSegment(Math.hypot(to[0] - from[0], to[1] - from[1]), radius)
       : 1;

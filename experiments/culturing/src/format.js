@@ -91,5 +91,6 @@ export function describePour(dish) {
   const what = gradient?.value === 'ph' ? 'pH' : gradient?.label.toLowerCase();
   const article = /^[aeiou]/i.test(what || '') ? 'an' : 'a';
   const across = gradient ? `, with ${article} ${what} gradient` : '';
-  return `Poured: ${describeMedia(dish)}, ${dish.agar} % agar${across}`;
+  const tinted = dish.tints?.some(Boolean) ? ', tinted' : '';
+  return `Poured: ${describeMedia(dish)}${tinted}, ${dish.agar} % agar${across}`;
 }

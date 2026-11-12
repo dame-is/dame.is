@@ -63,6 +63,9 @@ export function createDish(mediumId = 'broth', overrides = {}) {
     // first is always `medium`. null for a dish.
     media: null,
     gradient: null, // a media.js GRADIENTS value, or none
+    // A colour the gel was tinted with, one per compartment ('#rrggbb'),
+    // null where it is its own. null for none at all.
+    tints: null,
     env: { ...DEFAULT_ENV },
     seed: freshSeed(),
     events: [],
@@ -92,11 +95,19 @@ export function resolveMedium(dish) {
 export function resolveMedia(dish) {
   const first = resolveMedium(dish);
   const vessel = vesselById(dish.vessel) || vesselById('dish');
-  if (vessel.compartments === 1 || !dish.media) return [first];
-  return Array.from({ length: vessel.compartments }, (_, i) => {
-    if (i === 0) return first;
-    const base = mediumById(dish.media[i]) || first;
-    return { ...base, agar: first.agar };
+  const media =
+    vessel.compartments === 1 || !dish.media
+      ? [first]
+      : Array.from({ length: vessel.compartments }, (_, i) => {
+          if (i === 0) return first;
+          const base = mediumById(dish.media[i]) || first;
+          return { ...base, agar: first.agar };
+        });
+  // A tinted gel is the medium in another colour, and nothing else about
+  // it changes: an indicator still turns, a clearing still clears.
+  return media.map((m, i) => {
+    const tint = dish.tints?.[i];
+    return tint ? { ...m, look: { ...m.look, color: tint } } : m;
   });
 }
 
@@ -113,6 +124,9 @@ export function slotsOf(dish) {
 }
 
 const finite = (x) => typeof x === 'number' && Number.isFinite(x);
+/** A colour as the page writes one: '#rrggbb'. */
+export const isColour = (x) =>
+  typeof x === 'string' && /^#[0-9a-f]{6}$/i.test(x);
 const point = (p) => Array.isArray(p) && finite(p[0]) && finite(p[1]);
 const round = (x, places = 2) => {
   const k = 10 ** places;
@@ -155,6 +169,7 @@ function cleanEvent(raw) {
     if (!additionById(raw.addition)) return null;
     out.addition = raw.addition;
     if (finite(raw.seed)) out.seed = raw.seed >>> 0;
+    if (isColour(raw.color)) out.color = raw.color.toLowerCase();
   } else if (raw.do === 'print') {
     const cultures = Array.isArray(raw.cultures)
       ? raw.cultures.filter((id) => cultureById(id))
@@ -218,6 +233,13 @@ export function cleanDish(raw) {
   if (GRADIENTS.some((g) => g.value === raw.gradient)) {
     dish.gradient = raw.gradient;
   }
+  if (Array.isArray(raw.tints)) {
+    const count = vesselById(dish.vessel)?.compartments || 1;
+    const tints = Array.from({ length: count }, (_, i) =>
+      isColour(raw.tints[i]) ? raw.tints[i].toLowerCase() : null,
+    );
+    if (tints.some(Boolean)) dish.tints = tints;
+  }
   if (finite(raw.nutrient)) {
     dish.nutrient = Math.min(Math.max(raw.nutrient, 0.1), 1.5);
   }
@@ -251,6 +273,7 @@ export function packDish(dish) {
     out.media = dish.media;
   }
   if (dish.gradient) out.gradient = dish.gradient;
+  if (dish.tints && dish.tints.some(Boolean)) out.tints = dish.tints;
   const env = {};
   for (const key of Object.keys(DEFAULT_ENV)) {
     if (dish.env[key] !== DEFAULT_ENV[key]) env[key] = dish.env[key];

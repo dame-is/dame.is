@@ -1126,6 +1126,49 @@ describe('vessels', () => {
     );
   });
 
+  it('tints a compartment’s gel in a colour chosen by hand, and nothing else', () => {
+    const dish = cleanDish({
+      medium: 'litmus',
+      vessel: 'split',
+      media: ['litmus', 'broth'],
+      tints: ['#FF00aa', 'not a colour', '#123456'],
+    });
+    // One per compartment, lower case, and only real colours.
+    expect(dish.tints).toEqual(['#ff00aa', null]);
+    const [left, right] = resolveMedia(dish);
+    expect(left.look.color).toBe('#ff00aa');
+    // The indicator still turns.
+    expect(left.look.acid).toBe(mediumById('litmus').look.acid);
+    expect(right.look.color).toBe(mediumById('broth').look.color);
+    expect(decodeDish(encodeDish(dish)).tints).toEqual(dish.tints);
+    expect(packDish(createDish('broth')).tints).toBeUndefined();
+    expect(cleanDish({ medium: 'broth', tints: [null] }).tints).toBe(null);
+    expect(describePour({ ...dish, agar: 1.5 })).toContain('tinted');
+  });
+
+  it('colours a drop of food colouring the colour it was given', () => {
+    const blue = stampsFor(
+      { do: 'add', addition: 'food', x: 0, y: 0, seed: 1, color: '#0000ff' },
+      [],
+    ).stamps[0].reagents.add1;
+    const red = stampsFor(
+      { do: 'add', addition: 'food', x: 0, y: 0, seed: 1, color: '#ff0000' },
+      [],
+    ).stamps[0].reagents.add1;
+    // Blue absorbs red light, and red absorbs blue.
+    expect(blue[0]).toBeGreaterThan(blue[2]);
+    expect(red[2]).toBeGreaterThan(red[0]);
+    const [kept, dropped] = cleanDish({
+      medium: 'broth',
+      events: [
+        { at: 0, do: 'add', addition: 'food', x: 0, y: 0, color: '#00AA00' },
+        { at: 1, do: 'add', addition: 'food', x: 0, y: 0, color: 'green' },
+      ],
+    }).events;
+    expect(kept.color).toBe('#00aa00');
+    expect(dropped.color).toBeUndefined();
+  });
+
   it('packs each compartment’s medium where its texels will find it', () => {
     const grid = createGrid(256);
     const dish = cleanDish({

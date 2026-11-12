@@ -421,6 +421,7 @@ export function createBench(canvas, options = {}) {
         // One per compartment, the first being `medium`.
         media: live.media.map((m) => m.id),
         gradient: dish.gradient || null,
+        tints: dish.tints || null,
         env: live.env,
         hours: live.plate.hours,
         goal: replay ? replay.goal : dish.hours,
@@ -711,6 +712,7 @@ export function createBench(canvas, options = {}) {
         addition: tool.id,
         path: [mm],
         seed: (Math.random() * 1e6) | 0,
+        ...(item.pick ? { color: tool.color || item.pick } : null),
       },
       segments: 0,
       // Anything off the tray can be dragged: a blade cuts, a loop
@@ -815,6 +817,7 @@ export function createBench(canvas, options = {}) {
             x,
             y,
             seed: event.seed,
+            ...(event.color ? { color: event.color } : null),
           });
     if (refused) say(refused);
     else entry.touched = true;
@@ -1135,7 +1138,7 @@ export function createBench(canvas, options = {}) {
   function pour(
     index,
     mediumId,
-    { agar = null, nutrient = null, vessel, media, gradient } = {},
+    { agar = null, nutrient = null, vessel, media, gradient, tints } = {},
   ) {
     const entry = entries[index];
     if (!entry) return;
@@ -1146,6 +1149,7 @@ export function createBench(canvas, options = {}) {
         vessel,
         media,
         gradient,
+        tints,
       }),
     );
   }
@@ -1242,7 +1246,7 @@ export function createBench(canvas, options = {}) {
   }
 
   /** Something off the tray, set down at a point. */
-  function put(index, additionId, x, y) {
+  function put(index, additionId, x, y, color) {
     const entry = entries[index];
     if (!entry || !additionById(additionId)) return;
     act(sim, entry.live, {
@@ -1251,6 +1255,7 @@ export function createBench(canvas, options = {}) {
       x,
       y,
       seed: (Math.random() * 1e6) | 0,
+      ...(color ? { color } : null),
     });
     entry.touched = true;
     emit();

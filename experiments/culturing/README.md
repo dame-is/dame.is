@@ -54,7 +54,8 @@ should be its own chunk, loaded only by the page that shows it.
   of a vessel is poured from one gel, so its firmness is the plate's. The
   six-well plate is two thirds of real size, to fit the grid a dish is worked
   out on. A gradient (antibiotic, sugar or pH) is poured as a ramp across the
-  whole vessel.
+  whole vessel, and any compartment can be tinted a colour picked by hand,
+  which changes its look and nothing else.
 - **The lid** ([`simulation.js`](src/simulation.js) `setLid`). A word typed in
   the Incubator tab is drawn in black on a texture the size of the plate,
   and the biology pass reads the incubator's light through it, so a culture

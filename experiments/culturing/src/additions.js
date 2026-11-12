@@ -176,6 +176,20 @@ export const ADDITIONS = [
     drop: { dye: '#c12c48', strength: 2.6 },
   },
   {
+    id: 'food',
+    name: 'Food colouring',
+    after: 'food colouring',
+    kind: 'dye',
+    blurb:
+      'Any colour you like. It spreads through the gel as the other dyes do, and colours what it reaches.',
+    notes: [],
+    radius: 2.4,
+    line: 0.9,
+    // The colour is chosen on the card, and kept with each drop.
+    pick: '#2f7de1',
+    drop: { dye: '#2f7de1', strength: 2.4 },
+  },
+  {
     id: 'fluorescein',
     name: 'Fluorescein',
     after: 'sodium fluorescein',
