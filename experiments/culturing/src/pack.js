@@ -76,7 +76,11 @@ export const CULTURE_DEFAULTS = {
   launchTop: 1e3, // biofilm denser than this makes no more swarmers
 
   // ---- steering (mm²/h per unit of potential)
-  taxis: { nutrient: 0, surfactant: 0, toxin: 0 },
+  // `rafted` is how far being carried needs company, as spreading does:
+  // 0, a thin layer is carried as fast as a thick one; 1, the speed falls
+  // away with the layer (by raftAt and raftExp), the way a film of liquid
+  // slows as it thins.
+  taxis: { nutrient: 0, surfactant: 0, toxin: 0, rafted: 0 },
 
   // ---- what it secretes, per hour per unit of biomass
   surfactant: 0,
@@ -128,6 +132,15 @@ export const CULTURE_DEFAULTS = {
     coarsen: 0,
     ageing: 48,
     core: 1, // how readily the inoculum itself buckles: 0 a flat disc
+    // A colony that is smooth while it is young and folds as it ages:
+    // `after` is the hours its film has to have been a film before it
+    // buckles, and `sets` the hours over which the folds then stiffen and
+    // stop moving (0: they never do).
+    after: 0,
+    sets: 0,
+    // How far its ridges stray from the direction it grew in, in radians:
+    // 0 dead straight, 0.6 about a third of a right angle either way.
+    wander: 0,
     tempMax: null, // °C above which it makes no matrix to buckle
   },
 
@@ -340,6 +353,7 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uTaxN: each((c) => grid.diffusion(c.taxis.nutrient)),
     uTaxS: each((c) => grid.diffusion(c.taxis.surfactant)),
     uTaxX: each((c) => grid.diffusion(c.taxis.toxin)),
+    uTaxRaft: each((c) => clamp(c.taxis.rafted, 0, 1)),
 
     uSensX: each((c) => c.sensX),
     uSensY: each((c) => c.sensY),
@@ -423,6 +437,9 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uWrCoarsen: each((c) => Math.max(0, c.wrinkle.coarsen)),
     uWrAgeing: each((c) => Math.max(1, c.wrinkle.ageing), 1),
     uWrCore: each((c) => clamp(c.wrinkle.core, 0, 1), 1),
+    uWrAfter: each((c) => Math.max(0, c.wrinkle.after)),
+    uWrSets: each((c) => Math.max(0, c.wrinkle.sets)),
+    uWrWander: each((c) => clamp(c.wrinkle.wander, 0, 1.5)),
     uWrOnset: 0.3,
     uWrFull: 0.75,
 

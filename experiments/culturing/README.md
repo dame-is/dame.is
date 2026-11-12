@@ -24,11 +24,14 @@ should be its own chunk, loaded only by the page that shows it.
   [`wrinkle.js`](src/shaders/wrinkle.js)). A plate is a handful of
   float textures. Each of up to four cultures is a thin layer that travels and
   a film that stays; growth eats a nutrient that diffuses through the gel; a
-  film buckles into wrinkles past a thickness (Swift–Hohenberg); toxins,
+  swarm is carried down the gradient of its own surfactant, faster where it
+  lies thicker, which is what breaks its front into tendrils; a film buckles
+  into wrinkles past a thickness (Swift–Hohenberg), a biofilm as it grows and
+  a plain colony only after a couple of days, in folds that then set; toxins,
   quorum signals, acid, enzymes and pigments spread through the agar at half
-  the surface's resolution. No pattern is drawn. Branches, rings, spokes,
-  sectors, halos and standoffs are what those rules do when they meet, which
-  is why the cultures are only parameter sets
+  the surface's resolution. No pattern is drawn. Branches, tendrils, rings,
+  spokes, sectors, halos and standoffs are what those rules do when they meet,
+  which is why the cultures are only parameter sets
   ([`cultures.js`](src/cultures.js)).
 - **Units.** Every number in the libraries is in millimetres and hours
   ([`units.js`](src/units.js) converts), so the same recipe grows

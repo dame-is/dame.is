@@ -74,7 +74,8 @@ export default function FieldNotes() {
           on growing: ridges that come up fine at the rim run together into
           heavy veins toward the middle, and the drop the colony was started
           from, which was never squeezed the same way, keeps a character of its
-          own.
+          own. Some colonies are smooth for days and only then fold, and their
+          folds set where they first came up.
         </li>
         <li>
           <strong>Ground that is held.</strong> Two cultures on one patch of
@@ -85,6 +86,18 @@ export default function FieldNotes() {
             each patch at the rim becomes a sector
           </Ref>
           : wide where its culture keeps pace, pinched out where it can’t.
+        </li>
+        <li>
+          <strong>A film that is pulled.</strong> A swarm on its own surfactant
+          is a film of liquid, pulled outward because the surface is slacker
+          where there is more surfactant, and{' '}
+          <Ref href="https://uni-muenster.de/Physik.TP/~thiele/Paper/TrJT2018sm.pdf">
+            a flow driven that way breaks a round front into fingers
+          </Ref>
+          . Here it is one rule: the thicker the layer lies, the faster it is
+          carried. A stretch that gets ahead comes to fresh agar first, thickens
+          and pulls away, and the thin stretches between are left behind as the
+          gaps.
         </li>
         <li>
           <strong>Swarming by turns.</strong> Swarmer cells are made only inside
@@ -125,9 +138,31 @@ export default function FieldNotes() {
           loudly.
         </li>
         <li>
+          A swarm’s tendrils come from one borrowed rule and not from the whole
+          of how a liquid film flows. Here a tip stays thick by feeding on fresh
+          agar. On a real plate the liquid does that work, and the people who
+          model it say food is not what decides it.
+        </li>
+        <li>
           Colours are estimates from descriptions and photographs of real
           plates, not measurements. Two toxins stand for every antibiotic and
           one signal for every autoinducer.
+        </li>
+        <li>
+          More of the colonies fold with age here than would on a real bench.
+          The golden one does on{' '}
+          <Ref href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5595439">
+            a plate with extra magnesium
+          </Ref>
+          , the luminous one{' '}
+          <Ref href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1852533">
+            when its biofilm genes are turned up
+          </Ref>
+          , and the pink yeast{' '}
+          <Ref href="https://mycology.adelaide.edu.au/fungal-descriptions-and-antifungal-susceptibility/yeast-like-fungi/rhodotorula">
+            sometimes
+          </Ref>
+          . Crimson and Violet fold because the plate is better for it.
         </li>
         <li>
           A plate holds four cultures, and it is remembered as its recipe: grown

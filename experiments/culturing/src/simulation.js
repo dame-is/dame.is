@@ -294,7 +294,10 @@ export function createSimulation(gl, caps, size) {
           uD: plate.surface.D,
         });
         programs.wrinkleA.set(u);
-        programs.wrinkleA.set({ uWrHours: grid.dt / WRINKLE_SUBSTEPS });
+        programs.wrinkleA.set({
+          uWrHours: grid.dt / WRINKLE_SUBSTEPS,
+          uMmPerTexel: grid.dx,
+        });
         fullscreen.draw();
 
         begin(plate.wrinkle.target, N);
@@ -302,8 +305,11 @@ export function createSimulation(gl, caps, size) {
         programs.wrinkleB.textures({
           uWrA: scratch.wrinkle.WR,
           uAux: plate.surface.AUX,
+          uD: plate.surface.D,
         });
         programs.wrinkleB.set({
+          uWrAfter: u.uWrAfter,
+          uWrSets: u.uWrSets,
           uWrDt: WRINKLE_DT,
           uStep: plate.steps * WRINKLE_SUBSTEPS + k,
           uSeed: u.uSeed,
