@@ -117,6 +117,14 @@ export default function FieldNotes() {
           . A zone of inhibition, a violet halo and a turned indicator are all
           the same diffusion, read by something different.
         </li>
+        <li>
+          <strong>Stains that are taken up.</strong> A dye from the tray spreads
+          through the gel, under colonies as freely as anywhere, and the cells
+          it reaches take it up and keep it. So a colony stains from the side
+          the dye comes from, and the gel beside it pales. Tetrazolium is turned
+          red only by cells that are still feeding, and calcofluor sticks only
+          to chitin and cellulose.
+        </li>
       </ul>
       <SectionHead as="h3" title="Liberties taken" />
       <ul className="cult-liberties">
@@ -147,6 +155,12 @@ export default function FieldNotes() {
           Colours are estimates from descriptions and photographs of real
           plates, not measurements. Two toxins stand for every antibiotic and
           one signal for every autoinducer.
+        </li>
+        <li>
+          Every culture takes up a dye at the same rate. How much a culture has
+          for calcofluor to stick to is guessed from what kind of thing it is: a
+          mould or a yeast has plenty, a film less, a plain colony very little.
+          Real tetrazolium also holds some bacteria back, and here it doesn’t.
         </li>
         <li>
           More of the colonies fold with age here than would on a real bench.

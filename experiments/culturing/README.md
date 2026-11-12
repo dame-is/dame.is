@@ -29,7 +29,11 @@ should be its own chunk, loaded only by the page that shows it.
   into wrinkles past a thickness (Swift–Hohenberg), a biofilm as it grows and
   a plain colony only after a couple of days, in folds that then set; toxins,
   quorum signals, acid, enzymes and pigments spread through the agar at half
-  the surface's resolution. No pattern is drawn. Branches, tendrils, rings,
+  the surface's resolution. What is put on from the tray to look with (dyes,
+  a universal indicator, tetrazolium, calcofluor, fluorescein) has textures
+  and a pass of its own ([`reagents.js`](src/shaders/reagents.js)), run only
+  on a plate that has had one: each spreads loose through the gel, and cells
+  take up a dye and keep it. No pattern is drawn. Branches, tendrils, rings,
   spokes, sectors, halos and standoffs are what those rules do when they meet,
   which is why the cultures are only parameter sets
   ([`cultures.js`](src/cultures.js)).

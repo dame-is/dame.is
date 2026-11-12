@@ -675,14 +675,15 @@ export function createBench(canvas, options = {}) {
         draws: true,
       };
     }
-    const item = additionById(tool.id);
-    if (!item) return null;
+    if (!additionById(tool.id)) return null;
     return {
       entry,
       event: { do: 'add', addition: tool.id, path: [mm] },
       segments: 0,
-      // Only a blade or a loop is dragged; a disc or a drop is set down.
-      draws: Boolean(item.cut || item.scrape),
+      // Anything off the tray can be dragged: a blade cuts, a loop
+      // scrapes, a drop or a dye is drawn as a line, and a disc is laid
+      // down as a ribbon of soaked paper. A touch sets one down.
+      draws: true,
     };
   }
 

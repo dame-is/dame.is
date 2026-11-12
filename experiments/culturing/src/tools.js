@@ -179,16 +179,28 @@ function inoculation(event, slot) {
   ];
 }
 
+/** How much of a thing is put down per segment of a line drawn with it:
+ *  enough that the line comes out as strong as one drop of it, though each
+ *  point of it is passed over by several segments. */
+function perSegment(length, radius) {
+  return length / (length + 2 * radius);
+}
+
+const scaled = (v, k) => v.map((x) => x * k);
+const any = (v) => v.some((x) => x !== 0);
+
 /** Stamps for an addition, at a point or along a path. */
 function addition(event) {
   const item = additionById(event.addition);
   if (!item) return [];
   const path = event.path || [[event.x, event.y]];
-  const segments =
-    path.length === 1
-      ? [[path[0], path[0]]]
-      : path.slice(1).map((p, i) => [path[i], p]);
-  const radius = event.size ?? item.radius;
+  const drawn = path.length > 1;
+  const segments = drawn
+    ? path.slice(1).map((p, i) => [path[i], p])
+    : [[path[0], path[0]]];
+  // Drawn, a drop is a line as wide as the brush it is drawn with.
+  const radius =
+    event.size ?? (drawn ? (item.line ?? item.radius) : item.radius);
   const stamps = [];
 
   for (const [from, to] of segments) {
@@ -213,6 +225,15 @@ function addition(event) {
           clear1: ONES,
           clear2: ONES,
         },
+        reagents: {
+          from,
+          to,
+          radius: radius + 0.3,
+          feather: 0.2,
+          clear0: ONES,
+          clear1: ONES,
+          clear2: ONES,
+        },
       });
       continue;
     }
@@ -228,31 +249,50 @@ function addition(event) {
           clearAux: [1, 1, 1, 0],
           addAux: [-1, 0, 0, 0],
         },
+        // What the cells had taken up goes with them.
+        reagents: {
+          from,
+          to,
+          radius,
+          feather: 0.4,
+          clear0: [0, 0, 1, 0],
+          clear2: ONES,
+        },
       });
       continue;
     }
     const d = item.drop || {};
     const dye = d.dye ? hexToAbsorbance(d.dye, d.strength ?? 2) : [0, 0, 0];
-    stamps.push({
-      agar: {
-        from,
-        to,
-        // A disc's edge is laid down soft, over more than one texel of the
-        // agar, and still half way down at the disc's own radius. Laid
-        // down hard it is a handful of squares, and no amount of care in
-        // the drawing makes a circle of those.
-        radius: d.paper ? radius + PAPER_EDGE / 2 : radius,
-        feather: d.paper ? PAPER_EDGE : radius * 0.5,
-        add0: [
-          d.nutrient || 0,
-          d.surfactant || 0,
-          d.toxinX || 0,
-          d.signal || 0,
-        ],
-        add1: [d.acid || 0, 0, d.nutrient || 0, d.toxinY || 0],
-        add2: [dye[0], dye[1], dye[2], d.paper || 0],
-      },
-    });
+    const k = drawn
+      ? perSegment(Math.hypot(to[0] - from[0], to[1] - from[1]), radius)
+      : 1;
+    // A disc's edge is laid down soft, over more than one texel of the
+    // agar, and still half way down at the disc's own radius. Laid down
+    // hard it is a handful of squares, and no amount of care in the
+    // drawing makes a circle of those.
+    const shape = {
+      from,
+      to,
+      radius: d.paper ? radius + PAPER_EDGE / 2 : radius,
+      feather: d.paper ? PAPER_EDGE : radius * 0.5,
+    };
+    const stamp = {};
+    const add0 = scaled(
+      [d.nutrient || 0, d.surfactant || 0, d.toxinX || 0, d.signal || 0],
+      k,
+    );
+    const add1 = scaled([d.acid || 0, 0, d.nutrient || 0, d.toxinY || 0], k);
+    // The paper is there or it isn't, however many segments cross it.
+    const add2 = [0, 0, 0, d.paper || 0];
+    if (any(add0) || any(add1) || any(add2)) {
+      stamp.agar = { ...shape, add0, add1, add2 };
+    }
+    const r0 = scaled([d.indicator || 0, d.ttc || 0, 0, d.calcofluor || 0], k);
+    const r1 = scaled([...dye, d.fluorescein || 0], k);
+    if (any(r0) || any(r1)) {
+      stamp.reagents = { ...shape, add0: r0, add1: r1 };
+    }
+    stamps.push(stamp);
   }
   return stamps;
 }
@@ -328,5 +368,6 @@ export function applyStamps(sim, plate, stamps) {
   for (const stamp of stamps) {
     if (stamp.surface) sim.stampSurface(plate, stamp.surface);
     if (stamp.agar) sim.stampAgar(plate, stamp.agar);
+    if (stamp.reagents) sim.stampReagents(plate, stamp.reagents);
   }
 }

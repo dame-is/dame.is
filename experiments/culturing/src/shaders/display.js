@@ -25,6 +25,9 @@ uniform sampler2D uWr;
 uniform sampler2D uC0;
 uniform sampler2D uC1;
 uniform sampler2D uC2;
+uniform sampler2D uR0;
+uniform sampler2D uR1;
+uniform sampler2D uR2;
 uniform float uChemSize;
 uniform int uLightMode; // 0 bench, 1 light table, 2 ultraviolet, 3 dark
 
@@ -80,6 +83,14 @@ uniform vec3 uDyeColor;
 uniform float uDye;
 uniform vec3 uAgarFluor;   // the gel's own glow under ultraviolet
 uniform vec3 uHaloFluor;   // the glow of whatever pigment has left the colony
+
+// What was put on from the tray (shaders/reagents.js).
+uniform vec4 uBinds;          // per culture: what calcofluor has to stick to
+uniform vec3 uUniversal[7];   // a universal indicator's colour at pH 4 to 10
+uniform vec3 uFormazan;       // the red TTC turns to
+uniform vec3 uCalcofluor;     // its glow under ultraviolet
+uniform vec3 uFluorescein;    // its glow
+uniform vec3 uFluoresceinAbs; // what it absorbs, per unit
 
 layout(location = 0) out vec4 oRelief; // height mm, optical depth, gloss, roughness
 layout(location = 1) out vec4 oColony; // colour, fuzz
@@ -156,6 +167,11 @@ void main() {
   vec4 c0 = agarAt(uC0, xy);
   vec4 c1 = agarAt(uC1, xy);
   vec4 c2 = agarSmoothAt(uC2, xy);
+  // Smooth, because a stain is gathered at a colony's edge and the eye goes
+  // to an edge.
+  vec4 r0 = agarSmoothAt(uR0, xy);
+  vec4 r1 = agarSmoothAt(uR1, xy);
+  vec4 r2 = agarSmoothAt(uR2, xy);
 
   vec4 mass = b + d;
   float rhoB = dot(b, ONE);
@@ -237,6 +253,16 @@ void main() {
   float stained = dot(share, uStain) * uDye * smoothstep(0.05, 0.6, rhoD);
   stained *= 1.0 - 0.45 * ridge + 0.25 * film * trough;
   colour = mix(colour, colour * uDyeColor * 1.6, clamp(stained, 0.0, 1.0));
+  // A dye from the tray that the cells have taken up: the colony takes its
+  // colour, deepest where the most has gathered, and in the floors of its
+  // folds more than on the crests.
+  colour *= exp(-r2.rgb * 1.6 * (1.0 - 0.35 * ridge + 0.2 * film * trough));
+  // Tetrazolium that living cells have turned red.
+  colour = mix(colour, uFormazan, 1.0 - exp(-3.0 * max(r0.b, 0.0)));
+  // Calcofluor is an optical brightener: what it sticks to looks a shade
+  // whiter even in ordinary light, which has a little ultraviolet in it.
+  float brightened = 1.0 - exp(-0.6 * r2.a);
+  colour = mix(colour, colour * 1.08 + vec3(0.02, 0.025, 0.05), brightened);
   // The floors of the folds are older, wetter and a shade darker; the
   // crests are where the film is thickest and driest, and scatter the most
   // light back.
@@ -274,19 +300,44 @@ void main() {
   float cleared = 1.0 - exp(-uClearGain * c1.g);
   gel = mix(gel, uClearColor, cleared);
   opacity = mix(opacity, uClearOpacity, cleared);
-  // Pigment that has left the colony stains the gel by what it absorbs.
-  vec3 stain = exp(-c2.rgb);
+  // A universal indicator dropped on the gel: a run of colours from red
+  // at pH 4 to violet at 10, so each colony draws its own map of what it
+  // is doing to the gel. A shift of one on the plate's scale is taken as
+  // about a pH unit and a half.
+  float indicator = 1.0 - exp(-4.0 * max(r0.r, 0.0));
+  float pH = clamp(3.0 - 1.5 * c1.r, 0.0, 6.0);
+  int lo = int(floor(pH));
+  vec3 universal = mix(uUniversal[lo], uUniversal[min(lo + 1, 6)], pH - float(lo));
+  gel = mix(gel, universal, 0.85 * indicator);
+  opacity = min(1.0, opacity + 0.3 * indicator);
+  // Pigment that has left the colony stains the gel by what it absorbs,
+  // and so does a dye from the tray where it is still free in the gel.
+  vec3 stain = exp(-(c2.rgb + r1.rgb + uFluoresceinAbs * r1.a));
   gel *= stain;
   float dissolved = 1.0 - (stain.r + stain.g + stain.b) / 3.0;
   opacity = min(1.0, opacity + 0.35 * dissolved);
 
   // ---- Light of its own -----------------------------------------------
   vec3 light = vec3(0.0);
-  if (uLightMode == 2) {
+  // Fluorescein glows green, and less in acid: it is a weak acid itself,
+  // and only its alkaline form fluoresces much.
+  float fluorescein = (1.0 - exp(-0.8 * max(r1.a, 0.0)))
+    * (1.0 - smoothstep(-0.3, 1.2, c1.r));
+  if (uLightMode < 2) {
+    // Even in daylight: the green that makes it a tracer.
+    light = uFluorescein * 0.08 * fluorescein * (1.0 - coverage);
+  } else if (uLightMode == 2) {
     // 365 nm: some pigments glow, in the colony and out in the gel.
     light = pick(share, uFluorR, uFluorG, uFluorB) * coverage * (0.35 + 0.65 * pig)
       + uHaloFluor * dissolved
       + uAgarFluor;
+    // Calcofluor glows blue where it has stuck to something, and faintly
+    // where it is still loose in the gel.
+    light += uCalcofluor * ((1.0 - exp(-0.5 * r2.a)) * coverage
+      + 0.08 * (1.0 - exp(-0.5 * max(r0.a, 0.0))) * (1.0 - coverage));
+    // Fluorescein is only weakly excited at 365 nm, a few per cent as well
+    // as by blue light: it shows, but calcofluor outshines it.
+    light += uFluorescein * 0.25 * fluorescein * (1.0 - 0.7 * coverage);
   } else if (uLightMode == 3) {
     // Bioluminescence needs a quorum, and cells that are still fed.
     float fed = dot(share, vec4(c0.r) / (c0.r + uKn));

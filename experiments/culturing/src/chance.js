@@ -18,7 +18,16 @@ import { cleanDish } from './recipe.js';
 import { DROPS } from './tools.js';
 
 /** What may turn up beside the cultures: things that show on any plate. */
-const EXTRAS = ['penicillin', 'biocide', 'sugar', 'dye-violet', 'dye-blue'];
+const EXTRAS = [
+  'penicillin',
+  'biocide',
+  'sugar',
+  'dye-violet',
+  'dye-blue',
+  'universal',
+  'ttc',
+  'fluorescein',
+];
 
 /**
  * How a plate is laid out, and how often.

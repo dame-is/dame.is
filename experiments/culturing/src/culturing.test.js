@@ -81,6 +81,7 @@ import {
 import { describeEvent, describePour, formatHours } from './format.js';
 import { CULTURE_FRAGMENT } from './shaders/culture.js';
 import { AGAR_FRAGMENT } from './shaders/agar.js';
+import { REAGENT_FRAGMENT } from './shaders/reagents.js';
 import { WRINKLE_A_FRAGMENT, WRINKLE_B_FRAGMENT } from './shaders/wrinkle.js';
 import { COMPOSE_FRAGMENT } from './shaders/display.js';
 
@@ -191,13 +192,15 @@ describe('shaders are given every number they wait on', () => {
       clockUniforms({ softness: packed.softness, medium, env: ENV, hours: 3 }),
     ),
     // Set by the simulation itself for each step (simulation.js).
-    ...['uB', 'uD', 'uAux', 'uC0', 'uC1', 'uC2', 'uWr', 'uWrA'],
+    ...['uB', 'uD', 'uAux', 'uC0', 'uC1', 'uC2', 'uR0', 'uR1', 'uR2'],
+    ...['uWr', 'uWrA'],
     ...['uHours', 'uStep', 'uChemSize', 'uWrDt', 'uWrHours', 'uMmPerTexel'],
   ]);
 
   it.each([
     ['culture', CULTURE_FRAGMENT],
     ['agar', AGAR_FRAGMENT],
+    ['reagents', REAGENT_FRAGMENT],
     ['wrinkle, first pass', WRINKLE_A_FRAGMENT],
     ['wrinkle, second pass', WRINKLE_B_FRAGMENT],
   ])('%s', (_label, source) => {
@@ -216,6 +219,9 @@ describe('shaders are given every number they wait on', () => {
         'uC0',
         'uC1',
         'uC2',
+        'uR0',
+        'uR1',
+        'uR2',
         'uWr',
         'uChemSize',
         'uLightMode',
@@ -1280,12 +1286,65 @@ describe('stamps', () => {
     expect(scrape[0].surface.clearAux).toEqual([1, 1, 1, 0]);
     expect(scrape[0].surface.addAux[0]).toBe(-1);
     expect(scrape[0].agar).toBeUndefined();
+    // What the cells had taken up is scraped off with them.
+    expect(scrape[0].reagents.clear0[2]).toBe(1);
+    expect(scrape[0].reagents.clear2).toEqual([1, 1, 1, 1]);
+  });
+
+  it('puts dyes and stains among the reagents, and nothing into the agar', () => {
+    for (const id of [
+      'dye-violet',
+      'fluorescein',
+      'universal',
+      'ttc',
+      'calcofluor',
+    ]) {
+      const [stamp] = stampsFor(
+        { do: 'add', addition: id, x: 0, y: 0 },
+        [],
+      ).stamps;
+      expect(stamp.agar, id).toBeUndefined();
+      const added = [...stamp.reagents.add0, ...stamp.reagents.add1];
+      expect(
+        added.some((x) => x > 0),
+        id,
+      ).toBe(true);
+      // Formazan is only ever made on the plate.
+      expect(stamp.reagents.add0[2], id).toBe(0);
+    }
+  });
+
+  it('draws a dragged drop as a line as strong as the drop, and a disc as a ribbon of paper', () => {
+    const path = Array.from({ length: 21 }, (_, i) => [i * 0.7, 0]);
+    const line = stampsFor(
+      { do: 'add', addition: 'dye-violet', path },
+      [],
+    ).stamps;
+    expect(line).toHaveLength(20);
+    const item = additionById('dye-violet');
+    const one = stampsFor({ do: 'add', addition: 'dye-violet', x: 0, y: 0 }, [])
+      .stamps[0].reagents;
+    // Narrower than the drop...
+    expect(line[0].reagents.radius).toBeLessThan(one.radius);
+    expect(line[0].reagents.radius).toBe(item.line);
+    // ...and each point on it is passed over by every segment within a
+    // brush's width, so together they come to about one drop's worth.
+    const passes = (0.7 + 2 * item.line) / 0.7;
+    expect(line[0].reagents.add1[0] * passes).toBeCloseTo(one.add1[0], 5);
+    const ribbon = stampsFor(
+      { do: 'add', addition: 'penicillin', path },
+      [],
+    ).stamps;
+    expect(ribbon.every((s) => s.agar.add2[3] === 1)).toBe(true);
+    expect(ribbon[0].agar.add0[2]).toBeLessThan(
+      additionById('penicillin').drop.toxinX,
+    );
   });
 });
 
 /** A simulation that only keeps count. */
 function fakeSim(size = 256) {
-  const calls = { pour: 0, step: 0, surface: [], agar: [] };
+  const calls = { pour: 0, step: 0, surface: [], agar: [], reagents: [] };
   const sim = {
     grid: createGrid(size),
     calls,
@@ -1303,6 +1362,7 @@ function fakeSim(size = 256) {
     },
     stampSurface: (_plate, stamp) => calls.surface.push(stamp),
     stampAgar: (_plate, stamp) => calls.agar.push(stamp),
+    stampReagents: (_plate, stamp) => calls.reagents.push(stamp),
   };
   return sim;
 }

@@ -408,6 +408,15 @@ function additionSwatch(item) {
   );
 }
 
+/** What the hand does with something off the tray, in a sentence. */
+function handling(item) {
+  if (item.cut || item.scrape) return 'Drag it across the gel.';
+  if (item.kind === 'disc') {
+    return 'Touch the gel to set a disc down, or drag to lay a ribbon of soaked paper.';
+  }
+  return 'Touch the gel to leave a drop, or drag to draw a line of it.';
+}
+
 function TrayPanel({ bench, snap, compact }) {
   const armed =
     snap.tool?.kind === 'addition' ? additionById(snap.tool.id) : null;
@@ -419,11 +428,7 @@ function TrayPanel({ bench, snap, compact }) {
           <h3 className="cult-card-title">{armed.name}</h3>
           <p className="cult-card-after">after {armed.after}</p>
           <p className="cult-card-blurb">{armed.blurb}</p>
-          <p className="cult-hint">
-            {dragged
-              ? 'Drag it across the gel.'
-              : 'Touch the gel where it should go.'}
-          </p>
+          <p className="cult-hint">{handling(armed)}</p>
           <div className="cult-actions">
             {!dragged && (
               <Button
@@ -445,8 +450,8 @@ function TrayPanel({ bench, snap, compact }) {
         </div>
       ) : (
         <p className="cult-hint">
-          Things that aren’t alive: discs, drops, dyes and two tools. Pick one
-          up and touch the gel.
+          Things that aren’t alive: discs, drops, dyes, stains and two tools.
+          Pick one up and touch the gel, or drag across it.
         </p>
       )}
       <Shelf>
@@ -464,13 +469,7 @@ function TrayPanel({ bench, snap, compact }) {
                   onClick={() => {
                     const on = armed?.id === a.id;
                     bench.arm(on ? null : { kind: 'addition', id: a.id });
-                    if (!on && compact) {
-                      bench.say(
-                        a.cut || a.scrape
-                          ? `${a.name}: drag it across the gel.`
-                          : `${a.name}: touch the gel where it should go.`,
-                      );
-                    }
+                    if (!on && compact) bench.say(`${a.name}: ${handling(a)}`);
                   }}
                 />
               ))}

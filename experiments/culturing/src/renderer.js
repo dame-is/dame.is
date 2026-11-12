@@ -298,6 +298,9 @@ export function createRenderer(gl, sim) {
       uC0: plate.agar.C0,
       uC1: plate.agar.C1,
       uC2: plate.agar.C2,
+      uR0: plate.reagents.R0,
+      uR1: plate.reagents.R1,
+      uR2: plate.reagents.R2,
     });
     programs.compose.set(look);
     programs.compose.set({

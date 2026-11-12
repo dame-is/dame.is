@@ -38,6 +38,11 @@ export function describeEvent(event) {
     if (item.cut)
       return event.path ? 'A cut with the scalpel' : 'A nick with the scalpel';
     if (item.scrape) return 'Growth scraped off with a loop';
+    if (event.path) {
+      return item.kind === 'disc'
+        ? `${item.name}, as a ribbon of paper`
+        : `${item.name}, drawn as a line`;
+    }
     return item.name;
   }
   const culture = cultureById(event.culture);

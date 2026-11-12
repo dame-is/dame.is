@@ -162,6 +162,7 @@ export const CULTURE_DEFAULTS = {
     tufts: 0, // how far ripe growth stands up in tufts, with its colour on them
     sheen: 0, // metallic film on old growth
     stain: 0, // how readily it takes up a dye in the medium
+    binds: null, // what calcofluor has to stick to, 0..1 (null: by kind)
     scatter: 0.3, // light bleeding through thin ridges and edges
     fluoresce: null, // colour under 365 nm
     glow: null, // bioluminescence
@@ -205,6 +206,19 @@ export const AGAR = {
   ph: 0.5,
   enzyme: 0.2,
   pigment: 0.5,
+  // What is put on from the tray to be looked at with: small dyes, a few
+  // hundred daltons each, which go through agar a little slower than a
+  // sugar.
+  indicator: 0.8,
+  ttc: 0.9,
+  calcofluor: 0.5,
+  dye: 0.5,
+  fluorescein: 1.0,
+  // The share of a dye loose under a full layer of cells that they take up
+  // in an hour.
+  take: 1,
+  // How fast live cells turn tetrazolium red, per hour per unit of growth.
+  reduce: 1.5,
   // First-order losses.
   surfactantLoss: 0.25,
   toxinXLoss: 0.012,
@@ -228,6 +242,20 @@ export function refillHours(diffusivity) {
 }
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+
+/**
+ * How much a culture has for calcofluor to stick to, 0 to 1. It binds
+ * β-glucans: the chitin in a fungus's walls, and the cellulose some films
+ * build their matrix of. A culture can say; otherwise a mould or a yeast
+ * has all it needs, a film whose matrix takes up Congo red has much of it,
+ * and anything else a little.
+ */
+export function bindsCalcofluor(c) {
+  if (c.look.binds != null) return clamp(c.look.binds, 0, 1);
+  if (c.kind === 'mould' || c.kind === 'yeast') return 1;
+  if (c.look.stain > 0) return clamp(0.4 + 0.5 * c.look.stain, 0, 1);
+  return c.kind === 'biofilm' ? 0.3 : 0.08;
+}
 
 /**
  * The packed uniform set for a plate.
@@ -415,6 +443,23 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uAcid: each((c) => c.acid),
     uAlkali: each((c) => rate(c.alkali)),
     uEnzyme: each((c) => rate(c.enzyme)),
+    // ---- reagents (shaders/reagents.js)
+    uRDiff0: [
+      grid.chemDiffusion(AGAR.indicator),
+      grid.chemDiffusion(AGAR.ttc),
+      0, // formazan stays where it is made
+      grid.chemDiffusion(AGAR.calcofluor),
+    ].map((x) => clamp(x, 0, 0.24)),
+    uRDiff1: [
+      grid.chemDiffusion(AGAR.dye),
+      grid.chemDiffusion(AGAR.dye),
+      grid.chemDiffusion(AGAR.dye),
+      grid.chemDiffusion(AGAR.fluorescein),
+    ].map((x) => clamp(x, 0, 0.24)),
+    uTake: rate(AGAR.take),
+    uBinds: each(bindsCalcofluor),
+    uReduce: rate(AGAR.reduce),
+
     uPigR: each((c) => absorbance(c)[0]),
     uPigG: each((c) => absorbance(c)[1]),
     uPigB: each((c) => absorbance(c)[2]),
@@ -556,8 +601,30 @@ export function packLook({ cultures, medium, seed = 1 }) {
       ? hexToLinear(m.fluoresce).map((x) => x * 0.05)
       : [0.004, 0.005, 0.012],
     uHaloFluor: halo,
+
+    uBinds: each(bindsCalcofluor),
+    uUniversal: UNIVERSAL.flatMap(hexToLinear),
+    uFormazan: hexToLinear('#a8132b'),
+    uCalcofluor: hexToLinear('#6f8dff').map((x) => x * 0.9),
+    uFluorescein: hexToLinear('#7dff4f'),
+    uFluoresceinAbs: hexToAbsorbance('#f5c400', 0.7),
   };
 }
+
+/**
+ * A universal indicator's colours at pH 4, 5, … 10: red, orange, yellow,
+ * green, a blue-green, blue and violet. Estimates from photographs of the
+ * colour chart that comes with it.
+ */
+export const UNIVERSAL = [
+  '#d0262e',
+  '#ee7a22',
+  '#efcf2c',
+  '#4ba14a',
+  '#1f8c90',
+  '#2a50b0',
+  '#5c2c8e',
+];
 
 /** Lights on (1) or off (0) at an hour: 'on', 'dark', or a 12:12 'cycle'. */
 export function lightAt(mode, hours) {
