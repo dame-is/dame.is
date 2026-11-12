@@ -163,6 +163,22 @@ describe('who gets the write tools', () => {
     expect(guest).toContain('READ-ONLY');
   });
 
+  it('names the bot from its live session, not a hardcoded handle', () => {
+    const p = operatorPrompt({
+      canWrite: true,
+      self: { did: 'did:plc:bot', handle: 'mod.example.com' },
+    });
+    expect(p).toContain('@mod.example.com (did:plc:bot)');
+    expect(p).not.toContain('anisota');
+    const bare = operatorPrompt({ canWrite: true });
+    expect(bare).toContain('running as the moderator account');
+    const invalid = operatorPrompt({
+      canWrite: true,
+      self: { did: 'did:plc:bot', handle: 'handle.invalid' },
+    });
+    expect(invalid).toContain('running as the account did:plc:bot');
+  });
+
   it('never asks for numbered menus or typed commands', () => {
     const p = operatorPrompt({ canWrite: true });
     expect(p).toMatch(/never offer a numbered menu/i);

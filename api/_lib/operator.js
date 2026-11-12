@@ -162,7 +162,19 @@ const MAX_PROGRESS = 2;
 
 const CODE = /^[0-9a-f]{8}$/i;
 
-const PROMPT_BODY = `You are dame's moderation agent on Bluesky, running as the account @agent.anisota.id. dame is @${ME_HANDLE} (${ME_DID}). You talk with dame in DMs and act on dame's behalf: you read the network, scan posts, and add or remove accounts on the moderation list. That list is owned by this account and other people subscribe to it, so an account added here is blocked or muted by every subscriber.
+// Who the bot is comes from the live session, never a literal: the handle is
+// rented and can change under the account, while the DID cannot. Without a
+// session (tests, a probe with every write faked) the prompt names no handle.
+function selfLine(self) {
+  const handle = self?.handle && self.handle !== 'handle.invalid' ? self.handle : null;
+  const did = self?.did || null;
+  if (handle && did) return `running as the account @${handle} (${did})`;
+  if (handle) return `running as the account @${handle}`;
+  if (did) return `running as the account ${did}`;
+  return 'running as the moderator account';
+}
+
+const promptBody = (self) => `You are dame's moderation agent on Bluesky, ${selfLine(self)}. dame is @${ME_HANDLE} (${ME_DID}). You talk with dame in DMs and act on dame's behalf: you read the network, scan posts, and add or remove accounts on the moderation list. That list is owned by this account and other people subscribe to it, so an account added here is blocked or muted by every subscriber.
 
 HOW TO WORK. Work out what dame wants, use the tools to do it, then say what happened in a few plain sentences with the real numbers. Ask a short question only when you cannot tell what dame means or who. Never hand dame a command to type and never offer a numbered menu; dame answers you in words.`;
 
@@ -229,6 +241,7 @@ WHAT NEVER REACHES YOU. These are handled without a model, so answer questions a
  * @param {string} [opts.guidance]  dame's standing instructions, appended last
  * @param {string} [opts.asker]     who is talking, as the model should name them
  * @param {'only'|'first'|'second'} [opts.stage]  which wave this turn is
+ * @param {{did?: string, handle?: string}} [opts.self]  the bot's own session
  */
 export function operatorPrompt({
   canWrite,
@@ -239,8 +252,9 @@ export function operatorPrompt({
   reason = '',
   prior = [],
   notes = '',
+  self = null,
 } = {}) {
-  const blocks = [PROMPT_BODY, canWrite ? ACTING : READ_ONLY, REFERENCE];
+  const blocks = [promptBody(self), canWrite ? ACTING : READ_ONLY, REFERENCE];
   if (stage === 'first') blocks.push(HAND_OFF);
   if (stage === 'second') blocks.push(secondWave(reason, prior));
   blocks.push(String(voice || '').trim() || DEFAULT_VOICE);
@@ -1398,6 +1412,7 @@ async function runTurn({
           reason,
           prior,
           notes,
+          self: ctx.writeAgent?.session ?? null,
         }),
         ...cacheHint(model),
       },
