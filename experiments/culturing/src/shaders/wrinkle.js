@@ -51,7 +51,7 @@ uniform sampler2D uD;
 
 uniform vec4 uWrDrive;   // how readily each culture's film buckles
 uniform vec4 uWrQ2;      // (2π / wavelength in texels)², per culture
-uniform vec4 uWrRadial;  // how strongly the ridges line up with growth
+uniform vec4 uWrRadial;  // how strongly the ridges line up with growth (< 0: across it)
 uniform vec4 uWrBump;    // > 0 turns ridges toward pustules
 uniform vec4 uWrSport;   // a sport's wrinkling, relative to its parent's
 uniform vec4 uWrCoarsen; // how much broader a fold gets as its film ages
@@ -130,7 +130,12 @@ void main() {
     float onDiagonals = dd * dd * udd + 2.0 * dd * da * uda + da * da * uaa;
     float cos2 = dir.x * dir.x - dir.y * dir.y;
     float urr = mix(onDiagonals, onAxes, cos2 * cos2);
-    aniso = dot(share, uWrRadial) * q2 * grown * urr;
+    // Smoothed along the way it grew, the ridges run out as spokes. A
+    // brittle film does the other thing: it breaks across the way it grew,
+    // into rings, and a negative number here smooths round the colony
+    // instead (what is left of the Laplacian once the radial part is out).
+    float radial = dot(share, uWrRadial);
+    aniso = abs(radial) * q2 * grown * (radial >= 0.0 ? urr : uxx + uyy - urr);
   }
 
   vec4 drive = uWrDrive * mix(ONE, uWrSport, aux.b) * mix(uWrCore, ONE, grown);

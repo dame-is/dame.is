@@ -202,6 +202,10 @@ export const CULTURES = [
         text: 'Two strains that differ only in a fluorescent tag, mixed and spotted together, sort themselves into sectors as the colony grows: only the cells at the very edge found new ground, so chance decides who owns each stretch of it.',
         href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC2148399/',
       },
+      {
+        text: 'Kept below 30 °C for a few days, a laboratory E. coli makes a matrix of curli fibres and nothing to hold it together, and the colony breaks into concentric rings with crevices between them. In the warm it makes none and stays smooth.',
+        href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3889604',
+      },
     ],
     tags: ['gram-negative', 'tagged'],
     growth: 1.3,
@@ -213,12 +217,23 @@ export const CULTURES = [
     sensX: 0.4,
     sensY: 1.0,
     kill: 0.4,
+    // A brittle matrix, made only in the cool, that cracks across the way
+    // the colony grew.
+    wrinkle: {
+      drive: 0.6,
+      wavelength: 1.2,
+      radial: -0.9,
+      coarsen: 0.3,
+      tempMax: 31,
+    },
     look: {
       young: '#dcdacb',
       mature: '#d3d6cd',
       gloss: 0.72,
       rough: 0.22,
       height: 0.38,
+      wrinkleHeight: 0.12,
+      crest: 0.15,
       opacity: 7,
       fluoresce: '#1fd6e6',
     },
@@ -246,12 +261,23 @@ export const CULTURES = [
     sensX: 0.4,
     sensY: 1.0,
     kill: 0.4,
+    // A brittle matrix, made only in the cool, that cracks across the way
+    // the colony grew.
+    wrinkle: {
+      drive: 0.6,
+      wavelength: 1.2,
+      radial: -0.9,
+      coarsen: 0.3,
+      tempMax: 31,
+    },
     look: {
       young: '#dedbc9',
       mature: '#d8d6c6',
       gloss: 0.72,
       rough: 0.22,
       height: 0.38,
+      wrinkleHeight: 0.12,
+      crest: 0.15,
       opacity: 7,
       fluoresce: '#f1e21c',
     },

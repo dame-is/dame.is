@@ -379,6 +379,32 @@ describe('packing', () => {
     expect(pack('rosette').uWrCore[0]).toBe(0);
   });
 
+  it('gives a film that makes its matrix only in the cool nothing to fold in the warm', () => {
+    const grid = createGrid(384);
+    const drive = (id, temperature) =>
+      packPlate({
+        slots: [cultureById(id)],
+        medium: mediumById('broth'),
+        env: { ...ENV, temperature },
+        grid,
+        seed: 1,
+      }).u.uWrDrive[0];
+    // A laboratory E. coli: rings at 28 °C, a smooth colony at 37.
+    expect(drive('cyan-tag', 28)).toBeGreaterThan(0);
+    expect(drive('cyan-tag', 37)).toBe(0);
+    expect(drive('cyan-tag', 30)).toBeLessThan(drive('cyan-tag', 28));
+    // And across the way it grew, not along it.
+    expect(resolveCulture(cultureById('cyan-tag')).wrinkle.radial).toBeLessThan(
+      0,
+    );
+    // The twins fold alike, or they would not be twins.
+    expect(resolveCulture(cultureById('yellow-tag')).wrinkle).toEqual(
+      resolveCulture(cultureById('cyan-tag')).wrinkle,
+    );
+    // A culture that says nothing about temperature folds at any.
+    expect(drive('hay', 37)).toBe(drive('hay', 28));
+  });
+
   it('lets no culture share its ground for nothing', () => {
     const grid = createGrid(384);
     for (const culture of CULTURES) {

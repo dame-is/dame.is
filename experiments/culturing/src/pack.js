@@ -119,7 +119,7 @@ export const CULTURE_DEFAULTS = {
   wrinkle: {
     drive: 0, // 0 smooth … 1 deeply rugose
     wavelength: 1.4, // mm, ridge to ridge
-    radial: 0, // 0 labyrinth … 1 spokes
+    radial: 0, // 0 labyrinth … 1 spokes; below 0, toward rings
     bump: 0, // > 0 turns ridges toward pustules, < 0 toward a honeycomb
     sport: 1, // a sport's wrinkling relative to its parent's
     // A fold is a few times as wide as its film is thick, and a film
@@ -128,6 +128,7 @@ export const CULTURE_DEFAULTS = {
     coarsen: 0,
     ageing: 48,
     core: 1, // how readily the inoculum itself buckles: 0 a flat disc
+    tempMax: null, // °C above which it makes no matrix to buckle
   },
 
   // ---- how it looks
@@ -259,6 +260,12 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     if (c.pigment.tempMax == null) return 1;
     // Fades out over the few degrees below the cutoff.
     return clamp((c.pigment.tempMax - env.temperature) / 3, 0, 1);
+  };
+  // A film that only makes its matrix in the cool has nothing to buckle
+  // in the warm: it fades out over the same few degrees a pigment does.
+  const matrixGate = (c) => {
+    if (c.wrinkle.tempMax == null) return 1;
+    return clamp((c.wrinkle.tempMax - env.temperature) / 3, 0, 1);
   };
   const absorbance = (c) =>
     c.secretes
@@ -398,7 +405,7 @@ export function packPlate({ slots, medium, env, grid, seed }) {
     uPigB: each((c) => absorbance(c)[2]),
 
     // ---- wrinkles
-    uWrDrive: each((c) => c.wrinkle.drive),
+    uWrDrive: each((c) => c.wrinkle.drive * matrixGate(c)),
     uWrQ2: each((c) => {
       // A film on a soft bed buckles at a wavelength of its thickness times
       // the cube root of how much stiffer it is than the bed (Yan et al.
