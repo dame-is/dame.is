@@ -75,15 +75,20 @@ vec3 benchAt(vec2 xz) {
     float fall = 1.0 - 0.18 * smoothstep(60.0, 420.0, length(xz));
     return vec3(1.0, 0.985, 0.95) * 1.9 * fall;
   }
-  float mottle = 0.88 + 0.24 * noise2(xz * 0.35) + 0.1 * (noise2(xz * 3.1) - 0.5);
+  // Epoxy is mottled; a card is smooth. The paler the bench, the less of
+  // its mottle shows, or a white one looks dirty.
+  float pale = smoothstep(0.03, 0.4, dot(uBench, vec3(0.2126, 0.7152, 0.0722)));
+  float mottle = 1.0 + mix(1.0, 0.12, pale)
+    * (0.24 * (noise2(xz * 0.35) - 0.5) + 0.1 * (noise2(xz * 3.1) - 0.5));
   vec3 base = uBench * mottle;
   float shade = 1.0;
   for (int i = 0; i < 8; i++) {
     if (i >= uDishCount) break;
     vec4 dish = uDishes[i];
     float away = length(xz - dish.xy) - dish.z;
-    // Close to the wall the bench sees less sky...
-    shade *= 1.0 - 0.5 * (1.0 - smoothstep(-2.0, 16.0, away));
+    // Close to the wall the bench sees less sky, inside it as well as out.
+    // Further in, under a clear gel, it is lit through the gel.
+    shade *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 16.0, abs(away + 2.0)));
     // ...and the wall throws a shadow away from the lamp.
     vec2 thrown = -uLamp.xz / max(uLamp.y, 0.2) * dish.w * 0.55;
     float inShadow = length(xz - dish.xy - thrown) - dish.z;

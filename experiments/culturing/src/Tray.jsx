@@ -26,6 +26,7 @@ import {
 } from './recipe.js';
 import { MEDIUM_LOOK_DEFAULTS, resolveCulture } from './pack.js';
 import { DROPS } from './tools.js';
+import { BENCHES } from './bench.js';
 import { DETAILS, temperatureFactor } from './units.js';
 import { describeEvent, describePour, formatHours } from './format.js';
 import { saveBlob } from './save.js';
@@ -883,6 +884,27 @@ function IncubatorPanel({ bench, snap }) {
             A finer grid shows finer folds and sharper edges, and takes about
             three times the work for every hour grown. Changing it grows every
             plate again from its record.
+          </p>
+        </div>
+        <div className="cult-field">
+          <span className="cult-field-label">Under the plates</span>
+          <div className="cult-colour">
+            <Segmented
+              label="What the plates sit on"
+              options={BENCHES}
+              value={snap.bench}
+              onChange={bench.setBench}
+            />
+            <input
+              type="color"
+              aria-label="Any colour to set the plates on"
+              value={snap.bench}
+              onChange={(e) => bench.setBench(e.target.value)}
+            />
+          </div>
+          <p className="cult-field-hint">
+            Colonies are photographed on black to show their relief and on white
+            to show their colour. Through a clear gel, it is all you see.
           </p>
         </div>
         <Slider

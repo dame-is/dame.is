@@ -34,6 +34,7 @@ import {
   cleanDish,
   createDish,
   encodeDish,
+  isColour,
   MAX_HOURS,
   packDish,
   RECIPE_VERSION,
@@ -85,6 +86,17 @@ export const LIGHTS = [
   { value: 3, label: 'Dark', hint: 'Nothing but what the plate gives off.' },
 ];
 
+/**
+ * What the plates sit on. A black bench, like the epoxy of a real one, is
+ * how colonies are photographed to show their relief; a white card shows
+ * their colour, and shows through a clear gel. Any colour can be picked.
+ */
+export const BENCHES = [
+  { value: '#141517', label: 'Black' },
+  { value: '#7c7d79', label: 'Grey' },
+  { value: '#eeece5', label: 'White' },
+];
+
 const DEFAULT_VIEW = {
   speed: 2,
   light: 0,
@@ -93,10 +105,8 @@ const DEFAULT_VIEW = {
   lampEl: 36,
   drop: DEFAULT_DROP,
   detail: 'standard',
+  bench: BENCHES[0].value,
 };
-
-/** The bench top: matte black, like the epoxy of a real one. */
-const BENCH_COLOUR = hexToLinear('#141517');
 
 const RAD = Math.PI / 180;
 const BENCH_ELEVATION = 60 * RAD;
@@ -241,6 +251,7 @@ export function createBench(canvas, options = {}) {
           drop: DROPS.some((d) => d.value === saved.drop)
             ? saved.drop
             : DEFAULT_VIEW.drop,
+          bench: isColour(saved.bench) ? saved.bench : DEFAULT_VIEW.bench,
         }
       : null),
     detail: startDetail,
@@ -404,6 +415,7 @@ export function createBench(canvas, options = {}) {
       stretch: view.stretch,
       lampAz: view.lampAz,
       lampEl: view.lampEl,
+      bench: view.bench,
       drop: view.drop,
       detail: view.detail,
       tool,
@@ -476,6 +488,7 @@ export function createBench(canvas, options = {}) {
           stretch: view.stretch,
           lampAz: view.lampAz,
           lampEl: view.lampEl,
+          bench: view.bench,
           detail: view.detail,
           drop: view.drop,
           dishes: entries.map((entry) => packDish(asRecorded(entry))),
@@ -611,7 +624,7 @@ export function createBench(canvas, options = {}) {
         viewProj: camera.viewProj,
         eye: camera.eye,
         light,
-        bench: BENCH_COLOUR,
+        bench: hexToLinear(view.bench),
         dishes: entries.map((entry, i) => ({
           centre: entry.centre,
           display: entry.display,
@@ -1093,6 +1106,14 @@ export function createBench(canvas, options = {}) {
   function setStretch(value) {
     view.stretch = Math.min(8, Math.max(1, value));
     lightDirty = true;
+    emit();
+  }
+
+  /** What the plates sit on: a colour, '#rrggbb'. */
+  function setBench(colour) {
+    if (!isColour(colour)) return;
+    view.bench = colour.toLowerCase();
+    dirty = true;
     emit();
   }
 
@@ -1592,6 +1613,7 @@ export function createBench(canvas, options = {}) {
     setLight,
     setStretch,
     setLamp,
+    setBench,
     arm,
     pour,
     loadRecipe,

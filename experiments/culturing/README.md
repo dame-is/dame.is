@@ -78,7 +78,8 @@ should be its own chunk, loaded only by the page that shows it.
   [`shaders/scene.js`](src/shaders/scene.js)). The surface is one
   displaced sheet per plate, lit four ways a microbiologist would recognise:
   a raking lamp over a black bench, a light table from underneath, a 365 nm
-  lamp, and the dark. Heights are true and the vertical is stretched, by an
+  lamp, and the dark. The bench can be any colour (black for relief, white
+  for colour), and shows through a gel as clear as the clear one. Heights are true and the vertical is stretched, by an
   amount the page states. A plate is a few hundred texels across and is
   looked at from much nearer than that, so the scene reads it through a cubic
   B-spline and makes every hard edge afterwards, from the smooth value: a

@@ -271,6 +271,22 @@ export const MEDIA = [
     look: { color: '#e5dfcf', opacity: 0.5, chromogenic: true },
   },
   {
+    id: 'clear',
+    name: 'Clear gel',
+    after: 'gellan gum and a colourless medium',
+    blurb:
+      'Set with gellan gum instead of agar and fed with a colourless medium, so it is nearly as clear as glass. Whatever the plate sits on shows through it, and every colony sits on that.',
+    notes: [
+      {
+        text: 'Gellan gum sets to a far more transparent gel than agar, which is cloudy; it is used where what grows in or under the gel has to be seen.',
+        href: 'https://www.plantcelltechnology.com/blog/agar-vs-gellan-gum-which-to-choose/',
+      },
+    ],
+    nutrient: 0.8,
+    agar: 1.5,
+    look: { color: '#f2f1ec', opacity: 0.025 },
+  },
+  {
     id: 'charcoal',
     name: 'Charcoal agar',
     after: 'charcoal agar',
