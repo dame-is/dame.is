@@ -65,10 +65,12 @@ the one it replaces, and "Take it back" deletes it.
 
 An experiment's `url` can point anywhere. When the thing to try is a page of
 this site, the page lives under the bench, in the place an experiment's record
-key would be. There are two: `/experimenting/culturing`, a bench of simulated
-petri dishes ([`experiments/culturing/`](../experiments/culturing/)), and
+key would be. There are three: `/experimenting/culturing`, a bench of simulated
+petri dishes ([`experiments/culturing/`](../experiments/culturing/)),
 `/experimenting/sunfarming`, a small game about a solar farm
-([`experiments/sunfarming/`](../experiments/sunfarming/)).
+([`experiments/sunfarming/`](../experiments/sunfarming/)), and
+`/experimenting/atmospheric-workbench`, a sky on a bench
+([`experiments/atmospheric-workbench/`](../experiments/atmospheric-workbench/)).
 
 - The path is listed in `EXPERIMENT_PAGE_PATHS` in
   [`src/lib/experiments.js`](../src/lib/experiments.js). The router gives it

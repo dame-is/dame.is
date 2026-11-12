@@ -109,6 +109,10 @@ const Culturing = lazy(recoverable(() => import('./pages/Culturing.jsx')));
 // Lazy and never warmed, for the same reason: the game brings three.js with
 // it. (Both are packages of their own under experiments/.)
 const Sunfarming = lazy(recoverable(() => import('./pages/Sunfarming.jsx')));
+// And the same again: a sky drawn with three.js, and a ray tracer.
+const AtmosphericWorkbench = lazy(
+  recoverable(() => import('./pages/AtmosphericWorkbench.jsx')),
+);
 // Lazy: the quick-edit sheet and the edit-mode bar are the owner's alone. See
 // OwnerTools.
 const EditSheet = lazy(() => import('./components/EditSheet.jsx'));
@@ -468,6 +472,13 @@ export default function App() {
                       (experiments/sunfarming). It takes the whole window:
                       see `immersive` above. */}
                   <Route path="/experimenting/sunfarming" element={<Sunfarming />} />
+                  {/* And a third: a workbench for clouds, halos and rainbows
+                      (experiments/atmospheric-workbench). A page with a bench
+                      on it, like the first. */}
+                  <Route
+                    path="/experimenting/atmospheric-workbench"
+                    element={<AtmosphericWorkbench />}
+                  />
                   <Route path="/experimenting/:rkey" element={<Experiment />} />
                   {/* The roster is Ratioed's, and lives under Ratioed. This is
                       the short address for it, the way /guestbook above is the

@@ -11,10 +11,11 @@ The point is that an experiment can leave. If one turns out to be good enough
 to be a project, its folder is already the project: copy it out, `npm install`,
 and it runs.
 
-| folder                       | what it is                                           | on the site                 |
-| ---------------------------- | ---------------------------------------------------- | --------------------------- |
-| [`culturing/`](culturing/)   | A workbench of simulated petri dishes.               | `/experimenting/culturing`  |
-| [`sunfarming/`](sunfarming/) | A small cel-shaded game about building a solar farm. | `/experimenting/sunfarming` |
+| folder                                             | what it is                                                                        | on the site                            |
+| -------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------- |
+| [`culturing/`](culturing/)                         | A workbench of simulated petri dishes.                                            | `/experimenting/culturing`             |
+| [`sunfarming/`](sunfarming/)                       | A small cel-shaded game about building a solar farm.                              | `/experimenting/sunfarming`            |
+| [`atmospheric-workbench/`](atmospheric-workbench/) | A sky on a bench: clouds to shape, and halos and rainbows traced a ray at a time. | `/experimenting/atmospheric-workbench` |
 
 ## How it fits together
 
@@ -55,7 +56,8 @@ Sunfarming keeps both. Culturing keeps the first and bends the second, on
 purpose: it was built as a page of the site and is dressed in the site's kit.
 What it borrows goes through exactly two files (`src/host.js` for four
 components, `standalone/host.css` for the base stylesheets), so the list of
-what would have to leave with it is short and written down. An experiment that
+what would have to leave with it is short and written down. The atmospheric
+workbench does the same, through the same two files. An experiment that
 wants the site's look should do the same; one that doesn't should bring its
 own, as Sunfarming does.
 
@@ -64,7 +66,7 @@ own, as Sunfarming does.
 From the repo root:
 
 ```
-npm run dev -w @dame-is/sunfarming      # the experiment alone (:5180; culturing is :5181)
+npm run dev -w @dame-is/sunfarming      # the experiment alone (:5180; culturing is :5181, atmospheric-workbench :5182)
 npm test -w @dame-is/sunfarming         # its own tests
 npm run build -w @dame-is/sunfarming    # standalone build, into its dist/
 npm run dev                              # the site, with every experiment embedded

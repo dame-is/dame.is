@@ -1,0 +1,32 @@
+{
+  "name": "@dame-is/atmospheric-workbench",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A workbench for clouds and for what light does in the sky: halos, sun dogs and rainbows traced a ray at a time.",
+  "exports": {
+    ".": "./src/index.js",
+    "./meta": "./src/meta.js"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "lucide-react": "^1.14.0",
+    "three": "^0.187.0"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^6.4.2",
+    "vitest": "^4.1.11"
+  }
+}

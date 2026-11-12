@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ATMOSPHERIC_WORKBENCH_PATH,
   CULTURING_PATH,
   SUNFARMING_PATH,
   EXPERIMENT_PAGE_PATHS,
@@ -320,6 +321,9 @@ describe('an experiment that is a page of this site', () => {
     expect(SUNFARMING_PATH).toBe('/experimenting/sunfarming');
     expect(isExperimentPagePath('/experimenting/sunfarming')).toBe(true);
     expect(isExperimentPagePath('/sunfarming')).toBe(false);
+    // And the third (experiments/atmospheric-workbench).
+    expect(ATMOSPHERIC_WORKBENCH_PATH).toBe('/experimenting/atmospheric-workbench');
+    expect(isExperimentPagePath('/experimenting/atmospheric-workbench')).toBe(true);
   });
 
   it('takes the whole window when it is a game, and only then', () => {
@@ -329,6 +333,7 @@ describe('an experiment that is a page of this site', () => {
     // the site round them.
     expect(isImmersiveExperimentPath('/experimenting')).toBe(false);
     expect(isImmersiveExperimentPath('/experimenting/culturing')).toBe(false);
+    expect(isImmersiveExperimentPath('/experimenting/atmospheric-workbench')).toBe(false);
     expect(isImmersiveExperimentPath('/experimenting/3mz4bbmjphc2l')).toBe(false);
     expect(isImmersiveExperimentPath('/experimenting/sunfarming/more')).toBe(false);
     expect(isImmersiveExperimentPath(null)).toBe(false);
