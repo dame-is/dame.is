@@ -403,6 +403,28 @@ export function topActors(events, { kind = 'all', t0 = -Infinity, t1 = Infinity,
     .slice(0, Math.max(0, limit));
 }
 
+/**
+ * Follows who posted in the window and drew none of the owner's engagement
+ * there: no like, repost, reply or quote (or none of `kind`) since `t0`.
+ *
+ * `lastPosted` maps a DID to when it last posted, in ms (null for never). A
+ * follow missing from it hasn't been read and is left out rather than
+ * guessed at. Most recent poster first.
+ *
+ * @returns {Array<{did:string, lastPostedMs:number}>}
+ */
+export function quietFollows(dids, outbound, lastPosted, { kind = 'all', t0 = -Infinity, t1 = Infinity } = {}) {
+  const engaged = new Set(topActors(outbound, { kind, t0, t1, limit: Infinity }).map((r) => r.did));
+  const rows = [];
+  for (const did of new Set(dids || [])) {
+    if (engaged.has(did)) continue;
+    const ms = lastPosted?.get(did);
+    if (ms == null || ms < t0) continue;
+    rows.push({ did, lastPostedMs: ms });
+  }
+  return rows.sort((a, b) => b.lastPostedMs - a.lastPostedMs || (a.did < b.did ? -1 : 1));
+}
+
 /* ------------------------------------------------------------------ */
 /* Compact shapes — what the archives store                             */
 /* ------------------------------------------------------------------ */

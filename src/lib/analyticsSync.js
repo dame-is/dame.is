@@ -50,7 +50,7 @@
 // resume from where that is meaningful).
 
 import { APPVIEW } from '../config.js';
-import { rkeyFromAtUri, tidToTimestamp, resolveProfiles } from './atproto.js';
+import { listRecordsPage, resolvePds, rkeyFromAtUri, tidToTimestamp, resolveProfiles } from './atproto.js';
 import { compactPostFromFeedItem, inboundFromNotification, outboundFromRecord } from './analytics.js';
 import { backlinkRows, getBacklinks, getManyToMany } from './constellation.js';
 
@@ -731,6 +731,89 @@ export async function sweepOutbound(
     complete = complete && finished;
   }
   return { events, fetched: events.length, reachedMs, complete, truncated, aborted: false, error };
+}
+
+/* ------------------------------------------------------------------ */
+/* When follows last posted                                             */
+/* ------------------------------------------------------------------ */
+
+const POST = 'app.bsky.feed.post';
+
+/** How many of an account's newest post records one read looks at. */
+const LAST_POSTED_PAGE = 10;
+
+/** How many accounts are read at once. */
+const LAST_POSTED_CONCURRENCY = 8;
+
+/**
+ * The newest date in a page of post records, as ms, or null for an empty page.
+ *
+ * Records come back newest-first by rkey, but not every rkey is a real TID.
+ * Some clients mint keys that decode to the 22nd century, and one follow had
+ * a post keyed `zzzz`; both sort ahead of every ordinary post. Reading the top
+ * record alone dated four of 260 follows to the wrong month (measured
+ * 2026-11-12). So: the rkey's time where it is a plausible TID, the record's
+ * createdAt where it is not, and the newest of the page.
+ */
+export function newestPostMs(records, nowMs = Date.now()) {
+  const ceiling = nowMs + 10 * 60_000;
+  let newest = null;
+  for (const record of records || []) {
+    const tid = Date.parse(tidToTimestamp(rkeyFromAtUri(record?.uri)) || '');
+    const created = Date.parse(record?.value?.createdAt || '');
+    const at = Number.isFinite(tid) && tid <= ceiling ? tid : Number.isFinite(created) && created <= ceiling ? created : null;
+    if (at != null && (newest == null || at > newest)) newest = at;
+  }
+  return newest;
+}
+
+/**
+ * When each account last posted (a post or a reply, never a repost), read
+ * from its own repo: the PLC directory for where that is, then one
+ * listRecords page of its posts. Reposts are left out on purpose: the
+ * question this answers is whether there was something of theirs to engage
+ * with.
+ *
+ * Measured on this account, 2026-11-12: 260 follows in about six seconds at
+ * eight at a time. The two that failed were deleted accounts still followed;
+ * a deactivated account or a server that doesn't answer lands there too.
+ *
+ * `onResult(did, ms | null, ok)` fires as each account is read, so a caller
+ * can keep what arrived before an abort.
+ *
+ * @returns {Promise<{lastPosted: Map<string, number|null>, failed: Array<string>, aborted: boolean}>}
+ */
+export async function sweepLastPosted(dids, { onResult, onProgress, signal } = {}) {
+  const queue = Array.from(new Set(dids || []));
+  const total = queue.length;
+  const lastPosted = new Map();
+  const failed = [];
+  let done = 0;
+  const readOne = async (did) => {
+    const pds = await resolvePds(did);
+    const res = await listRecordsPage(pds, { repo: did, collection: POST, limit: LAST_POSTED_PAGE });
+    return newestPostMs(res?.records);
+  };
+  const worker = async () => {
+    while (queue.length && !aborted(signal)) {
+      const did = queue.shift();
+      let ms = null;
+      let ok = true;
+      try {
+        ms = await withRetry(() => readOne(did), signal);
+      } catch {
+        ok = false;
+      }
+      if (aborted(signal)) return;
+      if (ok) lastPosted.set(did, ms);
+      else failed.push(did);
+      done += 1;
+      onResult?.(did, ms, ok);
+      onProgress?.({ done, total });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(LAST_POSTED_CONCURRENCY, total) }, worker));
+  return { lastPosted, failed, aborted: aborted(signal) };
 }
 
 /* ------------------------------------------------------------------ */

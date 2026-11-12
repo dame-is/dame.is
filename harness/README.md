@@ -17,7 +17,9 @@ stand-in for the PDS, covering the `com.atproto.repo.*` methods the app
 actually calls plus read-only stand-ins for the Analytics studio's sweeps
 (synthesized followers and notifications, and a few follow records so the
 People tab has both Follow and Following rows; its post sweep walks the real
-public AppView even here). Writes mutate the fixture repo, so saving,
+public AppView even here). When each of those follows last posted, which the
+People tab reads from the PLC directory and each follow's PDS, is answered in
+the page for those invented DIDs only. Writes mutate the fixture repo, so saving,
 deleting and bulk actions all behave — for the lifetime of the page.
 
 ## Running it

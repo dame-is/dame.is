@@ -7,10 +7,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   followFromRecord,
+  newestPostMs,
   sweepBlocks,
   sweepFollowers,
   sweepFollowing,
   sweepInbound,
+  sweepLastPosted,
   sweepOutbound,
   sweepPosts,
 } from './analyticsSync.js';
@@ -538,5 +540,79 @@ describe('sweepBlocks progress', () => {
     expect([...new Set(reports.map((p) => p.stage))]).toEqual(['direct', 'lists', 'check', 'subscribers']);
     expect(reports.find((p) => p.stage === 'check' && p.done === 1)).toMatchObject({ total: 1 });
     expect(reports.at(-1)).toEqual({ stage: 'subscribers', fetched: 3, done: 1, total: 1 });
+  });
+});
+
+describe('newestPostMs', () => {
+  const rec = (rkey, createdAtMs) => ({
+    uri: `at://did:plc:x/app.bsky.feed.post/${rkey}`,
+    value: { createdAt: new Date(createdAtMs).toISOString() },
+  });
+
+  it('dates a page by its newest real TID', () => {
+    expect(newestPostMs([rec(tidFor(NOW - DAY), NOW - DAY), rec(tidFor(NOW - 3 * DAY), NOW - 3 * DAY)], NOW)).toBe(
+      NOW - DAY,
+    );
+  });
+
+  // Both shapes were found among real follows on 2026-11-12: a key that is
+  // not a TID at all, and one that decodes to centuries from now. Each sorts
+  // ahead of the account's real newest post.
+  it('reads past keys that sort first but are not times', () => {
+    const page = [rec('zzzz', NOW - 90 * DAY), rec(tidFor(NOW + 200 * 365 * DAY), NOW - 30 * DAY), rec(tidFor(NOW - DAY), NOW - DAY)];
+    expect(newestPostMs(page, NOW)).toBe(NOW - DAY);
+  });
+
+  it('falls back to createdAt when no key in the page is a time', () => {
+    expect(newestPostMs([rec('zzzz', NOW - 5 * DAY)], NOW)).toBe(NOW - 5 * DAY);
+  });
+
+  it('is null for an account with no posts', () => {
+    expect(newestPostMs([], NOW)).toBe(null);
+  });
+});
+
+describe('sweepLastPosted', () => {
+  it('reads each account from its own PDS and keeps going past one that fails', async () => {
+    const posts = {
+      'did:plc:lpactive': [{ uri: `at://did:plc:lpactive/app.bsky.feed.post/${tidFor(NOW - DAY)}`, value: {} }],
+      'did:plc:lpsilent': [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const u = new URL(url);
+        if (u.host === 'plc.directory') {
+          const did = decodeURIComponent(u.pathname.slice(1));
+          if (did === 'did:plc:lpgone') return { ok: false, status: 404, statusText: 'Not Found', text: async () => '' };
+          return {
+            ok: true,
+            json: async () => ({ id: did, service: [{ id: '#atproto_pds', serviceEndpoint: 'https://pds.example.com' }] }),
+          };
+        }
+        const repo = u.searchParams.get('repo');
+        expect(u.searchParams.get('collection')).toBe('app.bsky.feed.post');
+        return { ok: true, json: async () => ({ records: posts[repo] }) };
+      }),
+    );
+    const seen = [];
+    const res = await sweepLastPosted(['did:plc:lpactive', 'did:plc:lpsilent', 'did:plc:lpgone'], {
+      onResult: (did, ms, ok) => seen.push([did, ok]),
+    });
+    expect(res.lastPosted.get('did:plc:lpactive')).toBe(NOW - DAY);
+    expect(res.lastPosted.get('did:plc:lpsilent')).toBe(null);
+    expect(res.lastPosted.has('did:plc:lpgone')).toBe(false);
+    expect(res.failed).toEqual(['did:plc:lpgone']);
+    expect(seen).toHaveLength(3);
+  });
+
+  it('stops taking new accounts once aborted', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const fetchFake = vi.fn();
+    vi.stubGlobal('fetch', fetchFake);
+    const res = await sweepLastPosted(['did:plc:lpa', 'did:plc:lpb'], { signal: ctrl.signal });
+    expect(res.aborted).toBe(true);
+    expect(fetchFake).not.toHaveBeenCalled();
   });
 });

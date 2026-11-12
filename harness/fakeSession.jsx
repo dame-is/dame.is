@@ -125,7 +125,62 @@ function buildAnalyticsFixtures() {
     };
   });
 
-  return { followers, notifications, follows };
+  // When each follow last posted, for the People tab's "Follows you haven't
+  // engaged with": a mix of busy, quiet, never and unreadable.
+  // undefined = the account can't be read; null = it has never posted.
+  const H = 3600_000;
+  const D = 86_400_000;
+  const lastPosted = new Map([
+    [CAST[0][0], now - 2 * H],
+    [CAST[2][0], now - 3 * D],
+    [CAST[4][0], now - 40 * D],
+    [followers[0].did, now - 1 * D],
+    [followers[1].did, null],
+    [followers[2].did, now - 5 * H],
+    [followers[3].did, undefined],
+    [followers[4].did, now - 200 * D],
+    [followers[5].did, now - 10 * D],
+  ]);
+
+  return { followers, notifications, follows, lastPosted };
+}
+
+const HARNESS_PDS = 'https://pds.harness.invalid';
+
+/**
+ * The People tab reads when each follow last posted straight from the PLC
+ * directory and the follow's own PDS, not through the agent. The harness's
+ * follows are invented DIDs, so those two reads are answered here and every
+ * other request goes out as usual.
+ */
+function shimFollowActivity(lastPosted, latency) {
+  if (window.__harnessActivityShim) return;
+  window.__harnessActivityShim = true;
+  const realFetch = window.fetch.bind(window);
+  const json = (body, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  window.fetch = async (input, init) => {
+    const url = new URL(typeof input === 'string' ? input : input.url, window.location.href);
+    if (url.host === 'plc.directory') {
+      const did = decodeURIComponent(url.pathname.slice(1));
+      if (lastPosted.has(did)) {
+        await sleep(latency * 2);
+        if (lastPosted.get(did) === undefined) return json({ message: 'DID not registered' }, 404);
+        return json({ id: did, service: [{ id: '#atproto_pds', type: 'AtprotoPersonalDataServer', serviceEndpoint: HARNESS_PDS }] });
+      }
+    }
+    if (url.origin === HARNESS_PDS) {
+      await sleep(latency * 4);
+      const did = url.searchParams.get('repo');
+      const ms = lastPosted.get(did);
+      const records =
+        ms == null
+          ? []
+          : [{ uri: `at://${did}/app.bsky.feed.post/${tidAt(ms)}`, cid: 'bafyharnesspost', value: { createdAt: new Date(ms).toISOString() } }];
+      return json({ records });
+    }
+    return realFetch(input, init);
+  };
 }
 
 /**
@@ -143,6 +198,7 @@ function makeAgent(repo, bump) {
   // The owner's follows live in the repo like any record, so the People
   // tab's Follow and Unfollow write and delete through the same methods.
   if (!repo['app.bsky.graph.follow']) repo['app.bsky.graph.follow'] = analytics.follows;
+  shimFollowActivity(analytics.lastPosted, latency);
   const page = (all, limit, cursor) => {
     const start = cursor ? Number(cursor) || 0 : 0;
     const slice = all.slice(start, start + limit);

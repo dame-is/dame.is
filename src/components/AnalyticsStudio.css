@@ -779,6 +779,18 @@
   grid-template-columns: auto minmax(8rem, 14rem) 1fr 3rem 6.5rem;
 }
 
+/* A person with a short fact ("posted 2h ago") where the bar and count go. */
+.an-actor--aside.an-actor--follow {
+  grid-template-columns: auto minmax(0, 1fr) auto 6.5rem;
+}
+
+.an-actor-aside {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  text-align: right;
+}
+
 .an-actor-action {
   display: flex;
   justify-content: flex-end;
@@ -897,6 +909,10 @@
 
   .an-actor--follow {
     grid-template-columns: auto minmax(0, 1fr) 2.6rem 6rem;
+  }
+
+  .an-actor--aside.an-actor--follow {
+    grid-template-columns: auto minmax(0, 1fr) auto 6rem;
   }
 
   .an-collections .an-actor {
