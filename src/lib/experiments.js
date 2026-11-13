@@ -56,12 +56,13 @@ export function isExperimentPagePath(pathname) {
 }
 
 /**
- * The built-in experiments that take the whole window: a game, rather than a
- * page with something to look at on it. On one of these none of the site's
- * own interface is drawn (no bars, no dock, no inspect layer; App.jsx asks
- * this to decide), and the experiment carries the way back out itself.
+ * The built-in experiments that take the whole window: a game, or a bench
+ * worked with its tools laid over it, rather than a page with something to
+ * look at on it. On one of these none of the site's own interface is drawn
+ * (no bars, no dock, no inspect layer; App.jsx asks this to decide), and the
+ * experiment carries the way back out itself.
  */
-export const IMMERSIVE_EXPERIMENT_PATHS = Object.freeze([SUNFARMING_PATH]);
+export const IMMERSIVE_EXPERIMENT_PATHS = Object.freeze([SUNFARMING_PATH, CULTURING_PATH]);
 
 export function isImmersiveExperimentPath(pathname) {
   return IMMERSIVE_EXPERIMENT_PATHS.includes(withoutTrailingSlash(pathname));

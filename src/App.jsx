@@ -357,9 +357,10 @@ export default function App() {
   const inAdmin = location.pathname === '/admin';
   const stacked = useStackedViewport();
   const adminOwnsChrome = inAdmin && !stacked;
-  // A game takes the whole window (isImmersiveExperimentPath). None of the
-  // site's interface is drawn round it: not the bars, not the dock, not the
-  // inspect layer or the owner's tools, at any width. It is a different thing
+  // A game, or the culturing bench, takes the whole window
+  // (isImmersiveExperimentPath). None of the site's interface is drawn round
+  // it: not the bars, not the dock, not the inspect layer or the owner's
+  // tools, at any width. It is a different thing
   // from the admin's frame above, which stands the bars down to make room for
   // its own; here there is nothing of the site's left, and the way back out is
   // a button the game is handed (pages/Sunfarming.jsx). The providers stay, so
@@ -466,7 +467,8 @@ export default function App() {
                   {/* An experiment that is a page of this site: a bench of
                       simulated petri dishes (experiments/culturing). It sits where
                       an experiment's record key would, and a plate travels
-                      in the query (?plate=…), not in the path. */}
+                      in the query (?plate=…), not in the path. It takes the
+                      whole window: see `immersive` above. */}
                   <Route path="/experimenting/culturing" element={<Culturing />} />
                   {/* And a second: a small game about a solar farm
                       (experiments/sunfarming). It takes the whole window:

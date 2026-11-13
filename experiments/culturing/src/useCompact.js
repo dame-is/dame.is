@@ -1,12 +1,14 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * The width under which the bench is laid out for a phone. It is the same
- * width culturing.css turns at, so the few things that are built
- * differently there (a picker where a row of keys won't fit, the view's
- * tools on the picture) change with the layout and not a frame after it.
+ * The width under which the bench is laid out for a phone (Workbench.jsx):
+ * a bar along the top, tabs along the bottom and sheets between them,
+ * instead of a menu bar. It is the site's own line between a desk and
+ * everything narrower (stylelint.config.js), because the menu bar needs a
+ * desk's width to hold its menus, and a tablet held upright is better off
+ * with the sheets. culturing.css follows the class this sets, not a width.
  */
-export const COMPACT_QUERY = '(max-width: 700px)';
+export const COMPACT_QUERY = '(max-width: 61.99rem)';
 
 function subscribe(onChange) {
   if (typeof matchMedia !== 'function') return () => {};

@@ -1,4 +1,12 @@
-import { useEffect, useState } from 'react';
+// What the bench's menus open (Workbench.jsx): the cultures, the media, the
+// tray, the incubator, the recipes, a plate's record, and the plates
+// themselves. Each is a panel that knows nothing of where it is shown. On a
+// wide window it drops from the menu bar; on a phone it is a sheet pulled up
+// over the bench. `onPick` is called when something has been picked up, and
+// `onDone` when the panel has done what it was opened for, so whatever shows
+// it can get out of the way of the plate.
+
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { Button, Segmented, Tag } from './host.js';
 import { CULTURES, KINDS, cultureById } from './cultures.js';
@@ -30,15 +38,6 @@ import { BENCHES } from './bench.js';
 import { DETAILS, temperatureFactor } from './units.js';
 import { describeEvent, describePour, formatHours } from './format.js';
 import { saveBlob } from './save.js';
-
-const TABS = [
-  { value: 'cultures', label: 'Cultures' },
-  { value: 'media', label: 'Media' },
-  { value: 'tray', label: 'Tray' },
-  { value: 'incubator', label: 'Incubator' },
-  { value: 'recipes', label: 'Recipes' },
-  { value: 'record', label: 'Record' },
-];
 
 const LIGHT_OPTIONS = [
   { value: 'cycle', label: 'Day & night' },
@@ -120,25 +119,41 @@ function Confirm({ label, confirmLabel, onConfirm, sure = true, ...rest }) {
 }
 
 /**
- * The shelf: everything a tab has to pick from. Beside the stage it is a
- * list read down the column. On a phone it is a strip that scrolls sideways
- * under the picture (culturing.css), so picking from it never means losing
- * sight of the plate.
+ * Whether a pointer can rest on a thing without pressing it. Only then is
+ * a shelf item's card shown before it is picked: on a touch screen the
+ * focus that comes with a tap would put the card in, move the shelf, and
+ * send the tap's click somewhere else.
  */
-function Shelf({ children }) {
-  return <div className="cult-shelf">{children}</div>;
+function canHover() {
+  return (
+    typeof matchMedia === 'function' && matchMedia('(hover: hover)').matches
+  );
 }
 
-/** A row of the shelf: a swatch, a name, and what it is modelled on. */
-function Item({ on, disabled, swatch, name, after, tag, onClick }) {
+/** The shelf: everything a panel has to pick from. `onLeave` is told when
+ *  the pointer leaves it, to stop showing what it was over. */
+function Shelf({ children, onLeave }) {
+  return (
+    <div className="cult-shelf" onMouseLeave={onLeave}>
+      {children}
+    </div>
+  );
+}
+
+/** A row of the shelf: a swatch, a name, and what it is modelled on.
+ *  `onPeek` is told when the pointer or the focus comes to it. */
+function Item({ on, disabled, swatch, name, after, tag, onClick, onPeek }) {
   return (
     <li>
       <button
         type="button"
         className={`cult-item${on ? ' is-on' : ''}`}
         aria-pressed={on}
-        disabled={disabled}
-        onClick={onClick}
+        // Not `disabled`: one that can't be picked can still be read about.
+        aria-disabled={disabled || undefined}
+        onClick={disabled ? undefined : onClick}
+        onMouseEnter={onPeek}
+        onFocus={onPeek}
       >
         {swatch}
         <span className="cult-item-name">{name}</span>
@@ -149,7 +164,7 @@ function Item({ on, disabled, swatch, name, after, tag, onClick }) {
   );
 }
 
-function cultureSwatch(culture) {
+export function cultureSwatch(culture) {
   const look = resolveCulture(culture).look;
   return (
     <span
@@ -160,7 +175,7 @@ function cultureSwatch(culture) {
   );
 }
 
-function mediumSwatch(medium, tint = null) {
+export function mediumSwatch(medium, tint = null) {
   const look = { ...MEDIUM_LOOK_DEFAULTS, ...medium.look };
   const colour = tint || look.color;
   return (
@@ -169,6 +184,22 @@ function mediumSwatch(medium, tint = null) {
       style={{ '--swatch-rim': colour, '--swatch-core': colour }}
       aria-hidden="true"
     />
+  );
+}
+
+/**
+ * The card for something on a shelf that the pointer is over but the hand
+ * isn't holding: what it is, where it comes from, and how to use it.
+ */
+function PeekCard({ item, hint }) {
+  return (
+    <div className="cult-card cult-card--peek">
+      <h3 className="cult-card-title">{item.name}</h3>
+      <p className="cult-card-after">after {item.after}</p>
+      <p className="cult-card-blurb">{item.blurb}</p>
+      <p className="cult-hint">{hint}</p>
+      <Notes notes={item.notes} />
+    </div>
   );
 }
 
@@ -212,15 +243,27 @@ const DROP_KEYS = DROPS.map((d) => ({
   title: d.hint,
 }));
 
-function CulturesPanel({ bench, snap, compact }) {
+export function CulturesPanel({ bench, snap, onPick, onDone }) {
   const plate = snap.dishes[snap.selected];
   const armed =
     snap.tool?.kind === 'culture' ? cultureById(snap.tool.id) : null;
   const drop = DROPS.find((d) => d.value === snap.drop) || DROPS[0];
   const across = drop.radius * 2;
+  // The one the pointer is over, read before it is picked up.
+  const [peek, setPeek] = useState(null);
+  const peeked = peek && peek !== armed?.id ? cultureById(peek) : null;
   return (
     <>
-      {armed ? (
+      {peeked ? (
+        <PeekCard
+          item={peeked}
+          hint={
+            plate.full && !plate.slots.includes(peeked.id)
+              ? 'This plate holds four cultures already.'
+              : 'Pick it up, then touch the gel: a tap leaves a drop, a drag draws a streak.'
+          }
+        />
+      ) : armed ? (
         <div className="cult-card">
           <h3 className="cult-card-title">{armed.name}</h3>
           <p className="cult-card-after">after {armed.after}</p>
@@ -242,11 +285,7 @@ function CulturesPanel({ bench, snap, compact }) {
               label="How big a drop to leave"
               options={DROP_KEYS}
               value={drop.value}
-              onChange={(value) => {
-                bench.setDrop(value);
-                const next = DROPS.find((d) => d.value === value);
-                if (compact && next) bench.say(next.hint);
-              }}
+              onChange={bench.setDrop}
             />
             <p className="cult-field-hint">{drop.hint}</p>
           </div>
@@ -261,6 +300,7 @@ function CulturesPanel({ bench, snap, compact }) {
                   const { x, y } = middleOf(plate.vessel, i);
                   bench.spot(snap.selected, armed.id, x, y);
                 }
+                onDone?.();
               }}
             >
               {plate.vessel === 'wells'
@@ -275,13 +315,17 @@ function CulturesPanel({ bench, snap, compact }) {
                 const { x, y } = somewhere(plate);
                 bench.enter(snap.selected);
                 bench.spot(snap.selected, armed.id, x, y);
+                onDone?.();
               }}
             >
               Drop one anywhere
             </Button>
             <Button
               size="sm"
-              onClick={() => bench.spread(snap.selected, armed.id)}
+              onClick={() => {
+                bench.spread(snap.selected, armed.id);
+                onDone?.();
+              }}
             >
               Spread a lawn
             </Button>
@@ -298,13 +342,13 @@ function CulturesPanel({ bench, snap, compact }) {
           together. A plate holds four.
         </p>
       )}
-      <Shelf>
+      <Shelf onLeave={() => setPeek(null)}>
         {KINDS.map((group) => {
           const members = CULTURES.filter((c) => c.kind === group.kind);
           if (!members.length) return null;
           return (
             <div key={group.kind} className="cult-group">
-              <h3 className="eyebrow cult-group-head">{group.label}</h3>
+              <h3 className="cult-group-head">{group.label}</h3>
               <ul className="cult-list">
                 {members.map((c) => {
                   const here = plate.slots.includes(c.id);
@@ -317,16 +361,11 @@ function CulturesPanel({ bench, snap, compact }) {
                       name={c.name}
                       after={c.after}
                       tag={here ? 'on plate' : null}
+                      onPeek={canHover() ? () => setPeek(c.id) : undefined}
                       onClick={() => {
                         const on = armed?.id === c.id;
                         bench.arm(on ? null : { kind: 'culture', id: c.id });
-                        // On a phone the card that says this is under the
-                        // strip, out of sight: the stage says it instead.
-                        if (!on && compact) {
-                          bench.say(
-                            `${c.name}: touch the gel to leave a drop, drag to draw a streak.`,
-                          );
-                        }
+                        if (!on) onPick?.();
                       }}
                     />
                   );
@@ -393,8 +432,9 @@ function fill(media, count) {
   return Array.from({ length: count }, (_, i) => media[i] || media[0]);
 }
 
-function MediaPanel({ bench, snap }) {
+export function MediaPanel({ bench, snap, onDone }) {
   const plate = snap.dishes[snap.selected];
+  const cardRef = useRef(null);
   const [vessel, setVessel] = useState(plate.vessel);
   const [parts, setParts] = useState(plate.media);
   const [part, setPart] = useState(0);
@@ -429,12 +469,15 @@ function MediaPanel({ bench, snap }) {
       setAgar(m.agar);
       setNutrient(m.nutrient);
     }
+    // On a phone the card is above the shelf, out of sight once the shelf
+    // has been scrolled to: bring it back, with Pour on it.
+    cardRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   };
   const used = plate.events.length > 0;
   const gradientHint = GRADIENTS.find((g) => g.value === gradient)?.hint;
   return (
     <>
-      <div className="cult-card">
+      <div className="cult-card" ref={cardRef}>
         <div className="cult-field">
           <span className="cult-field-label">Poured into</span>
           <Segmented
@@ -558,6 +601,7 @@ function MediaPanel({ bench, snap }) {
                   (_, i) => tints[i] || null,
                 ),
               });
+              onDone?.();
             }}
           />
         </div>
@@ -584,7 +628,7 @@ function MediaPanel({ bench, snap }) {
 
 // ---------------------------------------------------------------- tray
 
-function additionSwatch(item, chosen = null) {
+export function additionSwatch(item, chosen = null) {
   const colour =
     chosen || item.drop?.dye || (item.kind === 'disc' ? '#dcd8c8' : null);
   return (
@@ -599,7 +643,7 @@ function additionSwatch(item, chosen = null) {
 }
 
 /** What the hand does with something off the tray, in a sentence. */
-function handling(item) {
+export function handling(item) {
   if (item.print) {
     return `Take a print of another plate as it stands, and put it down on this one.`;
   }
@@ -615,7 +659,7 @@ function handling(item) {
 
 /** The plates a velvet can take a print from: the others with something
  *  growing on them. */
-function PrintFrom({ bench, snap }) {
+function PrintFrom({ bench, snap, onDone }) {
   const sources = snap.dishes
     .map((dish, i) => ({ dish, i }))
     .filter(({ dish, i }) => i !== snap.selected && dish.slots.length > 0);
@@ -636,6 +680,7 @@ function PrintFrom({ bench, snap }) {
           onClick={() => {
             bench.enter(snap.selected);
             bench.print(i, snap.selected);
+            onDone?.();
           }}
         >
           {mediumSwatch(mediumById(dish.medium) || MEDIA[0])}
@@ -646,19 +691,26 @@ function PrintFrom({ bench, snap }) {
   );
 }
 
-function TrayPanel({ bench, snap, compact }) {
+export function TrayPanel({ bench, snap, onPick, onDone }) {
   const armed =
     snap.tool?.kind === 'addition' ? additionById(snap.tool.id) : null;
   const dragged = armed && (armed.cut || armed.scrape || armed.print);
+  // The one the pointer is over, read before it is picked up.
+  const [peek, setPeek] = useState(null);
+  const peeked = peek && peek !== armed?.id ? additionById(peek) : null;
   return (
     <>
-      {armed ? (
+      {peeked ? (
+        <PeekCard item={peeked} hint={handling(peeked)} />
+      ) : armed ? (
         <div className="cult-card">
           <h3 className="cult-card-title">{armed.name}</h3>
           <p className="cult-card-after">after {armed.after}</p>
           <p className="cult-card-blurb">{armed.blurb}</p>
           <p className="cult-hint">{handling(armed)}</p>
-          {armed.print && <PrintFrom bench={bench} snap={snap} />}
+          {armed.print && (
+            <PrintFrom bench={bench} snap={snap} onDone={onDone} />
+          )}
           {armed.pick && (
             <ColourField
               id="cult-food"
@@ -678,6 +730,7 @@ function TrayPanel({ bench, snap, compact }) {
                   const { x, y } = somewhere(snap.dishes[snap.selected]);
                   bench.enter(snap.selected);
                   bench.put(snap.selected, armed.id, x, y, snap.tool.color);
+                  onDone?.();
                 }}
               >
                 Set one down anywhere
@@ -695,10 +748,10 @@ function TrayPanel({ bench, snap, compact }) {
           Pick one up and touch the gel, or drag across it.
         </p>
       )}
-      <Shelf>
+      <Shelf onLeave={() => setPeek(null)}>
         {ADDITION_KINDS.map((group) => (
           <div key={group.kind} className="cult-group">
-            <h3 className="eyebrow cult-group-head">{group.label}</h3>
+            <h3 className="cult-group-head">{group.label}</h3>
             <ul className="cult-list">
               {ADDITIONS.filter((a) => a.kind === group.kind).map((a) => (
                 <Item
@@ -710,10 +763,11 @@ function TrayPanel({ bench, snap, compact }) {
                   )}
                   name={a.name}
                   after={a.after}
+                  onPeek={canHover() ? () => setPeek(a.id) : undefined}
                   onClick={() => {
                     const on = armed?.id === a.id;
                     bench.arm(on ? null : { kind: 'addition', id: a.id });
-                    if (!on && compact) bench.say(`${a.name}: ${handling(a)}`);
+                    if (!on) onPick?.();
                   }}
                 />
               ))}
@@ -806,7 +860,7 @@ function LidField({ lid, onSet }) {
   );
 }
 
-function IncubatorPanel({ bench, snap }) {
+export function IncubatorPanel({ bench, snap }) {
   const plate = snap.dishes[snap.selected];
   const { env } = plate;
   const set = (patch) => bench.setEnv(snap.selected, patch);
@@ -929,65 +983,15 @@ function IncubatorPanel({ bench, snap }) {
 
 // ------------------------------------------------------------- recipes
 
-function RecipesPanel({ bench, snap, compact }) {
+export function RecipesPanel({ bench, snap, onDone }) {
   const plate = snap.dishes[snap.selected];
   const used = plate.events.length > 0;
-  // On a phone one recipe is read at a time: the one this plate was grown
-  // from, until another is picked off the strip.
-  const [pick, setPick] = useState(plate.recipe || RECIPES[0].id);
-  useEffect(() => {
-    if (plate.recipe) setPick(plate.recipe);
-  }, [snap.selected, plate.recipe]);
-
-  const grow = (recipe) => (
-    <Confirm
-      sure={used && plate.recipe !== recipe.id}
-      label={
-        plate.recipe === recipe.id
-          ? 'Start it again'
-          : `Grow it on plate ${snap.selected + 1}`
-      }
-      confirmLabel="Discard what’s growing and start it"
-      onConfirm={() => bench.loadRecipe(snap.selected, recipe.id)}
-    />
-  );
-  const hint = (
-    <p className="cult-hint">
-      Plates that show one thing each. Nothing on them is drawn: it is what
-      these cultures do on that medium, started a few hours in.
-    </p>
-  );
-
-  if (compact) {
-    const recipe = RECIPES.find((r) => r.id === pick) || RECIPES[0];
-    return (
-      <>
-        <div className="cult-card">
-          <h3 className="cult-card-title">{recipe.name}</h3>
-          <p className="cult-card-blurb">{recipe.watch}</p>
-          <div className="cult-actions">{grow(recipe)}</div>
-        </div>
-        {hint}
-        <Shelf>
-          <ul className="cult-list">
-            {RECIPES.map((r) => (
-              <Item
-                key={r.id}
-                on={r.id === recipe.id}
-                name={r.name}
-                tag={plate.recipe === r.id ? 'on plate' : null}
-                onClick={() => setPick(r.id)}
-              />
-            ))}
-          </ul>
-        </Shelf>
-      </>
-    );
-  }
-
   return (
     <>
-      {hint}
+      <p className="cult-hint">
+        Plates that show one thing each. Nothing on them is drawn: it is what
+        these cultures do on that medium, started a few hours in.
+      </p>
       <ul className="cult-recipes">
         {RECIPES.map((recipe) => (
           <li
@@ -996,7 +1000,20 @@ function RecipesPanel({ bench, snap, compact }) {
           >
             <h3 className="cult-recipe-name">{recipe.name}</h3>
             <p className="cult-recipe-watch">{recipe.watch}</p>
-            {grow(recipe)}
+            <Confirm
+              sure={used && plate.recipe !== recipe.id}
+              label={
+                plate.recipe === recipe.id
+                  ? 'Start it again'
+                  : `Grow it on plate ${snap.selected + 1}`
+              }
+              confirmLabel="Discard what’s growing and start it"
+              onConfirm={() => {
+                bench.loadRecipe(snap.selected, recipe.id);
+                bench.enter(snap.selected);
+                onDone?.();
+              }}
+            />
           </li>
         ))}
       </ul>
@@ -1013,7 +1030,7 @@ async function inView(bench, snap) {
   await new Promise((resolve) => setTimeout(resolve, 800));
 }
 
-function RecordPanel({ bench, snap }) {
+export function RecordPanel({ bench, snap }) {
   const plate = snap.dishes[snap.selected];
   const name = `plate-${snap.selected + 1}-${Math.round(plate.goal)}h`;
   const fourLights = async () => {
@@ -1092,80 +1109,103 @@ function RecordPanel({ bench, snap }) {
           {snap.filming ? 'Filming the replay…' : 'Save the replay as a video'}
         </Button>
       </div>
-      <div className="cult-actions cult-actions--bench">
-        <Button
-          size="sm"
-          disabled={!snap.canAdd}
-          onClick={() => bench.addDish()}
-        >
-          Add a plate
-        </Button>
-        <Confirm
-          label="Throw this plate away"
-          confirmLabel={`Throw plate ${snap.selected + 1} away`}
-          disabled={!snap.canRemove}
-          onConfirm={() => bench.removeDish(snap.selected)}
-        />
-        <Confirm
-          label="Start the bench over"
-          confirmLabel="Throw every plate away and start over"
-          onConfirm={bench.resetBench}
-        />
-      </div>
     </>
   );
 }
 
-// ---------------------------------------------------------------- tray
+// -------------------------------------------------------------- plates
 
-const PANELS = {
-  cultures: CulturesPanel,
-  media: MediaPanel,
-  tray: TrayPanel,
-  incubator: IncubatorPanel,
-  recipes: RecipesPanel,
-  record: RecordPanel,
-};
+/** What a plate is doing, if anything worth saying beside its hour. */
+function plateState(dish) {
+  if (dish.replaying) return 'replaying';
+  if (dish.catching) return 're-growing';
+  if (dish.held) return 'in the fridge';
+  return null;
+}
 
-export default function Tray({ bench, snap, compact = false }) {
-  const [tab, setTab] = useState('cultures');
-  const Panel = PANELS[tab];
+/**
+ * The plates on the bench, to pick one up from, and what is done to the
+ * bench as a whole: another plate, a plate thrown away, a bench dealt by
+ * chance or started over.
+ */
+export function PlatesPanel({ bench, snap, onDone }) {
+  const any = snap.dishes.some((d) => d.touched);
   return (
-    <div className="cult-tray">
-      <nav className="cult-plates" aria-label="Plates">
+    <>
+      <ul className="cult-list cult-plate-list">
         {snap.dishes.map((dish, i) => {
-          const medium = mediumById(dish.medium);
-          const on = i === snap.selected;
+          const medium = mediumById(dish.medium) || MEDIA[0];
+          const on = snap.mode === 'plate' && i === snap.selected;
+          const state = plateState(dish);
           return (
-            <button
-              key={i}
-              type="button"
-              className={`cult-plate${on ? ' is-on' : ''}`}
-              aria-pressed={on}
-              aria-label={`Plate ${i + 1}: ${medium?.name || 'agar'}, ${formatHours(dish.hours)}`}
-              title={`${medium?.name || 'Agar'}, ${formatHours(dish.hours)}`}
-              onClick={() => bench.enter(i)}
-            >
-              {mediumSwatch(medium || MEDIA[0], dish.tints?.[0])}
-              {i + 1}
-            </button>
+            <li key={i}>
+              <button
+                type="button"
+                className={`cult-item${on ? ' is-on' : ''}`}
+                aria-pressed={on}
+                onClick={() => {
+                  bench.enter(i);
+                  onDone?.();
+                }}
+              >
+                {mediumSwatch(medium, dish.tints?.[0])}
+                <span className="cult-item-name">Plate {i + 1}</span>
+                <span className="cult-item-after">
+                  {medium.name}, {formatHours(dish.hours)}
+                  {state ? `, ${state}` : ''}
+                </span>
+              </button>
+            </li>
           );
         })}
-      </nav>
-      <Segmented
-        className="cult-tabs"
-        label="What to work with"
-        options={TABS}
-        value={tab}
-        onChange={(next) => {
-          // Leaving the shelf puts down whatever was picked up from it.
-          if (snap.tool && next !== tab) bench.arm(null);
-          setTab(next);
-        }}
-      />
-      <div className="cult-panel">
-        <Panel bench={bench} snap={snap} compact={compact} />
+      </ul>
+      <div className="cult-actions">
+        <Button
+          size="sm"
+          on={snap.mode === 'bench'}
+          onClick={() => {
+            bench.leave();
+            onDone?.();
+          }}
+        >
+          All plates
+        </Button>
+        <Button
+          size="sm"
+          disabled={!snap.canAdd}
+          onClick={() => {
+            bench.addDish();
+            onDone?.();
+          }}
+        >
+          Add a plate
+        </Button>
       </div>
-    </div>
+      <div className="cult-actions cult-actions--bench">
+        <Confirm
+          label={`Throw plate ${snap.selected + 1} away`}
+          confirmLabel={`Throw plate ${snap.selected + 1} away for good`}
+          disabled={!snap.canRemove}
+          onConfirm={() => bench.removeDish(snap.selected)}
+        />
+        <Confirm
+          sure={any}
+          label="Randomize every plate"
+          confirmLabel="Throw them all away and randomize"
+          onConfirm={() => {
+            bench.randomizeBench();
+            onDone?.();
+          }}
+        />
+        <Confirm
+          label="Start the bench over"
+          confirmLabel="Throw every plate away and start over"
+          onConfirm={() => {
+            bench.resetBench();
+            onDone?.();
+          }}
+        />
+      </div>
+    </>
   );
 }

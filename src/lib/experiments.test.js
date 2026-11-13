@@ -326,13 +326,13 @@ describe('an experiment that is a page of this site', () => {
     expect(isExperimentPagePath('/experimenting/atmospheric-workbench')).toBe(true);
   });
 
-  it('takes the whole window when it is a game, and only then', () => {
+  it('takes the whole window when it is a game or a workbench, and only then', () => {
     expect(isImmersiveExperimentPath('/experimenting/sunfarming')).toBe(true);
     expect(isImmersiveExperimentPath('/experimenting/sunfarming/')).toBe(true);
+    expect(isImmersiveExperimentPath('/experimenting/culturing')).toBe(true);
     // The bench, a record's page and the other built-in experiment all keep
     // the site round them.
     expect(isImmersiveExperimentPath('/experimenting')).toBe(false);
-    expect(isImmersiveExperimentPath('/experimenting/culturing')).toBe(false);
     expect(isImmersiveExperimentPath('/experimenting/atmospheric-workbench')).toBe(false);
     expect(isImmersiveExperimentPath('/experimenting/3mz4bbmjphc2l')).toBe(false);
     expect(isImmersiveExperimentPath('/experimenting/sunfarming/more')).toBe(false);

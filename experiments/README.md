@@ -87,10 +87,12 @@ directly. The root's `npm test` and `npm run lint` cover the experiments too.
    for it in `src/App.jsx`. There are two kinds. Something to look at or poke
    sits in a page: wrap the component in
    [`ExperimentPage`](../src/components/ExperimentPage.jsx), the way
-   [`src/pages/Culturing.jsx`](../src/pages/Culturing.jsx) does, and it gets
-   the site's title, pitch and links round it. A game takes the whole window:
-   render it alone and hand it a way back out, the way
-   [`src/pages/Sunfarming.jsx`](../src/pages/Sunfarming.jsx) does, and add its
+   [`src/pages/AtmosphericWorkbench.jsx`](../src/pages/AtmosphericWorkbench.jsx)
+   does, and it gets the site's title, pitch and links round it. A game, or a
+   bench worked with its tools laid over it, takes the whole window: render it
+   alone and hand it a way back out, the way
+   [`src/pages/Sunfarming.jsx`](../src/pages/Sunfarming.jsx) and
+   [`src/pages/Culturing.jsx`](../src/pages/Culturing.jsx) do, and add its
    path to `IMMERSIVE_EXPERIMENT_PATHS` so the site stands its own interface
    down there.
 4. **Register the address.** A built-in experiment lives at
