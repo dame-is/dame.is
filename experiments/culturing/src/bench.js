@@ -14,6 +14,7 @@ import { compartmentAt } from './vessels.js';
 import {
   benchLayout,
   fitDistance,
+  framing,
   orbit,
   pickPlane,
   project,
@@ -113,10 +114,16 @@ const BENCH_ELEVATION = 60 * RAD;
 const PLATE_ELEVATION = 50 * RAD;
 const MIN_ELEVATION = 12 * RAD;
 const MAX_ELEVATION = 89 * RAD;
-const MIN_ZOOM = 0.3;
+/** As close as the camera comes, against the distance that fits the plate:
+ *  five times closer, about where the grid a plate is worked out on starts
+ *  to show through as softness. */
+const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 1.3;
 /** A drag shorter than this, in CSS px, is a click. */
 const CLICK_SLOP = 5;
+/** Two taps closer than this in time, ms, and space, px, are a double tap. */
+const DOUBLE_TAP_MS = 320;
+const DOUBLE_TAP_PX = 28;
 /** Points along a stroke are kept at least this far apart, mm. */
 const STROKE_SPACING = 0.7;
 /** A strip dragged less than this far, mm, is set down as if touched. */
@@ -186,6 +193,9 @@ function loadSaved() {
  * @param {object} [options.incoming]  a dish that arrived in a link
  * @param {boolean} [options.playing]  false to start with the incubator
  *   stopped; plates are still grown back to where they were left
+ * @param {boolean} [options.captureWheel]  true when the bench has the
+ *   whole window, so a plain wheel zooms; otherwise it scrolls the page and
+ *   only a pinch (or ctrl and the wheel) zooms
  * @returns the bench, or `{ error }` when this device can't run it
  */
 export function createBench(canvas, options = {}) {
@@ -271,6 +281,7 @@ export function createBench(canvas, options = {}) {
   let dirty = true; // the scene needs drawing again
   let lightDirty = true; // every plate's display needs composing again
   let filming = null; // a replay being filmed: { entry, recorder }
+  let bare = false; // a photograph being taken: framed in the whole canvas
 
   function makeEntry(dish, touched = false) {
     const plate = sim.createPlate();
@@ -340,41 +351,134 @@ export function createBench(canvas, options = {}) {
     az: 0,
     el: PLATE_ELEVATION,
     zoom: 1,
+    // How far the middle of the view is from the middle of the plate in
+    // hand, mm across the bench: where a closer look has been taken.
+    pan: [0, 0],
   };
-  const cam = { target: [0, 0, 0], az: 0, el: BENCH_ELEVATION, dist: 800 };
+  const cam = {
+    target: [0, 0, 0],
+    az: 0,
+    el: BENCH_ELEVATION,
+    dist: 800,
+    shift: [0, 0],
+  };
   let camera = null;
+  // What the page has laid over the canvas, CSS px from each edge: its bars
+  // (`top`, `bottom`, …) and, on a phone, a sheet pulled up from the bottom
+  // (`sheet`). The plates are framed in what is left. The bars also decide
+  // how the plates are laid out; a sheet comes and goes, so it only moves
+  // the camera.
+  let insets = { top: 0, right: 0, bottom: 0, left: 0, sheet: 0 };
+  // While a pointer is moving the view, the camera follows it exactly
+  // rather than easing after it.
+  let follow = false;
+  let snapNext = false;
+  let captureWheel = Boolean(options.captureWheel);
+
+  /** The part of the canvas the plates are framed in. A photograph and a
+   *  film are framed in the whole of it: nothing is laid over them. */
+  function frameNow({ sheet = true } = {}) {
+    const w = canvas.clientWidth || 1;
+    const h = canvas.clientHeight || 1;
+    if (bare || filming) return framing(w, h);
+    return framing(w, h, {
+      ...insets,
+      bottom: insets.bottom + (sheet ? insets.sheet : 0),
+    });
+  }
 
   function relayout() {
-    layout = benchLayout(entries.length, width / height);
+    layout = benchLayout(entries.length, frameNow({ sheet: false }).aspect);
     entries.forEach((entry, i) => {
       entry.centre = layout.centres[i];
     });
   }
 
+  /** How far from the middle of the plate a closer look may wander, mm:
+   *  nowhere while the whole plate fits, as far as its rim close up. */
+  function panLimit() {
+    const entry = entries[selected];
+    if (!entry) return 0;
+    const { halfW, halfD } = footprint(entry.dish.vessel);
+    const reach = Math.min(1, Math.max(0, (1.1 - user.zoom) / 0.6));
+    return Math.max(halfW, halfD) * reach;
+  }
+
+  function clampPan() {
+    const limit = panLimit();
+    const r = Math.hypot(user.pan[0], user.pan[1]);
+    if (r > limit) {
+      const k = limit / r;
+      user.pan = [user.pan[0] * k, user.pan[1] * k];
+    }
+  }
+
   function cameraGoal() {
-    const aspect = width / height;
+    const { aspect, fill, shift } = frameNow();
     if (mode === 'plate' && entries[selected]) {
       const [x, z] = entries[selected].centre;
       const { halfW, halfD } = footprint(entries[selected].dish.vessel);
       return {
-        target: [x, GEL_Y, z],
+        target: [x + user.pan[0], GEL_Y, z + user.pan[1]],
         az: user.az,
         el: user.el,
-        dist: fitDistance(halfW, halfD, user.el, aspect, 1.1) * user.zoom,
+        dist: fitDistance(halfW, halfD, user.el, aspect, 1.1, fill) * user.zoom,
+        shift,
       };
     }
     return {
       target: [0, 0, 0],
       az: user.benchAz,
       el: user.benchEl,
-      dist: fitDistance(layout.halfW, layout.halfH, user.benchEl, aspect, 1.02),
+      dist: fitDistance(
+        layout.halfW,
+        layout.halfH,
+        user.benchEl,
+        aspect,
+        1.02,
+        fill,
+      ),
+      shift,
     };
+  }
+
+  /** The camera as it will be once it has settled: what a gesture aims
+   *  with, so that the point under a finger stays under it. */
+  function goalCamera() {
+    const goal = cameraGoal();
+    return orbit({
+      target: goal.target,
+      azimuth: goal.az,
+      elevation: goal.el,
+      distance: goal.dist,
+      aspect: width / height,
+      shift: goal.shift,
+    });
+  }
+
+  /** Where a point on the screen meets the gel, seen through `through`. */
+  function gelUnder(through, clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const ny = 1 - ((clientY - rect.top) / rect.height) * 2;
+    return pickPlane(through, nx, ny, GEL_Y);
+  }
+
+  /** The middle of the part of the canvas the plates are framed in, in
+   *  client px: where a zoom with no pointer is aimed. */
+  function frameMiddle() {
+    const rect = canvas.getBoundingClientRect();
+    const { shift } = frameNow();
+    return [
+      rect.left + ((shift[0] + 1) / 2) * rect.width,
+      rect.top + ((1 - shift[1]) / 2) * rect.height,
+    ];
   }
 
   /** Ease the camera toward where it should be. True while it is moving. */
   function moveCamera(seconds, snap) {
     const goal = cameraGoal();
-    const k = snap ? 1 : 1 - Math.exp(-seconds / 0.16);
+    const k = snap || follow ? 1 : 1 - Math.exp(-seconds / 0.16);
     let moving = false;
     const ease = (from, to) => {
       const next = from + (to - from) * k;
@@ -388,12 +492,14 @@ export function createBench(canvas, options = {}) {
     cam.az = ease(cam.az, cam.az + dAz);
     cam.el = ease(cam.el, goal.el);
     cam.dist = ease(cam.dist, goal.dist);
+    cam.shift = cam.shift.map((v, i) => ease(v, goal.shift[i]));
     camera = orbit({
       target: cam.target,
       azimuth: cam.az,
       elevation: cam.el,
       distance: cam.dist,
       aspect: width / height,
+      shift: cam.shift,
     });
     return moving;
   }
@@ -549,7 +655,8 @@ export function createBench(canvas, options = {}) {
     }
     const seconds = Math.min(0.1, Math.max(0, (time - last) / 1000));
     last = time;
-    const first = camera === null;
+    const first = camera === null || snapNext;
+    snapNext = false;
     resize();
 
     // How much simulating a frame can afford: more while frames come in
@@ -837,29 +944,48 @@ export function createBench(canvas, options = {}) {
     emit();
   }
 
+  /** Two pointers as a pinch: how far apart, at what angle, about where. */
+  function twoFingers() {
+    const [a, b] = [...pointers.values()];
+    return {
+      span: Math.hypot(a.x - b.x, a.y - b.y),
+      angle: Math.atan2(b.y - a.y, b.x - a.x),
+      mid: [(a.x + b.x) / 2, (a.y + b.y) / 2],
+    };
+  }
+
+  // The last tap on the plate in hand, for telling a double tap.
+  let lastTap = null;
+
   function onPointerDown(e) {
-    if (e.button !== undefined && e.button !== 0) return;
+    // The left button draws or turns; the middle and right ones, or the
+    // left with shift held, slide the view across the plate.
+    if (e.button !== undefined && e.button > 2) return;
+    // A middle press would otherwise start the browser's own scrolling.
+    if (e.button === 1) e.preventDefault();
     canvas.setPointerCapture?.(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {
-      // A second finger: whatever the first was doing, this is now a pinch.
+      // A second finger: whatever the first was doing, this is now a pinch,
+      // which zooms about the fingers, carries the plate with them and
+      // turns it as they turn.
       if (gesture?.stroke?.event.path.length > 1) endStroke(gesture.stroke);
-      const [a, b] = [...pointers.values()];
-      gesture = {
-        kind: 'pinch',
-        span: Math.hypot(a.x - b.x, a.y - b.y),
-        zoom: user.zoom,
-        mid: [(a.x + b.x) / 2, (a.y + b.y) / 2],
-      };
+      gesture = { kind: 'pinch', ...twoFingers(), opened: 1 };
+      follow = true;
       return;
     }
+    const sliding = e.button === 1 || e.button === 2 || e.shiftKey;
     const under = hit(e.clientX, e.clientY);
     const stroke =
-      mode === 'plate' && under && under.index === selected && under.onGel
+      !sliding &&
+      mode === 'plate' &&
+      under &&
+      under.index === selected &&
+      under.onGel
         ? beginStroke(under.index, under.mm)
         : null;
     gesture = {
-      kind: stroke ? 'stroke' : 'orbit',
+      kind: stroke ? 'stroke' : sliding && mode === 'plate' ? 'pan' : 'orbit',
       stroke,
       under,
       startX: e.clientX,
@@ -868,6 +994,7 @@ export function createBench(canvas, options = {}) {
       lastY: e.clientY,
       moved: false,
     };
+    if (gesture.kind === 'pan') follow = true;
   }
 
   function onPointerMove(e) {
@@ -875,17 +1002,33 @@ export function createBench(canvas, options = {}) {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (!gesture) return;
     if (gesture.kind === 'pinch' && pointers.size >= 2) {
-      const [a, b] = [...pointers.values()];
-      const span = Math.hypot(a.x - b.x, a.y - b.y);
-      const mid = [(a.x + b.x) / 2, (a.y + b.y) / 2];
+      const now = twoFingers();
+      const factor = gesture.span / Math.max(now.span, 1);
+      let turn = now.angle - gesture.angle;
+      turn -= Math.round(turn / (2 * Math.PI)) * 2 * Math.PI;
       if (mode === 'plate') {
-        user.zoom = Math.min(
-          MAX_ZOOM,
-          Math.max(MIN_ZOOM, gesture.zoom * (gesture.span / Math.max(span, 1))),
+        // The gel that was under the fingers goes where they went, then
+        // grows or shrinks about them.
+        panBy(
+          now.mid[0] - gesture.mid[0],
+          now.mid[1] - gesture.mid[1],
+          gesture.mid[0],
+          gesture.mid[1],
         );
+        zoomAt(factor, now.mid[0], now.mid[1]);
+        // Turning the fingers turns the plate with them.
+        user.az += turn;
+      } else {
+        // Across the bench, spreading the fingers over a plate picks it up.
+        gesture.opened *= 1 / factor;
+        if (gesture.opened > 1.25) {
+          const under = hit(now.mid[0], now.mid[1]);
+          enter(under ? under.index : selected);
+        } else {
+          turnBy(now.mid[0] - gesture.mid[0], now.mid[1] - gesture.mid[1]);
+        }
       }
-      turnBy(mid[0] - gesture.mid[0], mid[1] - gesture.mid[1]);
-      gesture.mid = mid;
+      Object.assign(gesture, now);
       dirty = true;
       return;
     }
@@ -907,7 +1050,9 @@ export function createBench(canvas, options = {}) {
       }
       return;
     }
-    if (gesture.moved) turnBy(dx, dy);
+    if (!gesture.moved) return;
+    if (gesture.kind === 'pan') panBy(dx, dy, e.clientX - dx, e.clientY - dy);
+    else turnBy(dx, dy);
   }
 
   function onPointerUp(e) {
@@ -917,21 +1062,46 @@ export function createBench(canvas, options = {}) {
     const done = gesture;
     if (!done) return;
     if (done.kind === 'pinch') {
-      if (pointers.size < 2) gesture = null;
+      if (pointers.size < 2) {
+        gesture = null;
+        follow = false;
+      }
       return;
     }
     gesture = null;
+    follow = false;
     if (done.kind === 'stroke') {
       endStroke(done.stroke, done.under.mm);
       return;
     }
-    if (done.moved || e.type === 'pointercancel') return;
+    if (done.moved || e.type === 'pointercancel' || done.kind === 'pan') {
+      return;
+    }
     // A click: on a dish it picks that dish up; off them all, in the plate
-    // view, it puts the plate back down.
+    // view, it puts the plate back down. Twice on the plate in hand, with
+    // nothing held, it takes a closer look there, and twice more brings the
+    // whole plate back.
     const under = hit(e.clientX, e.clientY);
     if (under) {
-      if (under.index !== selected || mode !== 'plate') enter(under.index);
-      else if (tool && !under.onGel) say('The loop only reaches the gel.');
+      if (under.index !== selected || mode !== 'plate') {
+        enter(under.index);
+      } else if (tool && !under.onGel) {
+        say('The loop only reaches the gel.');
+      } else if (!tool) {
+        const now = performance.now();
+        const twice =
+          lastTap &&
+          now - lastTap.time < DOUBLE_TAP_MS &&
+          Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) <
+            DOUBLE_TAP_PX;
+        if (twice) {
+          lastTap = null;
+          if (user.zoom <= MIN_ZOOM * 1.05) frameWhole();
+          else zoomAt(0.5, e.clientX, e.clientY);
+        } else {
+          lastTap = { time: now, x: e.clientX, y: e.clientY };
+        }
+      }
     } else if (mode === 'plate') {
       leave();
     }
@@ -956,9 +1126,40 @@ export function createBench(canvas, options = {}) {
     dirty = true;
   }
 
-  function zoomBy(factor) {
+  /**
+   * Slide the view across the plate in hand so that the gel under a point
+   * on the screen (`x`, `y`, client px; the middle of the frame if not
+   * given) moves by `dx`, `dy` px with the pointer.
+   */
+  function panBy(dx, dy, x, y) {
+    if (mode !== 'plate') return;
+    const [cx, cy] = x === undefined ? frameMiddle() : [x, y];
+    const through = goalCamera();
+    const from = gelUnder(through, cx, cy);
+    const to = gelUnder(through, cx + dx, cy + dy);
+    if (!from || !to) return;
+    user.pan = [
+      user.pan[0] - (to[0] - from[0]),
+      user.pan[1] - (to[1] - from[1]),
+    ];
+    clampPan();
+    dirty = true;
+  }
+
+  /**
+   * Come closer (`factor` < 1) or stand back (> 1), keeping the gel under
+   * a point on the screen where it is: the pointer, the middle of two
+   * fingers, or the middle of the frame. Across the bench, coming closer
+   * picks up the plate there; standing back from a plate past where it
+   * fits puts it down.
+   */
+  function zoomAt(factor, x, y) {
     if (mode !== 'plate') {
-      if (factor < 1 && entries[selected]) enter(selected);
+      if (factor < 1) {
+        const under = x === undefined ? null : hit(x, y);
+        if (under) enter(under.index);
+        else if (entries[selected]) enter(selected);
+      }
       return;
     }
     const next = user.zoom * factor;
@@ -966,29 +1167,56 @@ export function createBench(canvas, options = {}) {
       leave();
       return;
     }
+    const [cx, cy] = x === undefined ? frameMiddle() : [x, y];
+    const before = gelUnder(goalCamera(), cx, cy);
     user.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+    const after = before && gelUnder(goalCamera(), cx, cy);
+    if (before && after) {
+      user.pan = [
+        user.pan[0] + before[0] - after[0],
+        user.pan[1] + before[1] - after[1],
+      ];
+    }
+    clampPan();
+    dirty = true;
+  }
+
+  function zoomBy(factor) {
+    zoomAt(factor);
+  }
+
+  /** The whole plate in hand in view again, from wherever it was seen. */
+  function frameWhole() {
+    user.zoom = 1;
+    user.pan = [0, 0];
     dirty = true;
   }
 
   function onWheel(e) {
-    // A pinch on a trackpad arrives as a wheel with ctrl held; so does a
-    // deliberate ctrl-scroll. A plain wheel is the page's, to scroll with.
-    if (!e.ctrlKey && !e.metaKey) return;
+    // A pinch on a trackpad arrives as a wheel with ctrl held, and a wheel
+    // with ctrl held is meant as a zoom. A plain wheel scrolls the page,
+    // unless the bench has the window to itself and there is no page.
+    if (!e.ctrlKey && !e.metaKey && !captureWheel) return;
     e.preventDefault();
-    zoomBy(Math.exp(e.deltaY * 0.01));
+    const lines = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const rate = e.ctrlKey ? 0.01 : 0.0015;
+    zoomAt(Math.exp(e.deltaY * lines * rate), e.clientX, e.clientY);
   }
 
   function onKeyDown(e) {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     const step = 12;
+    // With shift held, the arrows slide the view instead of turning it.
+    const slide = e.shiftKey ? 48 : 0;
     const keys = {
-      ArrowLeft: () => turnBy(step, 0),
-      ArrowRight: () => turnBy(-step, 0),
-      ArrowUp: () => turnBy(0, step),
-      ArrowDown: () => turnBy(0, -step),
+      ArrowLeft: () => (slide ? panBy(slide, 0) : turnBy(step, 0)),
+      ArrowRight: () => (slide ? panBy(-slide, 0) : turnBy(-step, 0)),
+      ArrowUp: () => (slide ? panBy(0, slide) : turnBy(0, step)),
+      ArrowDown: () => (slide ? panBy(0, -slide) : turnBy(0, -step)),
       '+': () => zoomBy(0.87),
       '=': () => zoomBy(0.87),
       '-': () => zoomBy(1.15),
+      Home: () => resetView(),
       Enter: () => (mode === 'plate' ? null : enter(selected)),
       Escape: () => (tool ? arm(null) : leave()),
       ' ': () => setPlaying(!playing),
@@ -1005,6 +1233,11 @@ export function createBench(canvas, options = {}) {
     handler();
   }
 
+  // The right button slides the view; its menu would only get in the way.
+  function onContextMenu(e) {
+    e.preventDefault();
+  }
+
   function onContextLost(e) {
     e.preventDefault();
     lost = true;
@@ -1017,6 +1250,7 @@ export function createBench(canvas, options = {}) {
   canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('keydown', onKeyDown);
+  canvas.addEventListener('contextmenu', onContextMenu);
   canvas.addEventListener('webglcontextlost', onContextLost);
 
   const resizeObserver =
@@ -1053,6 +1287,7 @@ export function createBench(canvas, options = {}) {
     if (!entries[index]) return;
     if (index !== selected || mode !== 'plate') {
       user.zoom = 1;
+      user.pan = [0, 0];
       user.az = 0;
       user.el = PLATE_ELEVATION;
     }
@@ -1419,6 +1654,7 @@ export function createBench(canvas, options = {}) {
     user.az = 0;
     user.el = PLATE_ELEVATION;
     user.zoom = 1;
+    user.pan = [0, 0];
     user.benchAz = 0;
     user.benchEl = BENCH_ELEVATION;
     dirty = true;
@@ -1430,17 +1666,62 @@ export function createBench(canvas, options = {}) {
     dirty = true;
   }
 
+  /**
+   * What the page lays over the canvas, in CSS px from each edge, so the
+   * plates are framed in what is left: `top`, `right`, `bottom`, `left`
+   * for bars that stay, and `sheet` for one pulled up from the bottom that
+   * comes and goes. The camera eases to the new frame.
+   */
+  function setInsets(next) {
+    const clean = {};
+    for (const side of ['top', 'right', 'bottom', 'left', 'sheet']) {
+      clean[side] = Math.max(0, Math.round(Number(next?.[side]) || 0));
+    }
+    const same = Object.keys(clean).every((k) => clean[k] === insets[k]);
+    if (same) return;
+    const bars = ['top', 'right', 'bottom', 'left'].some(
+      (k) => clean[k] !== insets[k],
+    );
+    insets = clean;
+    if (bars) relayout();
+    dirty = true;
+  }
+
+  /** Whether a plain wheel zooms (the bench has the window) or scrolls. */
+  function setCaptureWheel(value) {
+    captureWheel = Boolean(value);
+  }
+
   /** The canvas as it stands, as a PNG. */
   function photo() {
     return new Promise((resolve) => {
       // Drawn and read in one go: the drawing buffer doesn't outlive the
-      // frame it was drawn in.
-      dirty = true;
-      lightDirty = true;
-      cancelAnimationFrame(raf);
-      frame(performance.now());
-      canvas.toBlob((blob) => resolve(blob), 'image/png');
+      // frame it was drawn in. It is framed in the whole canvas, with
+      // nothing of the page over it, and the view put back before the
+      // browser shows a frame, so the picture on screen never jumps.
+      bareFrame(() => canvas.toBlob((blob) => resolve(blob), 'image/png'));
     });
+  }
+
+  /**
+   * Draw the bench framed in the whole canvas, call `read` while that
+   * frame is in the drawing buffer, and draw it framed as it was again,
+   * all before the browser next paints.
+   */
+  function bareFrame(read) {
+    const keep = camera ? { ...cam } : null;
+    bare = true;
+    snapNext = true;
+    dirty = true;
+    lightDirty = true;
+    cancelAnimationFrame(raf);
+    frame(performance.now(), true);
+    read();
+    bare = false;
+    if (keep) Object.assign(cam, keep);
+    dirty = true;
+    cancelAnimationFrame(raf);
+    frame(performance.now(), true);
   }
 
   /**
@@ -1459,19 +1740,20 @@ export function createBench(canvas, options = {}) {
     const ctx = sheet.getContext('2d');
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, sheet.width, sheet.height);
-    for (const light of LIGHTS) {
-      view.light = light.value;
+    bareFrame(() => {
+      for (const light of LIGHTS) {
+        view.light = light.value;
+        lightDirty = true;
+        dirty = true;
+        cancelAnimationFrame(raf);
+        frame(performance.now(), true);
+        const col = light.value % 2;
+        const row = Math.floor(light.value / 2);
+        ctx.drawImage(canvas, col * (w + gap), row * (h + gap));
+      }
+      view.light = keep;
       lightDirty = true;
-      dirty = true;
-      cancelAnimationFrame(raf);
-      frame(performance.now(), true);
-      const col = light.value % 2;
-      const row = Math.floor(light.value / 2);
-      ctx.drawImage(canvas, col * (w + gap), row * (h + gap));
-    }
-    view.light = keep;
-    lightDirty = true;
-    dirty = true;
+    });
     return new Promise((resolve) => {
       sheet.toBlob((blob) => resolve(blob), 'image/png');
     });
@@ -1562,6 +1844,7 @@ export function createBench(canvas, options = {}) {
     canvas.removeEventListener('pointercancel', onPointerUp);
     canvas.removeEventListener('wheel', onWheel);
     canvas.removeEventListener('keydown', onKeyDown);
+    canvas.removeEventListener('contextmenu', onContextMenu);
     canvas.removeEventListener('webglcontextlost', onContextLost);
     window.removeEventListener('pagehide', onPageHide);
     resizeObserver?.disconnect();
@@ -1634,8 +1917,12 @@ export function createBench(canvas, options = {}) {
     resetBench,
     resetView,
     topView,
+    frameWhole,
     zoomBy,
     turnBy,
+    panBy,
+    setInsets,
+    setCaptureWheel,
     photo,
     photoLights,
     filmReplay,

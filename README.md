@@ -274,15 +274,22 @@ when the cheap signature says something actually changed.
 `/experimenting/culturing` is a workbench of petri dishes that aren't real:
 pour a medium, put cultures on it, add a disc or a drop of dye, and leave it
 in the incubator. Nothing on it is science, and everything on it is modelled
-on how real colonies and biofilms look and grow; the page says which parts are
-borrowed from where, in the notes on each culture and medium and in "What is
-real here" at its foot.
+on how real colonies and biofilms look and grow; the bench says which parts
+are borrowed from where, in the card on each culture and medium and in "What
+is real here".
+
+A bench is worked with its tools laid over it, so like
+[Sunfarming](#sunfarming) its page takes the whole window and the site draws
+none of its own interface there. The bench carries the way back out ("Back to
+dame.is", under its Culturing menu, or More on a phone), and the page hands
+it the experiment's reactions.
 
 It is the first [experiment](#experimenting), and the first that is a page of
 this site rather than a link away from it. The page is built in and has no
 record of its own; what puts it on the bench is an `is.dame.experiment` record
 whose `url` is its address. The page finds that record by the address and
-links to its reactions ("Say what you make of it"). See
+links to its reactions ("Say what you make of it", under the Culturing
+menu). See
 [Experiments built into the site](lexicons/EXPERIMENTING.md#experiments-built-into-the-site)
 for the convention.
 
@@ -360,9 +367,9 @@ with a beam through it, which is where the angles in the sky come from. The
 page says which parts are real, and gives its sources, in "What is real here"
 at its foot.
 
-It is the third [experiment](#experimenting) built into the site, and like
-[Culturing](#culturing) it is a page with a bench on it, found and linked to
-its reactions the same way.
+It is the third [experiment](#experimenting) built into the site, and it is a
+page with a bench on it, found and linked to its reactions the way
+[Culturing](#culturing) is.
 
 The workbench is a package of its own,
 [`experiments/atmospheric-workbench/`](experiments/atmospheric-workbench/),

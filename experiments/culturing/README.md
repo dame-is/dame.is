@@ -3,8 +3,9 @@
 A workbench of petri dishes that aren't real. Pour a medium, put cultures on
 it, add a disc or a drop of dye, and leave it in the incubator. Nothing on it
 is science, and everything on it is modelled on how real colonies and biofilms
-look and grow; the page says which parts are borrowed from where, in the notes
-on each culture and medium and in "What is real here" at its foot.
+look and grow; the bench says which parts are borrowed from where, in the
+card on each culture and medium and in "What is real here" (under the
+Culturing menu, or More on a phone).
 
 ```
 npm run dev      # http://localhost:5181
@@ -43,7 +44,7 @@ should be its own chunk, loaded only by the page that shows it.
   read against a paper's. [`pack.js`](src/pack.js) turns a recipe
   into uniforms and clamps anything that would break the explicit schemes.
 - **The grid** ([`units.js`](src/units.js) `gridSize`). A plate is worked out
-  on 384 texels across (256 on a phone). The Incubator tab can ask for one
+  on 384 texels across (256 on a phone). The Incubator menu can ask for one
   size finer, which is about three times the work for every hour grown; the
   plates are let go and grown again from their records on the new grid.
 - **Vessels** ([`vessels.js`](src/vessels.js)). A plate is poured into a
@@ -57,7 +58,7 @@ should be its own chunk, loaded only by the page that shows it.
   whole vessel, and any compartment can be tinted a colour picked by hand,
   which changes its look and nothing else.
 - **The lid** ([`simulation.js`](src/simulation.js) `setLid`). A word typed in
-  the Incubator tab is drawn in black on a texture the size of the plate,
+  the Incubator menu is drawn in black on a texture the size of the plate,
   and the biology pass reads the incubator's light through it, so a culture
   that pigments only in the light (Day rings) or only in the dark
   (Darkroom) develops it. The word is part of the incubator's settings, so
@@ -96,12 +97,26 @@ should be its own chunk, loaded only by the page that shows it.
   in the fridge) hands that lead back: a stopped plate stays at the hour it
   has reached. One that was still re-growing from its recipe waits where it
   stands and goes on when the incubator starts again.
+- **The camera** ([`camera.js`](src/camera.js), and the camera section of
+  [`bench.js`](src/bench.js)) orbits the bench, or the plate in hand. The
+  page tells the bench what it lays over the canvas (`setInsets`: its bars,
+  and a sheet pulled up on a phone), and the plates are framed in what is
+  left, through an off-centre lens rather than by aiming the camera
+  elsewhere, so the picture under a bar is the same picture moved, not a
+  different view. In the plate view the camera comes in toward whatever is
+  under the pointer (a wheel, a pinch, a double-click on the gel) as far as
+  five times closer than the plate fits, and slides across the plate (a
+  right or shift drag, two fingers, shift and the arrows) as far as its rim.
+  Two fingers turned turn the plate. A photograph, and a filmed replay, are
+  framed in the whole canvas, with nothing of the page over them; a
+  photograph is drawn that way and put back before the browser paints, so
+  the view on screen never jumps.
 - **Replay** ([`incubate.js`](src/incubate.js) `replayOf`). A plate can be
   watched again from the pour to the hour it stands at, in about twelve
   seconds whatever its age. It is the same record grown once more at a pace
   that can be followed, so nothing is kept for it and nothing in the record
   changes; a replay cut short puts the plate back at the age it was. The
-  Record tab can film one (`MediaRecorder` on the canvas, MP4 where the
+  Record menu can film one (`MediaRecorder` on the canvas, MP4 where the
   browser makes it, WebM otherwise) and photograph the plate under all four
   lights on one sheet, drawing it four times while it holds still.
 - **Randomize** ([`chance.js`](src/chance.js)) deals a plate nobody
@@ -110,13 +125,20 @@ should be its own chunk, loaded only by the page that shows it.
   a ring, a pair facing each other, a scatter), and now and then something
   off the tray. Across the bench it deals every plate; with one picked up,
   that one. It only asks first when a plate holds something done by hand.
-- **On a phone** ([`useCompact.js`](src/useCompact.js), and the last section
-  of [`culturing.css`](src/culturing.css))
-  the shelf lies on its side: each tab is a strip of chips that scrolls
-  sideways with the card for what is picked under it, the bar is one row with
-  the system's pickers for speed and light, and the camera's controls sit on
-  the picture. The stage takes the height the rest leaves, so picking
-  something up and putting it on a plate fits one screen.
+- **The page** ([`Workbench.jsx`](src/Workbench.jsx),
+  [`Panels.jsx`](src/Panels.jsx)) is the bench with the window to itself,
+  and everything that works it laid over the picture in the site's own kit.
+  On a desk a menu bar runs along the top (Culturing, Plates, Cultures, Tray,
+  Media, Incubator, Recipes, Record, then the four lights, Photograph,
+  Randomize and full screen); each menu drops a panel over the bench. The
+  incubator's strip is in the bottom left corner, the camera's buttons in the
+  bottom right, and what is in hand is said over the strip, with the drop
+  size and a way to put it down, so a menu can close as soon as something
+  is picked from it. A culture's or a dye's card shows on hover, before it is
+  picked up. Below a desk's width ([`useCompact.js`](src/useCompact.js),
+  62rem) the menus become tabs along the bottom that pull up a sheet, the bar
+  along the top keeps the plate, the incubator and the light, and the
+  camera's buttons sit on the picture.
 
 [`src/culturing.test.js`](src/culturing.test.js) covers what can be checked without a GPU:
 that every uniform a shader declares is supplied, that every culture on every
@@ -149,8 +171,14 @@ the six stylesheets alongside, and point the two files at the copies.
 ```jsx
 import Culturing from '@dame-is/culturing';
 
-<Culturing />;
+<Culturing fill onExit={leave} exitLabel="dame.is" reactHref="/…#react" />;
 ```
+
+`fill` gives it the whole window, as dame.is (where the site draws none of
+its own bars round it) and the standalone build do. Without it, it is a block
+of a page as tall as the window, a plain wheel scrolls the page, and it offers
+to go full screen. `onExit` and `exitLabel` are the way back out, and
+`reactHref` where to say what you made of it, when the page round it has them.
 
 It reads and writes `?plate=…` in the address through `react-router`, so it
 has to be rendered inside a Router, on a page that has the site's base styles.
