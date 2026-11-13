@@ -18,9 +18,19 @@ export const FOV_Y = (26 * Math.PI) / 180;
 /**
  * The matrices for an orbit: `azimuth` around the vertical (0 = from the
  * front of the bench), `elevation` above the horizon (π/2 = straight down),
- * `distance` from the target in mm.
+ * `distance` from the target in mm. `shift` moves the middle of the picture
+ * off the middle of the canvas, in normalised device units, so the target
+ * can sit in the middle of whatever part of the canvas the page leaves
+ * uncovered (see `framing`) without the lens tilting to find it.
  */
-export function orbit({ target, azimuth, elevation, distance, aspect }) {
+export function orbit({
+  target,
+  azimuth,
+  elevation,
+  distance,
+  aspect,
+  shift = [0, 0],
+}) {
   // Straight down is degenerate for a look-at with a vertical "up".
   const el = Math.min(elevation, Math.PI / 2 - 0.001);
   const eye = [
@@ -35,6 +45,10 @@ export function orbit({ target, azimuth, elevation, distance, aspect }) {
     Math.max(4, distance * 0.05),
     distance * 6 + 2000,
   );
+  // An off-axis lens: x and y in clip space each gain shift × w, so after
+  // the divide every point moves by `shift`, and nothing else changes.
+  proj[8] = -shift[0];
+  proj[9] = -shift[1];
   const viewProj = multiply(proj, view);
   return { eye, viewProj, inverse: invert(viewProj) };
 }
@@ -44,10 +58,18 @@ export function orbit({ target, azimuth, elevation, distance, aspect }) {
  * about the target, just fits the view when seen from `elevation`. Seen
  * from above it has to fit both ways; seen from low down its depth
  * foreshortens, but its near edge comes toward the eye, and that has to
- * fit too.
+ * fit too. `aspect` is the shape of the part of the canvas it has to fit
+ * in, and `fill` how much of the canvas's height that part is.
  */
-export function fitDistance(halfW, halfD, elevation, aspect, margin = 1.08) {
-  const tanV = Math.tan(FOV_Y / 2);
+export function fitDistance(
+  halfW,
+  halfD,
+  elevation,
+  aspect,
+  margin = 1.08,
+  fill = 1,
+) {
+  const tanV = Math.tan(FOV_Y / 2) * fill;
   const tanH = tanV * aspect;
   const acrossWidth = halfW / tanH + halfD * Math.cos(elevation);
   const acrossDepth =
@@ -69,6 +91,26 @@ export function pickPlane(camera, nx, ny, y) {
   const t = (y - a[1]) / dir[1];
   if (t <= 0) return null;
   return [a[0] + dir[0] * t, a[2] + dir[2] * t];
+}
+
+/**
+ * The part of a canvas `width` by `height` CSS px left uncovered by
+ * `insets` (the page's bars and sheets, in CSS px from each edge): its
+ * shape, how much of the canvas's height it is, and how far its middle is
+ * from the canvas's, in normalised device units. Never less than a fifth
+ * of either side, however much is laid over it.
+ */
+export function framing(width, height, insets = {}) {
+  const w = Math.max(1, width);
+  const h = Math.max(1, height);
+  const { top = 0, right = 0, bottom = 0, left = 0 } = insets;
+  const fw = Math.max(0.2, (w - left - right) / w);
+  const fh = Math.max(0.2, (h - top - bottom) / h);
+  return {
+    aspect: (w * fw) / (h * fh),
+    fill: fh,
+    shift: [(left - right) / w, (bottom - top) / h],
+  };
 }
 
 /** A point on the bench, in normalised device coordinates. */
