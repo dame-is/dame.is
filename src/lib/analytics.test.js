@@ -33,6 +33,7 @@ import {
   oldestEventMs,
   outboundFromPosts,
   outboundFromRecord,
+  quietFollows,
   rateSeries,
   rollingRate,
   topActors,
@@ -458,5 +459,35 @@ describe('givenEvents', () => {
     ];
     const kinds = givenEvents(outbound, posts, ME).map((e) => `${e.kind}:${e.did}`);
     expect(kinds).toEqual(['like:did:plc:a', 'reply:did:plc:b', 'quote:did:plc:c']);
+  });
+});
+
+describe('quietFollows', () => {
+  const outbound = [
+    { uri: '1', did: 'did:plc:liked', kind: 'like', at: at(10) },
+    { uri: '2', did: 'did:plc:repliedOnce', kind: 'reply', at: at(10) },
+    { uri: '3', did: 'did:plc:likedLongAgo', kind: 'like', at: at(1) },
+  ];
+  const lastPosted = new Map([
+    ['did:plc:liked', at(11)],
+    ['did:plc:repliedOnce', at(11)],
+    ['did:plc:likedLongAgo', at(12)],
+    ['did:plc:ignored', at(9)],
+    ['did:plc:quietLately', at(3)],
+    ['did:plc:neverPosted', null],
+  ]);
+  const follows = [...lastPosted.keys(), 'did:plc:unread'];
+
+  it('keeps follows who posted in the window and drew nothing from you there, newest poster first', () => {
+    const rows = quietFollows(follows, outbound, lastPosted, { t0: at(5), t1: at(15) });
+    expect(rows).toEqual([
+      { did: 'did:plc:likedLongAgo', lastPostedMs: at(12) },
+      { did: 'did:plc:ignored', lastPostedMs: at(9) },
+    ]);
+  });
+
+  it('counts only the chosen kind of engagement', () => {
+    const rows = quietFollows(follows, outbound, lastPosted, { kind: 'like', t0: at(5), t1: at(15) });
+    expect(rows.map((r) => r.did)).toEqual(['did:plc:likedLongAgo', 'did:plc:repliedOnce', 'did:plc:ignored']);
   });
 });

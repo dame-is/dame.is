@@ -28,6 +28,7 @@ import {
   ArrowUpRight,
   Check,
   Heart,
+  HeartOff,
   MessageCircle,
   MessagesSquare,
   Quote,
@@ -61,6 +62,7 @@ import {
   oldestEventMs,
   outboundFromPosts,
   outboundFromRecord,
+  quietFollows,
   rateSeries,
   rollingRate,
   topActors,
@@ -77,6 +79,7 @@ import {
   sweepFollowers,
   sweepFollowing,
   sweepInbound,
+  sweepLastPosted,
   sweepOutbound,
   sweepPosts,
 } from '../lib/analyticsSync.js';
@@ -1875,10 +1878,71 @@ function KindCount({ glyph: Glyph, label, value, dim }) {
 /* People                                                               */
 /* ================================================================== */
 
+/**
+ * When each follow last posted, kept at module level for an hour so leaving
+ * the People tab and coming back doesn't read every follow's repo again. Not
+ * in the archive: it describes other people's repos and changes by the hour.
+ */
+const LAST_POSTED_TTL_MS = 60 * 60 * 1000;
+const lastPostedCache = new Map(); // did → { ms, ok, at }
+
+/**
+ * `lastPosted` (did → ms, or null for never) for the DIDs read so far,
+ * `failed` for the ones that couldn't be, and `checking` ({ done, total })
+ * while a read is running. Only DIDs not already held are read.
+ */
+function useLastPosted(dids) {
+  const [state, setState] = useState({ rev: 0, checking: null });
+  const key = dids.join('|');
+  useEffect(() => {
+    const now = Date.now();
+    const missing = dids.filter((d) => {
+      const hit = lastPostedCache.get(d);
+      return !hit || now - hit.at > LAST_POSTED_TTL_MS;
+    });
+    if (!missing.length) return undefined;
+    const ctrl = new AbortController();
+    setState((s) => ({ ...s, checking: { done: 0, total: missing.length } }));
+    sweepLastPosted(missing, {
+      signal: ctrl.signal,
+      onResult: (d, ms, ok) => lastPostedCache.set(d, { ms, ok, at: Date.now() }),
+      onProgress: (p) => setState((s) => ({ ...s, checking: p })),
+    }).then(() => {
+      if (!ctrl.signal.aborted) setState((s) => ({ rev: s.rev + 1, checking: null }));
+    });
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  // Read from the cache when a read finishes, not on every result, so the
+  // list fills once instead of reshuffling under the pointer.
+  const held = useMemo(() => {
+    const lastPosted = new Map();
+    let failed = 0;
+    for (const d of dids) {
+      const hit = lastPostedCache.get(d);
+      if (!hit) continue;
+      if (hit.ok) lastPosted.set(d, hit.ms);
+      else failed += 1;
+    }
+    return { lastPosted, failed };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, state.rev]);
+  return { ...held, checking: state.checking };
+}
+
+/** What "nothing from you" means under each engagement filter. */
+const NONE_FROM_YOU = {
+  all: 'no like, repost, reply or quote',
+  like: 'no like',
+  repost: 'no repost',
+  reply: 'no reply',
+  quote: 'no quote',
+};
+
 function PeopleTab({ archive, did, period, kind, relation, nowMs }) {
   const { posts, inbound, outbound, followers, following, actors, wantActors, setFollow, sync } = archive;
   const followsKnown = Boolean(archive.meta.following);
-  const [limits, setLimits] = useState({ in: PEOPLE_PAGE, out: PEOPLE_PAGE });
+  const [limits, setLimits] = useState({ in: PEOPLE_PAGE, out: PEOPLE_PAGE, quiet: PEOPLE_PAGE });
   // did → { busy, error } for the Follow buttons pressed this visit.
   const [pending, setPending] = useState(() => new Map());
   // People followed or unfollowed under the current relationship filter stay
@@ -1890,6 +1954,14 @@ function PeopleTab({ archive, did, period, kind, relation, nowMs }) {
 
   const followingSet = useMemo(() => new Set(following.map((f) => f.did)), [following]);
   const followerSet = useMemo(() => new Set(followers.map((f) => f.did)), [followers]);
+
+  // Everyone followed, plus the people whose Follow key was pressed under this
+  // filter, so someone unfollowed from the list keeps their row and its undo.
+  const quietCandidates = useMemo(
+    () => (followsKnown ? Array.from(new Set([...followingSet, ...(keptDids || [])])).sort() : []),
+    [followsKnown, followingSet, keptDids],
+  );
+  const activity = useLastPosted(relation === 'not' ? [] : quietCandidates);
 
   const model = useMemo(() => {
     const t1 = nowMs;
@@ -1909,7 +1981,11 @@ function PeopleTab({ archive, did, period, kind, relation, nowMs }) {
     const outT0 = windowFor(outboundAll);
     const inAll = topActors(inbound, { kind, t0: inT0, t1, limit: Infinity, excludeDid: did });
     const outAll = topActors(outboundAll, { kind, t0: outT0, t1, limit: Infinity, excludeDid: did });
+    const posted = [...activity.lastPosted].filter(([, ms]) => ms != null && ms >= outT0).length;
     return {
+      quiet: kind === 'mention' ? [] : quietFollows(quietCandidates, outboundAll, activity.lastPosted, { kind, t0: outT0, t1 }),
+      posted,
+      outT0,
       inRanked: inAll.filter(keep),
       outRanked: outAll.filter(keep),
       inAny: inAll.length > 0,
@@ -1919,19 +1995,20 @@ function PeopleTab({ archive, did, period, kind, relation, nowMs }) {
       inOldest: oldestEventMs(inbound),
       inT0,
     };
-  }, [posts, inbound, outbound, period, kind, relation, followingSet, keptDids, did, nowMs]);
+  }, [posts, inbound, outbound, period, kind, relation, followingSet, keptDids, did, nowMs, quietCandidates, activity.lastPosted]);
 
   const inTop = useMemo(() => model.inRanked.slice(0, limits.in), [model, limits.in]);
   const outTop = useMemo(
     () => (kind === 'mention' ? [] : model.outRanked.slice(0, limits.out)),
     [model, kind, limits.out],
   );
+  const quietTop = useMemo(() => model.quiet.slice(0, limits.quiet), [model, limits.quiet]);
 
   // Resolve the faces this render actually shows — two getProfiles calls at
   // most, cached in the actors store afterwards.
   const wanted = useMemo(
-    () => [...inTop, ...outTop].map((r) => r.did).filter((d) => !actors.get(d)?.handle),
-    [inTop, outTop, actors],
+    () => [...inTop, ...outTop, ...quietTop].map((r) => r.did).filter((d) => !actors.get(d)?.handle),
+    [inTop, outTop, quietTop, actors],
   );
   useEffect(() => {
     if (wanted.length) wantActors(wanted);
@@ -2053,6 +2130,58 @@ function PeopleTab({ archive, did, period, kind, relation, nowMs }) {
           )}
         </div>
       </div>
+      {followsKnown && relation !== 'not' && (
+        <div className="an-card">
+          <SectionHead
+            as="h3"
+            title={
+              <>
+                <HeartOff size={18} aria-hidden="true" className="an-card-glyph" />
+                Follows you haven&rsquo;t engaged with
+              </>
+            }
+            meta={
+              kind !== 'mention' && model.posted > 0
+                ? `${model.quiet.length.toLocaleString('en-US')} of ${model.posted.toLocaleString('en-US')} who posted`
+                : null
+            }
+          />
+          {kind === 'mention' ? (
+            <p className="an-empty">Mentions are tracked inbound only.</p>
+          ) : activity.checking && activity.lastPosted.size === 0 ? (
+            <p className="an-empty" aria-live="polite">
+              Checking when each of your follows last posted: {activity.checking.done.toLocaleString('en-US')} of{' '}
+              {activity.checking.total.toLocaleString('en-US')}.
+            </p>
+          ) : (
+            <>
+              <ActorList
+                rows={quietTop}
+                cardFor={cardFor}
+                relationFor={relationFor}
+                onToggleFollow={toggleFollow}
+                aside={(row) => `posted ${relativeTime(row.lastPostedMs, nowMs)}`}
+                empty={
+                  model.posted > 0
+                    ? 'You engaged with everyone you follow who posted in this window.'
+                    : 'None of your follows posted in this window.'
+                }
+              />
+              <MoreButton
+                shown={quietTop.length}
+                total={model.quiet.length}
+                onMore={() => setLimits((l) => ({ ...l, quiet: l.quiet + PEOPLE_PAGE }))}
+              />
+              <p className="an-card-caption">
+                People you follow who posted or replied since {formatDateShort(model.outT0)} and got{' '}
+                {NONE_FROM_YOU[kind] || NONE_FROM_YOU.all} from you in that time.
+                {activity.failed > 0 &&
+                  ` ${activity.failed.toLocaleString('en-US')} ${activity.failed === 1 ? 'account' : 'accounts'} couldn’t be checked: deleted, deactivated, or on a server that didn’t answer.`}
+              </p>
+            </>
+          )}
+        </div>
+      )}
       <p className="an-note">
         Inbound counts come from notifications (likes, reposts, replies, quotes, mentions aimed at
         you); outbound counts from the repo archive&rsquo;s complete like and repost history plus
@@ -2080,7 +2209,7 @@ function MoreButton({ shown, total, onMore }) {
   );
 }
 
-function ActorList({ rows, cardFor, relationFor = null, onToggleFollow = null, empty }) {
+function ActorList({ rows, cardFor, relationFor = null, onToggleFollow = null, empty, aside = null }) {
   if (!rows.length) return <p className="an-empty">{empty}</p>;
   const max = rows[0]?.total || 1;
   return (
@@ -2089,13 +2218,13 @@ function ActorList({ rows, cardFor, relationFor = null, onToggleFollow = null, e
         const card = cardFor(row.did);
         const name = card?.displayName || card?.handle || row.did;
         const href = `https://bsky.app/profile/${encodeURIComponent(card?.handle || row.did)}`;
-        const detail = Object.entries(row.byKind)
+        const detail = Object.entries(row.byKind || {})
           .sort((a, b) => b[1] - a[1])
           .map(([k, n]) => `${n} ${k}${n === 1 ? '' : 's'}`)
           .join(', ');
         const rel = relationFor ? relationFor(row.did) : null;
         return (
-          <li key={row.did} className={`an-actor${rel ? ' an-actor--follow' : ''}`}>
+          <li key={row.did} className={`an-actor${rel ? ' an-actor--follow' : ''}${aside ? ' an-actor--aside' : ''}`}>
             {card?.avatar ? (
               <img className="an-actor-avatar" src={card.avatar} alt="" loading="lazy" />
             ) : (
@@ -2118,12 +2247,18 @@ function ActorList({ rows, cardFor, relationFor = null, onToggleFollow = null, e
                 </span>
               )}
             </span>
-            <span className="an-actor-track" aria-hidden="true">
-              <span className="an-actor-fill" style={{ width: `${(row.total / max) * 100}%` }} />
-            </span>
-            <span className="an-actor-count" title={detail}>
-              {row.total.toLocaleString('en-US')}
-            </span>
+            {aside ? (
+              <span className="an-actor-aside">{aside(row)}</span>
+            ) : (
+              <>
+                <span className="an-actor-track" aria-hidden="true">
+                  <span className="an-actor-fill" style={{ width: `${(row.total / max) * 100}%` }} />
+                </span>
+                <span className="an-actor-count" title={detail}>
+                  {row.total.toLocaleString('en-US')}
+                </span>
+              </>
+            )}
             {rel && (
               <span className="an-actor-action">
                 {rel.following == null ? null : (
