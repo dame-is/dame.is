@@ -58,6 +58,31 @@ async function arenaJson(path) {
   return res.json();
 }
 
+// A channel slug, in the same character set /api/arena forwards.
+const CHANNEL_SLUG = /^[a-z0-9][a-z0-9_-]*$/i;
+
+/**
+ * The channel slug in whatever was pasted: a channel link
+ * (are.na/<user>/<slug> or are.na/channel/<slug>, with or without the scheme,
+ * www, a trailing slash or a query) or a bare slug. Null when it names
+ * something else: a block, a profile, another site.
+ */
+export function arenaChannelSlug(input) {
+  const s = String(input ?? '').trim();
+  if (!s) return null;
+  if (CHANNEL_SLUG.test(s)) return s.toLowerCase();
+  let url;
+  try {
+    url = new URL(/^[a-z]+:\/\//i.test(s) ? s : `https://${s}`);
+  } catch {
+    return null;
+  }
+  if (!/(^|\.)are\.na$/i.test(url.hostname)) return null;
+  const [first, slug] = url.pathname.split('/').filter(Boolean);
+  if (!slug || first === 'block') return null;
+  return CHANNEL_SLUG.test(slug) ? slug.toLowerCase() : null;
+}
+
 /** `GET /v3/channels/{slug}` — channel metadata (title, description, counts). */
 export function fetchChannelMeta(arenaSlug) {
   return arenaJson(`/channels/${encodeURIComponent(arenaSlug)}`);

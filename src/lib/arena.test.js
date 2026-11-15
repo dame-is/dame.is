@@ -13,6 +13,7 @@ import {
   arenaText,
   pickCoverThumb,
   normalizeBlock,
+  arenaChannelSlug,
   DEFAULT_BLOCK_ORDER,
 } from './arena.js';
 import { videoEmbedSrc } from './videoEmbed.js';
@@ -229,6 +230,35 @@ describe('normalizeBlock', () => {
     expect(normalizeBlock({ ...EMBED, image: null })).toBeNull();
     expect(normalizeBlock({ ...EMBED, type: 'Attachment' })).toBeNull();
     expect(normalizeBlock({ ...EMBED, type: 'Channel' })).toBeNull();
+  });
+});
+
+describe('arenaChannelSlug', () => {
+  it('reads the slug out of the ways a channel link gets copied', () => {
+    const slug = 'weird-dog-photos-only';
+    expect(arenaChannelSlug('https://www.are.na/dame/weird-dog-photos-only')).toBe(slug);
+    expect(arenaChannelSlug('https://are.na/dame/weird-dog-photos-only/')).toBe(slug);
+    expect(arenaChannelSlug('are.na/dame/weird-dog-photos-only?sort=newest#top')).toBe(slug);
+    expect(arenaChannelSlug('  www.are.na/channel/weird-dog-photos-only\n')).toBe(slug);
+    expect(arenaChannelSlug('https://www.are.na/dame/spiritual-computing-pje0ngy1pke')).toBe(
+      'spiritual-computing-pje0ngy1pke',
+    );
+  });
+
+  it('takes a bare slug as it is', () => {
+    expect(arenaChannelSlug('weird-dog-photos-only')).toBe('weird-dog-photos-only');
+    expect(arenaChannelSlug('Weird-Dog-Photos-Only')).toBe('weird-dog-photos-only');
+  });
+
+  it('has nothing for a link that isn’t a channel', () => {
+    expect(arenaChannelSlug('https://www.are.na/block/35172379')).toBeNull();
+    expect(arenaChannelSlug('https://www.are.na/dame')).toBeNull();
+    expect(arenaChannelSlug('https://www.are.na/')).toBeNull();
+    expect(arenaChannelSlug('https://example.com/dame/weird-dog-photos-only')).toBeNull();
+    expect(arenaChannelSlug('https://notare.na/dame/weird-dog-photos-only')).toBeNull();
+    expect(arenaChannelSlug('weird dog photos only')).toBeNull();
+    expect(arenaChannelSlug('')).toBeNull();
+    expect(arenaChannelSlug(null)).toBeNull();
   });
 });
 

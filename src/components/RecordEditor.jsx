@@ -1,4 +1,5 @@
 import {
+  Fragment,
   forwardRef,
   useCallback,
   useEffect,
@@ -20,7 +21,7 @@ import {
 } from '../lib/recordDiff.js';
 import { resolvePds } from '../lib/atproto.js';
 import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
-import { fetchAllBlocks } from '../lib/arena.js';
+import { arenaChannelSlug, fetchAllBlocks, fetchChannelMeta } from '../lib/arena.js';
 import { isSwapConflict } from '../lib/recordWrites.js';
 import { deleteEveryCopy } from '../lib/tealPlayDelete.js';
 import BlocksEditor, { BlocksFlushContext } from './blocks/BlocksEditor.jsx';
@@ -464,6 +465,21 @@ const RecordEditor = forwardRef(function RecordEditor({
   const updateField = useCallback((key, next) => {
     setValue((prev) => ({ ...(prev || {}), [key]: next }));
   }, []);
+
+  // A new record whose lexicon names `rkeyFrom` takes its key from that field
+  // as it changes: paste a channel and the gallery's address is filled in. The
+  // key stops following once it no longer matches what was last copied into it,
+  // which is to say once it has been typed by hand.
+  const rkeySource = isNew && lex?.rkeyFrom ? String(value?.[lex.rkeyFrom] ?? '').trim() : null;
+  const rkeyCopiedRef = useRef('');
+  useEffect(() => {
+    if (rkeySource == null) return;
+    setRkeyDraft((draft) => {
+      if (draft.trim() !== '' && draft !== rkeyCopiedRef.current) return draft;
+      rkeyCopiedRef.current = rkeySource;
+      return rkeySource;
+    });
+  }, [rkeySource]);
 
   /* --- which body is on screen ----------------------------------------- */
 
@@ -946,6 +962,33 @@ const RecordEditor = forwardRef(function RecordEditor({
     );
   }
 
+  const rkeyField = isNew && lex?.rkeyMode === 'fixed' && !compact && (
+    <div className="admin-field">
+      <label className="admin-field-label" htmlFor="record-editor-rkey">
+        Record key (rkey)
+      </label>
+      <input
+        id="record-editor-rkey"
+        className="admin-input"
+        value={rkeyDraft}
+        onChange={(e) => setRkeyDraft(e.target.value)}
+        placeholder={lex.rkeyPlaceholder || 'rkey'}
+      />
+      {lex.rkeyHint ? (
+        <p className="admin-field-hint">{lex.rkeyHint}</p>
+      ) : (
+        lex.rkeyPlaceholder && (
+          <p className="admin-field-hint">
+            Typical values: <code>{lex.rkeyPlaceholder}</code>
+          </p>
+        )
+      )}
+    </div>
+  );
+  // A key that follows a field sits under that field, so the form reads in the
+  // order it fills: the channel, then the address it gave the gallery.
+  const rkeyInForm = Boolean(rkeyField && lex.rkeyFrom && !rawActive && !previewActive);
+
   return (
     <div className={`record-editor reveal${compact ? ' record-editor-compact' : ''}`}>
       {/* A caller with its own tab bar hides this row. `hideActions` deliberately
@@ -975,25 +1018,7 @@ const RecordEditor = forwardRef(function RecordEditor({
         </div>
       )}
 
-      {isNew && lex?.rkeyMode === 'fixed' && !compact && (
-        <div className="admin-field">
-          <label className="admin-field-label" htmlFor="record-editor-rkey">
-            Record key (rkey)
-          </label>
-          <input
-            id="record-editor-rkey"
-            className="admin-input"
-            value={rkeyDraft}
-            onChange={(e) => setRkeyDraft(e.target.value)}
-            placeholder={lex.rkeyPlaceholder || 'rkey'}
-          />
-          {lex.rkeyPlaceholder && (
-            <p className="admin-field-hint">
-              Typical values: <code>{lex.rkeyPlaceholder}</code>
-            </p>
-          )}
-        </div>
-      )}
+      {!rkeyInForm && rkeyField}
 
       {previewActive && lex ? (
         <>
@@ -1015,6 +1040,7 @@ const RecordEditor = forwardRef(function RecordEditor({
             did={did}
             collection={collection}
             rkey={rkey}
+            after={rkeyInForm ? { [lex.rkeyFrom]: rkeyField } : null}
             coverPreview={coverPreview}
             onSetCover={(key, blob, previewUrl) => {
               updateField(key, blob);
@@ -1087,7 +1113,7 @@ export default RecordEditor;
 /* Field renderers                                                      */
 /* ------------------------------------------------------------------ */
 
-function FormEditor({ lex, value, onChange, agent, did, collection, rkey, coverPreview, onSetCover }) {
+function FormEditor({ lex, value, onChange, agent, did, collection, rkey, after, coverPreview, onSetCover }) {
   // If this record type carries a top-level image field (e.g. a document's
   // coverImage), link cards can offer to reuse their preview image as it.
   const coverField = lex.fields.find((f) => f.type === 'image');
@@ -1098,19 +1124,21 @@ function FormEditor({ lex, value, onChange, agent, did, collection, rkey, coverP
   return (
     <div className="admin-form">
       {lex.fields.map((f) => (
-        <Field
-          key={f.key}
-          field={f}
-          value={value[f.key]}
-          record={value}
-          onChange={(v) => onChange(f.key, v)}
-          agent={agent}
-          did={did}
-          collection={collection}
-          rkey={rkey}
-          onSetCover={f.type === 'blocks' ? setCover : undefined}
-          externalPreview={coverField && f.key === coverField.key ? coverPreview : undefined}
-        />
+        <Fragment key={f.key}>
+          <Field
+            field={f}
+            value={value[f.key]}
+            record={value}
+            onChange={(v) => onChange(f.key, v)}
+            agent={agent}
+            did={did}
+            collection={collection}
+            rkey={rkey}
+            onSetCover={f.type === 'blocks' ? setCover : undefined}
+            externalPreview={coverField && f.key === coverField.key ? coverPreview : undefined}
+          />
+          {after?.[f.key]}
+        </Fragment>
       ))}
     </div>
   );
@@ -1351,6 +1379,11 @@ function Field({ field, value, record, onChange, agent, did, collection, rkey, o
           agent={agent}
           externalPreview={externalPreview}
         />
+      );
+      break;
+    case 'arenaChannel':
+      control = (
+        <ArenaChannelField id={id} value={value} onChange={onChange} placeholder={field.placeholder} />
       );
       break;
     case 'arenaCover':
@@ -1735,6 +1768,97 @@ function useSettled(value, ms) {
 }
 
 /**
+ * The are.na channel behind a gallery (`is.dame.arena.channel` → arenaSlug).
+ * Takes the channel's link as copied from are.na, or its slug, and stores the
+ * slug; a pasted link is replaced by its slug in the box, so what is shown is
+ * what will be saved. Under it, the channel are.na has at that slug, which is
+ * the check that the paste found the right one.
+ *
+ * Text that names no channel is kept in the box and not stored, so Create
+ * stops on the required field rather than saving a link as a slug.
+ */
+function ArenaChannelField({ id, value, onChange, placeholder }) {
+  const [raw, setRaw] = useState(value || '');
+  // Ignore the echo of our own emit; re-sync when the record loads underneath.
+  const lastEmitted = useRef(value || '');
+  useEffect(() => {
+    if ((value || '') !== lastEmitted.current) {
+      setRaw(value || '');
+      lastEmitted.current = value || '';
+    }
+  }, [value]);
+
+  const slug = arenaChannelSlug(raw);
+  const settledRaw = useSettled(raw.trim(), ARENA_SLUG_SETTLE_MS);
+  const settledSlug = arenaChannelSlug(settledRaw);
+  const [found, setFound] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFound(null);
+    if (!settledSlug) return undefined;
+    fetchChannelMeta(settledSlug)
+      .then((meta) => {
+        if (!cancelled) setFound({ slug: settledSlug, meta });
+      })
+      .catch((err) => {
+        if (!cancelled) setFound({ slug: settledSlug, error: err });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [settledSlug]);
+
+  let line = null;
+  if (settledRaw && !settledSlug) {
+    line = <p className="admin-field-hint admin-error-inline">That isn’t an are.na channel link.</p>;
+  } else if (slug && found?.slug === slug && found.meta) {
+    const { title, owner, counts } = found.meta;
+    const blocks = counts?.blocks;
+    line = (
+      <p className="admin-field-hint">
+        “{title || slug}”{owner?.name ? ` by ${owner.name}` : ''}
+        {blocks != null ? `, ${blocks} ${blocks === 1 ? 'block' : 'blocks'}` : ''}.
+      </p>
+    );
+  } else if (slug && found?.slug === slug && found.error) {
+    line = (
+      <p className="admin-field-hint admin-error-inline">
+        {[401, 403, 404].includes(found.error.status)
+          ? 'are.na has no public channel at that address.'
+          : `Couldn’t reach are.na: ${found.error.message || found.error}`}
+      </p>
+    );
+  } else if (slug && settledSlug === slug) {
+    line = <p className="admin-field-hint">Looking it up on are.na…</p>;
+  }
+
+  // A fragment, so the line under the box takes the field's own spacing.
+  return (
+    <>
+      <input
+        id={id}
+        className="admin-input"
+        type="text"
+        value={raw}
+        onChange={(e) => {
+          const next = e.target.value;
+          const s = arenaChannelSlug(next);
+          setRaw(s || next);
+          lastEmitted.current = s || '';
+          onChange(s || undefined);
+        }}
+        placeholder={placeholder || ''}
+        spellCheck={false}
+        autoCapitalize="none"
+        autoCorrect="off"
+      />
+      {line}
+    </>
+  );
+}
+
+/**
  * Cover picker for an are.na gallery (`is.dame.arena.channel`). Loads the
  * channel's images (through the same-origin proxy) and lets the author click
  * one to front the gallery; the stored value is that block's are.na id.
@@ -1750,7 +1874,7 @@ function ArenaCoverField({ value, onChange, arenaSlug }) {
     const slug = settledSlug;
     if (!slug) {
       setBlocks(null);
-      setStatus('Enter the are.na channel slug to pick a cover.');
+      setStatus('Add the are.na channel to pick a cover.');
       return undefined;
     }
     setStatus('Loading images…');
@@ -1839,7 +1963,7 @@ function ArenaPinsField({ value, onChange, arenaSlug }) {
     const slug = settledSlug;
     if (!slug) {
       setBlocks(null);
-      setStatus('Enter the are.na channel slug to pin blocks.');
+      setStatus('Add the are.na channel to pin blocks.');
       return undefined;
     }
     setStatus('Loading blocks…');
