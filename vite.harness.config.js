@@ -16,6 +16,7 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { handleMod } from './harness/modFixtures.js';
 import { handleGraph } from './harness/graphFixtures.js';
+import { channelSlugFromPath } from './api/arena.js';
 
 const REAL_SESSION = fileURLToPath(new URL('./src/hooks/useAtprotoSession.jsx', import.meta.url));
 const FAKE_SESSION = fileURLToPath(new URL('./harness/fakeSession.jsx', import.meta.url));
@@ -121,6 +122,40 @@ function serveModerationFixtures() {
 }
 
 /**
+ * Pass /api/arena through to are.na as a guest, so the Curating editor's
+ * channel lookup, cover picker and pin picker load real channels here instead
+ * of failing. Only the paths the real proxy forwards (api/arena.js) go out, and
+ * no token is sent.
+ */
+function passArenaThrough() {
+  return {
+    name: 'harness-arena-api',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = new URL(req.url || '/', 'http://harness');
+        if (url.pathname !== '/api/arena') return next();
+        const path = url.searchParams.get('path');
+        if (!channelSlugFromPath(path)) {
+          res.statusCode = 400;
+          return res.end('{}');
+        }
+        try {
+          const upstream = await fetch(`https://api.are.na/v3${path}`, {
+            headers: { Accept: 'application/json' },
+          });
+          res.statusCode = upstream.status;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(await upstream.text());
+        } catch (err) {
+          res.statusCode = 502;
+          res.end(JSON.stringify({ error: err?.message || 'are.na unreachable' }));
+        }
+      });
+    },
+  };
+}
+
+/**
  * `virtual:sky-tuning` as no tuning at all (the built-in palette).
  *
  * vite.config.js's skyBootPaint serves that module to src/main.jsx, and this
@@ -143,6 +178,7 @@ export default defineConfig({
     swapSessionModule(),
     serveHarnessShell(),
     serveModerationFixtures(),
+    passArenaThrough(),
     noSkyTuning(),
     react(),
   ],
