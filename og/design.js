@@ -1536,6 +1536,171 @@ function albumsCard(t, { shelf, avatarUri, nsid }) {
   });
 }
 
+// ── RECORD: one curating board ──────────────────────────────────────────────
+// A channel is its blocks before it is its name, so the card draws them: the
+// cover first, then the channel's first blocks, image blocks as plates and
+// text blocks as their words in a box, the way are.na tiles them.
+
+/** "2 years old", from the channel's own creation date on are.na. */
+function channelAgeLine(createdAt, now = new Date()) {
+  const d = createdAt ? new Date(createdAt) : null;
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const days = Math.floor((now - d) / 86_400_000);
+  if (days < 1) return 'new today';
+  const unit = (n, w) => `${n} ${w}${n === 1 ? '' : 's'} old`;
+  if (days < 14) return unit(days, 'day');
+  if (days < 60) return unit(Math.floor(days / 7), 'week');
+  if (days < 365) return unit(Math.floor(days / 30), 'month');
+  return unit(Math.floor(days / 365), 'year');
+}
+
+/** One block in a box: an image cropped to fill, or a text block's words set
+ *  inside a hairline frame, cut where the box ends. */
+function blockTile(t, block, { left, top, width, height }) {
+  if (block.type === 'image') return imagePlate(t, block.src, { left, top, width, height });
+  const pad = Math.max(10, Math.round(width * 0.09));
+  const size = width >= 200 ? 24 : width >= 130 ? 18 : 15;
+  const lead = Math.round(size * 1.18);
+  const rows = Math.max(1, Math.floor((height - 2 * pad) / lead));
+  let lines = wrapMeasured(block.text || '', size, width - 2 * pad);
+  if (lines.length > rows) {
+    lines = lines.slice(0, rows);
+    lines[rows - 1] = `${lines[rows - 1].replace(/\s+\S*$/, '')}…`;
+  }
+  return h(
+    'div',
+    {
+      style: {
+        position: 'absolute',
+        left: Math.round(left),
+        top: Math.round(top),
+        width: Math.round(width),
+        height: Math.round(height),
+        overflow: 'hidden',
+        border: `1px solid ${t.rule}`,
+        background: t.page,
+        flexDirection: 'column',
+        padding: pad,
+      },
+    },
+    ...lines.map((l) =>
+      h('div', { style: { fontSize: size, lineHeight: `${lead}px`, height: lead, color: t.ink, fontWeight: 400, fontFamily: 'Crimson Pro' } }, l),
+    ),
+  );
+}
+
+// A: the strip. The night and the albums shelf's shape: the name on row 3, five
+// squares across the column below it, the block count in the gutter.
+function channelStripCard(t, { channel, avatarUri, nsid }) {
+  const CX = 320, bcBy = P - LE;
+  const colW = W - PAD - CX;
+  const BOX = 2 * P;
+  const SLOTS = 5;
+  const GAP = (colW - SLOTS * BOX) / (SLOTS - 1);
+  const blocks = (channel.blocks || []).slice(0, SLOTS);
+  const { size, lines } = fitHeadline(channel.title || '', colW, 2, 72, 44);
+  const desc = lines.length === 1 ? wrapText(channel.description || '', 24, colW).slice(0, 1) : [];
+  const age = channelAgeLine(channel.createdAt);
+  return shell(t, [
+    at('blocks', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    channel.blockCount != null
+      ? at(channel.blockCount.toLocaleString('en-US'), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft })
+      : null,
+    age ? at(age, { size: 22, by: 4 * P + HP - 10, left: PAD, color: t.inkFaint, weight: 400 }) : null,
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, 'curating'), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
+    ...lines.map((l, i) => at(l, { size, by: 3 * P - 8 + i * P, left: CX, weight: 600, color: t.ink, ls: '-0.01em' })),
+    ...desc.map((l) => at(l, { size: 24, by: 4 * P - 8, left: CX, color: t.inkSoft, weight: 400 })),
+    ...blocks.map((b, i) => blockTile(t, b, { left: CX + i * (BOX + GAP), top: 5 * P, width: BOX, height: BOX })),
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    halfBands: [{ from: 4 * P, to: 4 * P + HP }],
+  });
+}
+
+// B: the plate. The album card's shape: the words in the column, and on the
+// right a square of the first four blocks, the cover at its top left.
+function channelPlateCard(t, { channel, avatarUri, nsid, folio }) {
+  const CX = LISTEN_CX, bcBy = P - LE;
+  const blocks = (channel.blocks || []).slice(0, 4);
+  const colW = (blocks.length ? COVER_X - 40 : W - PAD) - CX;
+  const { size, lines } = fitHeadline(channel.title || '', colW, 3, 62, 38);
+  const descBy = (3 + lines.length) * P - 8;
+  const factsBy = 6 * P + HP - 8;
+  // As many description lines as fit above the facts line, two at most.
+  const descRows = Math.max(0, Math.floor((factsBy - HP - descBy) / HP) + 1);
+  const descAll = wrapText(channel.description || '', 24, colW);
+  const desc = descAll.slice(0, Math.min(2, descRows));
+  if (descAll.length > desc.length && desc.length) {
+    desc[desc.length - 1] = `${desc[desc.length - 1].replace(/\s+\S*$/, '')}…`;
+  }
+  const GAP = 8;
+  const cell = (COVER - GAP) / 2;
+  const cells = blocks.length === 1
+    ? [[0, 0, COVER, COVER]]
+    : [[0, 0], [cell + GAP, 0], [0, cell + GAP], [cell + GAP, cell + GAP]].map(([x, y]) => [x, y, cell, cell]);
+  const facts = [
+    channel.blockCount != null ? `${channel.blockCount.toLocaleString('en-US')} blocks` : '',
+    channelAgeLine(channel.createdAt),
+  ].filter(Boolean).join(' · ');
+  return shell(t, [
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, 'curating'), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
+    ...lines.map((l, i) => at(l, { size, by: 3 * P - 8 + i * P, left: CX, weight: 600, color: t.ink, ls: '-0.01em' })),
+    ...desc.map((l, i) => at(l, { size: 24, by: descBy + i * HP, left: CX, color: t.inkSoft, weight: 400 })),
+    facts ? at(facts, { size: 24, by: factsBy, left: CX, color: t.inkMuted, weight: 400 }) : null,
+    ...blocks.map((b, i) => blockTile(t, b, { left: COVER_X + cells[i][0], top: 2 * P + cells[i][1], width: cells[i][2], height: cells[i][3] })),
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    halfBands: [{ from: 3 * P + HP, to: 7 * P }],
+  });
+}
+
+// C: the contact sheet. No gutter: the name across the top, and two rows of
+// seven blocks filling the page between the third and seventh rules, the way
+// the channel itself opens on are.na.
+function channelSheetCard(t, { channel, avatarUri, nsid, folio }) {
+  const bcBy = P - LE;
+  const COLS = 7;
+  const rowsTop = 3 * P;
+  const vGap = 8;
+  const box = (4 * P - vGap) / 2;
+  const hGap = (W - 2 * PAD - COLS * box) / (COLS - 1);
+  const blocks = (channel.blocks || []).slice(0, COLS * 2);
+  const facts = [
+    channel.blockCount != null ? `${channel.blockCount.toLocaleString('en-US')} blocks` : '',
+    channelAgeLine(channel.createdAt),
+  ].filter(Boolean).join(' · ');
+  const factsW = facts ? textWidth(facts, 24) + 40 : 0;
+  const { size, lines } = fitHeadline(channel.title || '', W - 2 * PAD - factsW, 1, 60, 36);
+  return shell(t, [
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: PAD }),
+    rowAt(recordCrumb(t, 'curating'), { size: 28, by: bcBy, left: avatarUri ? PAD + 46 + 18 : PAD }),
+    at(lines[0] || '', { size, by: 2 * P + HP - 10, left: PAD, weight: 600, color: t.ink, ls: '-0.01em' }),
+    facts ? at(facts, { size: 24, by: 2 * P + HP - 10, right: PAD, color: t.inkMuted, weight: 400 }) : null,
+    ...blocks.map((b, i) =>
+      blockTile(t, b, {
+        left: PAD + (i % COLS) * (box + hGap),
+        top: rowsTop + Math.floor(i / COLS) * (box + vGap),
+        width: box,
+        height: box,
+      }),
+    ),
+    at(`day ${folio}`, { size: 22, by: 8 * P - LE, left: PAD, color: t.inkFaint, ls: '0.04em' }),
+    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
+  ], {});
+}
+
+function channelCard(t, o) {
+  if (o.layout === 'b') return channelPlateCard(t, o);
+  if (o.layout === 'c') return channelSheetCard(t, o);
+  return channelStripCard(t, o);
+}
+
 // ── HOME: H4 (index of surfaces, cascade-fade, tighter half-pitch rows) ─────
 function homeCardH4(t, { avatarUri, folio, homeIndex, nsid }) {
   const bcBy = P - LE, top0 = 2 * P + HP, sz = 32;
@@ -1653,6 +1818,10 @@ export function ogElement(o = {}) {
   // The newsletter's page draws the email it sends, under its own title.
   if (o.letter) {
     return letterCard(t, { letter: o.letter, avatarUri, nsid: o.nsid || '', folio });
+  }
+  // A curating board draws its blocks.
+  if (o.channel) {
+    return channelCard(t, { channel: o.channel, layout: o.channelLayout, avatarUri, nsid: o.nsid || '', folio });
   }
   // The guestbook draws its signers and where they signed from.
   if (o.guestbook) {

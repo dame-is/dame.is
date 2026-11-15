@@ -18,6 +18,7 @@
 //   /api/og?subscribe=1             → the newsletter's page, drawn as its email
 //   /api/og?guestbook=1             → the guestbook, as its newest signers and
 //                                     where they signed from
+//   /api/og?channel=weird-dog-photos-only → one curating board, with its blocks on it
 //   /api/og?title=Foo&subtitle=Bar  → ad-hoc copy
 //   /api/og?theme=dark              → dark (green-black) variant
 //   /api/og                         → the home "index" card
@@ -50,6 +51,7 @@ import {
   quotedDocument,
   subscribeCard,
   guestbookCard,
+  channelCard,
 } from '../og/records.js';
 import { lookupArtwork } from './_lib/itunes.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
@@ -136,6 +138,19 @@ const CARD_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /**
+ * What an image's first bytes say it is, or null for anything a card won't
+ * draw. are.na's image server labels a resized PNG `image/png` and sends it
+ * as a JPEG, and a data: URI with the wrong type draws as an empty box.
+ */
+function sniffImageType(bytes) {
+  if (bytes.length < 4) return null;
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'image/gif';
+  return null;
+}
+
+/**
  * One remote image as a data: URI, or null.
  *
  * Satori will happily fetch a remote <img> itself, but then a single dead
@@ -160,7 +175,9 @@ async function inlineImage(url) {
     }
     const bytes = Buffer.from(await res.arrayBuffer());
     if (bytes.length > MAX_IMAGE_BYTES) return null;
-    return `data:${type};base64,${bytes.toString('base64')}`;
+    const actual = sniffImageType(bytes);
+    if (!actual) return null;
+    return `data:${actual};base64,${bytes.toString('base64')}`;
   } catch {
     return null;
   }
@@ -293,6 +310,36 @@ async function postCardData(copy, { date = null, nsid = null } = {}) {
 
 /** The collection an at:// URI names, for a card's margin. */
 const nsidOf = (uri) => String(uri || '').match(/^at:\/\/[^/]+\/([^/]+)\//)?.[1] || null;
+
+// How many of a board's blocks reach its card. Images past the first few are
+// bytes nobody sees; text blocks cost nothing to fetch.
+const CHANNEL_BLOCKS = 14;
+
+/**
+ * Everything a curating board's card draws, with its images inlined. A block
+ * whose image won't load is left out, and the card draws whatever answered.
+ */
+async function channelCardData(card) {
+  if (!card?.title) return null;
+  const blocks = await Promise.all(
+    (card.blocks || []).slice(0, CHANNEL_BLOCKS).map(async (b) => {
+      if (b.type === 'text') return { type: 'text', text: b.text };
+      const src = await inlineImage(b.src);
+      return src ? { type: 'image', src, aspect: b.width && b.height ? b.width / b.height : null } : null;
+    }),
+  );
+  const drawn = blocks.filter(Boolean);
+  return {
+    title: card.title,
+    description: card.description || '',
+    blockCount: card.blockCount,
+    createdAt: card.createdAt,
+    blocks: drawn,
+    // Not drawn: a board that had images and lost all of them on the way is
+    // cached like a miss, as a post card is.
+    short: (card.blocks || []).some((b) => b.type === 'image') && !drawn.some((b) => b.type === 'image'),
+  };
+}
 
 /** Everything the albums index card draws: the totals, and the first few
  *  covers off the shelf. A cover that won't resolve is simply left out. */
@@ -495,6 +542,20 @@ export default async function handler(req, res) {
     if (!quoteTaken && !letter && (q.guestbook === '1' || q.guestbook === 'true')) {
       book = await guestbookCard(origin);
     }
+    // A curating board, drawn as its blocks. `channel` carries a record key,
+    // which has to name an enabled gallery before anything is drawn.
+    let channel = null;
+    if (!quoteTaken && !letter && !book && q.channel) {
+      channel = await channelCardData(await channelCard(clampText(q.channel), origin));
+    }
+    // A board nobody answers to: the curating page's own card.
+    if (!quoteTaken && !letter && !book && q.channel && !channel) {
+      const meta = pageMeta('/curating');
+      pathname = '/curating';
+      label = meta.label;
+      subtitle = meta.desc;
+      nsid = meta.nsid;
+    }
     // A post the PDS didn't answer for, or a repost whose post the AppView
     // couldn't name: that section's own card, as a missed play gets
     // /listening's.
@@ -560,7 +621,8 @@ export default async function handler(req, res) {
       subjectKey ||
       (q.doc && q.quote) ||
       flag(q.subscribe) ||
-      flag(q.guestbook);
+      flag(q.guestbook) ||
+      q.channel;
     const drawn =
       piece ||
       participant ||
@@ -572,10 +634,11 @@ export default async function handler(req, res) {
       post ||
       quoted?.quote ||
       letter ||
-      book;
+      book ||
+      channel;
     // A post card that lost every one of its photos on the way counts as a
     // miss too: it's a fair card, but not the one to keep for an hour.
-    const missed = (Boolean(asked) && !drawn) || Boolean(post?.short);
+    const missed = (Boolean(asked) && !drawn) || Boolean(post?.short) || Boolean(channel?.short);
     if (piece || participant || board) {
       // Fall through to the render with one of them set; nothing else applies.
     } else if (night) {
@@ -606,6 +669,11 @@ export default async function handler(req, res) {
     } else if (book) {
       pathname = '/welcoming';
       nsid = pageMeta(pathname).nsid;
+    } else if (channel) {
+      pathname = '/curating';
+      nsid = pageMeta(pathname).nsid;
+    } else if (q.channel) {
+      // The curating page's own card, set up above.
     } else if (q.page) {
       pathname = cleanPath(clampText(q.page));
       const meta = pageMeta(pathname);
@@ -654,6 +722,9 @@ export default async function handler(req, res) {
       quote: quoted?.quote ? { text: quoted.quote, title: quoted.title, section: quoted.section } : null,
       letter,
       guestbook: book,
+      channel,
+      // TEMPORARY: picks between the layouts being compared.
+      channelLayout: q.layout,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.
