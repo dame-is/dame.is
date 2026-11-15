@@ -5,6 +5,7 @@ import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import { xrayRecordAttrs } from '../lib/xray.js';
 import { compareIsoDesc } from '../lib/time.js';
+import { createRotation } from '../lib/phraseRotation.js';
 
 /**
  * The home-page hero is one combinatorial sentence:
@@ -13,7 +14,9 @@ import { compareIsoDesc } from '../lib/time.js';
  *
  * Each part rotates independently, every few seconds, at organic
  * intervals (random 4–8 s) so you almost never see the same pair
- * twice in a row. "dame is" itself stays put as the muted lead.
+ * twice in a row. Within a part, every phrase shows once before any
+ * repeats (see lib/phraseRotation.js). "dame is" itself stays put as
+ * the muted lead.
  *
  * Phrases live on the PDS as `is.dame.hero.phrase` records (managed in
  * the admin panel) and are loaded at runtime. The in-file VARIANTS_A /
@@ -146,6 +149,19 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
       setIndexB(carryIndex(seenPools.poolB, poolB, indexB));
   }
 
+  // One rotation per part, shared by the timers and the shuffle button, so
+  // neither can bring back a phrase the other just showed. They record what
+  // is on screen after each render rather than what was picked, which also
+  // covers the opener and a phrase carried across a pool change.
+  const [rotA] = useState(createRotation);
+  const [rotB] = useState(createRotation);
+  useEffect(() => {
+    rotA.see(poolA[indexA], poolA);
+  }, [rotA, poolA, indexA]);
+  useEffect(() => {
+    rotB.see(poolB[indexB], poolB);
+  }, [rotB, poolB, indexB]);
+
   // Imperative shuffle handle the parent (Home) wires to a button so
   // users can advance the sentence manually instead of waiting for the
   // next timed swap. Always picks a fresh A and B both — picking the
@@ -153,13 +169,13 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   useEffect(() => {
     if (!shuffleRef) return undefined;
     shuffleRef.current = () => {
-      setIndexA((i) => pickDifferent(i, poolA.length));
-      setIndexB((i) => pickDifferent(i, poolB.length));
+      setIndexA(rotA.next(poolA));
+      setIndexB(rotB.next(poolB));
     };
     return () => {
       if (shuffleRef.current) shuffleRef.current = null;
     };
-  }, [shuffleRef, poolA.length, poolB.length]);
+  }, [shuffleRef, rotA, rotB, poolA, poolB]);
   const measureA = useMemo(
     () => longestPhrases(poolA, MEASURE_LONGEST),
     [poolA],
@@ -190,9 +206,9 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   useEffect(() => {
     if (stopped) return;
     const ms = 4000 + Math.random() * 4000;
-    const id = setTimeout(() => setIndexA((i) => (i + 1) % poolA.length), ms);
+    const id = setTimeout(() => setIndexA(rotA.next(poolA)), ms);
     return () => clearTimeout(id);
-  }, [indexA, stopped, poolA.length]);
+  }, [indexA, stopped, rotA, poolA]);
 
   // Part-B timer: same logic, but a small phase offset (4500 base
   // instead of 4000) so A and B drift independently rather than
@@ -200,9 +216,9 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   useEffect(() => {
     if (stopped) return;
     const ms = 4500 + Math.random() * 4000;
-    const id = setTimeout(() => setIndexB((i) => (i + 1) % poolB.length), ms);
+    const id = setTimeout(() => setIndexB(rotB.next(poolB)), ms);
     return () => clearTimeout(id);
-  }, [indexB, stopped, poolB.length]);
+  }, [indexB, stopped, rotB, poolB]);
 
   // Pause when the tab is hidden — otherwise the timer fires
   // unattended and the user comes back to an arbitrary mid-cycle pair.
@@ -325,15 +341,6 @@ function carryIndex(prev, next, index) {
   if (!next.length) return 0;
   const at = next.indexOf(prev[index]);
   return at >= 0 ? at : index % next.length;
-}
-
-function pickDifferent(current, length) {
-  if (length <= 1) return 0;
-  let next;
-  do {
-    next = Math.floor(Math.random() * length);
-  } while (next === current);
-  return next;
 }
 
 function Rotator({ index, pool, reduce, className = '', uri = null }) {
