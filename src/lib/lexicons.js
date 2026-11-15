@@ -26,6 +26,8 @@ import { DEFAULT_NEWSLETTER_COPY } from './newsletterCopy.js';
  *                         website/code/list/bskyPost, with image uploads
  *   - publicationPicker:  dropdown of site.standard.publication records under
  *                         the signed-in user's DID; stores an at:// URI
+ *   - arenaChannel:       an are.na channel; takes a pasted link or a slug,
+ *                         stores the slug, and says which channel it found
  *   - arenaCover:         thumbnail grid of an are.na channel; stores one block
  *                         id (the gallery's cover)
  *   - arenaPins:          the same grid, multi-select and numbered; stores the
@@ -40,6 +42,11 @@ import { DEFAULT_NEWSLETTER_COPY } from './newsletterCopy.js';
  *                       by the profile's legacy markdown body, which defers to
  *                       its block body)
  *   - placeholder, maxLength, hint, suggestions
+ *
+ * Optional lexicon-level settings for a fixed rkey:
+ *   - rkeyFrom        — key of a field a NEW record's rkey copies as it changes,
+ *                       until the rkey is typed by hand
+ *   - rkeyHint        — replaces the "Typical values" line under the rkey
  *
  * Optional lexicon-level hooks:
  *   - derive(record, { rkey }) — return a record with any rkey-derived fields
@@ -482,13 +489,13 @@ export const LEXICONS = {
     summary:
       'Publishes an Are.na channel as a gallery at /curating/<rkey>. The rkey is the site slug; arenaSlug points at the channel on are.na.',
     rkeyMode: 'fixed',
-    rkeyPlaceholder: 'weird-dogs-only',
+    rkeyFrom: 'arenaSlug',
+    rkeyHint: 'The gallery’s address, /curating/<rkey>. Matches the channel’s slug until you type your own.',
     typeFieldValue: COLLECTIONS.arenaChannel,
     fields: [
       {
-        key: 'arenaSlug', label: 'Are.na channel slug', type: 'text', required: true,
-        placeholder: 'weird-dog-photos-only',
-        hint: 'The slug from are.na/<user>/<slug>. The record key is the site slug shown at /curating/<rkey>.',
+        key: 'arenaSlug', label: 'Are.na channel', type: 'arenaChannel', required: true,
+        hint: 'Paste the channel’s link from are.na, or type its slug.',
       },
       { key: 'title', label: 'Title override', type: 'text', hint: 'Blank = channel title from are.na.' },
       { key: 'description', label: 'Description override', type: 'textarea', hint: 'Blank = channel description from are.na.' },
