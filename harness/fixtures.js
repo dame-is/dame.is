@@ -536,6 +536,7 @@ export function buildRepo() {
     HERO_PHRASES.map((text, i) =>
       rec(COLLECTIONS.heroPhrase, {
         $type: COLLECTIONS.heroPhrase,
+        part: 'clause',
         text,
         enabled: i !== 3,
         createdAt: ago(20000 + i * 1200),
