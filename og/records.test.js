@@ -19,6 +19,7 @@ import {
   subscribeCard,
   guestbookCard,
   GUESTBOOK_CARD_ROWS,
+  channelCard,
 } from './records.js';
 import {
   ME_DID,
@@ -41,7 +42,7 @@ const notFound = () => ({ ok: false, status: 400, json: async () => ({}), text: 
  * PLC directory, the PDS, and are.na through our own proxy. `galleries` seeds
  * the snapshot, `record` the PDS answer, `channel` what are.na says.
  */
-function stubFetch({ galleries = [], record = null, channel = null, arenaOk = true } = {}) {
+function stubFetch({ galleries = [], record = null, channel = null, contents = null, arenaOk = true } = {}) {
   const calls = [];
   const fetchMock = vi.fn(async (input) => {
     const url = String(input);
@@ -56,7 +57,8 @@ function stubFetch({ galleries = [], record = null, channel = null, arenaOk = tr
       return record ? json(record) : notFound();
     }
     if (url.startsWith(`${ORIGIN}/api/arena`)) {
-      return arenaOk && channel ? json(channel) : { ok: false, status: 429, json: async () => ({}), text: async () => '' };
+      const body = url.includes(encodeURIComponent('/contents')) ? contents : channel;
+      return arenaOk && body ? json(body) : { ok: false, status: 429, json: async () => ({}), text: async () => '' };
     }
     throw new Error(`unexpected fetch: ${url}`);
   });
@@ -135,6 +137,77 @@ describe('recordMeta — /curating/:slug', () => {
   it('resolves nothing when there is no such channel anywhere', async () => {
     stubFetch({ record: null });
     expect(await recordMeta('/curating/nope-not-a-channel', ORIGIN)).toBeNull();
+  });
+
+  it('asks for the board’s own card, by record key only', async () => {
+    stubFetch({ galleries: [{ slug: RKEY, arenaSlug: ARENA_SLUG, title: ARENA_TITLE }] });
+    const meta = await recordMeta(`/curating/${RKEY}`, ORIGIN);
+    expect(meta.ogQuery).toBe(`channel=${RKEY}`);
+  });
+});
+
+describe('channelCard — what a board’s card draws', () => {
+  beforeEach(() => vi.useRealTimers());
+  afterEach(() => vi.unstubAllGlobals());
+
+  const thumb = (n) => ({ src: `https://images.are.na/${n}`, width: 400, height: 300 });
+
+  it('leads with the cover, then the strip without it, words for text blocks', async () => {
+    const { calls } = stubFetch({
+      galleries: [
+        {
+          slug: RKEY,
+          arenaSlug: ARENA_SLUG,
+          title: ARENA_TITLE,
+          blockCount: 583,
+          createdAt: '2025-03-12T00:00:00Z',
+          cover: thumb(2),
+          strip: [
+            { id: 1, type: 'image', thumb: thumb(1) },
+            { id: 2, type: 'image', thumb: thumb(2) },
+            { id: 3, type: 'text', text: 'Ersatz' },
+            { id: 4, type: 'link', thumb: thumb(4) },
+          ],
+        },
+      ],
+    });
+    const card = await channelCard(RKEY, ORIGIN);
+    expect(card.title).toBe(ARENA_TITLE);
+    expect(card.blockCount).toBe(583);
+    expect(card.blocks.map((b) => b.src || b.text)).toEqual([
+      'https://images.are.na/2',
+      'https://images.are.na/1',
+      'Ersatz',
+      'https://images.are.na/4',
+    ]);
+    expect(arenaCalls(calls)).toHaveLength(0);
+  });
+
+  it('reads a board too fresh for the snapshot from its record and are.na', async () => {
+    const block = (id, extra) => ({ id, connection: { position: id }, ...extra });
+    const image = (id) => block(id, { type: 'Image', image: { src: `https://images.are.na/full/${id}`, small: { src: `https://images.are.na/small/${id}` } } });
+    const { calls } = stubFetch({
+      record: channelRecord({ coverBlockId: 12 }),
+      channel: { ...ARENA_CHANNEL, counts: { blocks: 53 }, created_at: '2026-03-01T00:00:00Z' },
+      contents: { data: [image(11), image(12), block(13, { type: 'Text', content: { plain: 'neigh' } })] },
+    });
+    const card = await channelCard(RKEY, ORIGIN);
+    expect(card.title).toBe(ARENA_TITLE);
+    expect(card.blockCount).toBe(53);
+    expect(card.createdAt).toBe('2026-03-01T00:00:00Z');
+    // The record's chosen cover first.
+    expect(card.blocks.map((b) => b.src || b.text)).toEqual([
+      'https://images.are.na/small/12',
+      'https://images.are.na/small/11',
+      'neigh',
+    ]);
+    // Both reads go through our own proxy.
+    expect(arenaCalls(calls)).toHaveLength(2);
+  });
+
+  it('draws nothing for a board the record hides', async () => {
+    stubFetch({ record: channelRecord({ enabled: false }), channel: ARENA_CHANNEL });
+    expect(await channelCard(RKEY, ORIGIN)).toBeNull();
   });
 });
 

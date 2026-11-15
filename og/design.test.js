@@ -250,3 +250,36 @@ describe('the guestbook card', () => {
     expect(words).toContain('0');
   });
 });
+
+describe('the curating board card', () => {
+  const boardCard = (channel) =>
+    ogElement({ channel, pathname: '/curating', nsid: 'is.dame.arena.channel', folio: '12,246', theme: THEMES.light });
+  const image = { type: 'image', src: SRC };
+
+  it('lays fourteen blocks in two rows of seven, from the third rule to the seventh, guide to guide', () => {
+    const blocks = Array.from({ length: 20 }, () => image);
+    const tiles = plates(boardCard({ title: 'weird dog photos only', blockCount: 223, age: '2 years old', blocks }));
+    expect(tiles).toHaveLength(14);
+    expect(Math.min(...tiles.map((t) => t.left))).toBe(90);
+    expect(Math.max(...tiles.map((t) => t.left + t.width))).toBeCloseTo(1110, 0);
+    expect(Math.min(...tiles.map((t) => t.top))).toBe(210);
+    expect(Math.max(...tiles.map((t) => t.top + t.height))).toBe(490);
+  });
+
+  it('sets a text block’s words in its box, and names the board with its count and age', () => {
+    const words = texts(
+      boardCard({ title: 'words i’d never heard of until now', blockCount: 1, age: '2 years old', blocks: [{ type: 'text', text: 'Ersatz' }] }),
+    );
+    expect(words).toContain('Ersatz');
+    expect(words).toContain('words i’d never heard of until now');
+    expect(words).toContain('1 block · 2 years old');
+    expect(words).toContain('day 12,246');
+  });
+
+  it('cuts a long name to the one line the facts leave it', () => {
+    const title = 'there are ‘we didn’t start the fires’ by billy joel everywhere for those with eyes to see';
+    const head = texts(boardCard({ title, blockCount: 583, age: '1 year old', blocks: [image] })).find((w) => w.startsWith('there are'));
+    expect(head).not.toBe(title);
+    expect(head.endsWith('…')).toBe(true);
+  });
+});

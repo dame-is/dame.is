@@ -57,6 +57,7 @@ import { lookupArtwork } from './_lib/itunes.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
 import { nightSpan, photographed } from '../src/lib/mothing.js';
 import { formatListenTime } from '../src/lib/albums.js';
+import { channelAge } from '../src/lib/arena.js';
 import { artLookupFor, upscaleArtwork } from '../src/lib/musicIds.js';
 import { playArtistLine, playTrackName, playedAtOf } from '../src/lib/teal.js';
 import { MOTHING_OBSERVATION_NSID } from '../src/config.js';
@@ -333,7 +334,8 @@ async function channelCardData(card) {
     title: card.title,
     description: card.description || '',
     blockCount: card.blockCount,
-    createdAt: card.createdAt,
+    // "2 years old", the same words the gallery page uses.
+    age: channelAge(card.createdAt),
     blocks: drawn,
     // Not drawn: a board that had images and lost all of them on the way is
     // cached like a miss, as a post card is.
@@ -723,8 +725,6 @@ export default async function handler(req, res) {
       letter,
       guestbook: book,
       channel,
-      // TEMPORARY: picks between the layouts being compared.
-      channelLayout: q.layout,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.
