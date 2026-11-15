@@ -295,6 +295,11 @@ describe('rowLabel', () => {
     expect(rowLabel({ arenaSlug: 'weird-dog-photos-only' }, COLLECTIONS.arenaChannel)).toBe('weird-dog-photos-only');
   });
 
+  it('names a hero phrase by its text, not its part', () => {
+    const v = { part: 'clause', text: 'who makes social software', enabled: true };
+    expect(rowLabel(v, COLLECTIONS.heroPhrase)).toBe('who makes social software');
+  });
+
   it('falls back to previewFor everywhere else', () => {
     expect(rowLabel({ status: 'mothing' }, COLLECTIONS.now)).toBe('mothing');
   });

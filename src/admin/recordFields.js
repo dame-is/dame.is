@@ -122,6 +122,8 @@ export function latestInstant(value, uri, nsid) {
  *   - arena channels: `arenaSlug` comes before the `title` override in field
  *     order, and live, none of the channels set `title` — so the label came out
  *     equal to the rkey already rendered beside it.
+ *   - hero phrases: `part` comes before `text`, so every row read "role" or
+ *     "clause". The phrase itself says which part it is ("an artist", "who…").
  */
 const ROW_LABELS = {
   'is.dame.creating.ratioed.piece': (v) => (v?.take != null ? `Take ${v.take}` : null),
@@ -130,6 +132,7 @@ const ROW_LABELS = {
   // it `previewFor` walks on to `photoLayout` and labels the record "two-up".
   // Returning null instead falls through to `recordTitle`'s rkey floor ("self").
   'is.dame.profile': (v) => v?.tagline || null,
+  'is.dame.hero.phrase': (v) => v?.text || null,
 };
 
 /**
