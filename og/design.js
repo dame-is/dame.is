@@ -1536,6 +1536,84 @@ function albumsCard(t, { shelf, avatarUri, nsid }) {
   });
 }
 
+// ── RECORD: one curating board ──────────────────────────────────────────────
+// A channel is its blocks before it is its name, so the card draws them: the
+// cover first, then the channel's first blocks, image blocks as plates and
+// text blocks as their words in a box, the way are.na tiles them.
+
+/** One block in a box: an image cropped to fill, or a text block's words set
+ *  inside a hairline frame, cut where the box ends. */
+function blockTile(t, block, { left, top, width, height }) {
+  if (block.type === 'image') return imagePlate(t, block.src, { left, top, width, height });
+  const pad = 12;
+  const size = 18;
+  const lead = 21;
+  const rows = Math.max(1, Math.floor((height - 2 * pad) / lead));
+  let lines = wrapMeasured(block.text || '', size, width - 2 * pad);
+  if (lines.length > rows) {
+    lines = lines.slice(0, rows);
+    lines[rows - 1] = `${lines[rows - 1].replace(/\s+\S*$/, '')}…`;
+  }
+  return h(
+    'div',
+    {
+      style: {
+        position: 'absolute',
+        left: Math.round(left),
+        top: Math.round(top),
+        width: Math.round(width),
+        height: Math.round(height),
+        overflow: 'hidden',
+        border: `1px solid ${t.rule}`,
+        background: t.page,
+        flexDirection: 'column',
+        padding: pad,
+      },
+    },
+    ...lines.map((l) =>
+      h('div', { style: { fontSize: size, lineHeight: `${lead}px`, height: lead, color: t.ink, fontWeight: 400, fontFamily: 'Crimson Pro' } }, l),
+    ),
+  );
+}
+
+// No gutter: the name across the top with the block count and age at the end
+// of its line, and two rows of seven blocks filling the page between the third
+// and seventh rules, the way the channel itself opens on are.na. A long name
+// is cut to one line; the blocks are what the card is for.
+function channelCard(t, { channel, avatarUri, nsid, folio }) {
+  const bcBy = P - LE;
+  const COLS = 7;
+  const rowsTop = 3 * P;
+  const vGap = 8;
+  const box = (4 * P - vGap) / 2;
+  const hGap = (W - 2 * PAD - COLS * box) / (COLS - 1);
+  const blocks = (channel.blocks || []).slice(0, COLS * 2);
+  const facts = [
+    channel.blockCount != null
+      ? `${channel.blockCount.toLocaleString('en-US')} ${channel.blockCount === 1 ? 'block' : 'blocks'}`
+      : '',
+    channel.age,
+  ].filter(Boolean).join(' · ');
+  const factsW = facts ? textWidth(facts, 24) + 40 : 0;
+  const { size, lines } = fitHeadline(channel.title || '', W - 2 * PAD - factsW, 1, 60, 36);
+  return shell(t, [
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: PAD }),
+    rowAt(recordCrumb(t, 'curating'), { size: 28, by: bcBy, left: avatarUri ? PAD + 46 + 18 : PAD }),
+    at(lines[0] || '', { size, by: 2 * P + HP - 10, left: PAD, weight: 600, color: t.ink, ls: '-0.01em' }),
+    facts ? at(facts, { size: 24, by: 2 * P + HP - 10, right: PAD, color: t.inkMuted, weight: 400 }) : null,
+    ...blocks.map((b, i) =>
+      blockTile(t, b, {
+        left: PAD + (i % COLS) * (box + hGap),
+        top: rowsTop + Math.floor(i / COLS) * (box + vGap),
+        width: box,
+        height: box,
+      }),
+    ),
+    at(`day ${folio}`, { size: 22, by: 8 * P - LE, left: PAD, color: t.inkFaint, ls: '0.04em' }),
+    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
+  ], {});
+}
+
 // ── HOME: H4 (index of surfaces, cascade-fade, tighter half-pitch rows) ─────
 function homeCardH4(t, { avatarUri, folio, homeIndex, nsid }) {
   const bcBy = P - LE, top0 = 2 * P + HP, sz = 32;
@@ -1606,6 +1684,9 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {object}  [o.letter]   render the newsletter page's card: {title, subject}
  * @param {object}  [o.guestbook] render the guestbook's card:
  *                               {count, signers:[{name, place}]}
+ * @param {object}  [o.channel]  render a curating board's card:
+ *                               {title, blockCount, age,
+ *                               blocks:[{type:'image',src}|{type:'text',text}]}
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
  * @param {Array}   [o.hero]      [{text,color}] for the home hero card
  */
@@ -1653,6 +1734,10 @@ export function ogElement(o = {}) {
   // The newsletter's page draws the email it sends, under its own title.
   if (o.letter) {
     return letterCard(t, { letter: o.letter, avatarUri, nsid: o.nsid || '', folio });
+  }
+  // A curating board draws its blocks.
+  if (o.channel) {
+    return channelCard(t, { channel: o.channel, avatarUri, nsid: o.nsid || '', folio });
   }
   // The guestbook draws its signers and where they signed from.
   if (o.guestbook) {

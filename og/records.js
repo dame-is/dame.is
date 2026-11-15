@@ -36,7 +36,7 @@ import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/at
 import { getRecordCached } from '../src/lib/slingshot.js';
 import { fetchMothObservations } from '../src/lib/inaturalist.js';
 import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
-import { arenaText } from '../src/lib/arena.js';
+import { arenaText, channelStrip, normalizeBlock, pickCoverThumb } from '../src/lib/arena.js';
 import { isSubscribePath } from '../src/lib/newsletter.js';
 import { isExperimentPagePath } from '../src/lib/experiments.js';
 import { pageDefault } from '../src/lib/pageRegistry.js';
@@ -350,6 +350,69 @@ async function arenaChannelMeta(origin, arenaSlug) {
   if (!origin || !arenaSlug) return null;
   const path = `/channels/${encodeURIComponent(String(arenaSlug))}`;
   return fetchJson(`${origin}/api/arena?path=${encodeURIComponent(path)}`, ARENA_TIMEOUT_MS);
+}
+
+// How many blocks a channel's card is given to choose from: the cover, then
+// the channel's first blocks. The card draws as many as its layout holds.
+const CHANNEL_CARD_BLOCKS = 16;
+
+/**
+ * The cover first, then the strip without it, cut to what a card needs: an
+ * image block's thumbnail URL, or a text block's words.
+ */
+function channelCardBlocks(cover, strip) {
+  const out = [];
+  if (cover?.src) out.push({ type: 'image', src: cover.src, width: cover.width || null, height: cover.height || null });
+  for (const b of Array.isArray(strip) ? strip : []) {
+    if (out.length >= CHANNEL_CARD_BLOCKS) break;
+    if (b?.type === 'text') {
+      const text = firstText(b.text);
+      if (text) out.push({ type: 'text', text });
+    } else if (b?.thumb?.src && b.thumb.src !== cover?.src) {
+      out.push({ type: 'image', src: b.thumb.src, width: b.thumb.width || null, height: b.thumb.height || null });
+    }
+  }
+  return out;
+}
+
+/**
+ * Everything a channel's card draws, read from the build's curating snapshot
+ * and, for a gallery published since the last build, from the record and
+ * are.na through our own proxy: `{ title, description, blockCount, createdAt,
+ * blocks }`. Only the record key comes in; the image URLs are are.na's own,
+ * read here rather than taken off the query. Null when no enabled gallery
+ * answers to the key.
+ */
+export async function channelCard(slug, origin) {
+  const want = String(slug ?? '').trim();
+  if (!want || !origin) return null;
+  const snap = await fetchJson(`${origin}/data/curating.json`, SNAPSHOT_TIMEOUT_MS);
+  const gallery = (Array.isArray(snap?.galleries) ? snap.galleries : []).find((g) => g?.slug === want);
+  if (gallery && firstText(gallery.title)) {
+    return {
+      title: gallery.title,
+      description: firstText(gallery.description),
+      blockCount: Number.isFinite(gallery.blockCount) ? gallery.blockCount : null,
+      createdAt: gallery.createdAt || null,
+      blocks: channelCardBlocks(gallery.cover, gallery.strip),
+    };
+  }
+  const rec = await withTimeout(liveByRkey(want, [COLLECTIONS.arenaChannel]), PDS_TIMEOUT_MS);
+  const v = rec?.value || {};
+  if (!rec || v.enabled === false || !firstText(v.arenaSlug)) return null;
+  const contents = `/channels/${encodeURIComponent(String(v.arenaSlug))}/contents?page=1&per=${CHANNEL_CARD_BLOCKS * 2}&sort=position_asc`;
+  const [meta, page] = await Promise.all([
+    arenaChannelMeta(origin, v.arenaSlug),
+    fetchJson(`${origin}/api/arena?path=${encodeURIComponent(contents)}`, ARENA_TIMEOUT_MS),
+  ]);
+  const blocks = (Array.isArray(page?.data) ? page.data : []).map(normalizeBlock).filter(Boolean);
+  return {
+    title: firstText(v.title, arenaText(meta?.title), humanizeSlug(want)),
+    description: firstText(v.description, arenaText(meta?.description)),
+    blockCount: Number.isFinite(meta?.counts?.blocks) ? meta.counts.blocks : null,
+    createdAt: meta?.created_at || null,
+    blocks: channelCardBlocks(pickCoverThumb(blocks, v.coverBlockId), channelStrip(blocks)),
+  };
 }
 
 // /curating/:slug — slug is the channel rkey. The record itself only carries
@@ -854,13 +917,17 @@ function shapeMeta(record, section, slug, { quote = '' } = {}) {
   // requested ones, and the renderer finds them again before drawing them.
   const quoted =
     quote && collection === COLLECTIONS.blogging && rkey ? quoteFrom(v.content, quote) : null;
+  // A channel is its blocks before it is its name, so it gets a card that
+  // draws them. Only the record key reaches the renderer.
   const ogQuery = quoted
     ? `doc=${encodeURIComponent(rkey)}&quote=${encodeQuote(quoted.words)}`
     : TEAL_PLAY_NSIDS.includes(collection) && rkey
       ? `play=${encodeURIComponent(rkey)}`
       : postCopy?.photos.length && rkey
         ? `post=${encodeURIComponent(rkey)}`
-        : null;
+        : collection === COLLECTIONS.arenaChannel && section === 'curating' && rkey
+          ? `channel=${encodeURIComponent(rkey)}`
+          : null;
   return {
     title: cleanTitle,
     description: firstText(description),
