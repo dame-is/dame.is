@@ -114,10 +114,15 @@ docker run --rm -e PGPASSWORD -v /root/migrate:/s:ro -v /root/bluesky-mod/config
 The import ends by printing what it copied beside what was there. Every pair should match, and "carried over" should be about 8,543 (the accounts moved from your old personal list in September). Then let the bot read it, in a dry run that reads no DMs and writes nothing:
 
 ```bash
-docker compose run --rm -e DATABASE_SCHEMA=bluesky_mod_rehearsal -e DRY_RUN=true bot
+docker compose run --rm --service-ports -e DATABASE_SCHEMA=bluesky_mod_rehearsal -e DRY_RUN=true bot
 ```
 
-Watch for `Snapshot finalised` and no errors, then Ctrl-C. A dry run keeps the panel off, so the admin is checked at the cutover.
+Watch for `Snapshot finalised` and no errors. Leave it running for a look at the admin: in a dry run the panel opens read-only, and `--service-ports` puts it behind Caddy at `mod.dame.is`.
+
+1. In Vercel, set `VITE_MOD_API_URL` and `VITE_MOD_BOT_DID` (step 5's values) for **Preview**, and redeploy the pull request's preview.
+2. Open the preview's `/admin?view=moderation`. You should see the real queue, list and history, read-only. Any change is refused, which is the dry run doing its job.
+
+Then Ctrl-C.
 
 While you are here, measure the write check on the cheap model before trusting agent mode with it. It costs a few cents:
 
