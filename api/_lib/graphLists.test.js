@@ -102,8 +102,8 @@ describe('syncAll', () => {
   beforeEach(() => {
     seed();
     process.env.BSKY_APP_PASSWORD = 'test';
-    process.env.MOD_API_URL = 'https://mod.example.com';
-    process.env.MOD_API_TOKEN = 'test-token';
+    process.env.VITE_MOD_API_URL = 'https://mod.example.com';
+    process.env.VITE_MOD_BOT_DID = 'did:plc:bot';
     bot.takenAt = '2026-11-12T00:00:00.000Z';
     globalThis.fetch = vi.fn(async () => ({
       ok: true,

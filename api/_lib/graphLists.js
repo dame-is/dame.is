@@ -20,9 +20,10 @@
 // browser (src/lib/analyticsSync.js), pointed at a server-side agent:
 // notifications for inbound, dame's own like/repost/post records for outbound,
 // follow records for who dame follows. Proximity comes from the moderation
-// bot's vouch snapshot (bluesky-mod, read through its API with MOD_API_URL and
-// MOD_API_TOKEN), so a 2nd-degree account here is the same account with the
-// same count that the moderation queue would show.
+// bot's vouch snapshot (bluesky-mod, read through its API at VITE_MOD_API_URL
+// with a read-only token minted from dame's own session), so a 2nd-degree
+// account here is the same account with the same count that the moderation
+// queue would show.
 //
 // THE DIFF IS RECOMPUTED FROM THE LIST EVERY TIME. Nothing remembers what the
 // last run meant to write. A run that stops on its write budget, a timeout, or
@@ -198,19 +199,37 @@ async function recentPostEvents(agent, cutoffMs) {
 /* ------------------------------------------------------------------ */
 
 /**
- * The moderation bot, or null when MOD_API_URL and MOD_API_TOKEN are not set.
- * The token is a panel session token for dame (docs/MODERATION-MOVE.md).
+ * The moderation bot, or null when VITE_MOD_API_URL and VITE_MOD_BOT_DID are
+ * not set. It is signed in to as dame, with a read-only service-auth token
+ * from dame's own session: nothing extra to store, and nothing that expires
+ * unnoticed (docs/MODERATION-MOVE.md).
  */
-function modBot() {
-  const baseUrl = process.env.MOD_API_URL;
-  const token = process.env.MOD_API_TOKEN;
-  if (!baseUrl || !token) return null;
-  return createClient({ baseUrl, auth: { token } });
+let heldBot = null;
+async function modBot() {
+  const baseUrl = process.env.VITE_MOD_API_URL;
+  const aud = process.env.VITE_MOD_BOT_DID;
+  if (!baseUrl || !aud) return null;
+  const { agent } = await ownerAgent();
+  if (heldBot?.agent !== agent) {
+    heldBot = {
+      agent,
+      client: createClient({
+        baseUrl,
+        auth: {
+          scope: 'read',
+          serviceAuth: async (lxm) =>
+            (await agent.com.atproto.server.getServiceAuth({ aud, lxm })).data
+              .token,
+        },
+      }),
+    };
+  }
+  return heldBot.client;
 }
 
 /** The bot's most-vouched accounts, at least `min` each, up to `limit` of them. */
 async function topVouches(min, limit) {
-  const bot = modBot();
+  const bot = await modBot();
   if (!bot) return { takenAt: null, vouches: new Map() };
   const out = await bot.vouches({ min, limit: Math.min(limit, 5000) });
   return { takenAt: out.takenAt, vouches: new Map(Object.entries(out.vouches)) };
@@ -219,7 +238,7 @@ async function topVouches(min, limit) {
 /** Vouch counts for specific accounts. Absent means zero. */
 export async function vouchesFor(dids) {
   const out = new Map();
-  const bot = modBot();
+  const bot = await modBot();
   if (!bot) return out;
   const list = [...new Set(dids)];
   for (let i = 0; i < list.length; i += 1000) {
@@ -231,7 +250,7 @@ export async function vouchesFor(dids) {
 
 /** Who is on the moderation list, as a set of DIDs, or null when it could not be read. */
 async function modListed() {
-  const bot = modBot();
+  const bot = await modBot();
   if (!bot) return null;
   return new Set((await bot.members()).dids);
 }
