@@ -14,7 +14,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
-import { handleMod } from './harness/modFixtures.js';
+import { handleBot } from './harness/modFixtures.js';
 import { handleGraph } from './harness/graphFixtures.js';
 import { channelSlugFromPath } from './api/arena.js';
 
@@ -84,22 +84,28 @@ function serveHarnessShell() {
 }
 
 /**
- * Answer the moderation hub's /api/mod-* calls (and the Analytics Graph
- * tab's /api/graph-lists, from harness/graphFixtures.js) from fixtures.
+ * Answer the moderation hub's calls to the bluesky-mod bot (and the Analytics
+ * Graph tab's /api/graph-lists, from harness/graphFixtures.js) from fixtures.
  *
- * In production those are Vercel functions that verify a service-auth token
- * and read the `mod` schema; here they are one in-memory module, so the hub
- * can be opened, clicked through and screenshotted with no database and no
- * moderator credential. Latency is simulated so loading states are visible.
+ * In production the hub calls the bot at VITE_MOD_API_URL with a service-auth
+ * token; here the bot is harness/modFixtures.js, served under /bm on this dev
+ * server, so the hub can be opened, clicked through and screenshotted with no
+ * bot and no credential. `?lists=2` on the page gives the bot two lists.
+ * Latency is simulated so loading states are visible.
  */
 function serveModerationFixtures() {
+  // Read by src/lib/moderation/client.js. Vite exposes VITE_* variables from
+  // the environment, and these are set before it reads them.
+  process.env.VITE_MOD_API_URL ??= '/bm';
+  process.env.VITE_MOD_BOT_DID ??= 'did:plc:harnessbot0000000000000';
   return {
     name: 'harness-moderation-api',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const path = (req.url || '').split('?')[0];
-        const graph = path === '/api/graph-lists';
-        if (!path.startsWith('/api/mod-') && !graph) return next();
+        const url = new URL(req.url || '/', 'http://harness');
+        const graph = url.pathname === '/api/graph-lists';
+        const bot = url.pathname.startsWith('/bm/api/');
+        if (!bot && !graph) return next();
         let raw = '';
         req.on('data', (c) => (raw += c));
         req.on('end', () => {
@@ -109,11 +115,16 @@ function serveModerationFixtures() {
           } catch {
             body = {};
           }
-          const out = graph ? handleGraph(body) : handleMod(path, body);
+          const multi = /[?&]lists=2\b/.test(String(req.headers.referer || ''));
+          const out = graph
+            ? { status: 200, body: handleGraph(body) }
+            : handleBot(req.method, url.pathname.slice(3), url.searchParams, body, {
+                multi,
+              });
           setTimeout(() => {
-            res.statusCode = out?.error ? 404 : 200;
+            res.statusCode = graph && out.body?.error ? 404 : out.status;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(out));
+            res.end(JSON.stringify(out.body));
           }, 180);
         });
       });
