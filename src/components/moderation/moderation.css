@@ -1208,3 +1208,176 @@ textarea.mh-input {
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--space-2);
 }
+
+/* ---- the list picker, with several lists ------------------------------- */
+
+.mh-lists {
+  min-width: 0;
+}
+
+/* ---- the radar --------------------------------------------------------- */
+
+/* Hairline rings and marks in the hub's tokens, so the drawing follows the
+   hourly palette. Closer is louder: connected takes the danger ink, as its
+   tag does, peripheral the accent, notable a muted ink, strangers the faint
+   one as texture. Protected is an open ring, the one mark that should never
+   be on the list. */
+.mh-radar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.mh-radar-svg {
+  display: block;
+  width: 100%;
+  max-width: 26rem;
+  height: auto;
+  margin: 0 auto;
+}
+
+.mh-radar-ring,
+.mh-radar-slice {
+  fill: none;
+  stroke: var(--rule);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.mh-radar-slice {
+  stroke: var(--rule-soft);
+}
+
+.mh-radar-dot {
+  fill: var(--ink-faint);
+}
+
+.mh-radar-you {
+  fill: var(--ink);
+}
+
+.mh-radar-mark {
+  stroke: var(--page);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.mh-radar-svg .mh-radar-mark {
+  cursor: pointer;
+}
+
+.mh-radar-mark--protected {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+}
+
+.mh-radar-mark--connected {
+  fill: var(--danger);
+}
+
+.mh-radar-mark--peripheral {
+  fill: var(--accent);
+}
+
+.mh-radar-mark--notable {
+  fill: var(--ink-muted);
+}
+
+.mh-radar-caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mh-radar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.mh-radar-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mh-radar-key svg {
+  width: 0.8em;
+  height: 0.8em;
+}
+
+/* ---- "Which list?" ------------------------------------------------------ */
+
+.mh-choice-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 24rem;
+  padding: var(--space-4);
+}
+
+.mh-choice-text {
+  margin: 0;
+  text-indent: 0;
+}
+
+.mh-choice-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---- the config file, read-only ---------------------------------------- */
+
+.mh-config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.mh-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mh-config-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* ---- the shield --------------------------------------------------------- */
+
+.mh-shield-attack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.mh-shield-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.mh-shield-row .mh-row-text {
+  min-width: 0;
+}
+
+/* A limit's line says when it comes off, which is worth reading whole. */
+.mh-shield-row .mh-row-sub {
+  white-space: normal;
+}

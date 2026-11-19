@@ -13,6 +13,7 @@ import { ChevronRight, ExternalLink } from 'lucide-react';
 import Button from '../Button.jsx';
 import Time from '../Time.jsx';
 import { queueDecide, queuePage } from '../../lib/moderation/client.js';
+import { useCommand, useHub } from './hub.jsx';
 import {
   Avatar,
   BandBadge,
@@ -27,6 +28,7 @@ import {
   invalidate,
   profileUrl,
   setCached,
+  updateCached,
   useCached,
   useNearEnd,
   useToast,
@@ -43,11 +45,6 @@ export const REASON_META = {
     blurb:
       'Several people you follow follow them. The likeliest collateral from a sweep.',
   },
-  disputed: {
-    label: 'Disputed',
-    blurb:
-      'Added because triage read their post as hostile. Two stronger readers now read it differently.',
-  },
   PERIPHERAL: {
     label: 'Peripheral',
     blurb: 'One or two people you follow follow them.',
@@ -61,22 +58,41 @@ export const REASON_META = {
 
 const PAGE = 20;
 
+const BAND_WORD = {
+  PROTECTED: 'protected',
+  CONNECTED: 'connected',
+  PERIPHERAL: 'peripheral',
+  NOTABLE: 'notable',
+  UNKNOWN: 'a stranger',
+};
+
 /** Why this card is here, in one line. */
 function reasonLine(item) {
-  if (item.reason === 'PROTECTED') {
+  if (item.band === 'PROTECTED') {
     return item.protectedReason || 'Protected, and still on the list';
   }
-  if (item.reason === 'disputed') {
-    return `Added as hostile · both readers now say ${item.label}`;
-  }
   const v = item.vouches ?? 0;
-  if (v) return `${v} of the people you follow follow them`;
-  if (item.reason === 'NOTABLE')
-    return 'No shared follows, but a big or very loud account';
-  return 'Close to your circle';
+  const close = v
+    ? `${v} of the people you follow follow them`
+    : item.band === 'NOTABLE'
+      ? 'No shared follows, but a big or very loud account'
+      : 'Close to your circle';
+  // The re-score put them closer than they were when they were added.
+  if (item.reason === 'closer' && item.bandThen) {
+    return `${close} · ${BAND_WORD[item.bandThen] || item.bandThen} when added`;
+  }
+  return close;
 }
 
-function QueueCard({ item, busy, onDecide, onOpen, cardRef, onFocus }) {
+function QueueCard({
+  item,
+  busy,
+  canWrite,
+  onDecide,
+  onOpen,
+  cardRef,
+  onFocus,
+}) {
   const p = item.profile || {};
   const handle = p.handle || item.handle;
   const name = p.displayName || handle || item.did;
@@ -85,8 +101,8 @@ function QueueCard({ item, busy, onDecide, onOpen, cardRef, onFocus }) {
       ref={cardRef}
       tabIndex={0}
       onFocus={onFocus}
-      className={`mh-card mh-card--${item.reason.toLowerCase()}`}
-      aria-label={`${name}, ${REASON_META[item.reason]?.label || item.reason}`}
+      className={`mh-card mh-card--${String(item.band).toLowerCase()}`}
+      aria-label={`${name}, ${REASON_META[item.band]?.label || item.band}`}
     >
       <div className="mh-card-head">
         <Avatar src={p.avatar} name={name} size={44} />
@@ -114,12 +130,20 @@ function QueueCard({ item, busy, onDecide, onOpen, cardRef, onFocus }) {
       {item.quote && (
         <blockquote className="mh-card-quote">
           <p>{item.quote}</p>
-          {item.plan && (
-            <footer>
-              <Tag tone="muted">plan {item.plan}</Tag>
-            </footer>
-          )}
+          <footer>
+            {item.label && (
+              <Tag tone={item.label === 'hostile' ? 'danger' : 'muted'}>
+                {item.label}
+              </Tag>
+            )}
+            {item.code && <Tag tone="muted">plan {item.code}</Tag>}
+          </footer>
         </blockquote>
+      )}
+      {!item.quote && item.code && (
+        <p className="mh-small mh-muted">
+          Added by plan <span className="ident">{item.code}</span>
+        </p>
       )}
 
       {p.description && <p className="mh-card-bio">{p.description}</p>}
@@ -131,16 +155,20 @@ function QueueCard({ item, busy, onDecide, onOpen, cardRef, onFocus }) {
       </p>
 
       <div className="mh-card-actions">
-        <Button disabled={busy} onClick={() => onDecide(item, 'keep')}>
-          Keep on list
-        </Button>
-        <Button
-          variant="danger"
-          disabled={busy}
-          onClick={() => onDecide(item, 'remove')}
-        >
-          Remove
-        </Button>
+        {canWrite && (
+          <>
+            <Button disabled={busy} onClick={() => onDecide(item, 'keep')}>
+              Keep on list
+            </Button>
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={() => onDecide(item, 'remove')}
+            >
+              Remove
+            </Button>
+          </>
+        )}
         <Button
           variant="text"
           className="mh-card-more"
@@ -159,7 +187,7 @@ function QueueCard({ item, busy, onDecide, onOpen, cardRef, onFocus }) {
  * working a queue feel like progress.
  */
 function nudgeOverview(delta) {
-  setCached('overview', (d) =>
+  updateCached('overview', (d) =>
     d?.queue
       ? {
           ...d,
@@ -174,6 +202,8 @@ function nudgeOverview(delta) {
 
 export default function QueueView({ agent, onOpenAccount }) {
   const toast = useToast();
+  const hub = useHub();
+  const run = useCommand(agent);
   const [reason, setReason] = useState('all');
   const [extra, setExtra] = useState([]);
   const [gone, setGone] = useState(() => new Set());
@@ -190,7 +220,7 @@ export default function QueueView({ agent, onOpenAccount }) {
   const key = `queue:${reason}`;
   const first = useCached(
     key,
-    () => queuePage(agent, { reason, offset: 0, limit: PAGE }),
+    () => queuePage(agent, { band: reason, offset: 0, limit: PAGE }),
     { staleMs: 20_000 },
   );
 
@@ -230,7 +260,7 @@ export default function QueueView({ agent, onOpenAccount }) {
     setMore({ loading: true, done: false, error: null });
     try {
       const next = await queuePage(agent, {
-        reason,
+        band: reason,
         offset: items.length,
         limit: PAGE,
       });
@@ -267,10 +297,7 @@ export default function QueueView({ agent, onOpenAccount }) {
             ...next,
             counts: {
               ...next.counts,
-              [item.reason]: Math.max(
-                0,
-                (next.counts?.[item.reason] || 0) + by,
-              ),
+              [item.band]: Math.max(0, (next.counts?.[item.band] || 0) + by),
             },
           };
         });
@@ -278,13 +305,26 @@ export default function QueueView({ agent, onOpenAccount }) {
           if (`queue:${r}` !== key) invalidate(`queue:${r}`);
         }
       };
+      // The queue is the main list's, whichever list the hub is showing.
+      const target = {
+        list: hub.lists[0]?.rkey || null,
+        lists: { multi: hub.multi, lists: hub.lists },
+      };
       try {
-        await queueDecide(agent, {
-          did: item.did,
-          decision,
-          reason: item.reason,
-          band: item.band,
-        });
+        const done = await queueDecide(
+          agent,
+          { did: item.did, decision, band: item.band, ...target },
+          { run },
+        );
+        if (done === null) {
+          // Asked which list, and nobody chose: nothing changed.
+          setGone((g) => {
+            const n = new Set(g);
+            n.delete(item.did);
+            return n;
+          });
+          return;
+        }
         setTally((t) => ({ ...t, [decision]: t[decision] + 1 }));
         nudgeOverview(-1);
         if (decision === 'remove') invalidate('members');
@@ -297,12 +337,16 @@ export default function QueueView({ agent, onOpenAccount }) {
               label: 'Undo',
               run: async () => {
                 try {
-                  await queueDecide(agent, {
-                    did: item.did,
-                    decision: decision === 'remove' ? 'restore' : 'reopen',
-                    reason: item.reason,
-                    band: item.band,
-                  });
+                  await queueDecide(
+                    agent,
+                    {
+                      did: item.did,
+                      decision: decision === 'remove' ? 'restore' : 'reopen',
+                      band: item.band,
+                      ...target,
+                    },
+                    { run },
+                  );
                   setTally((t) => ({
                     ...t,
                     [decision]: Math.max(0, t[decision] - 1),
@@ -351,12 +395,13 @@ export default function QueueView({ agent, onOpenAccount }) {
         });
       }
     },
-    [agent, key, toast],
+    [agent, key, toast, hub, run],
   );
 
   // Keyboard: arrows to move, K keeps, R removes, Enter opens. Only when a card
   // has focus, so typing anywhere else on the page is never a decision.
   const onKeyDown = (e) => {
+    if (!hub.canWrite && /^[kKrR]$/.test(e.key)) return;
     const el = e.target.closest?.('.mh-card');
     if (!el || e.metaKey || e.ctrlKey || e.altKey) return;
     const index = cards.current.indexOf(el);
@@ -407,13 +452,13 @@ export default function QueueView({ agent, onOpenAccount }) {
         />
         <p className="mh-small">
           {reason === 'all'
-            ? 'Accounts on the list who are not strangers, and labels the second readers dispute. Most urgent first.'
+            ? 'Accounts on the list who are not strangers to your circle, closest first.'
             : REASON_META[reason]?.blurb}
+          {hub.multi && ' The queue is for the main list.'}
         </p>
-        {page?.audit && (
+        {page?.asOf && (
           <p className="mh-small mh-muted">
-            List re-scored <Time value={page.audit.at} variant="relative" /> (
-            {fmt(page.audit.total)} accounts)
+            List re-scored <Time value={page.asOf} variant="relative" />
             {tally.keep + tally.remove > 0 &&
               ` · this session: ${tally.keep} kept, ${tally.remove} removed`}
           </p>
@@ -444,6 +489,7 @@ export default function QueueView({ agent, onOpenAccount }) {
               key={item.did}
               item={item}
               busy={busy.has(item.did)}
+              canWrite={hub.canWrite}
               onDecide={decide}
               onOpen={onOpenAccount}
               onFocus={() => {
@@ -473,7 +519,9 @@ export default function QueueView({ agent, onOpenAccount }) {
       )}
 
       <p className="mh-hint" aria-hidden="true">
-        Keyboard: ↑ ↓ to move, K to keep, R to remove, Enter for details.
+        {hub.canWrite
+          ? 'Keyboard: ↑ ↓ to move, K to keep, R to remove, Enter for details.'
+          : 'Keyboard: ↑ ↓ to move, Enter for details.'}
       </p>
     </section>
   );

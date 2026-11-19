@@ -1,7 +1,8 @@
 // Look before acting: score a post's engagers, or open any account's record.
 //
-// Nothing here writes. A post score runs dry, so looking does not leave plans
-// in the decision log; acting on a post is still the bot's job, in a DM.
+// Nothing here writes. A post is scored with the bot's check, which stores no
+// plan, so looking leaves nothing in the decision log; acting on a post is
+// still the bot's job, in a DM.
 
 import { useState } from 'react';
 import Button from '../Button.jsx';
@@ -24,6 +25,20 @@ const MODES = [
   { key: 'account', label: 'An account' },
 ];
 const ORDER = ['PROTECTED', 'CONNECTED', 'PERIPHERAL', 'NOTABLE', 'UNKNOWN'];
+const ONE = {
+  like: 'like',
+  repost: 'repost',
+  reply: 'reply',
+  threadReply: 'reply in a thread',
+  quote: 'quote',
+};
+const MANY = {
+  like: 'likes',
+  repost: 'reposts',
+  reply: 'replies',
+  threadReply: 'replies in threads',
+  quote: 'quotes',
+};
 
 export default function CheckView({ agent, onOpenAccount }) {
   const [mode, setMode] = useState('post');
@@ -39,7 +54,7 @@ export default function CheckView({ agent, onOpenAccount }) {
     setBusy(true);
     setError(null);
     try {
-      setResult(await preflight(agent, link.trim(), { dry: true }));
+      setResult(await preflight(agent, link.trim()));
     } catch (err) {
       setError(err);
       setResult(null);
@@ -133,7 +148,7 @@ export default function CheckView({ agent, onOpenAccount }) {
           <p>
             <strong>{fmt(totals.participants)}</strong> accounts ·{' '}
             {Object.entries(totals.engagements || {})
-              .map(([k, n]) => `${fmt(n)} ${k}${n === 1 ? '' : 's'}`)
+              .map(([k, n]) => `${fmt(n)} ${(n === 1 ? ONE : MANY)[k] || k}`)
               .join(' · ')}
           </p>
           {result.truncated && (

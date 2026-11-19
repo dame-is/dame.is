@@ -5,7 +5,14 @@
 // names. They are mapped rather than broken: ?tab=plans&code=… opens that plan,
 // ?tab=why&actor=… opens that account.
 
-export const TAB_KEYS = ['queue', 'blocked', 'activity', 'check', 'settings'];
+export const TAB_KEYS = [
+  'queue',
+  'blocked',
+  'activity',
+  'check',
+  'shield',
+  'settings',
+];
 
 export const DEFAULT_TAB = 'queue';
 

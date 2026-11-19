@@ -38,6 +38,14 @@ export function setCached(key, updater) {
   emit(key);
 }
 
+/** Update every cached value whose key starts with `prefix`. */
+export function updateCached(prefix, updater) {
+  for (const [key, entry] of store) {
+    if (key.startsWith(prefix) && entry.data !== undefined)
+      setCached(key, updater);
+  }
+}
+
 /** Mark every key starting with `prefix` stale, so the next view refetches. */
 export function invalidate(prefix) {
   for (const [key, entry] of store) {
@@ -109,11 +117,13 @@ export function useCached(key, fetcher, { staleMs = 30_000 } = {}) {
 import { fmt } from './format.js';
 
 export {
+  addedText,
   age,
   compact,
   day,
   decisionText,
   fmt,
+  isCarried,
   profileUrl,
   SNAPSHOT_STALE_HOURS,
   timeAgo,

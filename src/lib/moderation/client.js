@@ -1,42 +1,41 @@
-// Browser side of the moderation endpoints.
+// Browser side of the moderation hub, talking to the bluesky-mod bot.
 //
-// The admin panel holds an atproto OAuth session, so it can ask the PDS for a
-// token signed by dame's own key and present that instead of a password. Tokens
-// live about a minute and are scoped to a single method.
+// The bot serves its own API (github.com/dame-is/bluesky-mod, docs/API.md)
+// at VITE_MOD_API_URL. The admin already holds an atproto OAuth session, so it
+// asks the PDS for a short-lived token addressed to the bot (aud is the bot's
+// DID, VITE_MOD_BOT_DID) and sends that; the bot checks it against dame's key
+// and its roster. Nothing is shared between this site and the bot.
 //
-// They are REUSED until shortly before they expire. Minting one per call put a
-// round trip to the PDS in front of every request, which is most of why the hub
-// felt slow: opening the queue was a mint, then the call, then another mint for
-// the overview beside it. One token per method per minute is the same exposure
-// as before (the server already accepts any unexpired token for its method) at
-// a fraction of the waiting.
+// Tokens are REUSED until shortly before they expire. Minting one per call put
+// a round trip to the PDS in front of every request, which is most of why the
+// old hub felt slow.
 //
-// See api/_lib/serviceAuth.js for the verifying half.
+// The functions below return what the hub's views draw, so the field names of
+// the bot's API are read here and nowhere else.
 
+import {
+  ApiError,
+  approveByName,
+  blockCommand,
+  createClient,
+  onList,
+  postLink,
+  undoCommand,
+  unblockCommand,
+} from 'bluesky-mod-client';
 import { ME_DID } from '../../config.js';
 
-/** Must match the LXM constants in the endpoints. */
-export const LXM = {
-  preflight: 'is.dame.mod.preflight',
-  precompute: 'is.dame.mod.precompute',
-  audit: 'is.dame.mod.audit',
-  remove: 'is.dame.mod.remove',
-  migrate: 'is.dame.mod.migrate',
-  config: 'is.dame.mod.config',
-  hub: 'is.dame.mod.hub',
-  plan: 'is.dame.mod.plan',
-  queue: 'is.dame.mod.queue',
-  graphLists: 'is.dame.graph.lists',
-};
+export { ApiError };
 
-/**
- * Mint a service-auth token for one call.
- *
- * `aud` is dame's own DID: this site has no service DID, so the claim being
- * made is simply "the holder of dame's signing key asked for this". The PDS
- * keeps the lifetime short on its own; the endpoint refuses anything longer
- * than ten minutes regardless.
- */
+const env = import.meta.env || {};
+export const MOD_API_URL = String(env.VITE_MOD_API_URL || '').replace(
+  /\/+$/,
+  '',
+);
+export const MOD_BOT_DID = String(env.VITE_MOD_BOT_DID || '');
+
+/* --------------------------------------------------------------- tokens */
+
 const tokens = new Map();
 
 /** The `exp` claim of a JWT, in milliseconds, or 0 if it cannot be read. */
@@ -54,14 +53,14 @@ export function tokenExpiry(token) {
 /** Seconds of life a cached token must still have to be handed out. */
 const TOKEN_MARGIN_MS = 15_000;
 
-async function mint(agent, lxm) {
-  const key = `${agent?.session?.did ?? agent?.did ?? ''}|${lxm}`;
+async function mint(agent, lxm, aud) {
+  const key = `${agent?.session?.did ?? agent?.did ?? ''}|${aud}|${lxm}`;
   const hit = tokens.get(key);
   if (hit?.token && hit.exp - Date.now() > TOKEN_MARGIN_MS) return hit.token;
   // Two panels asking at once share one mint rather than racing two.
   if (hit?.pending) return hit.pending;
   const pending = agent.com.atproto.server
-    .getServiceAuth({ aud: ME_DID, lxm })
+    .getServiceAuth({ aud, lxm })
     .then((res) => {
       const token = res?.data?.token;
       if (!token)
@@ -77,15 +76,351 @@ async function mint(agent, lxm) {
   return pending;
 }
 
-async function call(agent, path, { lxm, body, signal } = {}) {
-  const token = await mint(agent, lxm);
-  const res = await fetch(path, {
-    method: body ? 'POST' : 'GET',
+/* ------------------------------------------------------------ the bot */
+
+const clients = new WeakMap();
+
+/** The client for this session's agent: one per agent, so tokens are shared. */
+export function bot(agent) {
+  if (!MOD_API_URL || !MOD_BOT_DID) {
+    throw new Error(
+      'The moderation hub needs VITE_MOD_API_URL (where the bot is served) and VITE_MOD_BOT_DID (the bot account) set for this build.',
+    );
+  }
+  let c = clients.get(agent);
+  if (!c) {
+    c = createClient({
+      baseUrl: MOD_API_URL,
+      auth: { serviceAuth: (lxm) => mint(agent, lxm, MOD_BOT_DID) },
+    });
+    clients.set(agent, c);
+  }
+  return c;
+}
+
+/** Names and faces for DIDs, a hundred at a time. Missing ones are left out. */
+async function profilesFor(agent, dids) {
+  const wanted = [...new Set(dids.filter(Boolean))];
+  const out = {};
+  for (let i = 0; i < wanted.length; i += 100) {
+    const { profiles } = await bot(agent).profiles(wanted.slice(i, i + 100));
+    Object.assign(out, profiles || {});
+  }
+  return out;
+}
+
+const withProfiles = async (agent, rows) => {
+  const p = await profilesFor(
+    agent,
+    rows.map((r) => r.did),
+  );
+  return rows.map((r) => ({ ...r, profile: p[r.did] || null }));
+};
+
+/* ------------------------------------------------------------ the hub */
+
+/**
+ * The header's figures and what the hub needs to know about the bot: who is
+ * signed in and what they may do, and the lists, when there are several.
+ */
+export async function hubOverview(agent, { list = null } = {}) {
+  const c = bot(agent);
+  const [me, lists, o] = await Promise.all([
+    c.me(),
+    c.lists(),
+    c.overview({ list: list || undefined }),
+  ]);
+  const takenAt = o.snapshot?.takenAt;
+  return {
+    me,
+    multi: Boolean(lists.multi),
+    lists: lists.lists || [],
+    queue: { total: o.waiting?.queue ?? 0 },
+    scansWaiting: o.waiting?.scans ?? 0,
+    listInfo: { count: o.list?.total ?? null, counts: o.list?.counts || {} },
+    week: o.week || { added: 0, removed: 0 },
+    snapshot: {
+      takenAt: takenAt || null,
+      ageHours: takenAt
+        ? Math.round((Date.now() - Date.parse(takenAt)) / 3_600_000)
+        : null,
+      scoring: o.snapshot?.scoring || null,
+    },
+    rescoredAt: o.rescoredAt || null,
+    budget: o.budget || null,
+    adding: o.adding || [],
+  };
+}
+
+/* ------------------------------------------------------------ the queue */
+
+/**
+ * A page of the review queue: everyone on the main list who is not a
+ * stranger, closest first, with their faces.
+ */
+export async function queuePage(
+  agent,
+  { band = 'all', offset = 0, limit = 20 } = {},
+) {
+  const q = await bot(agent).queue({
+    band: band === 'all' ? undefined : band,
+    offset,
+    limit,
+  });
+  const items = await withProfiles(agent, q.rows || []);
+  return {
+    items,
+    counts: q.counts || {},
+    total: q.total ?? 0,
+    matched: q.matched ?? 0,
+    more: offset + items.length < (q.matched ?? 0),
+    asOf: q.asOf || null,
+  };
+}
+
+/**
+ * Run one of the bot's commands. A reply that did nothing and says why (a
+ * protected account, a plan that is not there) is thrown, so the hub shows the
+ * bot's own words; a "Which list?" comes back for the hub to ask.
+ */
+export async function runCommand(agent, text) {
+  const reply = await bot(agent).command(text);
+  if (reply.choice) return reply;
+  if (reply.outcome !== 'done')
+    throw new Error(reply.text || 'Nothing was done.');
+  return reply;
+}
+
+/** The main list's record key, for a command on a bot with several lists. */
+const listToken = (lists, rkey) =>
+  lists?.multi ? rkey || lists.lists?.[0]?.rkey : null;
+
+/**
+ * A decision about one account on the list. Keep and reopen change only the
+ * review queue. Remove and restore are the bot's own unblock and block, so the
+ * veto and the decision log are the bot's.
+ */
+export async function queueDecide(
+  agent,
+  { did, decision, band, list = null, lists = null },
+  { run = (text) => runCommand(agent, text) } = {},
+) {
+  const c = bot(agent);
+  if (decision === 'keep') return c.keep(did, band);
+  if (decision === 'reopen') return c.reopen(did);
+  const key = listToken(lists, list);
+  if (decision === 'remove') return run(onList(unblockCommand(did), key));
+  if (decision === 'restore') return run(onList(blockCommand(did), key));
+  throw new Error(`unknown decision ${decision}`);
+}
+
+/* ------------------------------------------------------------- the list */
+
+/** A page of the list, newest add first, or what matches `q`. */
+export async function listPage(
+  agent,
+  { offset = 0, limit = 50, q = '', list = null } = {},
+) {
+  const page = await bot(agent).list({
+    sort: 'recent',
+    q: q || undefined,
+    offset,
+    limit,
+    list: list || undefined,
+  });
+  const items = await withProfiles(agent, page.rows || []);
+  return {
+    items,
+    total: page.total ?? 0,
+    matched: page.matched ?? 0,
+    more: offset + items.length < (page.matched ?? 0),
+    source: page.source,
+  };
+}
+
+/** The list as the radar draws it. */
+export function listRadar(agent, { list = null } = {}) {
+  return bot(agent).radar({ list: list || undefined });
+}
+
+/* ------------------------------------------------------------ an account */
+
+/** One account: a live score, every list they are on, and the whole log. */
+export async function accountDetail(agent, actor) {
+  const a = await bot(agent).account(actor);
+  const profiles = await profilesFor(agent, [a.did]).catch(() => ({}));
+  return {
+    did: a.did,
+    profile: profiles[a.did] || a.live || null,
+    score: a.live || null,
+    failed: a.failed || null,
+    onLists: a.onLists || [],
+    onList: (a.onLists || []).length > 0,
+    protectedReason: a.protectedReason || a.live?.protectedReason || null,
+    kept: a.kept || null,
+    entries: a.entries || [],
+  };
+}
+
+/* -------------------------------------------------------------- activity */
+
+/** The decision log as events, newest first: a batch is one line. */
+export async function activityPage(
+  agent,
+  { offset = 0, limit = 30, direct = false } = {},
+) {
+  const page = await bot(agent).activity({ offset, limit });
+  const events = direct ? page.events.filter((e) => !e.scan) : page.events;
+  return { events, more: Boolean(page.more), next: offset + limit };
+}
+
+/** Scans, newest first, a page at a time. */
+export async function scanPage(agent, { before = null, limit = 30 } = {}) {
+  const page = await bot(agent).scans({ before: before || undefined, limit });
+  return {
+    scans: page.scans || [],
+    more: Boolean(page.more),
+    next: page.next || null,
+  };
+}
+
+const PLAN_PAGE = 50;
+
+/** Who a filter keeps of a plan's rows. */
+function keeps({ state, label, band }) {
+  return (r) =>
+    (state === 'all' ||
+      (state === 'added' && r.added) ||
+      (state === 'pending' && !r.added && !r.listed)) &&
+    (!label || r.label === label) &&
+    (!band || r.band === band);
+}
+
+/** Closest first, then the most shared follows. */
+const ORDER = [
+  'PROTECTED',
+  'CONNECTED',
+  'PERIPHERAL',
+  'NOTABLE',
+  'UNKNOWN',
+  'UNSCORED',
+];
+const byCloseness = (a, b) =>
+  ORDER.indexOf(a.band) - ORDER.indexOf(b.band) ||
+  (b.vouches ?? 0) - (a.vouches ?? 0);
+
+/**
+ * One plan, filtered and paged here: the bot sends every row once, and the
+ * hub keeps it, so moving between filters asks for nothing new.
+ */
+export async function planDetail(
+  agent,
+  { code, state = 'pending', label = '', band = '', offset = 0 },
+) {
+  const plan = await bot(agent).scan(code);
+  const rows = [...plan.rows].sort(byCloseness);
+  const matched = rows.filter(keeps({ state, label, band }));
+  const page = await withProfiles(
+    agent,
+    matched.slice(offset, offset + PLAN_PAGE),
+  );
+  const labelled =
+    (plan.labels?.hostile || 0) +
+    (plan.labels?.arguing || 0) +
+    (plan.labels?.neutral || 0);
+  return {
+    plan,
+    code: plan.code,
+    scan: plan.scan,
+    list: plan.list || null,
+    createdAt: plan.createdAt,
+    words: plan.words || [],
+    webUrl: postLink(plan.uri),
+    counts: {
+      total: plan.total ?? rows.length,
+      added: plan.live ?? 0,
+      labelled,
+    },
+    byLabel: plan.labels || {},
+    rows: page,
+    allRows: rows,
+    matched: matched.length,
+    offset,
+    pageSize: PLAN_PAGE,
+  };
+}
+
+/**
+ * Add the accounts ticked on a plan, by name: the bot's personal path, at
+ * most 25 a command. `run` is the hub's command runner, which asks "Which
+ * list?" when the bot does; null from it means nobody chose, and the rest
+ * are not sent.
+ */
+export async function planAdd(
+  agent,
+  { code, dids, list = null },
+  { run = (text) => runCommand(agent, text) } = {},
+) {
+  let last = null;
+  for (const command of approveByName(code, dids)) {
+    last = await run(onList(command, list));
+    if (!last) return null;
+  }
+  return last;
+}
+
+/** Take back everything a plan added. */
+export function planUndo(agent, { code }) {
+  return runCommand(agent, undoCommand(code));
+}
+
+/* ----------------------------------------------------------------- check */
+
+/** Score everyone who engaged with a post. Stores nothing. */
+export function preflight(agent, link) {
+  return bot(agent).check(link);
+}
+
+/* -------------------------------------------------------------- settings */
+
+/** What the settings page shows: health, the follow graph, model use, config. */
+export async function settingsPage(agent) {
+  const c = bot(agent);
+  const [health, graph, models, settings] = await Promise.all([
+    c.health(),
+    c.graph(),
+    c.models({ days: 30 }),
+    c.settings(),
+  ]);
+  return { health, graph, models, settings };
+}
+
+export const rebuildSnapshot = (agent) => bot(agent).rebuild();
+export const rescoreList = (agent) => bot(agent).rescore();
+
+/* ---------------------------------------------------------------- shield */
+
+export const shieldState = (agent) => bot(agent).shield();
+
+/* --------------------------------------------- the site's own graph lists */
+
+/** Must match the LXM in api/graph-lists.js. */
+const GRAPH_LISTS_LXM = 'is.dame.graph.lists';
+
+/**
+ * The managed graph lists (api/graph-lists.js). One endpoint, an `action` in
+ * the body: status, preview, save, sync, remove, orbit. A call to this site,
+ * not the bot, signed for this site (aud is dame's own DID).
+ */
+export async function graphLists(agent, body = {}, { signal } = {}) {
+  const token = await mint(agent, GRAPH_LISTS_LXM, ME_DID);
+  const res = await fetch('/api/graph-lists', {
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      'Content-Type': 'application/json',
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: JSON.stringify({ action: 'status', ...body }),
     signal,
   });
   const text = await res.text();
@@ -93,53 +428,18 @@ async function call(agent, path, { lxm, body, signal } = {}) {
   try {
     parsed = text ? JSON.parse(text) : null;
   } catch {
-    // A non-JSON body here means the platform answered, not the handler —
-    // a Vercel timeout page or an auth redirect. Say so rather than showing
-    // the user a JSON parse error from deep in the stack.
+    // A non-JSON body means the platform answered, not the handler: a Vercel
+    // timeout page or an auth redirect.
     throw new Error(
-      `${path} returned ${res.status} with a non-JSON body (${text.slice(0, 120)})`,
+      `/api/graph-lists returned ${res.status} with a non-JSON body (${text.slice(0, 120)})`,
     );
   }
   if (!res.ok)
-    throw new Error(parsed?.error || `${path} returned ${res.status}`);
+    throw new Error(parsed?.error || `/api/graph-lists returned ${res.status}`);
   return parsed;
 }
 
-/**
- * Score everyone who interacted with a post.
- *
- * Read-only. Nothing is blocked, muted or listed by this call — it answers what
- * a bulk action WOULD hit, which is the question the old workflow could not ask.
- */
-export function preflight(agent, link, { dry = false, signal } = {}) {
-  return call(agent, `/api/mod-preflight${dry ? '?dry=1' : ''}`, {
-    lxm: LXM.preflight,
-    body: { link },
-    signal,
-  });
-}
-
-/** Snapshot status, or nudge the reference build along. */
-export function precomputeStatus(agent, { restart = false, signal } = {}) {
-  return call(agent, `/api/mod-precompute${restart ? '?restart=1' : ''}`, {
-    lxm: LXM.precompute,
-    body: {},
-    signal,
-  });
-}
-
-/**
- * The managed graph lists (api/graph-lists.js). One endpoint, an `action` in
- * the body: status, preview, save, sync, remove, orbit. Lives here because it
- * signs in the same way the moderation calls do.
- */
-export function graphLists(agent, body = {}, { signal } = {}) {
-  return call(agent, '/api/graph-lists', {
-    lxm: LXM.graphLists,
-    body: { action: 'status', ...body },
-    signal,
-  });
-}
+/* ------------------------------------------------------------ band words */
 
 /** Band → how it should read on screen. Order is severity, loudest first. */
 export const BAND_META = [
@@ -187,527 +487,4 @@ export function describeEngagements(engagements = {}) {
       return n > 1 ? `${label} ×${n}` : label;
     })
     .join(', ');
-}
-
-/* ------------------------------------------------------------------ audit */
-
-/**
- * Score the members of an existing list.
- *
- * Resumable: call with no action to continue, and keep calling until `state`
- * comes back `finished`. Scoring ~8,700 accounts is more API calls than fit in
- * one invocation.
- */
-export function auditRun(agent, { listUri, start = false, signal } = {}) {
-  return call(agent, '/api/mod-audit', {
-    lxm: LXM.audit,
-    body: start ? { action: 'start', listUri } : {},
-    signal,
-  });
-}
-
-/** The queue: audited members that no longer score UNKNOWN and are undecided. */
-export function auditReview(agent, { signal } = {}) {
-  return call(agent, '/api/mod-audit', {
-    lxm: LXM.audit,
-    body: { action: 'review' },
-    signal,
-  });
-}
-
-/** Record keep/remove against audited members. Does not touch the list. */
-export function auditDecide(agent, decisions, { signal } = {}) {
-  return call(agent, '/api/mod-audit', {
-    lxm: LXM.audit,
-    body: { action: 'decide', decisions },
-    signal,
-  });
-}
-
-/** at://<did>/... — the repo segment is who owns the record. */
-function ownerOf(uri) {
-  const match = String(uri || '').match(/^at:\/\/(did:[^/]+)\//);
-  return match ? match[1] : null;
-}
-
-/**
- * Remove accounts from a list, whoever owns it.
- *
- * Routes on ownership rather than assuming, because the answer changes the
- * moment the migration succeeds. A list in dame's repo can only be written by
- * dame's own session, so those deletes happen here in the browser. A list on
- * the moderator account cannot be written from here at all — the browser holds
- * no credential for it — so those go to the server, which does.
- *
- * The previous version hardcoded the browser's own DID as the repo. Against a
- * moderator-owned list that listed dame's records, matched none of them, and
- * reported success having removed nothing.
- */
-export async function removeFromList(
-  agent,
-  listUri,
-  dids,
-  { onProgress } = {},
-) {
-  const wanted = [...new Set(dids)];
-  if (!wanted.length) return { removed: 0, found: 0, asked: 0 };
-
-  const me = agent.session?.did ?? agent.did;
-  const owner = ownerOf(listUri);
-  if (!owner) throw new Error('listUri is not an at:// URI');
-
-  if (owner !== me) {
-    // Not ours to write. The server holds the moderator credential; it will
-    // refuse in turn if the list is not the moderator's either, so a typo in
-    // the list URI surfaces as an error rather than as a silent no-op.
-    return call(agent, '/api/mod-remove', {
-      lxm: LXM.remove,
-      body: { listUri, dids: wanted },
-    });
-  }
-
-  // Map subject -> rkey by reading the listitems back. The audit stores DIDs,
-  // not record keys, because a listitem can be recreated and the rkey would go
-  // stale in the table while the membership did not.
-  const want = new Set(wanted);
-  const rkeys = [];
-  let cursor;
-  for (let page = 0; page < 200; page += 1) {
-    const res = await agent.com.atproto.repo.listRecords({
-      repo: me,
-      collection: 'app.bsky.graph.listitem',
-      limit: 100,
-      cursor,
-    });
-    for (const rec of res.data.records || []) {
-      if (rec.value?.list !== listUri) continue;
-      if (!want.has(rec.value?.subject)) continue;
-      rkeys.push(rec.uri.split('/').pop());
-    }
-    cursor = res.data.cursor;
-    if (!cursor) break;
-  }
-
-  let removed = 0;
-  for (let i = 0; i < rkeys.length; i += 50) {
-    const slice = rkeys.slice(i, i + 50);
-    await agent.com.atproto.repo.applyWrites({
-      repo: me,
-      writes: slice.map((rkey) => ({
-        $type: 'com.atproto.repo.applyWrites#delete',
-        collection: 'app.bsky.graph.listitem',
-        rkey,
-      })),
-    });
-    removed += slice.length;
-    onProgress?.({ removed, total: rkeys.length });
-  }
-  return { removed, found: rkeys.length, asked: wanted.length };
-}
-
-/* -------------------------------------------------------------- migration */
-
-export function migrateStart(
-  agent,
-  { sourceList, carryBands, name, signal } = {},
-) {
-  return call(agent, '/api/mod-migrate', {
-    lxm: LXM.migrate,
-    body: { action: 'start', sourceList, carryBands, name },
-    signal,
-  });
-}
-
-export function migrateStatus(agent, { signal } = {}) {
-  return call(agent, '/api/mod-migrate', {
-    lxm: LXM.migrate,
-    body: { action: 'status' },
-    signal,
-  });
-}
-
-/** Carry one batch now instead of waiting for the cron. */
-export function migrateRun(agent, { signal } = {}) {
-  return call(agent, '/api/mod-migrate', {
-    lxm: LXM.migrate,
-    body: {},
-    signal,
-  });
-}
-
-/* ------------------------------------------------------ the analyst's config */
-
-export const CONFIG_NSID = 'is.dame.mod.config';
-export const CONFIG_RKEY = 'self';
-
-/** The effective config: the record, or the cached copy, or the default. */
-export function getAgentConfig(agent, { signal } = {}) {
-  return call(agent, '/api/mod-config', { lxm: LXM.config, signal });
-}
-
-/**
- * Publish the config as a record in DAME'S OWN REPO.
- *
- * Written here rather than on the server on purpose. The server holds the bot's
- * credential, and the one thing the bot must not be able to do is rewrite the
- * instructions it runs under — so the write is signed by dame's session and the
- * server only ever reads. Same split as list removals.
- *
- * The server is then asked to re-read, so its cached fallback matches what was
- * just published instead of going stale until the next answer.
- */
-export async function setAgentConfig(
-  agent,
-  { style, guidance, openers, report, postReport, model, limits, barePost },
-  { signal } = {},
-) {
-  const repo = agent.session?.did ?? agent.did;
-  await agent.com.atproto.repo.putRecord({
-    repo,
-    collection: CONFIG_NSID,
-    rkey: CONFIG_RKEY,
-    record: {
-      $type: CONFIG_NSID,
-      style: String(style || '').trim(),
-      guidance: String(guidance || '').trim(),
-      openers: String(openers || '').trim(),
-      report: String(report || '').trim(),
-      postReport: String(postReport || '').trim(),
-      model: String(model || '').trim(),
-      limits: limits || {},
-      barePost: barePost === 'author' ? 'author' : 'card',
-      updatedAt: new Date().toISOString(),
-    },
-  });
-  return call(agent, '/api/mod-config', {
-    lxm: LXM.config,
-    body: { refresh: true },
-    signal,
-  });
-}
-
-/* --------------------------------------------------- retiring the old list */
-
-/**
- * Every subject on a list, read from the repo that owns it.
- *
- * Both repos live on the same PDS and listRecords needs no auth for a repo you
- * do not own, so one session reads both.
- */
-async function membersOf(agent, listUri, onProgress) {
-  const did = ownerOf(listUri);
-  if (!did) throw new Error(`not an at:// uri: ${listUri}`);
-  const subjects = new Set();
-  const rkeys = [];
-  let cursor;
-  for (let page = 0; page < 400; page += 1) {
-    const res = await agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: 'app.bsky.graph.listitem',
-      limit: 100,
-      cursor,
-    });
-    for (const rec of res.data.records || []) {
-      if (rec.value?.list !== listUri) continue;
-      subjects.add(rec.value.subject);
-      rkeys.push(rec.uri.split('/').pop());
-    }
-    onProgress?.({ scanned: rkeys.length });
-    cursor = res.data.cursor;
-    if (!cursor || !(res.data.records || []).length) break;
-  }
-  return { subjects, rkeys };
-}
-
-/**
- * Is the old list safe to delete?
- *
- * IN THE BROWSER, not on the server. This walks both repos, which for these
- * lists is about 173 sequential requests, and the first version put that inside
- * a Vercel function where it returned FUNCTION_INVOCATION_TIMEOUT. A tab has no
- * such ceiling, and the deleting already happens here anyway.
- *
- * Compares SUBJECTS, not counts. A matching total with a different membership
- * would pass a count and lose people.
- */
-export async function retireStatus(
-  agent,
-  { sourceList, targetList, onProgress } = {},
-) {
-  const me = agent.session?.did ?? agent.did;
-  if (ownerOf(sourceList) !== me) {
-    throw new Error(
-      'that list is not in your repo, so there is nothing to retire',
-    );
-  }
-
-  const source = await membersOf(agent, sourceList, (p) =>
-    onProgress?.({ phase: 'old list', ...p }),
-  );
-  const target = await membersOf(agent, targetList, (p) =>
-    onProgress?.({ phase: 'new list', ...p }),
-  );
-
-  const blocks = await agent.com.atproto.repo.listRecords({
-    repo: me,
-    collection: 'app.bsky.graph.listblock',
-    limit: 100,
-  });
-  const subs = (blocks.data.records || []).map((r) => ({
-    uri: r.uri,
-    subject: r.value.subject,
-  }));
-
-  return {
-    source: {
-      uri: sourceList,
-      records: source.rkeys.length,
-      accounts: source.subjects.size,
-      // A list can hold the same account twice. They all have to go, and the
-      // gap between the two numbers is how many extra deletes that is.
-      duplicates: source.rkeys.length - source.subjects.size,
-    },
-    target: { uri: targetList, accounts: target.subjects.size },
-    missing: [...source.subjects].filter((d) => !target.subjects.has(d)),
-    subscribedToTarget: subs.some((b) => b.subject === targetList),
-    sourceBlockUri: subs.find((b) => b.subject === sourceList)?.uri ?? null,
-    // Deletes are 1 point each against 5,000/hour, and each is also a repo
-    // event against the relay's 2,600/hour for the whole PDS.
-    points: source.rkeys.length + 1,
-  };
-}
-
-/**
- * Delete a list from dame's own repo, once something else is holding the blocks.
- *
- * In the browser because the list is in dame's repo and the server holds only
- * the bot's credential. Capped per run and resumable: 8,695 deletes is 8,695
- * repo events against a relay ceiling of 2,600 an hour for the whole PDS, so
- * this is several sittings by design rather than one tab left open for three
- * hours.
- *
- * ORDER MATTERS. The subscription goes first: staying subscribed to a list
- * while emptying it means watching your own block list drain. Everyone stays
- * blocked throughout because the caller has already checked that the target
- * list covers them.
- */
-export async function retireList(
-  agent,
-  { sourceList, sourceBlockUri, max = 2000, onProgress } = {},
-) {
-  const repo = agent.session?.did ?? agent.did;
-  if (ownerOf(sourceList) !== repo) {
-    throw new Error('that list is not in your repo');
-  }
-
-  let removed = 0;
-
-  if (sourceBlockUri) {
-    await agent.com.atproto.repo.deleteRecord({
-      repo,
-      collection: 'app.bsky.graph.listblock',
-      rkey: sourceBlockUri.split('/').pop(),
-    });
-  }
-
-  // Re-read each run rather than trusting a count from before the last batch.
-  const rkeys = [];
-  let cursor;
-  for (let page = 0; page < 400; page += 1) {
-    const res = await agent.com.atproto.repo.listRecords({
-      repo,
-      collection: 'app.bsky.graph.listitem',
-      limit: 100,
-      cursor,
-    });
-    for (const rec of res.data.records || []) {
-      if (rec.value?.list === sourceList) rkeys.push(rec.uri.split('/').pop());
-    }
-    cursor = res.data.cursor;
-    if (!cursor || !(res.data.records || []).length) break;
-  }
-
-  const slice = rkeys.slice(0, max);
-  for (let i = 0; i < slice.length; i += 50) {
-    const batch = slice.slice(i, i + 50);
-    try {
-      await agent.com.atproto.repo.applyWrites({
-        repo,
-        writes: batch.map((rkey) => ({
-          $type: 'com.atproto.repo.applyWrites#delete',
-          collection: 'app.bsky.graph.listitem',
-          rkey,
-        })),
-      });
-      removed += batch.length;
-      onProgress?.({ removed, total: rkeys.length });
-    } catch (err) {
-      const message = String(err?.message || err);
-      if (/rate ?limit/i.test(message)) {
-        return {
-          removed,
-          remaining: rkeys.length - removed,
-          rateLimited: true,
-        };
-      }
-      throw err;
-    }
-  }
-
-  const remaining = rkeys.length - removed;
-  // The list record goes last. A list record with orphaned items under it is a
-  // tidier failure than items pointing at a list that no longer exists, which
-  // is the exact mess the migration left in the bot's repo.
-  if (!remaining) {
-    await agent.com.atproto.repo.deleteRecord({
-      repo,
-      collection: 'app.bsky.graph.list',
-      rkey: sourceList.split('/').pop(),
-    });
-  }
-  return { removed, remaining, done: !remaining };
-}
-
-/* ------------------------------------------------------------------- the hub */
-
-/** Snapshot freshness, list, bot session, spend, recent audits. */
-export function hubOverview(agent, { signal } = {}) {
-  return call(agent, '/api/mod-hub', {
-    lxm: LXM.hub,
-    body: { action: 'overview' },
-    signal,
-  });
-}
-
-/** Why is this account on the list? Every decision ever recorded for them. */
-export function whyListed(agent, actor, { signal } = {}) {
-  return call(agent, '/api/mod-hub', {
-    lxm: LXM.hub,
-    body: { action: 'why', actor },
-    signal,
-  });
-}
-
-/** Every list the moderator account owns. */
-export function hubLists(agent, { signal } = {}) {
-  return call(agent, '/api/mod-hub', {
-    lxm: LXM.hub,
-    body: { action: 'lists' },
-    signal,
-  });
-}
-
-/** One page of the list, as profile cards. */
-export function listMembers(agent, { listUri, cursor, signal } = {}) {
-  return call(agent, '/api/mod-hub', {
-    lxm: LXM.hub,
-    body: { action: 'list', listUri, cursor },
-    signal,
-  });
-}
-
-/* ----------------------------------------------------------------- the plans */
-
-/** Recent plans, newest first, with what each one carried. */
-export function planList(agent, { before, kind, signal } = {}) {
-  return call(agent, '/api/mod-plan', {
-    lxm: LXM.plan,
-    body: { action: 'plans', before, kind },
-    signal,
-  });
-}
-
-/**
- * One plan, filtered and paged.
- *
- * This is the surface a DM cannot be. Ten quotes as a spot check is the most a
- * chat bubble can honestly offer before a bulk action; reading all 231 with the
- * words beside them is a screen's job.
- */
-export function planDetail(
-  agent,
-  { code, label, band, state, offset, signal } = {},
-) {
-  return call(agent, '/api/mod-plan', {
-    lxm: LXM.plan,
-    body: { action: 'detail', code, label, band, state, offset },
-    signal,
-  });
-}
-
-/** Add the accounts that were ticked. Recorded as individual, not as a band. */
-export function planAdd(agent, { code, dids, signal } = {}) {
-  return call(agent, '/api/mod-plan', {
-    lxm: LXM.plan,
-    body: { action: 'add', code, dids },
-    signal,
-  });
-}
-
-/** Take a plan's additions back off the list. */
-export function planUndo(agent, { code, signal } = {}) {
-  return call(agent, '/api/mod-plan', {
-    lxm: LXM.plan,
-    body: { action: 'undo', code },
-    signal,
-  });
-}
-
-/* ------------------------------------------------------------- the queue */
-
-/**
- * One page of the review queue: everyone on the list who needs a look, with
- * profiles. `reason` filters to one of PROTECTED, CONNECTED, disputed,
- * PERIPHERAL, NOTABLE.
- */
-export function queuePage(
-  agent,
-  { reason = 'all', offset = 0, limit = 20, signal } = {},
-) {
-  return call(agent, '/api/mod-queue', {
-    lxm: LXM.queue,
-    body: { action: 'page', reason, offset, limit },
-    signal,
-  });
-}
-
-/** keep | remove | restore (undo a removal) | reopen (undo a keep). */
-export function queueDecide(
-  agent,
-  { did, decision, reason, band, signal } = {},
-) {
-  return call(agent, '/api/mod-queue', {
-    lxm: LXM.queue,
-    body: { action: 'decide', did, decision, reason, band },
-    signal,
-  });
-}
-
-/* ------------------------------------------------------- who is on the list */
-
-/** A page of the list, newest first, each with its band and how it got there. */
-export function listPage(agent, { cursor, signal } = {}) {
-  return call(agent, '/api/mod-hub', {
-    lxm: LXM.hub,
-    body: { action: 'members', cursor },
-    signal,
-  });
-}
-
-/** Find accounts on the list by handle. */
-export function searchList(agent, q, { signal } = {}) {
-  return call(agent, '/api/mod-hub', {
-    lxm: LXM.hub,
-    body: { action: 'search', q },
-    signal,
-  });
-}
-
-/** One account: profile, membership, band, and every decision about them. */
-export function accountDetail(agent, actor, { signal } = {}) {
-  return call(agent, '/api/mod-hub', {
-    lxm: LXM.hub,
-    body: { action: 'account', actor },
-    signal,
-  });
 }

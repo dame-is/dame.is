@@ -1,143 +1,249 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { removeFromList, describeEngagements } from './client.js';
+import { describeEngagements } from './client.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.resetModules();
 });
 
 const ME = 'did:plc:me';
 const BOT = 'did:plc:bot';
+const exp = () => Math.floor(Date.now() / 1000) + 120;
+const jwt = (payload) =>
+  `x.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.sig`;
 
-/**
- * A stub OAuth agent.
- *
- * `listRecords` answers with whatever the repo it is asked for actually holds,
- * which is the whole point: the bug this file guards against was code that
- * asked the wrong repo and believed the empty answer.
- */
-function fakeAgent(repos) {
+/** A stub OAuth agent whose PDS mints a token for whatever it is asked. */
+function fakeAgent() {
   return {
     session: { did: ME },
     com: {
       atproto: {
-        repo: {
-          listRecords: vi.fn(async ({ repo }) => ({
-            data: { records: repos[repo] || [], cursor: undefined },
-          })),
-          applyWrites: vi.fn(async () => ({})),
-        },
         server: {
-          getServiceAuth: vi.fn(async () => ({ data: { token: 'tok' } })),
+          getServiceAuth: vi.fn(async ({ aud, lxm }) => ({
+            data: { token: jwt({ iss: ME, aud, lxm, exp: exp() }) },
+          })),
         },
       },
     },
   };
 }
 
-const listitem = (owner, listUri, subject, rkey) => ({
-  uri: `at://${owner}/app.bsky.graph.listitem/${rkey}`,
-  value: { list: listUri, subject },
-});
-
-describe('removeFromList', () => {
-  it('deletes in the browser when the list is the viewer’s own', async () => {
-    const listUri = `at://${ME}/app.bsky.graph.list/abc`;
-    const agent = fakeAgent({
-      [ME]: [
-        listitem(ME, listUri, 'did:plc:a', 'r1'),
-        listitem(ME, listUri, 'did:plc:b', 'r2'),
-        listitem(ME, 'at://other/list/x', 'did:plc:a', 'r3'),
-      ],
+/** A fetch that answers from `routes` and records what was sent. */
+function fakeFetch(routes) {
+  const sent = [];
+  const fetch = vi.fn(async (url, init = {}) => {
+    const u = new URL(url, 'https://site.invalid');
+    const body = init.body ? JSON.parse(init.body) : null;
+    sent.push({
+      path: u.pathname,
+      query: u.searchParams,
+      body,
+      headers: init.headers || {},
     });
+    const answer = routes[`${init.method || 'GET'} ${u.pathname}`];
+    const out =
+      typeof answer === 'function' ? answer(body, u.searchParams) : answer;
+    return {
+      ok: Boolean(out),
+      status: out ? 200 : 404,
+      json: async () => out || { error: 'nothing there' },
+      text: async () => JSON.stringify(out || { error: 'nothing there' }),
+    };
+  });
+  return { fetch, sent };
+}
 
-    const out = await removeFromList(agent, listUri, [
-      'did:plc:a',
-      'did:plc:b',
-    ]);
-    expect(out).toEqual({ removed: 2, found: 2, asked: 2 });
+/** The client module with the bot's address and DID set, as a build would. */
+async function withBot() {
+  vi.stubEnv('VITE_MOD_API_URL', 'https://mod.example.com');
+  vi.stubEnv('VITE_MOD_BOT_DID', BOT);
+  vi.resetModules();
+  return import('./client.js');
+}
 
-    const writes = agent.com.atproto.repo.applyWrites.mock.calls[0][0];
-    expect(writes.repo).toBe(ME);
-    // r3 belongs to a different list and must survive.
-    expect(writes.writes.map((w) => w.rkey).sort()).toEqual(['r1', 'r2']);
+describe('the bot', () => {
+  it('says what is missing when the build was not told where the bot is', async () => {
+    vi.stubEnv('VITE_MOD_API_URL', '');
+    vi.stubEnv('VITE_MOD_BOT_DID', '');
+    vi.resetModules();
+    const { bot } = await import('./client.js');
+    expect(() => bot(fakeAgent())).toThrow(
+      /VITE_MOD_API_URL.*VITE_MOD_BOT_DID/,
+    );
   });
 
-  it('hands off to the server when the list belongs to the bot', async () => {
-    // The regression. The old code asked for ME's records, found none matching
-    // a bot-owned list, and returned removed:0 as though it had succeeded.
-    const listUri = `at://${BOT}/app.bsky.graph.list/abc`;
-    const agent = fakeAgent({ [ME]: [], [BOT]: [] });
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      text: async () => JSON.stringify({ removed: 2, found: 2, asked: 2 }),
-    }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    const out = await removeFromList(agent, listUri, [
-      'did:plc:a',
-      'did:plc:b',
-    ]);
-    expect(out.removed).toBe(2);
-    expect(agent.com.atproto.repo.applyWrites).not.toHaveBeenCalled();
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('/api/mod-remove');
-    expect(JSON.parse(init.body)).toEqual({
-      listUri,
-      dids: ['did:plc:a', 'did:plc:b'],
+  it('signs for the bot, and reuses the token until it is nearly out', async () => {
+    const { hubOverview } = await withBot();
+    const { fetch, sent } = fakeFetch({
+      'GET /api/me': { tier: 'owner', canWrite: true },
+      'GET /api/lists': {
+        multi: false,
+        lists: [{ rkey: 'main', name: 'Block List', n: 3 }],
+      },
+      'GET /api/overview': {
+        list: { total: 3 },
+        waiting: { queue: 1 },
+        week: { added: 2 },
+      },
     });
-    expect(init.headers.Authorization).toBe('Bearer tok');
+    vi.stubGlobal('fetch', fetch);
+    const agent = fakeAgent();
+    const o = await hubOverview(agent);
+    await hubOverview(agent);
+    expect(o).toMatchObject({ queue: { total: 1 }, listInfo: { count: 3 } });
+    expect(agent.com.atproto.server.getServiceAuth).toHaveBeenCalledTimes(1);
+    expect(agent.com.atproto.server.getServiceAuth).toHaveBeenCalledWith({
+      aud: BOT,
+      lxm: 'is.dame.blueskymod.write',
+    });
+    expect(
+      sent.every((s) => s.headers.Authorization?.startsWith('Bearer x.')),
+    ).toBe(true);
   });
 
-  it('never silently reports success against the wrong repo', async () => {
-    // Stated as its own case because the failure mode is indistinguishable from
-    // "nobody matched" unless something asserts on it.
-    const listUri = `at://${BOT}/app.bsky.graph.list/abc`;
-    const agent = fakeAgent({ [ME]: [] });
+  it('removes and restores with the bot’s own commands, naming the main list when there are several', async () => {
+    const { queueDecide } = await withBot();
+    const { fetch, sent } = fakeFetch({
+      'POST /api/command': {
+        ok: true,
+        outcome: 'done',
+        text: 'Done.',
+        options: [],
+        choice: false,
+      },
+      'POST /api/queue/keep': { ok: true },
+    });
+    vi.stubGlobal('fetch', fetch);
+    const agent = fakeAgent();
+    await queueDecide(agent, {
+      did: 'did:plc:x',
+      decision: 'remove',
+      band: 'CONNECTED',
+    });
+    await queueDecide(agent, {
+      did: 'did:plc:x',
+      decision: 'restore',
+      list: 'main',
+      lists: { multi: true, lists: [{ rkey: 'main' }, { rkey: 'spam' }] },
+    });
+    await queueDecide(agent, {
+      did: 'did:plc:x',
+      decision: 'keep',
+      band: 'CONNECTED',
+    });
+    expect(sent.map((s) => s.body)).toEqual([
+      { command: 'unblock did:plc:x' },
+      { command: 'block did:plc:x list:main' },
+      { did: 'did:plc:x', band: 'CONNECTED' },
+    ]);
+  });
+
+  it('shows the bot’s words when a command did nothing', async () => {
+    const { runCommand } = await withBot();
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({
-        ok: false,
-        status: 403,
-        text: async () => JSON.stringify({ error: 'not the owner' }),
-      })),
+      fakeFetch({
+        'POST /api/command': {
+          ok: true,
+          outcome: null,
+          text: 'They are PROTECTED. I added nobody.',
+          options: [],
+        },
+      }).fetch,
     );
-    await expect(removeFromList(agent, listUri, ['did:plc:a'])).rejects.toThrow(
-      /not the owner/,
-    );
-  });
-
-  it('rejects a listUri that is not an at:// URI', async () => {
-    const agent = fakeAgent({});
     await expect(
-      removeFromList(agent, 'https://bsky.app/profile/x/lists/y', [
-        'did:plc:a',
-      ]),
-    ).rejects.toThrow(/at:\/\/ URI/);
+      runCommand(fakeAgent(), 'block did:plc:friend'),
+    ).rejects.toThrow(/PROTECTED/);
   });
 
-  it('does nothing, and calls nothing, for an empty selection', async () => {
-    const agent = fakeAgent({});
-    const out = await removeFromList(
-      agent,
-      `at://${ME}/app.bsky.graph.list/a`,
-      [],
+  it('filters and pages a plan here, from the rows the bot sent once', async () => {
+    const { planDetail } = await withBot();
+    const rows = [
+      {
+        did: 'did:plc:a',
+        band: 'UNKNOWN',
+        label: 'hostile',
+        added: false,
+        listed: false,
+      },
+      {
+        did: 'did:plc:b',
+        band: 'CONNECTED',
+        label: 'arguing',
+        added: false,
+        listed: false,
+        vouches: 4,
+      },
+      {
+        did: 'did:plc:c',
+        band: 'UNKNOWN',
+        label: 'hostile',
+        added: true,
+        listed: false,
+      },
+      {
+        did: 'did:plc:d',
+        band: 'UNKNOWN',
+        label: null,
+        added: false,
+        listed: true,
+      },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      fakeFetch({
+        'GET /api/scan': {
+          code: 'abcd1234',
+          scan: true,
+          uri: 'at://did:plc:author/app.bsky.feed.post/3abc',
+          total: 4,
+          live: 1,
+          labels: { hostile: 2, arguing: 1, neutral: 0 },
+          words: [],
+          rows,
+        },
+        'POST /api/profiles': { profiles: {} },
+      }).fetch,
     );
-    expect(out).toEqual({ removed: 0, found: 0, asked: 0 });
-    expect(agent.com.atproto.repo.listRecords).not.toHaveBeenCalled();
-  });
-
-  it('deduplicates the requested DIDs', async () => {
-    const listUri = `at://${ME}/app.bsky.graph.list/abc`;
-    const agent = fakeAgent({
-      [ME]: [listitem(ME, listUri, 'did:plc:a', 'r1')],
+    const agent = fakeAgent();
+    const pending = await planDetail(agent, {
+      code: 'abcd1234',
+      state: 'pending',
     });
-    const out = await removeFromList(agent, listUri, [
-      'did:plc:a',
-      'did:plc:a',
-    ]);
-    expect(out.asked).toBe(1);
+    expect(pending.rows.map((r) => r.did)).toEqual(['did:plc:b', 'did:plc:a']);
+    const hostile = await planDetail(agent, {
+      code: 'abcd1234',
+      state: 'all',
+      label: 'hostile',
+    });
+    expect(hostile.matched).toBe(2);
+    expect(pending.webUrl).toBe(
+      'https://bsky.app/profile/did:plc:author/post/3abc',
+    );
+    expect(pending.counts).toMatchObject({ total: 4, added: 1, labelled: 3 });
+  });
+});
+
+describe('the site’s own graph lists', () => {
+  it('sign for this site, not the bot', async () => {
+    const { graphLists } = await withBot();
+    const { fetch, sent } = fakeFetch({
+      'POST /api/graph-lists': { lists: [] },
+    });
+    vi.stubGlobal('fetch', fetch);
+    const agent = fakeAgent();
+    await graphLists(agent, { action: 'preview' });
+    expect(agent.com.atproto.server.getServiceAuth).toHaveBeenCalledWith(
+      expect.objectContaining({ lxm: 'is.dame.graph.lists' }),
+    );
+    expect(
+      agent.com.atproto.server.getServiceAuth.mock.calls[0][0].aud,
+    ).not.toBe(BOT);
+    expect(sent[0]).toMatchObject({
+      path: '/api/graph-lists',
+      body: { action: 'preview' },
+    });
   });
 });
 
