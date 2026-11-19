@@ -89,15 +89,22 @@ vi.mock('../../src/lib/analyticsSync.js', () => ({
   sweepFollowing: async () => ({ following: [], complete: true, error: null }),
 }));
 
-vi.mock('./modDb.js', () => ({ select: async () => [] }));
-vi.mock('./graphFacts.js', () => ({
-  graphFacts: async () => ({ listed: new Set(['did:plc:modlisted']) }),
+// The moderation bot's API: who is on its list, and its vouch snapshot.
+const bot = { takenAt: '2026-11-12T00:00:00.000Z', vouches: {} };
+vi.mock('bluesky-mod-client', () => ({
+  createClient: () => ({
+    members: async () => ({ list: 'main', complete: true, dids: ['did:plc:modlisted'] }),
+    vouches: async () => ({ takenAt: bot.takenAt, scoring: 'full', vouches: bot.vouches }),
+  }),
 }));
 
 describe('syncAll', () => {
   beforeEach(() => {
     seed();
     process.env.BSKY_APP_PASSWORD = 'test';
+    process.env.VITE_MOD_API_URL = 'https://mod.example.com';
+    process.env.VITE_MOD_BOT_DID = 'did:plc:bot';
+    bot.takenAt = '2026-11-12T00:00:00.000Z';
     globalThis.fetch = vi.fn(async () => ({
       ok: true,
       json: async () => ({ relationships: [] }),
@@ -131,5 +138,24 @@ describe('syncAll', () => {
     expect(status.rkey).toBe('fans');
     expect(status.record.lastSync).toMatchObject({ added: 1, removed: 1 });
     expect(JSON.stringify(status.record)).not.toContain('did:plc:new');
+  });
+
+  it('leaves a proximity list alone when the bot has no snapshot', async () => {
+    repo.get('is.dame.graph.list').push({
+      uri: `at://${ME}/is.dame.graph.list/near`,
+      value: {
+        kind: 'proximity',
+        name: 'Near',
+        listUri: LIST,
+        size: 2,
+        minVouches: 3,
+        enabled: true,
+      },
+    });
+    bot.takenAt = null;
+    const { syncAll } = await import('./graphLists.js');
+    const out = await syncAll({ only: 'near' });
+    expect(writes).toEqual([]);
+    expect(out.lists[0].error).toMatch(/snapshot could not be read/);
   });
 });

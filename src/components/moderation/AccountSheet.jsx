@@ -6,13 +6,15 @@
 
 import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
+import { blockCommand, unblockCommand } from 'bluesky-mod-client';
 import { SheetHeader } from '../BottomSheet.jsx';
 import Button from '../Button.jsx';
 import Modal from '../Modal.jsx';
 import SectionHead from '../SectionHead.jsx';
 import Time from '../Time.jsx';
 import '../BottomSheet.css';
-import { accountDetail, queueDecide } from '../../lib/moderation/client.js';
+import { accountDetail } from '../../lib/moderation/client.js';
+import { useCommand, useHub } from './hub.jsx';
 import {
   Avatar,
   BandBadge,
@@ -24,6 +26,7 @@ import {
   decisionText,
   fmt,
   invalidate,
+  isCarried,
   profileUrl,
   useCached,
   useToast,
@@ -31,6 +34,8 @@ import {
 
 export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
   const toast = useToast();
+  const hub = useHub();
+  const run = useCommand(agent);
   const [busy, setBusy] = useState(false);
   const key = actor ? `account:${actor}` : null;
   const { data, error, loading, reload } = useCached(
@@ -41,46 +46,29 @@ export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
 
   const p = data?.profile || {};
   const name = p.displayName || p.handle || actor;
+  const listName = (rkey) =>
+    hub.lists.find((l) => l.rkey === rkey)?.name || 'the list';
 
+  const refreshAll = () => {
+    invalidate('queue:');
+    invalidate('members');
+    invalidate('overview');
+    invalidate('radar');
+  };
+
+  // Unblock and block are the bot's own commands. With several lists the bot
+  // asks which, and the hub asks the same question.
   const act = async (decision) => {
     setBusy(true);
     try {
-      await queueDecide(agent, {
-        did: data.did,
-        decision,
-        reason: 'account',
-        band: data.score?.band ?? null,
-      });
-      invalidate('queue:');
-      invalidate('members');
-      invalidate('overview');
-      toast(
+      const reply = await run(
         decision === 'remove'
-          ? `Removed @${p.handle || data.did} from the list`
-          : `Put @${p.handle || data.did} back on the list`,
-        decision === 'remove'
-          ? {
-              action: {
-                label: 'Undo',
-                run: () =>
-                  queueDecide(agent, {
-                    did: data.did,
-                    decision: 'restore',
-                  })
-                    .then(() => {
-                      invalidate('members');
-                      invalidate('overview');
-                      reload();
-                    })
-                    .catch((err) =>
-                      toast(`Could not undo: ${err.message}`, {
-                        tone: 'danger',
-                      }),
-                    ),
-              },
-            }
-          : {},
+          ? unblockCommand(data.did)
+          : blockCommand(data.did),
       );
+      if (!reply) return;
+      refreshAll();
+      toast(reply.text || (decision === 'remove' ? 'Removed.' : 'Added.'));
       await reload();
     } catch (err) {
       toast(String(err?.message || err), { tone: 'danger' });
@@ -134,128 +122,120 @@ export default function AccountSheet({ agent, actor, onClose, onOpenPlan }) {
                 className={`mh-dot ${data.onList ? 'mh-dot--on' : 'mh-dot--off'}`}
               />
               <strong>
-                {data.onList === null
-                  ? 'Could not check the list'
-                  : data.onList
-                    ? 'On the list'
-                    : 'Not on the list'}
+                {data.onList
+                  ? hub.multi
+                    ? `On ${data.onLists.map((l) => listName(l.list)).join(' and ')}`
+                    : 'On the list'
+                  : 'Not on the list'}
               </strong>
               {data.score?.band && <BandBadge band={data.score.band} />}
             </div>
-            {data.protected && (
+            {data.protectedReason && (
               <p className="mh-warn">
-                Protected ({data.protected.reason}). Nothing automated may add
+                Protected ({data.protectedReason}). Nothing automated may add
                 them.
               </p>
             )}
             {data.score && (
               <p className="mh-small">
-                {data.score.vouches ?? 0} of the people you follow follow them
-                {data.scoredAt && (
-                  <>
-                    {' · scored '}
-                    <Time value={data.scoredAt} variant="relative" />
-                  </>
-                )}
+                {data.score.vouches ?? 0} of the people you follow follow them ·
+                scored just now
               </p>
             )}
-            {data.review && (
+            {data.failed && (
+              <p className="mh-small mh-muted">
+                Could not score them just now: {data.failed}
+              </p>
+            )}
+            {data.kept && (
               <p className="mh-small">
-                You chose to <strong>{data.review.decision}</strong>{' '}
-                <Time value={data.review.decided_at} variant="relative" />
-                {data.review.note ? ` (${data.review.note})` : ''}.
+                You kept them on the list, out of the queue,{' '}
+                <Time value={data.kept.at} variant="relative" />.
               </p>
             )}
-            <div className="mh-actions">
-              {data.onList && (
-                <Button
-                  variant="danger"
-                  disabled={busy}
-                  onClick={() => act('remove')}
-                >
-                  {busy ? 'Working…' : 'Remove from list'}
-                </Button>
-              )}
-              {data.onList === false &&
-                data.decisions.some((d) => d.acted_at) && (
+            {hub.canWrite && (
+              <div className="mh-actions">
+                {data.onList && (
                   <Button
-                    disabled={busy || Boolean(data.protected)}
-                    onClick={() => act('restore')}
+                    variant="danger"
+                    disabled={busy}
+                    onClick={() => act('remove')}
                   >
-                    {busy ? 'Working…' : 'Put back on the list'}
+                    {busy ? 'Working…' : 'Remove from list'}
                   </Button>
                 )}
-            </div>
+                {!data.onList &&
+                  data.entries.some((e) => e.action === 'list_add') && (
+                    <Button
+                      disabled={busy || Boolean(data.protectedReason)}
+                      onClick={() => act('restore')}
+                    >
+                      {busy ? 'Working…' : 'Put back on the list'}
+                    </Button>
+                  )}
+              </div>
+            )}
           </section>
 
           <section className="mh-record">
             <SectionHead
               as="h3"
               title="How they got here"
-              meta={data.decisions.length ? fmt(data.decisions.length) : null}
+              meta={data.entries.length ? fmt(data.entries.length) : null}
               className="mh-section-head"
             />
-            {!data.decisions.length && (
+            {!data.entries.length && (
               <p className="mh-small">
                 {data.onList
-                  ? 'No decision is recorded for them. They were carried over when the list moved to the bot in September.'
+                  ? 'No decision is recorded for them.'
                   : 'Nothing recorded. This account has never been through the gate.'}
               </p>
             )}
             <ol className="mh-timeline">
-              {[...data.decisions]
-                .sort(
-                  (a, b) =>
-                    Date.parse(b.acted_at || 0) - Date.parse(a.acted_at || 0),
-                )
-                .map((d) => {
-                  const plan = data.plans.find((x) => x.id === d.plan_id);
-                  return (
-                    <li
-                      key={`${d.plan_id}-${d.did}`}
-                      className="mh-timeline-item"
+              {data.entries.map((e) => (
+                <li key={`${e.code}-${e.at}`} className="mh-timeline-item">
+                  <span className="mh-timeline-when">
+                    {e.action ? (
+                      <Time value={e.at} variant="dateShort" />
+                    ) : (
+                      'proposed'
+                    )}
+                  </span>
+                  <span className="mh-timeline-what">
+                    {decisionText(e)}
+                    {e.undoneAt && (
+                      <Tag tone="muted">
+                        undone <Time value={e.undoneAt} variant="relative" />
+                      </Tag>
+                    )}
+                    {e.label && (
+                      <Tag tone={e.label === 'hostile' ? 'danger' : 'muted'}>
+                        {e.label}
+                      </Tag>
+                    )}
+                  </span>
+                  <span className="mh-timeline-meta">
+                    {e.band && e.band !== 'UNSCORED' && (
+                      <BandBadge band={e.band} />
+                    )}
+                    {hub.multi && e.list && (
+                      <Tag tone="muted">{listName(e.list)}</Tag>
+                    )}
+                    <Button
+                      variant="text"
+                      size="sm"
+                      onClick={() => onOpenPlan?.(e.code)}
                     >
-                      <span className="mh-timeline-when">
-                        {d.acted_at ? (
-                          <Time value={d.acted_at} variant="dateShort" />
-                        ) : (
-                          'proposed'
-                        )}
-                      </span>
-                      <span className="mh-timeline-what">
-                        {decisionText(d)}
-                        {d.undone_at && (
-                          <Tag tone="muted">
-                            undone{' '}
-                            <Time value={d.undone_at} variant="relative" />
-                          </Tag>
-                        )}
-                      </span>
-                      <span className="mh-timeline-meta">
-                        <BandBadge band={d.band} />
-                        {plan?.code && (
-                          <Button
-                            variant="text"
-                            size="sm"
-                            onClick={() => onOpenPlan?.(plan.code)}
-                          >
-                            plan <span className="ident">{plan.code}</span>
-                          </Button>
-                        )}
-                      </span>
-                      {plan?.note && !/^bulk /.test(plan.note) && (
-                        <q className="mh-quote">{plan.note}</q>
-                      )}
-                    </li>
-                  );
-                })}
+                      plan <span className="ident">{e.code}</span>
+                    </Button>
+                  </span>
+                  {e.quote && <q className="mh-quote">{e.quote}</q>}
+                  {!e.quote && e.words?.length > 0 && !isCarried(e.words) && (
+                    <q className="mh-quote">{e.words.join(' · ')}</q>
+                  )}
+                </li>
+              ))}
             </ol>
-            {data.audits?.length > 0 && (
-              <p className="mh-small">
-                Scored in {data.audits.length} weekly re-score
-                {data.audits.length === 1 ? '' : 's'}.
-              </p>
-            )}
           </section>
         </div>
       )}

@@ -62,11 +62,11 @@ export function age(iso, now = Date.now()) {
 /**
  * When the scoring snapshot is old enough to say so.
  *
- * The hourly job only starts a new snapshot once the current one is a week old
- * (MAX_AGE_DAYS in api/mod-precompute.js), and building one takes some hours.
- * Anything younger than eight days is that schedule working. Warning from 48h
- * meant the warning was up five days in seven, on a system doing exactly what
- * it was built to do, which is how a warning stops being read.
+ * The bot starts a new snapshot once the current one is a week old
+ * (SNAPSHOT_MAX_AGE_DAYS), and building one takes a while. Anything younger
+ * than eight days is that schedule working. Warning from 48h meant the
+ * warning was up five days in seven, on a system doing exactly what it was
+ * built to do, which is how a warning stops being read.
  */
 export const SNAPSHOT_STALE_HOURS = 8 * 24;
 
@@ -83,7 +83,7 @@ function readVia(via) {
 
 /** How an account was put on the list, as a sentence. */
 export function viaText(via) {
-  if (!via) return 'carried over in the September migration';
+  if (!via) return 'no record of how';
   const { agent, watch, basis } = readVia(via);
   const what = basis.startsWith('triage:')
     ? `read as ${basis.slice(7)} by triage`
@@ -100,22 +100,37 @@ export function viaText(via) {
   return agent ? `${what}, done by the agent` : what;
 }
 
+/** The note on the plan that carried the old personal list over in September. */
+const CARRIED = /^carried over from the old list/;
+
+/** Was this the September carry-over, by the words its plan was made with? */
+export const isCarried = (words) => CARRIED.test(words?.[0] || '');
+
+/** How a batch or an entry came to add someone, as a phrase. */
+export function addedText({ via, words }) {
+  return isCarried(words)
+    ? 'carried over from the old list in September'
+    : viaText(via);
+}
+
 /**
- * What one recorded decision did, as a line in an account's history.
+ * What one entry of an account's history did, as a line (bluesky-mod's
+ * GET /api/account `entries`).
  *
  * An unblock is recorded the same way a block is, as a plan of one with its own
  * decision, so the row has to be read for which way it went. Every acted row
  * used to read "Added", which turned block-then-unblock into two additions on
  * the page that exists to answer "why am I on your list".
  */
-export function decisionText(d) {
-  if (!d?.acted_at) return 'In a scan that was not acted on';
-  if (d.action === 'list_remove') {
-    return readVia(d.approved_via || '').agent
+export function decisionText(e) {
+  if (!e?.action) return 'In a scan that was not acted on';
+  if (e.action === 'list_remove') {
+    return readVia(e.via || '').agent
       ? 'Removed: unblocked by the agent'
       : 'Removed: a direct unblock';
   }
-  return `Added: ${viaText(d.approved_via)}`;
+  if (e.already) return 'Blocked again while already on the list';
+  return `Added: ${addedText(e)}`;
 }
 
 /** How an account was put on the list, as a short tag. */

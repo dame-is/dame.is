@@ -1,19 +1,20 @@
-// The moderation hub.
+// The moderation hub, over the bluesky-mod bot's API.
 //
-// Five places, in the order they are needed:
+// Six places, in the order they are needed:
 //
 //   Queue      who on the list needs a decision, most urgent first
-//   Blocked    who is on the list, with faces and names, searchable
-//   Activity   every batch the system proposed, and what it carried
+//   Blocked    who is on the list, with faces and names, searchable, or as a radar
+//   Activity   every change to the list, and every scan, with what it carried
 //   Check      score a post or open an account before acting
-//   Settings   health, spend, and how the bot writes
+//   Shield     replies and quotes on your own posts, and attack mode
+//   Settings   health, model use, and how the bot is set up
 //
 // The old hub had seven tabs named after the code (Overview, Preflight, Audit,
-// Plans, Why, List, Voice). Links the bot puts in DMs still use those names, so
+// Plans, Why, List, Voice). Links the bot put in DMs still use those names, so
 // they are mapped rather than broken: ?tab=plans&code=… opens that plan,
 // ?tab=why&actor=… opens that account.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Segmented from '../Segmented.jsx';
 import { hubOverview } from '../../lib/moderation/client.js';
 import AccountSheet from './AccountSheet.jsx';
@@ -22,12 +23,15 @@ import BlockedView from './BlockedView.jsx';
 import CheckView from './CheckView.jsx';
 import QueueView from './QueueView.jsx';
 import SettingsView from './SettingsView.jsx';
+import ShieldView from './ShieldView.jsx';
+import { ChoiceHost, HubProvider } from './hub.jsx';
 import {
+  Chips,
+  ErrorNote,
   SNAPSHOT_STALE_HOURS,
   ToastHost,
   compact,
   fmt,
-  usd,
   useCached,
 } from './ui.jsx';
 import { TAB_KEYS, paramsForRoute, routeFromParams } from './routes.js';
@@ -39,6 +43,7 @@ const LABELS = {
   blocked: 'Blocked',
   activity: 'Activity',
   check: 'Check',
+  shield: 'Shield',
   settings: 'Settings',
 };
 
@@ -65,14 +70,9 @@ function writeUrl(route) {
 }
 
 /**
- * The hub in four figures, set as the kit's ruled Figures band.
- *
- * Drawn with Figures' own classes (Figures.css) rather than through the
- * component, because each figure here is a BUTTON: it changes the hub's
- * section, which is state this component owns, not a route the router could
- * follow. Every figure can be followed, so every numeral takes the accent, as
- * the kit gives any figure you can follow. A stale snapshot says so in words
- * under its figure instead of the red edge it used to wear.
+ * The hub in four figures, set as the kit's ruled Figures band. Each figure
+ * is a button, since it changes the hub's section, which is state this
+ * component owns. A stale snapshot says so in words under its figure.
  */
 function Stats({ data, onGo }) {
   if (!data)
@@ -84,10 +84,7 @@ function Stats({ data, onGo }) {
       key: 'queue',
       tab: 'queue',
       label: 'To review',
-      value: data.queue ? fmt(data.queue.total ?? 0) : '—',
-      // A queue that could not be read is not an empty one. The overview
-      // answers null for it, and "0 to review" said the opposite.
-      title: data.queue ? undefined : 'The queue could not be read',
+      value: fmt(data.queue?.total ?? 0),
     },
     {
       key: 'list',
@@ -96,17 +93,22 @@ function Stats({ data, onGo }) {
       value: compact(data.listInfo?.count ?? null),
     },
     {
-      key: 'spend',
-      tab: 'settings',
-      label: 'This week',
-      value: data.cost?.priced ? usd(data.cost.week) : '—',
+      key: 'week',
+      tab: 'activity',
+      label: 'Added this week',
+      value: fmt(data.week?.added ?? 0),
     },
     {
       key: 'snapshot',
       tab: 'settings',
       label: 'Snapshot',
-      value: snapAge != null ? `${snapAge}h` : '—',
-      note: stale ? 'stale' : null,
+      value:
+        snapAge != null
+          ? snapAge < 48
+            ? `${snapAge}h`
+            : `${Math.round(snapAge / 24)}d`
+          : '—',
+      note: stale ? 'stale' : snapAge == null ? 'not built' : null,
     },
   ];
   return (
@@ -123,13 +125,14 @@ function Stats({ data, onGo }) {
               <button
                 type="button"
                 className="figures-link mh-figure-button"
-                title={f.title}
                 onClick={() => onGo(f.tab)}
               >
                 {f.value}
               </button>
             </dd>
-            {f.note && <dd className="figures-note mh-figure-warn">{f.note}</dd>}
+            {f.note && (
+              <dd className="figures-note mh-figure-warn">{f.note}</dd>
+            )}
           </div>
         ))}
       </dl>
@@ -139,9 +142,15 @@ function Stats({ data, onGo }) {
 
 export default function ModerationApp({ agent }) {
   const [route, setRoute] = useState(initialRoute);
-  const overview = useCached('overview', () => hubOverview(agent), {
-    staleMs: 30_000,
-  });
+  const [list, setList] = useState(null);
+  const overview = useCached(
+    `overview:${list || 'main'}`,
+    () => hubOverview(agent, { list }),
+    {
+      staleMs: 30_000,
+    },
+  );
+  const data = overview.data;
 
   useEffect(() => {
     writeUrl(route);
@@ -176,70 +185,106 @@ export default function ModerationApp({ agent }) {
     [],
   );
 
-  const queueCount = overview.data?.queue?.total;
+  const me = data?.me || null;
+  const hub = useMemo(
+    () => ({
+      me,
+      multi: Boolean(data?.multi),
+      lists: data?.lists || [],
+      // With one list there is nothing to name; with several, the one shown.
+      list: data?.multi ? list || data.lists[0]?.rkey || null : null,
+      setList,
+      canWrite: Boolean(me?.canWrite),
+      isOwner: me?.tier === 'owner' && Boolean(me?.canWrite),
+    }),
+    [me, data?.multi, data?.lists, list],
+  );
+
+  const queueCount = data?.queue?.total;
 
   return (
     <ToastHost>
-      <div className="mh">
-        <Stats data={overview.data} onGo={go} />
+      <ChoiceHost>
+        <HubProvider value={hub}>
+          <div className="mh">
+            <Stats data={data} onGo={go} />
+            <ErrorNote error={overview.error} onRetry={overview.reload} />
 
-        <nav className="mh-tabs" aria-label="Moderation">
-          <Segmented
-            className="mh-segmented mh-sections"
-            label="Sections"
-            value={route.tab}
-            onChange={go}
-            options={TABS.map(({ key, label }) => ({
-              value: key,
-              label:
-                key === 'queue' && queueCount > 0 ? (
-                  <>
-                    {label}
-                    <span className="mh-count">
-                      {queueCount > 999 ? '999+' : fmt(queueCount)}
-                    </span>
-                  </>
-                ) : (
-                  label
-                ),
-            }))}
-          />
-        </nav>
+            {hub.multi && (
+              <div className="mh-lists">
+                <Chips
+                  label="Which list"
+                  value={hub.list}
+                  onChange={setList}
+                  options={hub.lists.map((l) => ({
+                    key: l.rkey,
+                    label: l.name,
+                    count: l.n,
+                  }))}
+                />
+              </div>
+            )}
 
-        <div className="mh-body">
-          {route.tab === 'queue' && (
-            <QueueView agent={agent} onOpenAccount={openAccount} />
-          )}
-          {route.tab === 'blocked' && (
-            <BlockedView agent={agent} onOpenAccount={openAccount} />
-          )}
-          {route.tab === 'activity' && (
-            <ActivityView
+            <nav className="mh-tabs" aria-label="Moderation">
+              <Segmented
+                className="mh-segmented mh-sections"
+                label="Sections"
+                value={route.tab}
+                onChange={go}
+                options={TABS.map(({ key, label }) => ({
+                  value: key,
+                  label:
+                    key === 'queue' && queueCount > 0 ? (
+                      <>
+                        {label}
+                        <span className="mh-count">
+                          {queueCount > 999 ? '999+' : fmt(queueCount)}
+                        </span>
+                      </>
+                    ) : (
+                      label
+                    ),
+                }))}
+              />
+            </nav>
+
+            <div className="mh-body">
+              {route.tab === 'queue' && (
+                <QueueView agent={agent} onOpenAccount={openAccount} />
+              )}
+              {route.tab === 'blocked' && (
+                <BlockedView agent={agent} onOpenAccount={openAccount} />
+              )}
+              {route.tab === 'activity' && (
+                <ActivityView
+                  agent={agent}
+                  plan={route.plan}
+                  planFilters={route.planFilters}
+                  onPlan={(plan) =>
+                    setRoute((r) => ({ ...r, plan, planFilters: {} }))
+                  }
+                  onFilters={(planFilters) =>
+                    setRoute((r) => ({ ...r, planFilters }))
+                  }
+                  onOpenAccount={openAccount}
+                />
+              )}
+              {route.tab === 'check' && (
+                <CheckView agent={agent} onOpenAccount={openAccount} />
+              )}
+              {route.tab === 'shield' && <ShieldView agent={agent} />}
+              {route.tab === 'settings' && <SettingsView agent={agent} />}
+            </div>
+
+            <AccountSheet
               agent={agent}
-              plan={route.plan}
-              planFilters={route.planFilters}
-              onPlan={(plan) =>
-                setRoute((r) => ({ ...r, plan, planFilters: {} }))
-              }
-              onFilters={(planFilters) =>
-                setRoute((r) => ({ ...r, planFilters }))
-              }
-              onOpenAccount={openAccount}
+              actor={route.account}
+              onClose={closeAccount}
+              onOpenPlan={openPlan}
             />
-          )}
-          {route.tab === 'check' && (
-            <CheckView agent={agent} onOpenAccount={openAccount} />
-          )}
-          {route.tab === 'settings' && <SettingsView agent={agent} />}
-        </div>
-
-        <AccountSheet
-          agent={agent}
-          actor={route.account}
-          onClose={closeAccount}
-          onOpenPlan={openPlan}
-        />
-      </div>
+          </div>
+        </HubProvider>
+      </ChoiceHost>
     </ToastHost>
   );
 }

@@ -74,12 +74,16 @@ this directory; `vite.harness.config.js` is dev-only.
 
 ## Moderation endpoints
 
-The moderation hub (`/admin?view=moderation`) calls `/api/mod-*`, which in
-production are Vercel functions reading the `mod` schema with a moderator
-credential. The harness answers them from `harness/modFixtures.js` instead:
-invented accounts under `example.social` with generated avatars, a review queue,
-plans with labelled rows, an overview with spend. Deciding a queue card or
-removing someone mutates the fixtures for the life of the dev server, so Keep,
-Remove and Undo can be clicked through. The fake session's `getServiceAuth`
+The moderation hub (`/admin?view=moderation`) calls the bluesky-mod bot's API
+(github.com/dame-is/bluesky-mod, `docs/API.md`) at `VITE_MOD_API_URL`. The
+harness sets that to `/bm` and answers it from `harness/modFixtures.js`:
+invented accounts under `example.social` with generated avatars, a review
+queue, scans with labelled rows, the log, a shield with one limit and one
+guarded post, and the settings, health and model use. Keeping, removing,
+undoing, adding from a plan and the shield's actions mutate the fixtures for
+the life of the dev server, so they can be clicked through. `?lists=2` on the
+page gives the bot a second list, for the list picker and the "Which list?"
+question. The fixtures run on a fixed clock (2026-10-01), so ages and the
+snapshot read as old against today. The fake session's `getServiceAuth`
 returns an unsigned token of the right shape; nothing checks it here.
 

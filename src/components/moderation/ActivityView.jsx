@@ -1,21 +1,25 @@
-// What the system has done: every batch, newest first, and inside one, every
-// account with the words it was labelled on.
+// What has been done: every change to the list and every scan, newest first,
+// and inside a plan, every account with the words it was labelled on.
 //
 // This is where a bulk action is read properly. A DM can show ten quotes as a
 // spot check; this shows all 231 with filters, and lets you add exactly the
-// ones you read. Adds made here are recorded as `individual`, because on this
-// screen that is what happened.
+// ones you read. Adds made here go to the bot as approvals by name, because on
+// this screen that is what happened.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { addable, KIND_WORDS, primaryKind } from 'bluesky-mod-client';
 import Button from '../Button.jsx';
 import Time from '../Time.jsx';
 import {
+  activityPage,
   planAdd,
   planDetail,
-  planList,
   planUndo,
+  scanPage,
 } from '../../lib/moderation/client.js';
+import { useCommand, useHub } from './hub.jsx';
+import Radar from './Radar.jsx';
 import {
   Avatar,
   BandBadge,
@@ -29,22 +33,9 @@ import {
   invalidate,
   useCached,
   useToast,
+  addedText,
+  isCarried,
 } from './ui.jsx';
-
-const KIND_LABEL = {
-  everyone: 'Everyone who engaged',
-  likers: 'Likers',
-  reposters: 'Reposters',
-  repliers: 'Repliers',
-  quoters: 'Quoters',
-};
-
-/** What a plan was, as a title a person can read. */
-function planTitle(p) {
-  if (p.kind) return KIND_LABEL[p.kind] || p.kind;
-  if (/^bulk /.test(p.note || '')) return 'Scan';
-  return 'Direct action';
-}
 
 /** The three labels as a proportional bar, with the numbers beside it. */
 function LabelBar({ hostile = 0, arguing = 0, neutral = 0 }) {
@@ -68,51 +59,76 @@ function LabelBar({ hostile = 0, arguing = 0, neutral = 0 }) {
   );
 }
 
-function PlanCard({ p, onOpen }) {
-  const via = Object.entries(p.via || {}).sort((a, b) => b[1] - a[1]);
+const STATE_WORDS = {
+  waiting: 'waiting for you',
+  adding: 'adding now',
+  added: 'on the list',
+  cancelled: 'cancelled',
+  undone: 'undone',
+};
+
+/** One scan in the list: what it collected and what became of it. */
+function ScanCard({ s, onOpen }) {
+  const labelled =
+    (s.labels?.hostile || 0) +
+    (s.labels?.arguing || 0) +
+    (s.labels?.neutral || 0);
   return (
     <li>
-      <button type="button" className="mh-plan" onClick={() => onOpen(p.code)}>
+      <button type="button" className="mh-plan" onClick={() => onOpen(s.code)}>
         <span className="mh-plan-head">
-          <span className="mh-plan-title">{planTitle(p)}</span>
+          <span className="mh-plan-title">{KIND_WORDS[s.kind] || 'Scan'}</span>
           <Time
             className="mh-plan-when"
-            value={p.createdAt}
+            value={s.createdAt}
             variant="relative"
           />
         </span>
         <span className="mh-plan-stats">
           <span>
-            <strong>{fmt(p.accounts)}</strong> scored
+            <strong>{fmt(s.total)}</strong> scored
           </span>
-          {(p.added > 0 || !p.removed) && (
+          {s.live > 0 && (
             <span>
-              <strong>{fmt(p.added)}</strong> on the list
+              <strong>{fmt(s.live)}</strong> on the list
             </span>
           )}
-          {p.removed > 0 && (
-            <span>
-              <strong>{fmt(p.removed)}</strong> taken off
-            </span>
-          )}
-          {p.undone > 0 && (
-            <span>
-              <strong>{fmt(p.undone)}</strong> undone
-            </span>
-          )}
-          {!p.approvedAt && <Tag tone="muted">not acted on</Tag>}
+          <Tag tone="muted">{STATE_WORDS[s.state] || s.state}</Tag>
         </span>
-        {p.labelled > 0 && <LabelBar {...p} />}
-        {via.length > 0 && (
-          <span className="mh-row-tags">
-            {via.map(([k, n]) => (
-              <Tag key={k} tone={k.includes('triage') ? 'danger' : 'plain'}>
-                {k} · {fmt(n)}
-              </Tag>
-            ))}
+        {labelled > 0 && <LabelBar {...s.labels} />}
+        <span className="mh-plan-code ident">{s.code}</span>
+      </button>
+    </li>
+  );
+}
+
+const EVENT_WORDS = {
+  added: (n) => `Added ${fmt(n)}`,
+  removed: (n) => `Took ${fmt(n)} off`,
+  undone: (n) => `Undid ${fmt(n)}`,
+};
+
+/** One change to the list: a batch is one line. */
+function EventCard({ e, onOpen }) {
+  return (
+    <li>
+      <button type="button" className="mh-plan" onClick={() => onOpen(e.code)}>
+        <span className="mh-plan-head">
+          <span className="mh-plan-title">
+            {EVENT_WORDS[e.kind]?.(e.n) || e.kind}
           </span>
+          <Time className="mh-plan-when" value={e.at} variant="relative" />
+        </span>
+        <span className="mh-plan-stats">
+          {e.band && <BandBadge band={e.band} />}
+          {e.kind === 'added' && e.via && <span>{addedText(e)}</span>}
+          {e.scan && <Tag tone="muted">from a scan</Tag>}
+          {e.undone > 0 && <Tag tone="muted">{fmt(e.undone)} undone since</Tag>}
+        </span>
+        {e.words?.length > 0 && !isCarried(e.words) && (
+          <q className="mh-quote">{e.words.join(' · ')}</q>
         )}
-        <span className="mh-plan-code ident">{p.code}</span>
+        <span className="mh-plan-code ident">{e.code}</span>
       </button>
     </li>
   );
@@ -137,6 +153,48 @@ const BAND_FILTERS = [
   { key: 'UNKNOWN', label: 'Stranger' },
 ];
 
+const SECTORS = [
+  { key: 'quote', label: 'Quoted' },
+  { key: 'reply', label: 'Replied' },
+  { key: 'repost', label: 'Reposted' },
+  { key: 'like', label: 'Liked' },
+  { key: 'other', label: 'Elsewhere' },
+];
+
+/** A scan's rows on the radar, sliced by the loudest thing each account did. */
+function PlanRadar({ rows, onOpen }) {
+  const drawn = useMemo(() => {
+    const keys = SECTORS.filter((s) =>
+      rows.some((r) => primaryKind(r.kinds) === s.key),
+    );
+    const index = (r) => keys.findIndex((s) => s.key === primaryKind(r.kinds));
+    return {
+      sectors: keys,
+      points: rows
+        .filter((r) => r.band !== 'UNKNOWN' && r.band !== 'UNSCORED')
+        .map((r) => ({
+          did: r.did,
+          band: r.band,
+          sector: index(r),
+        })),
+      far: keys.map(
+        (s) =>
+          rows.filter(
+            (r) => r.band === 'UNKNOWN' && primaryKind(r.kinds) === s.key,
+          ).length,
+      ),
+    };
+  }, [rows]);
+  if (!drawn.sectors.length) return null;
+  return (
+    <Radar
+      label="Who engaged, by how close they are"
+      {...drawn}
+      onOpen={onOpen}
+    />
+  );
+}
+
 function PlanDetail({
   agent,
   code,
@@ -146,6 +204,8 @@ function PlanDetail({
   onOpenAccount,
 }) {
   const toast = useToast();
+  const hub = useHub();
+  const run = useCommand(agent);
   const [state, setState] = useState(initial.state || 'pending');
   const [label, setLabel] = useState(initial.label || '');
   const [band, setBand] = useState(initial.band || '');
@@ -164,9 +224,8 @@ function PlanDetail({
     setPicked(new Set());
   }, [key]);
 
-  // A new filter starts at the first page. Set together with the filter, not in
-  // an effect after it, so changing a filter is one request rather than two.
-  // The address bar follows, so a reload or a shared link keeps the view.
+  // A new filter starts at the first page, and the address bar follows, so a
+  // reload or a shared link keeps the view.
   const filter = (name, setter) => (value) => {
     setter(value);
     setOffset(0);
@@ -181,16 +240,27 @@ function PlanDetail({
       return n;
     });
 
+  const after = async () => {
+    invalidate(`plan:${code}`);
+    invalidate('activity');
+    invalidate('scans');
+    invalidate('members');
+    invalidate('overview');
+    await reload();
+  };
+
   const addPicked = async () => {
     setBusy(true);
     try {
-      const r = await planAdd(agent, { code, dids: [...picked] });
-      toast(r.message || `Added ${r.added}.`);
-      invalidate(`plan:${code}`);
-      invalidate('plans');
-      invalidate('members');
+      const reply = await planAdd(
+        agent,
+        { code, dids: [...picked], list: data.list },
+        { run },
+      );
+      if (!reply) return;
+      toast(reply.text || 'Added.');
       setPicked(new Set());
-      await reload();
+      await after();
     } catch (err) {
       toast(err.message, { tone: 'danger' });
     } finally {
@@ -203,18 +273,19 @@ function PlanDetail({
       return;
     setBusy(true);
     try {
-      const r = await planUndo(agent, { code });
-      toast(r.message || 'Undone.');
-      invalidate(`plan:${code}`);
-      invalidate('plans');
-      invalidate('members');
-      await reload();
+      const reply = await planUndo(agent, { code });
+      toast(reply.text || 'Undone.');
+      await after();
     } catch (err) {
       toast(err.message, { tone: 'danger' });
     } finally {
       setBusy(false);
     }
   };
+
+  const listName = data?.list
+    ? hub.lists.find((l) => l.rkey === data.list)?.name
+    : null;
 
   return (
     <section className="mh-view" aria-label={`Plan ${code}`}>
@@ -232,7 +303,8 @@ function PlanDetail({
         <>
           <div className="mh-plan-summary">
             <p>
-              <strong>{fmt(data.counts.total)}</strong> accounts scored ·{' '}
+              <strong>{fmt(data.counts.total)}</strong>{' '}
+              {data.scan ? 'accounts scored' : 'accounts'} ·{' '}
               <strong>{fmt(data.counts.added)}</strong> on the list now
               {data.counts.labelled > 0 && (
                 <>
@@ -242,8 +314,12 @@ function PlanDetail({
               )}
             </p>
             {data.counts.labelled > 0 && <LabelBar {...data.byLabel} />}
+            {data.words.length > 0 && (
+              <q className="mh-quote">{data.words.join(' · ')}</q>
+            )}
             <p className="mh-small mh-muted">
               <Time value={data.createdAt} variant="dateShort" />
+              {listName && ` · ${listName}`}
               {data.webUrl && (
                 <>
                   {' · '}
@@ -269,6 +345,10 @@ function PlanDetail({
             )}
           </div>
 
+          {data.scan && (
+            <PlanRadar rows={data.allRows} onOpen={onOpenAccount} />
+          )}
+
           <div className="mh-filters">
             <Chips
               options={STATES}
@@ -284,12 +364,14 @@ function PlanDetail({
                 label="Label"
               />
             )}
-            <Chips
-              options={BAND_FILTERS}
-              value={band}
-              onChange={filter('band', setBand)}
-              label="Band"
-            />
+            {data.scan && (
+              <Chips
+                options={BAND_FILTERS}
+                value={band}
+                onChange={filter('band', setBand)}
+                label="Band"
+              />
+            )}
           </div>
 
           <p className="mh-small mh-muted">
@@ -301,9 +383,9 @@ function PlanDetail({
 
           <ul className="mh-rows mh-rows--plan">
             {data.rows.map((r) => {
-              const name = r.displayName || r.handle || r.did;
-              const canPick =
-                !r.added && !r.alreadyListed && r.band !== 'PROTECTED';
+              const p = r.profile || {};
+              const name = p.displayName || p.handle || r.did;
+              const canPick = hub.canWrite && addable(r);
               return (
                 <li
                   key={r.did}
@@ -323,33 +405,32 @@ function PlanDetail({
                     onClick={() => onOpenAccount(r.did)}
                   >
                     <span className="mh-planrow-who">
-                      <Avatar src={r.avatar} name={name} size={36} />
+                      <Avatar src={p.avatar} name={name} size={36} />
                       <span className="mh-row-text">
                         <span className="mh-row-name">{name}</span>
                         <span className="mh-row-sub">
-                          @{r.handle || r.did}
-                          {r.followers != null &&
-                            ` · ${compact(r.followers)} followers`}
+                          @{p.handle || r.did}
+                          {p.followers != null &&
+                            ` · ${compact(p.followers)} followers`}
                         </span>
                       </span>
                     </span>
                     {r.quote && <q className="mh-quote">{r.quote}</q>}
                     <span className="mh-row-tags">
                       <BandBadge band={r.band} />
-                      {r.triage && (
-                        <Tag tone={r.triage === 'hostile' ? 'danger' : 'plain'}>
-                          {r.triage}
+                      {r.label && (
+                        <Tag tone={r.label === 'hostile' ? 'danger' : 'plain'}>
+                          {r.label}
                         </Tag>
                       )}
-                      {r.added && (
-                        <Tag tone="muted">
-                          on the list · {r.approvedVia || '?'}
-                        </Tag>
-                      )}
-                      {r.alreadyListed && (
+                      {r.added && <Tag tone="muted">on the list</Tag>}
+                      {r.listed && !r.added && (
                         <Tag tone="muted">already on the list</Tag>
                       )}
-                      {r.removed && <Tag tone="muted">taken off</Tag>}
+                      {r.undone && <Tag tone="muted">taken off</Tag>}
+                      {r.protected && r.band !== 'PROTECTED' && (
+                        <Tag tone="danger">protected now</Tag>
+                      )}
                       {r.vouches > 0 && (
                         <span className="mh-row-when">
                           {r.vouches} shared follows
@@ -386,7 +467,7 @@ function PlanDetail({
             </Button>
           </div>
 
-          {data.counts.added > 0 && (
+          {hub.canWrite && data.counts.added > 0 && (
             <div className="mh-danger-zone">
               <Button
                 variant="danger"
@@ -424,7 +505,7 @@ function PlanDetail({
 }
 
 const KINDS = [
-  { key: 'all', label: 'Everything' },
+  { key: 'all', label: 'Every change' },
   { key: 'scans', label: 'Scans' },
   { key: 'direct', label: 'Direct actions' },
 ];
@@ -438,16 +519,36 @@ export default function ActivityView({
   onOpenAccount,
 }) {
   const [kind, setKind] = useState('all');
+  const scans = kind === 'scans';
   // Pages past the first, which is cached like every other view's first page.
   const [older, setOlder] = useState({
-    plans: [],
+    items: [],
     next: undefined,
+    more: undefined,
     loading: false,
     error: null,
   });
+  const fetchPage = useCallback(
+    (from) =>
+      scans
+        ? scanPage(agent, { before: from }).then((p) => ({
+            items: p.scans,
+            more: p.more,
+            next: p.next,
+          }))
+        : activityPage(agent, {
+            offset: from || 0,
+            direct: kind === 'direct',
+          }).then((p) => ({
+            items: p.events,
+            more: p.more,
+            next: p.next,
+          })),
+    [agent, scans, kind],
+  );
   const { data, error, loading, reload } = useCached(
-    `plans:${kind}`,
-    () => planList(agent, { kind }),
+    `${scans ? 'scans' : 'activity'}:${kind}`,
+    () => fetchPage(null),
     {
       staleMs: 30_000,
     },
@@ -455,24 +556,31 @@ export default function ActivityView({
   const open = useCallback((code) => onPlan(code), [onPlan]);
 
   // A new filter, or a refreshed first page, starts the older pages again. The
-  // count lets a page still in flight from before that see it is out of date,
-  // rather than land under a filter it was not asked for.
+  // count lets a page still in flight from before that see it is out of date.
   const started = useRef(0);
   useEffect(() => {
     started.current += 1;
-    setOlder({ plans: [], next: undefined, loading: false, error: null });
+    setOlder({
+      items: [],
+      next: undefined,
+      more: undefined,
+      loading: false,
+      error: null,
+    });
   }, [kind, data]);
 
   const next = older.next === undefined ? data?.next : older.next;
+  const more = older.more === undefined ? data?.more : older.more;
   const loadOlder = async () => {
     const asked = started.current;
     setOlder((o) => ({ ...o, loading: true, error: null }));
     try {
-      const page = await planList(agent, { kind, before: next });
+      const page = await fetchPage(next);
       if (started.current !== asked) return;
       setOlder((o) => ({
-        plans: [...o.plans, ...page.plans],
+        items: [...o.items, ...page.items],
         next: page.next,
+        more: page.more,
         loading: false,
         error: null,
       }));
@@ -496,7 +604,7 @@ export default function ActivityView({
     );
   }
 
-  const shown = [...(data?.plans || []), ...older.plans];
+  const shown = [...(data?.items || []), ...older.items];
 
   return (
     <section className="mh-view" aria-label="Activity">
@@ -508,9 +616,9 @@ export default function ActivityView({
           label="What to show"
         />
         <p className="mh-small">
-          Every scan the system has run and every block or unblock you asked
-          for, newest first, and what became of it. Open a scan to read each
-          account beside the words it was labelled on.
+          {scans
+            ? 'Every post the bot scanned, newest first, and what became of it. Open one to read each account beside the words it was labelled on.'
+            : 'Every change to the list, newest first: a batch is one line. Open one to see who it carried.'}
         </p>
       </div>
       {loading && <Skeleton rows={4} avatar={false} />}
@@ -518,16 +626,24 @@ export default function ActivityView({
       {data && !shown.length && <Empty title="Nothing yet" />}
       {shown.length > 0 && (
         <ul className="mh-plans">
-          {shown.map((p) => (
-            <PlanCard key={p.code} p={p} onOpen={open} />
-          ))}
+          {shown.map((x, i) =>
+            scans ? (
+              <ScanCard key={x.code} s={x} onOpen={open} />
+            ) : (
+              <EventCard
+                key={`${x.code}-${x.kind}-${x.at}-${i}`}
+                e={x}
+                onOpen={open}
+              />
+            ),
+          )}
         </ul>
       )}
-      {data && (next || older.loading || older.error) && (
+      {data && (more || older.loading || older.error) && (
         <div className="mh-more">
           <ErrorNote error={older.error} onRetry={loadOlder} compact />
           {older.loading && <Skeleton rows={2} avatar={false} />}
-          {!older.loading && next && (
+          {!older.loading && more && (
             <Button size="sm" onClick={loadOlder}>
               Show older
             </Button>

@@ -23,8 +23,8 @@ The proximity numbers are the moderation gate's, read the other way round
 - **1st degree**: you follow them. In the gate this is distance 0 and the
   `PROTECTED` band.
 - **2nd degree**: at least one of your follows follows them. The count of how
-  many is the gate's "vouch", read from the same weekly snapshot in Supabase
-  (`mod.vouch`). 3 or more is where the gate draws `CONNECTED`, so the Graph
+  many is the gate's "vouch", read from the moderation bot's weekly snapshot
+  through its API (`POST /api/graph/vouches`). 3 or more is where the gate draws `CONNECTED`, so the Graph
   tab splits 2nd degree into "close" (3+) and "loose" (1–2) at the same line.
 - **Further**: none of your follows follow them, as of the snapshot. This is
   "not found", not "3 hops". The snapshot only enumerates accounts your follows
@@ -44,9 +44,10 @@ Two links run the other way:
 - **Managed lists don't grant protection.** The gate treats members of dame's
   curation lists as `PROTECTED`. A managed list is a curation list in form, but
   nobody chose its members (an "engages with me" list fills with whoever
-  replied most, pile-ons included), so `readCurationMembers` skips it unless
-  its definition has `protects: true`. The change takes effect at the next
-  weekly snapshot.
+  replied most, pile-ons included). The bot protects every curation list you
+  made, so each managed list's URI has to be in its `MOD_UNPROTECTED_LISTS`
+  unless its definition has `protects: true` ([MODERATION-MOVE.md](MODERATION-MOVE.md)).
+  A change takes effect at the bot's next snapshot.
 
 ## Where things live
 
@@ -90,7 +91,8 @@ without keeping anyone who has drifted well away.
 - Inbound reads up to 80 pages of notifications (8,000). If a busy month
   exceeds that, inbound counts start later than 30 days back and the tab says
   how far they reach.
-- Proximity is only as fresh as the weekly snapshot.
+- Proximity is only as fresh as the weekly snapshot. When the bot's snapshot
+  can't be read, a proximity list is left as it was and its last sync says why.
 - "Follows you" is only checked for people you follow (to find mutuals); the
   orbit doesn't mark followers you don't follow back.
 - The Graph tab sits behind the Analytics studio's first-run screen like the

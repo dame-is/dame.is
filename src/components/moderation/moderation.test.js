@@ -100,7 +100,7 @@ describe('where the hub opens', () => {
 
 describe('how an account got on the list', () => {
   it('reads every approved_via the system writes', () => {
-    expect(viaText(null)).toMatch(/migration/);
+    expect(viaText(null)).toBe('no record of how');
     expect(viaText('band')).toMatch(/band approval/);
     expect(viaText('individual')).toMatch(/by name/);
     expect(viaText('triage:hostile')).toBe('read as hostile by triage');
@@ -121,31 +121,32 @@ describe('how an account got on the list', () => {
   });
 
   it('tells an unblock from a block in an account history', () => {
-    const at = '2026-10-01T10:00:00Z';
+    // bluesky-mod's /api/account entries: `action` is null unless it was done.
+    expect(decisionText({ action: 'list_add', via: 'command' })).toBe(
+      'Added: a direct block',
+    );
+    expect(decisionText({ action: 'list_remove', via: 'command' })).toBe(
+      'Removed: a direct unblock',
+    );
+    expect(decisionText({ action: 'list_remove', via: 'agent' })).toMatch(
+      /^Removed: .*agent/,
+    );
+    expect(decisionText({ action: null })).toMatch(/not acted on/);
+  });
+
+  it('names the September carry-over and a block that wrote nothing', () => {
     expect(
       decisionText({
         action: 'list_add',
-        acted_at: at,
-        approved_via: 'command',
+        via: 'band',
+        words: [
+          'carried over from the old list when it moved to the bot account',
+        ],
       }),
-    ).toBe('Added: a direct block');
+    ).toBe('Added: carried over from the old list in September');
     expect(
-      decisionText({
-        action: 'list_remove',
-        acted_at: at,
-        approved_via: 'command',
-      }),
-    ).toBe('Removed: a direct unblock');
-    expect(
-      decisionText({
-        action: 'list_remove',
-        acted_at: at,
-        approved_via: 'agent',
-      }),
-    ).toMatch(/^Removed: .*agent/);
-    expect(decisionText({ action: null, acted_at: null })).toMatch(
-      /not acted on/,
-    );
+      decisionText({ action: 'list_add', via: 'command', already: true }),
+    ).toMatch(/already on the list/);
   });
 
   it('tags a hostile reading as the one that matters', () => {

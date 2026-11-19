@@ -1,0 +1,34 @@
+{
+  "name": "bluesky-mod-client",
+  "version": "0.1.0",
+  "description": "Build your own admin page for a bluesky-mod bot: its API, band names, command builders and the radar's layout, with no styles and no dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "*.js",
+    "!*.test.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dame-is/bluesky-mod.git",
+    "directory": "client"
+  },
+  "keywords": [
+    "bluesky",
+    "atproto",
+    "moderation",
+    "block list"
+  ]
+}

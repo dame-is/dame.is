@@ -37,6 +37,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/og": "^0.11.1",
     "ai": "^7.0.126",
+    "bluesky-mod-client": "file:vendor/bluesky-mod-client",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.14.0",
     "marked": "^14.1.3",
