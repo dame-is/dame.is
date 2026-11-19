@@ -26,6 +26,8 @@ export default [
       // Scriptable / iOS widget scripts run in the Scriptable app runtime with
       // its own globals (Color, Font, Keychain, …); not Node, not the browser.
       'scripts/scriptable/**',
+      // A copy of a published package, linted where it is written.
+      'vendor/**',
     ],
   },
 
