@@ -20,8 +20,9 @@
 // browser (src/lib/analyticsSync.js), pointed at a server-side agent:
 // notifications for inbound, dame's own like/repost/post records for outbound,
 // follow records for who dame follows. Proximity comes from the moderation
-// gate's vouch snapshot in Supabase, so a 2nd-degree account here is the same
-// account with the same count that the moderation queue would show.
+// bot's vouch snapshot (bluesky-mod, read through its API with MOD_API_URL and
+// MOD_API_TOKEN), so a 2nd-degree account here is the same account with the
+// same count that the moderation queue would show.
 //
 // THE DIFF IS RECOMPUTED FROM THE LIST EVERY TIME. Nothing remembers what the
 // last run meant to write. A run that stops on its write budget, a timeout, or
@@ -30,6 +31,7 @@
 // doubled listitem).
 
 import { AtpAgent } from '@atproto/api';
+import { createClient } from 'bluesky-mod-client';
 import { APPVIEW, ME_DID, ME_HANDLE } from '../../src/config.js';
 import { resolveIdentifier, resolveProfiles } from '../../src/lib/atproto.js';
 import {
@@ -58,9 +60,6 @@ import {
   selectMembers,
   slugKey,
 } from '../../src/lib/graphLists.js';
-import { select } from './modDb.js';
-import { listUri as modListUri } from './listWrite.js';
-import { graphFacts } from './graphFacts.js';
 
 const DAY_MS = 86_400_000;
 const LIST = 'app.bsky.graph.list';
@@ -198,51 +197,43 @@ async function recentPostEvents(agent, cutoffMs) {
 /* The vouch snapshot                                                   */
 /* ------------------------------------------------------------------ */
 
-async function latestSnapshot() {
-  const rows = await select('vouch', {
-    select: 'taken_at',
-    order: 'taken_at.desc',
-    limit: 1,
-  });
-  return rows?.[0]?.taken_at ?? null;
+/**
+ * The moderation bot, or null when MOD_API_URL and MOD_API_TOKEN are not set.
+ * The token is a panel session token for dame (docs/MODERATION-MOVE.md).
+ */
+function modBot() {
+  const baseUrl = process.env.MOD_API_URL;
+  const token = process.env.MOD_API_TOKEN;
+  if (!baseUrl || !token) return null;
+  return createClient({ baseUrl, auth: { token } });
 }
 
-/**
- * The most-vouched accounts, at least `min` each, up to `limit` of them.
- * Ordered by the count so a capped read keeps the top of the table, which is
- * the only part a capped list can use.
- */
-async function topVouches(takenAt, min, limit) {
-  const out = new Map();
-  for (let offset = 0; offset < limit; offset += 1000) {
-    const rows = await select('vouch', {
-      select: 'did,vouches',
-      eq: { taken_at: takenAt },
-      where: { vouches: `gte.${min}` },
-      order: 'vouches.desc,did.asc',
-      limit: Math.min(1000, limit - offset),
-      offset,
-    });
-    for (const r of rows || []) out.set(r.did, r.vouches);
-    if (!rows || rows.length < 1000) break;
-  }
-  return out;
+/** The bot's most-vouched accounts, at least `min` each, up to `limit` of them. */
+async function topVouches(min, limit) {
+  const bot = modBot();
+  if (!bot) return { takenAt: null, vouches: new Map() };
+  const out = await bot.vouches({ min, limit: Math.min(limit, 5000) });
+  return { takenAt: out.takenAt, vouches: new Map(Object.entries(out.vouches)) };
 }
 
 /** Vouch counts for specific accounts. Absent means zero. */
-export async function vouchesFor(takenAt, dids) {
+export async function vouchesFor(dids) {
   const out = new Map();
+  const bot = modBot();
+  if (!bot) return out;
   const list = [...new Set(dids)];
-  for (let i = 0; i < list.length; i += 80) {
-    const chunk = list.slice(i, i + 80);
-    const rows = await select('vouch', {
-      select: 'did,vouches',
-      eq: { taken_at: takenAt },
-      where: { did: `in.(${chunk.map((d) => `"${d}"`).join(',')})` },
-    });
-    for (const r of rows || []) out.set(r.did, r.vouches);
+  for (let i = 0; i < list.length; i += 1000) {
+    const got = await bot.vouches({ dids: list.slice(i, i + 1000) });
+    for (const [did, n] of Object.entries(got.vouches)) out.set(did, n);
   }
   return out;
+}
+
+/** Who is on the moderation list, as a set of DIDs, or null when it could not be read. */
+async function modListed() {
+  const bot = modBot();
+  if (!bot) return null;
+  return new Set((await bot.members()).dids);
 }
 
 /** Which of `dids` follow dame back. Public, unauthenticated, 30 a call. */
@@ -300,14 +291,13 @@ export async function gatherSignals({
   const { agent } = await ownerAgent();
   const cutoffMs = Date.now() - windowDays * DAY_MS;
 
-  const [inbound, outbound, postEvents, follows, takenAt, facts] =
+  const [inbound, outbound, postEvents, follows, listedOnMod] =
     await Promise.all([
       sweepInbound(agent, { cutoffMs }),
       sweepOutbound(agent, ME_DID, { cutoffMs }),
       recentPostEvents(agent, cutoffMs).catch(() => []),
       sweepFollowing(agent, ME_DID),
-      latestSnapshot().catch(() => null),
-      graphFacts({ list: modListUri() }).catch(() => null),
+      modListed().catch(() => null),
     ]);
   if (follows.error)
     throw new Error(`could not read who you follow: ${follows.error}`);
@@ -317,16 +307,16 @@ export async function gatherSignals({
     throw new Error(`could not read your likes and reposts: ${outbound.error}`);
 
   const following = new Set(follows.following.map((f) => f.did));
-  const vouches = takenAt
-    ? await topVouches(takenAt, vouchFloor, vouchLimit + following.size)
-    : new Map();
+  const { takenAt, vouches } = await topVouches(
+    vouchFloor,
+    vouchLimit + following.size,
+  ).catch(() => ({ takenAt: null, vouches: new Map() }));
   const mutuals = await followsBack([...following]);
 
   const excluded = new Set([ME_DID]);
   // Accounts on the moderation list never go on a managed list. If the list
   // could not be read that is said, not assumed empty.
-  const modListed = facts?.listed || null;
-  if (modListed) for (const did of modListed) excluded.add(did);
+  if (listedOnMod) for (const did of listedOnMod) excluded.add(did);
 
   const value = {
     gatheredAt: new Date().toISOString(),
@@ -344,7 +334,7 @@ export async function gatherSignals({
       inboundReachedMs: inbound.reachedMs,
       outboundComplete: outbound.complete,
       snapshotAt: takenAt,
-      modListRead: Boolean(modListed),
+      modListRead: Boolean(listedOnMod),
     },
   };
   signalsCache = { key, at: Date.now(), value };
@@ -649,6 +639,13 @@ export async function syncAll({ only = null, budgetMs = 40_000 } = {}) {
       }
       try {
         if (!def.listUri) throw new Error('no Bluesky list attached');
+        // Without the snapshot a proximity list would read as nobody near,
+        // and a sync would empty it. Leave it as it is until it can be read.
+        if (def.kind === 'proximity' && !signals.takenAt) {
+          throw new Error(
+            "the moderation bot's follow-graph snapshot could not be read, so this list was left as it was",
+          );
+        }
         const current = members.get(def.listUri) || [];
         const incumbents = new Set(current.map((c) => c.did));
         const { rows, eligible } = selectMembers(def, signals, incumbents);
@@ -761,7 +758,7 @@ export async function orbit({
   // the top of the table.
   const engagers = [...new Set([...inRank, ...outRank].map((r) => r.did))];
   const extraVouches = signals.takenAt
-    ? await vouchesFor(signals.takenAt, engagers)
+    ? await vouchesFor(engagers).catch(() => new Map())
     : new Map();
   const vouches = new Map([...signals.vouches, ...extraVouches]);
   const ctx = { ...signals, vouches };
