@@ -1,5 +1,7 @@
 # Moderation gate
 
+> The bot is moving to [bluesky-mod](https://github.com/dame-is/bluesky-mod), run on its own, with this site's admin and graph lists calling its API. [MODERATION-MOVE.md](MODERATION-MOVE.md) is the move. This page describes the old setup until it is removed.
+
 A circuit breaker on bulk moderation actions, plus a DM analyst.
 
 It does not decide who is bad. It answers **what am I about to do, and who will
