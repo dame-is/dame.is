@@ -4,12 +4,6 @@
 // No dependencies, and nothing that touches the page: what comes back is the
 // bot's JSON, for your own code to draw however it likes.
 
-/** The two methods a service-auth token may be scoped to. */
-export const LXM = {
-  read: 'is.dame.blueskymod.read',
-  write: 'is.dame.blueskymod.write',
-};
-
 /** The API version this client was written against (GET /api/me). */
 export const API_VERSION = 1;
 
@@ -40,10 +34,10 @@ function expiresAt(jwt) {
  * @param {string} [opts.baseUrl]  where the bot's panel is served, like
  *   https://mod.example.com. Leave it out on the panel's own page.
  * @param {'cookie' | { token: string | (() => string | Promise<string>) } |
- *   { serviceAuth: (lxm: string) => Promise<string>, scope?: 'read' | 'write' }} [opts.auth]
+ *   { serviceAuth: () => Promise<string> }} [opts.auth]
  *   How to sign in: the panel's cookie (its own page only); a panel session
  *   token; or a service-auth token your site gets from the account's PDS,
- *   for `lxm`, with `aud` set to the bot's DID.
+ *   with `aud` set to the bot's DID and no `lxm`.
  * @param {typeof fetch} [opts.fetch]
  * @param {() => void} [opts.onSignedOut]  called when the bot answers 401
  */
@@ -55,19 +49,28 @@ export function createClient({
 } = {}) {
   const root = String(baseUrl).replace(/\/+$/, '');
   const cookie = auth === 'cookie';
-  // Service-auth tokens are made a few minutes at a time; one is reused until
-  // fifteen seconds before it runs out.
+  // A PDS makes a service-auth token for a minute; one is reused until
+  // fifteen seconds before it runs out, and calls made together share one.
   let held = null;
 
   async function bearer() {
     if (cookie) return null;
     if (auth.token != null) return typeof auth.token === 'function' ? auth.token() : auth.token;
     if (typeof auth.serviceAuth === 'function') {
-      if (held && held.until - Date.now() > 15_000) return held.jwt;
-      const lxm = auth.scope === 'read' ? LXM.read : LXM.write;
-      const jwt = await auth.serviceAuth(lxm);
-      held = { jwt, until: expiresAt(jwt) };
-      return jwt;
+      if (held?.jwt && held.until - Date.now() > 15_000) return held.jwt;
+      if (held?.pending) return held.pending;
+      const pending = Promise.resolve(auth.serviceAuth()).then(
+        (jwt) => {
+          held = { jwt, until: expiresAt(jwt) };
+          return jwt;
+        },
+        (err) => {
+          held = null;
+          throw err;
+        },
+      );
+      held = { pending };
+      return pending;
     }
     throw new Error('auth must be "cookie", { token }, or { serviceAuth }');
   }

@@ -21,7 +21,7 @@
 // notifications for inbound, dame's own like/repost/post records for outbound,
 // follow records for who dame follows. Proximity comes from the moderation
 // bot's vouch snapshot (bluesky-mod, read through its API at VITE_MOD_API_URL
-// with a read-only token minted from dame's own session), so a 2nd-degree
+// with a token minted from dame's own session), so a 2nd-degree
 // account here is the same account with the same count that the moderation
 // queue would show.
 //
@@ -200,9 +200,9 @@ async function recentPostEvents(agent, cutoffMs) {
 
 /**
  * The moderation bot, or null when VITE_MOD_API_URL and VITE_MOD_BOT_DID are
- * not set. It is signed in to as dame, with a read-only service-auth token
- * from dame's own session: nothing extra to store, and nothing that expires
- * unnoticed (docs/MODERATION-MOVE.md).
+ * not set. It is signed in to as dame, with a service-auth token from dame's
+ * own session: nothing extra to store, and nothing that expires unnoticed
+ * (docs/MODERATION-MOVE.md).
  */
 let heldBot = null;
 async function modBot() {
@@ -216,9 +216,8 @@ async function modBot() {
       client: createClient({
         baseUrl,
         auth: {
-          scope: 'read',
-          serviceAuth: async (lxm) =>
-            (await agent.com.atproto.server.getServiceAuth({ aud, lxm })).data
+          serviceAuth: async () =>
+            (await agent.com.atproto.server.getServiceAuth({ aud })).data
               .token,
         },
       }),

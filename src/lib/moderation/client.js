@@ -53,6 +53,11 @@ export function tokenExpiry(token) {
 /** Seconds of life a cached token must still have to be handed out. */
 const TOKEN_MARGIN_MS = 15_000;
 
+/**
+ * A service-auth token from dame's PDS for `aud`, scoped to `lxm` when one is
+ * given. The bot takes tokens that name no method; the site's own endpoints
+ * still name theirs.
+ */
 async function mint(agent, lxm, aud) {
   const key = `${agent?.session?.did ?? agent?.did ?? ''}|${aud}|${lxm}`;
   const hit = tokens.get(key);
@@ -60,7 +65,7 @@ async function mint(agent, lxm, aud) {
   // Two panels asking at once share one mint rather than racing two.
   if (hit?.pending) return hit.pending;
   const pending = agent.com.atproto.server
-    .getServiceAuth({ aud, lxm })
+    .getServiceAuth(lxm ? { aud, lxm } : { aud })
     .then((res) => {
       const token = res?.data?.token;
       if (!token)
@@ -91,7 +96,7 @@ export function bot(agent) {
   if (!c) {
     c = createClient({
       baseUrl: MOD_API_URL,
-      auth: { serviceAuth: (lxm) => mint(agent, lxm, MOD_BOT_DID) },
+      auth: { serviceAuth: () => mint(agent, null, MOD_BOT_DID) },
     });
     clients.set(agent, c);
   }

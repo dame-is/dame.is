@@ -93,9 +93,9 @@ describe('the bot', () => {
     await hubOverview(agent);
     expect(o).toMatchObject({ queue: { total: 1 }, listInfo: { count: 3 } });
     expect(agent.com.atproto.server.getServiceAuth).toHaveBeenCalledTimes(1);
+    // No method: the bot takes a token that names none.
     expect(agent.com.atproto.server.getServiceAuth).toHaveBeenCalledWith({
       aud: BOT,
-      lxm: 'is.dame.blueskymod.write',
     });
     expect(
       sent.every((s) => s.headers.Authorization?.startsWith('Bearer x.')),

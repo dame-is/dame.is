@@ -7,7 +7,6 @@ export type Family = 'name' | 'band' | 'label' | 'agent' | 'none';
 export type Label = 'hostile' | 'arguing' | 'neutral';
 
 export const API_VERSION: 1;
-export const LXM: { read: 'is.dame.blueskymod.read'; write: 'is.dame.blueskymod.write' };
 
 export class ApiError extends Error {
   status: number;
@@ -17,7 +16,8 @@ export class ApiError extends Error {
 export type Auth =
   | 'cookie'
   | { token: string | (() => string | Promise<string>) }
-  | { serviceAuth: (lxm: string) => Promise<string>; scope?: 'read' | 'write' };
+  /** A service-auth token from the account's PDS: aud the bot's DID, no lxm. */
+  | { serviceAuth: () => Promise<string> };
 
 export interface ClientOptions {
   /** Where the bot's panel is served, like https://mod.example.com. */
