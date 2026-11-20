@@ -80,6 +80,8 @@ import {
   withdrawnOnly,
   tallyWitness,
   resolveBreaker,
+  unindexedWitness,
+  aliveFigures,
   watchCheckpoint,
   readWatchCheckpoint,
 } from '../lib/ratioedLive.js';
@@ -953,6 +955,10 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
       });
       setActed((a) => ({ ...a, [row.rkey]: { likeUri: res?.data?.uri || '' } }));
     } catch (err) {
+      // Said on the row as well. The error line is at the top of the panel,
+      // which on a phone scrolled down to the thread is off screen, and a like
+      // that failed there looked exactly like a tap that never registered.
+      setActed((a) => ({ ...a, [row.rkey]: { ...a[row.rkey], failed: true } }));
       setError(err?.message || String(err));
     } finally {
       setActing(null);
@@ -1183,7 +1189,7 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
           },
         })
         .catch(() => {}); // the measurement below is the one that must land
-      await measureAndFinish(live, sealedAt);
+      await measureAndFinish(live, sealedAt, { atSeal: true });
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -1199,7 +1205,7 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
    * depends on its record key. Pressing this again a minute later is how a
    * measurement that came back empty gets taken properly.
    */
-  async function measureAndFinish(piece, sealedAtIso) {
+  async function measureAndFinish(piece, sealedAtIso, { atSeal = false } = {}) {
     const sealedAt = sealedAtIso || piece.sealedAt;
     if (!sealedAt) return;
     const subject = subjectOf(piece);
@@ -1288,6 +1294,35 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
       handles: knownHandles,
     });
 
+    // Whether the index has the piece at all. `fetchPieceRecords` throws when
+    // Constellation is down, but on take 46 it was up and had stopped indexing,
+    // so it answered with an empty list and the seal wrote that down as a piece
+    // nobody touched. The witnessed log is the check: anything it saw land more
+    // than a minute before the seal that the index lacks means the index is not
+    // a reading of this piece yet. At the seal the figures are left off and the
+    // piece stays unmeasured, so the series list offers to measure it later.
+    // Asked for by hand, the artist decides, since a reply deleted since the
+    // seal looks the same from here.
+    const lifespanMs = sealedMs - postedMs;
+    const unindexed = unindexedWitness(witnessRows, events, { lifespanMs, selfDid: did });
+    let measuring = true;
+    if (unindexed.length) {
+      const n = unindexed.length;
+      const missing = `${n} record${n === 1 ? '' : 's'} the stream saw while it was up`;
+      if (atSeal) {
+        measuring = false;
+      } else if (
+        !window.confirm(
+          `The backlink index is still missing ${missing}, the earliest ` +
+            `${fmtDuration(unindexed[0].offMs)} in.\n\nIt may still be catching up, or they ` +
+            'may have been deleted since the seal. Write its reading of the alive window anyway?',
+        )
+      ) {
+        setNote(`Not measured. The index is still missing ${missing}.`);
+        return;
+      }
+    }
+
     // Who to name, and when they did it. See resolveBreaker: the index first,
     // the standing witnessed like when the index is only lagging, and the
     // withdrawn one when there is nothing left for any index to hold.
@@ -1342,22 +1377,30 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
       subject,
       postedAt: piece.postedAt,
       sealedAt,
-      lifespanMs: sealedMs - postedMs,
+      lifespanMs,
       breaker,
-      preSeal: windows.preSeal,
-      postSeal: windows.postSeal,
-      ...(events.length ? { events } : {}),
+      ...(measuring
+        ? {
+            preSeal: windows.preSeal,
+            postSeal: windows.postSeal,
+            ...(events.length ? { events } : {}),
+          }
+        : {}),
       // Measured and witnessed side by side, never merged. The index can only
       // report what still exists; the log can only report what something was
       // watching for. The piece's page shows both and says which is which.
       ...(witnessed.length ? { witnessed } : {}),
       ...(witnessFromMs != null ? { witnessFromMs } : {}),
-      measuredAt,
-      // Measured in the same pass, so the audiences are as current as the
-      // counts are. Stamped anyway — a backfilled piece carries a date years
-      // off its own, and only this field says which kind a piece is.
-      ...(hasAudience ? { audienceAt: measuredAt } : {}),
-      source: 'constellation.microcosm.blue',
+      ...(measuring
+        ? {
+            measuredAt,
+            // Measured in the same pass, so the audiences are as current as the
+            // counts are. Stamped anyway — a backfilled piece carries a date
+            // years off its own, and only this field says which kind a piece is.
+            ...(hasAudience ? { audienceAt: measuredAt } : {}),
+            source: 'constellation.microcosm.blue',
+          }
+        : {}),
     };
     await agent.com.atproto.repo.putRecord({ repo: did, collection: NSID, rkey: piece.rkey, record: value });
 
@@ -1374,7 +1417,12 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
       ref: post?.cid ? { uri: subject, cid: post.cid } : null,
       text: announcementDraft({
         handle,
-        piece: shaped,
+        // The reply's counts are everything either source saw before the seal,
+        // not the index's alone. See aliveFigures.
+        piece: {
+          ...shaped,
+          preSeal: aliveFigures(events, witnessRows, { lifespanMs, selfDid: did }),
+        },
         others: finished(pieces),
         announcement: announceTpl,
       }),
@@ -1389,6 +1437,16 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
           reach.alive.top ? ` — mostly @${reach.alive.top.handle}.` : '.'
         }`
       : '';
+    if (!measuring) {
+      const n = unindexed.length;
+      setNote(
+        `Sealed, not measured. The backlink index is missing ${n} record${n === 1 ? '' : 's'} ` +
+          'the stream saw while the piece was up, so it has stopped or fallen behind. The reply ' +
+          'below counts what the stream saw. Measure the piece again once the index catches up.',
+      );
+      await refresh();
+      return;
+    }
     setNote(
       (!breaking
         ? 'Measured, but neither the index nor the log has a like — measure again in a minute.'
@@ -2126,7 +2184,19 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
                         disabled={Boolean(acting)}
                         title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
                       >
-                        {liked ? 'unlike' : 'like'}
+                        {/* A like waits on two network calls, and on a phone
+                            whose link the stream is filling that can take
+                            seconds. The label says so rather than sitting
+                            still. */}
+                        {acting === e.rkey
+                          ? liked
+                            ? 'unliking…'
+                            : 'liking…'
+                          : liked
+                            ? 'unlike'
+                            : acted[e.rkey]?.failed
+                              ? 'like failed, retry'
+                              : 'like'}
                       </button>,
                     );
                   }
@@ -2586,6 +2656,11 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
               const gaps = pieceGaps(p);
               const unnamed = !b.handle || b.handle === 'unknown';
               const isNaming = naming?.rkey === p.rkey;
+              // Measured, but its own witnessed log has records the measurement
+              // lacks: an index that had stopped, as on take 46.
+              const short = p.measuredAt
+                ? unindexedWitness(p.witnessed, p.events, { lifespanMs: p.lifespanMs, selfDid: did })
+                : [];
               return (
                 <li key={p.rkey}>
                   <Link to={piecePath(p)}>take {pieceSlug(p)}</Link>
@@ -2602,15 +2677,21 @@ export default function RatioedStudio({ agent, did, onFocus = null }) {
                         Repair cannot fix this one — it never re-derives the
                         alive window — so the measurement has to be offered
                         again, and it is the only button here that writes a
-                        pre-seal figure. */}
-                    {!p.measuredAt && (
+                        pre-seal figure. Also offered when the index answered
+                        but had stopped, and the measurement it gave is short of
+                        what the stream watched. */}
+                    {(!p.measuredAt || short.length > 0) && (
                       <Button
                         variant="text"
                         size="sm"
                         className="rs-series-wanted"
                         onClick={() => remeasure(p)}
                         disabled={!!busy}
-                        title="This piece was sealed but never measured. Read its records now."
+                        title={
+                          p.measuredAt
+                            ? `The measurement is missing ${short.length} record${short.length === 1 ? '' : 's'} the stream saw while it was up. Read its records again.`
+                            : 'This piece was sealed but never measured. Read its records now.'
+                        }
                       >
                         <RefreshCw size={12} aria-hidden="true" />
                         {busy === 'measure' ? 'Measuring…' : 'Measure'}

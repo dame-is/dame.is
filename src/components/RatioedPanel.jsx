@@ -66,7 +66,7 @@ import {
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
 import { repairPiece, gapSummary, onlyOnPds, takeRuns } from '../lib/ratioedRepair.js';
-import { resolveBreaker, witnessFromRecord } from '../lib/ratioedLive.js';
+import { resolveBreaker, witnessFromRecord, unindexedWitness } from '../lib/ratioedLive.js';
 import { loadTemplate } from '../lib/ratioedStudio.js';
 import { resolveProfiles } from '../lib/atproto.js';
 import { getBacklinkCount } from '../lib/constellation.js';
@@ -491,6 +491,7 @@ export default function RatioedPanel({ agent, did }) {
     setError(null);
     try {
       let n = 0;
+      const behind = [];
       for (const { rkey, value } of missingLogs) {
         n += 1;
         setProgress(`Re-measuring ${n}/${missingLogs.length} — take ${value.take}`);
@@ -505,6 +506,16 @@ export default function RatioedPanel({ agent, did }) {
           selfDid: did,
           profiles,
         });
+        // An index partway through catching up answers with some of a piece
+        // and not the rest. Left for a later press rather than written short.
+        const short = unindexedWitness(witnessFromRecord(value.witnessed) || [], events, {
+          lifespanMs: sealedMs - Date.parse(value.postedAt),
+          selfDid: did,
+        });
+        if (short.length) {
+          behind.push(value.take);
+          continue;
+        }
         const likeSurvives = Boolean(windows.breakingLike);
         const remeasuredAt = new Date().toISOString();
         const hasAudience = events.some((e) => typeof e.fr === 'number');
@@ -560,6 +571,12 @@ export default function RatioedPanel({ agent, did }) {
         });
       }
       setProgress('');
+      if (behind.length) {
+        setError(
+          `Left take ${behind.join(', ')} as it was: the backlink index is still missing records ` +
+            'the stream saw while it was up. Try again once it has caught up.',
+        );
+      }
       await refresh();
     } catch (err) {
       setError(err?.message || String(err));

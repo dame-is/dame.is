@@ -16,6 +16,8 @@ import {
   witnessFromEvents,
   watchCheckpoint,
   readWatchCheckpoint,
+  unindexedWitness,
+  aliveFigures,
   WITNESS_MAX,
   WITNESS_TEXT_MAX,
 } from './ratioedLive.js';
@@ -362,5 +364,72 @@ describe('watchCheckpoint / readWatchCheckpoint', () => {
     expect(readWatchCheckpoint('{not json', '3piece', { nowMs: now })).toBeNull();
     expect(readWatchCheckpoint(null, '3piece', { nowMs: now })).toBeNull();
     expect(readWatchCheckpoint({ ...kept, seq: 'x' }, '3piece', { nowMs: now })).toBeNull();
+  });
+});
+
+// Take 46, cut down: sealed at 8m44s, the index answering with nothing, and the
+// witnessed log holding everything that happened.
+describe('unindexedWitness / aliveFigures', () => {
+  const SELF = 'did:plc:artist';
+  const lifespanMs = 524_139;
+  const rows = [
+    { k: 'reply', rkey: 'a', did: 'did:plc:one', offMs: 33_594 },
+    { k: 'reply', rkey: 'b', did: 'did:plc:one', offMs: 53_760 },
+    { k: 'repost', rkey: 'c', did: 'did:plc:two', offMs: 204_025 },
+    { k: 'reply', rkey: 'd', did: SELF, offMs: 389_611 },
+    { k: 'like', rkey: 'e', did: 'did:plc:three', offMs: 400_000, goneMs: 401_000 },
+    { k: 'like', rkey: 'f', did: 'did:plc:four', offMs: 522_120 },
+    { k: 'reply', rkey: 'g', did: 'did:plc:five', offMs: 523_587 },
+  ];
+  // As buildEventLog writes them, and as a record reads back (seconds).
+  const asEvents = (list) => list.map((r) => ({ k: r.k, did: r.did, offMs: r.offMs, pre: 1 }));
+  const asRecordEvents = (list) => list.map((r) => ({ k: r.k, did: r.did, off: r.offMs / 1000, pre: 1 }));
+
+  it('lists what the stream saw over a minute before the seal and the index lacks', () => {
+    const missing = unindexedWitness(rows, [], { lifespanMs, selfDid: SELF });
+    // Not the artist's reply, not the withdrawn like, not the last minute.
+    expect(missing.map((r) => r.rkey)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('finds nothing when the index holds those records', () => {
+    const indexed = asEvents(rows.filter((r) => ['a', 'b', 'c'].includes(r.rkey)));
+    expect(unindexedWitness(rows, indexed, { lifespanMs, selfDid: SELF })).toEqual([]);
+    // A record's events are in seconds; the match has to survive the round trip.
+    const read = asRecordEvents(rows.filter((r) => ['a', 'b', 'c'].includes(r.rkey)));
+    expect(unindexedWitness(rows, read, { lifespanMs, selfDid: SELF })).toEqual([]);
+  });
+
+  it('allows the index the last minute before the seal', () => {
+    // Only the reply at +8m43s and the like are recent, and neither is checked.
+    const recent = rows.filter((r) => r.offMs > lifespanMs - 60_000);
+    expect(unindexedWitness(recent, [], { lifespanMs, selfDid: SELF })).toEqual([]);
+  });
+
+  it('finds nothing with no log or no lifespan', () => {
+    expect(unindexedWitness(null, [], { lifespanMs })).toEqual([]);
+    expect(unindexedWitness(rows, [], {})).toEqual([]);
+  });
+
+  it('counts the alive window from the log when the index has nothing', () => {
+    expect(aliveFigures([], rows, { lifespanMs, selfDid: SELF })).toEqual({
+      likes: 1,
+      reposts: 1,
+      quotes: 0,
+      threadPosts: 3,
+      participants: 4,
+    });
+  });
+
+  it('counts a record both sources hold once, and keeps what only the index has', () => {
+    const events = [
+      ...asEvents(rows.filter((r) => r.rkey === 'a')),
+      // Before the panel opened: only the index has it.
+      { k: 'quote', did: 'did:plc:six', offMs: 10_000, pre: 1 },
+      // After the seal, and the artist's own: neither is the alive window.
+      { k: 'reply', did: 'did:plc:seven', offMs: 600_000, pre: 0 },
+      { k: 'reply', did: SELF, offMs: 20_000, pre: 1, self: 1 },
+    ];
+    const fig = aliveFigures(events, rows, { lifespanMs, selfDid: SELF });
+    expect(fig).toMatchObject({ quotes: 1, threadPosts: 3, reposts: 1, likes: 1 });
   });
 });

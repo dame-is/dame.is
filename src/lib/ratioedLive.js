@@ -335,6 +335,77 @@ export function resolveBreaker({ indexLike, rows, postedMs, sealedMs }) {
 }
 
 /**
+ * How far the backlink index may trail the stream before a record it is
+ * missing means it has stopped rather than lagged. The same minute
+ * `resolveBreaker` allows a breaking like that the index has not caught up with.
+ */
+export const INDEX_GRACE_MS = 60_000;
+
+// One record, however it reached us: a witness row, a measured event off a
+// fresh read, or one read back off a record (which keeps seconds, not ms).
+const offOf = (e) => (typeof e.offMs === 'number' ? e.offMs : Math.round((e.off ?? NaN) * 1000));
+const keyOf = (e) => `${e.did || ''}|${e.k}|${offOf(e)}`;
+
+/**
+ * Records the stream watched land while the piece was alive that the index does
+ * not hold, counting only those older than `graceMs` before the seal.
+ *
+ * Take 46 is why. Constellation stopped indexing and kept answering 200 with an
+ * empty list, so the seal measured twenty replies and a repost as nothing, wrote
+ * zeros the repair will never re-read, and drafted a reply saying the piece had
+ * zero engagement. The panel had watched every one of those records arrive. On
+ * the thirty-one pieces watched before it, the index never lacked a single row
+ * the stream saw more than a minute before the seal, so one missing row is
+ * enough to say the index cannot be trusted yet.
+ *
+ * `events` is the measured log, as `buildEventLog` writes it or as a record
+ * carries it. Withdrawn rows and the artist's own are left out: the index has
+ * no reason to hold either.
+ */
+export function unindexedWitness(rows, events, { lifespanMs, selfDid = null, graceMs = INDEX_GRACE_MS } = {}) {
+  if (!Number.isFinite(lifespanMs)) return [];
+  const held = new Set((events || []).map(keyOf));
+  return (rows || []).filter(
+    (r) =>
+      r.did &&
+      r.did !== selfDid &&
+      r.goneMs == null &&
+      KINDS.has(r.k) &&
+      offOf(r) < lifespanMs - graceMs &&
+      !held.has(keyOf(r)),
+  );
+}
+
+/**
+ * The alive window counted from everything either source saw: the measured log
+ * and the witnessed one, each record once.
+ *
+ * For the concluding reply, which is written seconds after the seal and has to
+ * be true when it is posted. The index trails the stream, so on its own it
+ * misses whatever landed in the last seconds, and all of it when it has stopped.
+ * The stream misses whatever came before the panel opened. Between them they
+ * have the piece. The record's own figures are still the index's alone.
+ */
+export function aliveFigures(events, rows, { lifespanMs, selfDid = null } = {}) {
+  const bucket = { like: 'likes', repost: 'reposts', quote: 'quotes', reply: 'threadPosts' };
+  const seen = new Map();
+  for (const e of events || []) {
+    if (e.pre && !e.self && e.did !== selfDid) seen.set(keyOf(e), e);
+  }
+  for (const r of rows || []) {
+    if (r.goneMs == null && r.did !== selfDid && offOf(r) < lifespanMs) seen.set(keyOf(r), r);
+  }
+  const out = { likes: 0, reposts: 0, quotes: 0, threadPosts: 0 };
+  const people = new Set();
+  for (const x of seen.values()) {
+    if (!bucket[x.k]) continue;
+    out[bucket[x.k]] += 1;
+    people.add(x.did || x.h);
+  }
+  return { ...out, participants: people.size };
+}
+
+/**
  * Is this log worth writing again?
  *
  * The studio writes it to the PDS while the piece is running, so this is what
